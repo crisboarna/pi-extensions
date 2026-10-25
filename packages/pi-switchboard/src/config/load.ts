@@ -7,8 +7,9 @@ import type { CatalogView, Config, ProfileConfig, RawConfig } from "./types.ts";
 export const CONFIG_FILE = "pi-switchboard.json";
 export const DATA_DIR = "pi-switchboard";
 
-export function userConfigPath(agentDir: string): string {
-	return join(agentDir, CONFIG_FILE);
+/** The user config file; `PI_SWITCHBOARD_CONFIG` points elsewhere (tests, trying an example). */
+export function userConfigPath(agentDir: string, env: NodeJS.ProcessEnv = process.env): string {
+	return env.PI_SWITCHBOARD_CONFIG || join(agentDir, CONFIG_FILE);
 }
 
 export function dataDir(agentDir: string): string {
