@@ -635,7 +635,7 @@ Measured on 2026-10-25 with the built-in questions, H2O-Lightning-4B Q8_0 in LM 
 | Score by expected value, no score gating, threshold 0.85 | 18/24 |
 | Same, threshold 0.80 (the built-in setup) | 21/24 |
 
-Every miss in all three put a task one tier too high, never too low. The fixture backs the rule tests, so rule changes are checked against real model output.
+At 0.80, every miss put a task one tier too high. At 0.85, one request, a hard debugging task classified `review` with confidence 0.83, fell to the fallback tier, one below its expected tier. The fixture backs the rule tests, so rule changes are checked against real model output.
 
 ## 9. Selection
 
