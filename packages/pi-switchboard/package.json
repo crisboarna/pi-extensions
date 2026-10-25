@@ -1,0 +1,24 @@
+{
+  "name": "pi-switchboard",
+  "version": "0.1.0",
+  "description": "Classifier-driven model tiers for pi: routes the main session and pi-subagents children by complexity, with several models per tier, health tracking and an audit trail.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cristian Boarna",
+  "keywords": ["pi-package", "pi-extension", "model-router", "classifier", "pi-subagents"],
+  "engines": { "node": ">=22.19" },
+  "bin": { "pi-switchboard": "./bin/pi-switchboard.mjs" },
+  "pi": { "extensions": ["./src/index.ts"] },
+  "files": ["src", "bin", "schema", "examples", "README.md", "LICENSE"],
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "scripts": {
+    "link:pi": "node scripts/link-pi.mjs",
+    "test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
+    "test:integration": "node --test \"test/integration/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

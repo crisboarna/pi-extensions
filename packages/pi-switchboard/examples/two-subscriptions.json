@@ -1,0 +1,34 @@
+{
+  "$schema": "../schema/pi-switchboard.schema.json",
+  "version": 1,
+  "classifierProviders": [
+    { "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "api": "system-one", "models": ["h2o-lightning-4b"] }
+  ],
+  "classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }],
+  "profiles": {
+    "copilot": {
+      "description": "Everything on the GitHub Copilot subscription",
+      "ruleset": "builtin",
+      "tiers": {
+        "deep": { "rank": 3, "members": ["github-copilot/claude-opus-5.5:high"] },
+        "standard": { "rank": 2, "members": ["github-copilot/claude-sonnet-5.5:medium"] },
+        "light": { "rank": 1, "members": ["github-copilot/claude-haiku-5.5:low"] }
+      },
+      "fallbackTier": "standard"
+    },
+    "codex": {
+      "description": "Everything on the ChatGPT (Codex) subscription",
+      "ruleset": "builtin",
+      "tiers": {
+        "deep": { "rank": 3, "members": ["openai-codex/gpt-6.1-sol:high"] },
+        "standard": { "rank": 2, "members": ["openai-codex/gpt-6-luna:medium"] },
+        "light": { "rank": 1, "members": ["openai-codex/gpt-6-luna:low"] }
+      },
+      "fallbackTier": "standard"
+    }
+  },
+  "profileSelection": {
+    "default": "codex",
+    "rules": [{ "matchProvider": "github-copilot*", "profile": "copilot" }]
+  }
+}

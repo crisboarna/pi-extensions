@@ -1,0 +1,45 @@
+{
+  "$schema": "../schema/pi-switchboard.schema.json",
+  "version": 1,
+  "classifierProviders": [
+    { "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "api": "system-one", "models": ["h2o-lightning-4b"] }
+  ],
+  "classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }],
+  "rulesets": {
+    "ladder": {
+      "tierRules": [
+        { "when": { "$planMode": "planning" }, "tier": "architect" },
+        { "when": { "work": "plan", "depth": ">=1.5" }, "tier": "architect" },
+        { "when": { "work": ["plan", "review"] }, "tier": "senior" },
+        { "when": { "work": "implement", "depth": ">=1" }, "tier": "builder" },
+        { "when": { "work": "mechanical", "depth": "<0.5" }, "tier": "intern" },
+        { "when": { "work": "research", "depth": "<1" }, "tier": "clerk" },
+        { "tier": "builder" }
+      ],
+      "floorRules": [{ "when": { "risky": true }, "atLeast": "senior" }]
+    }
+  },
+  "profiles": {
+    "mixed": {
+      "description": "Plan on one subscription, share implementation across two, trivial steps on a local model",
+      "ruleset": "ladder",
+      "tiers": {
+        "architect": { "rank": 5, "members": ["github-copilot/claude-opus-5.5:high"] },
+        "senior": { "rank": 4, "members": ["openai-codex/gpt-6.1-sol:medium"] },
+        "builder": {
+          "rank": 3,
+          "strategy": { "name": "round-robin", "granularity": "session" },
+          "members": ["github-copilot/claude-sonnet-5.5:medium", "openai-codex/gpt-6-luna:medium"]
+        },
+        "clerk": { "rank": 2, "members": ["github-copilot/claude-haiku-5.5:low"] },
+        "intern": { "rank": 1, "members": ["llama.cpp/qwen3.8-27b"] }
+      },
+      "fallbackTier": "builder",
+      "directTier": "clerk"
+    }
+  },
+  "subagents": {
+    "agents": { "scout": { "maxTier": "clerk" }, "planner": { "minTier": "senior" } }
+  },
+  "profileSelection": { "default": "mixed" }
+}
