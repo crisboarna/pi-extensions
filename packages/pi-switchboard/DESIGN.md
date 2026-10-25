@@ -1,6 +1,6 @@
 # pi-switchboard design
 
-Status: **approved 2026-10-25**; build in progress per section 15. Terms in bold are defined in [GLOSSARY.md](GLOSSARY.md); the three hardest decisions have ADRs in [docs/adr/](docs/adr/).
+Status: **approved 2026-10-25**; built 2026-10-26 (see section 19 for changes made during the build and what was verified). Terms in bold are defined in [GLOSSARY.md](GLOSSARY.md); the three hardest decisions have ADRs in [docs/adr/](docs/adr/).
 
 ## Summary
 
@@ -1019,3 +1019,34 @@ None. Resolved: reclassify outside pi (43), chains (44), upstream bindings PR (4
 - Prior-art survey of 13 router packages and LiteLLM routing (session scratchpad `prior-art.md`).
 - Plannotator `plannotator-events.ts` (`PLANNOTATOR_REQUEST_CHANNEL = "plannotator:request"`, phases `idle | planning | executing`).
 - `~/.pi/agent/extensions/subscription-status.ts` (account and OAuth detection without reading credentials).
+
+## 19. Build notes (2026-10-26)
+
+### Changes made during the build
+
+| Area | Design said | Built | Why |
+|---|---|---|---|
+| pi version | 1.3.0 | 1.4.0 | pi was upgraded during the session; every API used is unchanged. |
+| Retry times | parsed from error text | also from `after_provider_response` headers (`retry-after`, `retry-after-ms`, `x-ratelimit-reset*`) | 1.4.0 documents the event; headers are exact. |
+| Cooldown scope | per member, or per physical model | by error class: usage limits and failed logins bench the whole provider account, rate limits the physical model, other errors the tier member | A live run showed a usage limit on one model also blocked every other model on that account. |
+| Errors pi does not retry | rewrite and fail over | when no other model can take over, the failure is recorded at once, so the next turn refuses with the earliest reset instead of hitting the account again | Seen live: without it, every new turn re-hit the exhausted account. |
+| Decision evidence | digest and excerpt | also the redacted classifier input (`evidence.state`) | Lets `replay --reclassify` re-run the classifier on exactly what it saw; session files already hold the unredacted conversation. |
+| `--reclassify` outside pi | loads pi's model registry | calls local System One classifiers through pi-ai's own client; remote classifiers need pi | Avoids rebuilding pi's registry and credentials outside pi. |
+| Tier editor | an overlay | pi's built-in select, input and confirm dialogs | Same capabilities with less custom UI code. |
+
+### Verified
+
+- 168 unit tests, strict typecheck clean against pi 1.4.0, extension loads with `pi -e` and registers `switchboard/auto`, one model per profile and one per tier.
+- LM Studio classifier: `h2o-lightning-4b` (Q8_0 GGUF) answers through pi-ai's System One client; 24-request calibration recorded in `test/fixtures/h2o-calibration.json`.
+- Live main-session routing: classified (`work=mechanical`, 0.94) to the light tier and answered by a local model; a planning request went to the deep tier; replay with `--reclassify` reproduced the tier.
+- Live failover on a real usage limit (Codex): borrowed tiers on the same account were skipped, the turn ended with the provider's error, and the next turn refused before sending a request, naming the earliest reset.
+- Inspector and replay on real sessions.
+
+### Not verified end to end
+
+- **A model-launched pi-subagents child on a tier-pinned model.** Both subscriptions were over quota during the build. Local attempts failed for reasons outside pi-switchboard: a 4B model called the `subagent` tool with the wrong arguments, a test tool cannot reach `subagent` through `ctx.executeTool` (it is not in the callable set), pi-subagents' `/run` fails in print mode with a stale context, and a 35B local model did not finish within 10 minutes. The launch rewriting, tier choice and child-side routing are covered by unit tests. Manual check: select `switchboard/auto`, ask for a subagent, then `/tier watch` and the child's decisions in `/tier log`.
+- **Interactive TUI** (navigator overlay, widget, tier editor, `/tier` output): rendering and editor flows are unit-tested; they have not been driven in a live terminal.
+
+### Operational finding
+
+LM Studio's just-in-time loading keeps only the last loaded model by default. When it serves both the classifier and chat models, the classifier warm-up and a chat request evict each other ("Model is unloaded"). Load models explicitly or disable that option (README).
