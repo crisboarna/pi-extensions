@@ -6,7 +6,8 @@ import { explain, summarize } from "./record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
 import { registerTierCommand } from "./commands/tier.ts";
 import { readJson, userConfigPath, findProjectConfig } from "./config/load.ts";
-import { runTierEditor } from "./tui/editor.ts";
+import { runTierEditor, saveWithConfirmation } from "./tui/editor.ts";
+import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
 import { openNavigator, startWidget } from "./tui/pi-tui.ts";
 import { Runtime } from "./runtime.ts";
 
@@ -30,6 +31,26 @@ export default function switchboard(pi: ExtensionAPI): void {
 
 	registerTierCommand(runtime, {
 		watch: async (_args, ctx) => openNavigator(runtime, ctx),
+		init: async (_args, ctx) => {
+			const path = userConfigPath(runtime.agentDir);
+			const existing = readJson(path).value;
+			const isProvider = (name: string) => ctx.modelRegistry.getProvider(name) !== undefined;
+			const models = ctx.modelRegistry
+				.getAvailable()
+				.filter((m) => !runtime.isVirtual(m.provider))
+				.map((m) => ({ provider: m.provider, id: m.id, contextWindow: m.contextWindow, maxTokens: m.maxTokens, cost: m.cost }));
+			const current = ctx.model && !runtime.isVirtual(ctx.model.provider) ? `${ctx.model.provider}/${ctx.model.id}` : runtime.engine.originModel;
+			const proposal = proposeConfig(models, {
+				hints: runtime.config.autoTier.nameHints,
+				...(current ? { current } : {}),
+				isAccount: (provider) => /-\d+$/u.test(provider) && isProvider(provider.replace(/-\d+$/u, "")),
+				classifierProviders: runtime.config.classifierProviders,
+				classifiers: runtime.config.classifiers,
+			});
+			if (!proposal.classifiers?.length) ctx.ui.notify("No classifier configured yet: add a local System One server under classifierProviders and classifiers (see the README).", "warning");
+			const next = existing ? mergeProposal(existing, proposal) : proposal;
+			await saveWithConfirmation(ctx.ui, path, existing ?? {}, next);
+		},
 		models: async (args, ctx) => {
 			const project = findProjectConfig(ctx.cwd);
 			const target = args.includes("--project") ? (project ?? `${ctx.cwd}/.pi/pi-switchboard.json`) : args.includes("--global") ? userConfigPath(runtime.agentDir) : (await ctx.ui.select("Edit which config?", [userConfigPath(runtime.agentDir), project ?? `${ctx.cwd}/.pi/pi-switchboard.json`]));
