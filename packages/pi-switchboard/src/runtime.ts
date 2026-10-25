@@ -15,6 +15,11 @@ import { readMultiPassSubscriptions } from "./selection/accounts.ts";
 import { FileHealthStore, type HealthStore, MemoryHealthStore } from "./selection/health.ts";
 import { ledgerQuota, UsageLedger } from "./selection/ledger.ts";
 import { type CustomSelect, loadCustomStrategy } from "./selection/strategies.ts";
+import { routeLaunch } from "./subagents/launch.ts";
+import { createPinLookup, registerChildExtension, type RequiredRegistration } from "./subagents/pi-subagents.ts";
+import { extractTasks, resultLinks } from "./subagents/tasks.ts";
+import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
+import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
 import { type ThinkingLevel, THINKING_LEVELS } from "./util/model-ref.ts";
 
@@ -63,6 +68,12 @@ export class Runtime {
 	readonly registered = new Set<string>();
 	private readonly customs = new Map<string, CustomSelect>();
 	private lastRouteAt = 0;
+	private childRegistration?: RequiredRegistration;
+	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
+	launchModeReason?: string;
+	private readonly launches = new Map<string, DecisionEntry[]>();
+	/** The entry file pi-subagents loads into children. */
+	entryPath = "";
 	readonly listeners = new Set<(decision: DecisionEntry) => void>();
 
 	constructor(pi: ExtensionAPI) {
@@ -155,9 +166,100 @@ export class Runtime {
 		if (model && !this.routingSelected) this.engine.originModel = `${model.provider}/${model.id}`;
 		this.warmup.stop();
 		void this.warmup.start(this.config.classifiers.map((entry) => ({ model: entry.model, local: isLocalClassifier(ctx, entry.model, this.config.classifierProviders), ...(entry.warmup !== undefined ? { warmup: entry.warmup } : {}), ...(entry.keepWarmMs !== undefined ? { keepWarmMs: entry.keepWarmMs } : {}) })));
+		await this.setupChildren(ctx);
+		this.setupAccountAffinity(ctx);
 		if (this.blocked) ctx.ui.notify(`pi-switchboard: not routing because ${this.blocked} is installed; remove one of the two routers.`, "warning");
 		for (const warning of this.config.warnings.slice(0, 5)) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
 		this.updateFooter(ctx);
+	}
+
+	private async setupChildren(ctx: ExtensionContext): Promise<void> {
+		this.childRegistration?.dispose();
+		this.childRegistration = undefined;
+		if (!this.config.subagents.enabled || this.blocked) return;
+		if (this.config.subagents.mode === "launch") {
+			this.launchModeReason = "subagents.mode is launch";
+			return;
+		}
+		const { registration, reason } = await registerChildExtension(this.agentDir, ctx.sessionManager.getSessionId(), this.entryPath);
+		if (registration) {
+			this.childRegistration = registration;
+			delete this.launchModeReason;
+		} else {
+			this.launchModeReason = reason ?? "required child extensions unavailable";
+			if (this.config.subagents.mode === "child") ctx.ui.notify(`pi-switchboard: subagents fall back to launch-time models: ${this.launchModeReason}`, "warning");
+		}
+	}
+
+	/** Children map members onto the account their parent last used (DESIGN.md 5.5). */
+	private setupAccountAffinity(ctx: ExtensionContext): void {
+		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
+		const sessionKey = ctx.sessionManager.getSessionFile() ?? ctx.sessionManager.getSessionId();
+		const parentKey = header?.parentSession;
+		const isProvider = (name: string) => this.ctx?.modelRegistry.getProvider(name) !== undefined;
+		if (this.config.subagents.accountAffinity !== "parent") {
+			delete this.engine.deps.accountFor;
+			return;
+		}
+		this.engine.deps.accountFor = (provider) => {
+			const accounts = this.store.read().accounts[parentKey ?? sessionKey] ?? {};
+			return parentKey ? mapToAccount(provider, accounts, isProvider) : provider;
+		};
+	}
+
+	/** Remembers which account this session last used per base provider, for its children. */
+	private noteAccount(provider: string): void {
+		const ctx = this.ctx;
+		if (!ctx) return;
+		const sessionKey = ctx.sessionManager.getSessionFile() ?? ctx.sessionManager.getSessionId();
+		const base = provider.replace(/-\d+$/u, "");
+		const real = ctx.modelRegistry.getProvider(base) !== undefined ? base : provider;
+		this.store.update((data) => {
+			const accounts = (data.accounts[sessionKey] ??= {});
+			accounts[real] = provider;
+		});
+	}
+
+	/** Rewrites a `subagent` call's models (DESIGN.md 5.3). */
+	async onSubagentCall(toolCallId: string, input: Record<string, unknown>, ctx: ExtensionContext): Promise<void> {
+		this.ctx = ctx;
+		const tasks = extractTasks(input);
+		if (tasks.length === 0 || !this.engine.active) return;
+		const model = ctx.model;
+		const routing = this.isVirtual(model?.provider);
+		const result = await routeLaunch(
+			{
+				engine: this.engine,
+				toolCallId,
+				...(routing && model ? { parentVirtualId: model.id } : {}),
+				...(!routing && model ? { parentModel: `${model.provider}/${model.id}` } : {}),
+				parentThinking: (THINKING_LEVELS as readonly string[]).includes(ctx.thinkingLevel ?? "") ? (ctx.thinkingLevel as ThinkingLevel) : "medium",
+				planPhase: await queryPlanPhase(this.pi.events),
+				mode: this.launchModeReason ? "launch" : "child",
+				pinLookup: await createPinLookup(this.agentDir, ctx.cwd, ctx.isProjectTrusted()),
+				isSwitchboard: (name) => name.startsWith(`${this.config.virtualModel.provider}/`),
+			},
+			tasks,
+		);
+		this.routedSubagents += result.routed;
+		this.launches.set(toolCallId, result.decisions);
+		for (const decision of result.decisions) this.record(decision, ctx);
+	}
+
+	onSubagentResult(toolCallId: string, details: unknown): void {
+		const decisions = this.launches.get(toolCallId);
+		if (!decisions) return;
+		this.launches.delete(toolCallId);
+		const links = resultLinks(details);
+		const entry: LinkEntry = {
+			v: 1,
+			toolCallId,
+			links: decisions.map((decision) => {
+				const link = links.find((l) => l.index === decision.subagent?.taskIndex) ?? (decisions.length === 1 ? links[0] : undefined);
+				return { decisionId: decision.id, taskIndex: decision.subagent?.taskIndex ?? 0, ...(link?.runId ? { runId: link.runId } : {}), ...(link?.sessionFile ? { sessionFile: link.sessionFile } : {}), ...(link?.model ? { model: link.model } : {}) };
+			}),
+		};
+		this.pi.appendEntry(LINK_TYPE, entry);
 	}
 
 	private async loadCustomStrategies(): Promise<void> {
@@ -228,6 +330,7 @@ export class Runtime {
 			if (error instanceof ExhaustedError) ctx.ui.notify(error.message, "warning");
 			throw error;
 		}
+		if (request.reason !== "direct") this.noteAccount(out.provider);
 		const model = ctx.modelRegistry.find(out.provider, out.id);
 		if (!model) throw new Error(`pi-switchboard: ${out.provider}/${out.id} is not in pi's model catalog`);
 		if (out.decision) this.record(out.decision, ctx);
@@ -309,5 +412,7 @@ export class Runtime {
 
 	shutdown(): void {
 		this.warmup.stop();
+		this.childRegistration?.dispose();
+		this.childRegistration = undefined;
 	}
 }
