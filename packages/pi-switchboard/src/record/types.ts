@@ -41,7 +41,8 @@ export interface DecisionEntry {
 	reason: "user" | "continuation" | "retry" | "direct" | "launch";
 	kind: DecisionKind;
 	profile: { name: string; source: ProfileSource };
-	evidence?: { digest: string; excerpt: string; tokens: number; truncated: boolean };
+	/** `state` is the redacted classifier input, kept so replay can re-run the classifier. */
+	evidence?: { digest: string; excerpt: string; tokens: number; truncated: boolean; state?: Record<string, unknown> };
 	classifier?: {
 		model?: string;
 		latencyMs: number;

@@ -477,7 +477,7 @@ export class SwitchboardEngine {
 			...this.baseDecision(input, profile, choice.source, task, pick.borrowedFrom ? "borrowed" : kind, "user"),
 			...(classified
 				? {
-						evidence: { digest: classified.evidence.digest, excerpt: classified.evidence.excerpt, tokens: classified.evidence.tokens, truncated: classified.evidence.truncated },
+						evidence: { digest: classified.evidence.digest, excerpt: classified.evidence.excerpt, tokens: classified.evidence.tokens, truncated: classified.evidence.truncated, state: classified.evidence.state },
 						classifier: {
 							...(classified.chain.ok ? { model: classified.chain.model, usage: classified.chain.usage } : { failure: classified.chain.reason }),
 							latencyMs: classified.chain.ok ? classified.chain.latencyMs : classified.chain.attempts.reduce((sum, a) => sum + a.latencyMs, 0),

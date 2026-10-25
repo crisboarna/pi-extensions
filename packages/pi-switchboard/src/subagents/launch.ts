@@ -132,7 +132,7 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 				reason: "launch",
 				kind: chain && !chain.ok ? "fallback" : outcome?.fallback ? "fallback" : pin ? "pinned" : "classified",
 				profile: { name: profile.name, source: subProfile ? "manual-session" : (choice?.source ?? "default") },
-				evidence: { digest: evidence.digest, excerpt: evidence.excerpt, tokens: evidence.tokens, truncated: evidence.truncated },
+				evidence: { digest: evidence.digest, excerpt: evidence.excerpt, tokens: evidence.tokens, truncated: evidence.truncated, state: evidence.state },
 				...(chain
 					? {
 							classifier: {
