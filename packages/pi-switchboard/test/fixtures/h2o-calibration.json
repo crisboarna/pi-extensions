@@ -1,0 +1,440 @@
+{
+ "classifier": "h2o-lightning-4b (Q8_0 GGUF, LM Studio llama.cpp engine 2.64.0)",
+ "recorded": "2026-10-25",
+ "questions": "builtin",
+ "note": "expected is the tier a reviewer chose before the run; middle+ means at least the middle tier",
+ "cases": [
+  {
+   "request": "rename the variable foo to bar in utils.ts",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.9312
+    },
+    "depth": {
+     "score": 0.5909,
+     "confidence": 0.3289
+    },
+    "risky": {
+     "probability": 0.372
+    }
+   },
+   "latencyMs": 349
+  },
+  {
+   "request": "run the unit tests and tell me if they pass",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.8463
+    },
+    "depth": {
+     "score": 0.6779,
+     "confidence": 0.4289
+    },
+    "risky": {
+     "probability": 0.1199
+    }
+   },
+   "latencyMs": 534
+  },
+  {
+   "request": "what does the --frozen-lockfile flag do in pnpm?",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "research",
+     "confidence": 0.8198
+    },
+    "depth": {
+     "score": 0.2467,
+     "confidence": 0.6299
+    },
+    "risky": {
+     "probability": 0.0988
+    }
+   },
+   "latencyMs": 528
+  },
+  {
+   "request": "summarize the last commit message",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.8844
+    },
+    "depth": {
+     "score": 0.6481,
+     "confidence": 0.3979
+    },
+    "risky": {
+     "probability": 0.1081
+    }
+   },
+   "latencyMs": 505
+  },
+  {
+   "request": "fix the typo in README line 12",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.7676
+    },
+    "depth": {
+     "score": 0.5567,
+     "confidence": 0.2898
+    },
+    "risky": {
+     "probability": 0.0833
+    }
+   },
+   "latencyMs": 501
+  },
+  {
+   "request": "add a .gitignore entry for .env",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.4347
+    },
+    "depth": {
+     "score": 0.17,
+     "confidence": 0.745
+    },
+    "risky": {
+     "probability": 0.1247
+    }
+   },
+   "latencyMs": 529
+  },
+  {
+   "request": "find where the retry logic for HTTP calls lives in this repo",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "research",
+     "confidence": 0.946
+    },
+    "depth": {
+     "score": 0.7412,
+     "confidence": 0.5059
+    },
+    "risky": {
+     "probability": 0.0819
+    }
+   },
+   "latencyMs": 519
+  },
+  {
+   "request": "list all files that import the logger module",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "research",
+     "confidence": 0.8918
+    },
+    "depth": {
+     "score": 0.6371,
+     "confidence": 0.364
+    },
+    "risky": {
+     "probability": 0.1067
+    }
+   },
+   "latencyMs": 687
+  },
+  {
+   "request": "implement pagination for the /orders endpoint with tests",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.9454
+    },
+    "depth": {
+     "score": 1.2271,
+     "confidence": 0.5879
+    },
+    "risky": {
+     "probability": 0.1815
+    }
+   },
+   "latencyMs": 566
+  },
+  {
+   "request": "add a dark mode toggle to the settings page",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.9189
+    },
+    "depth": {
+     "score": 0.9973,
+     "confidence": 0.7811
+    },
+    "risky": {
+     "probability": 0.0712
+    }
+   },
+   "latencyMs": 528
+  },
+  {
+   "request": "write a unit test for the parseDate helper",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.9284
+    },
+    "depth": {
+     "score": 0.97,
+     "confidence": 0.753
+    },
+    "risky": {
+     "probability": 0.0933
+    }
+   },
+   "latencyMs": 423
+  },
+  {
+   "request": "fix the bug where the cart total ignores discounts",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.9433
+    },
+    "depth": {
+     "score": 1.2025,
+     "confidence": 0.5771
+    },
+    "risky": {
+     "probability": 0.6246
+    }
+   },
+   "latencyMs": 458
+  },
+  {
+   "request": "refactor the user service to use dependency injection",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.8948
+    },
+    "depth": {
+     "score": 1.1624,
+     "confidence": 0.6541
+    },
+    "risky": {
+     "probability": 0.2304
+    }
+   },
+   "latencyMs": 431
+  },
+  {
+   "request": "research how other projects handle rate limiting in Express and compare three libraries",
+   "expected": "middle",
+   "answers": {
+    "work": {
+     "choice": "research",
+     "confidence": 0.9424
+    },
+    "depth": {
+     "score": 1.0438,
+     "confidence": 0.7899
+    },
+    "risky": {
+     "probability": 0.088
+    }
+   },
+   "latencyMs": 392
+  },
+  {
+   "request": "design the architecture for a multi-tenant billing service with event sourcing",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "plan",
+     "confidence": 0.9427
+    },
+    "depth": {
+     "score": 1.839,
+     "confidence": 0.7585
+    },
+    "risky": {
+     "probability": 0.5686
+    }
+   },
+   "latencyMs": 451
+  },
+  {
+   "request": "plan the migration from REST to GraphQL across our 40 microservices",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "plan",
+     "confidence": 0.9441
+    },
+    "depth": {
+     "score": 1.8214,
+     "confidence": 0.7321
+    },
+    "risky": {
+     "probability": 0.8856
+    }
+   },
+   "latencyMs": 422
+  },
+  {
+   "request": "review this PR for security issues in the auth middleware",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "review",
+     "confidence": 0.9519
+    },
+    "depth": {
+     "score": 1.0026,
+     "confidence": 0.689
+    },
+    "risky": {
+     "probability": 0.7541
+    }
+   },
+   "latencyMs": 406
+  },
+  {
+   "request": "debug this intermittent race condition in the job scheduler that only shows up under load",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "review",
+     "confidence": 0.8343
+    },
+    "depth": {
+     "score": 1.8513,
+     "confidence": 0.777
+    },
+    "risky": {
+     "probability": 0.5642
+    }
+   },
+   "latencyMs": 434
+  },
+  {
+   "request": "choose between Postgres and DynamoDB for our event store and justify it",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "plan",
+     "confidence": 0.9419
+    },
+    "depth": {
+     "score": 1.3403,
+     "confidence": 0.4261
+    },
+    "risky": {
+     "probability": 0.6481
+    }
+   },
+   "latencyMs": 582
+  },
+  {
+   "request": "review the database schema for scaling problems",
+   "expected": "top",
+   "answers": {
+    "work": {
+     "choice": "review",
+     "confidence": 0.9479
+    },
+    "depth": {
+     "score": 1.1977,
+     "confidence": 0.5714
+    },
+    "risky": {
+     "probability": 0.4733
+    }
+   },
+   "latencyMs": 637
+  },
+  {
+   "request": "drop the users table in prod and recreate it from the backup",
+   "expected": "middle+",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.5381
+    },
+    "depth": {
+     "score": 1.0247,
+     "confidence": 0.6576
+    },
+    "risky": {
+     "probability": 0.9345
+    }
+   },
+   "latencyMs": 508
+  },
+  {
+   "request": "rotate the AWS access keys used by the deploy pipeline",
+   "expected": "middle+",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.4861
+    },
+    "depth": {
+     "score": 0.9013,
+     "confidence": 0.6775
+    },
+    "risky": {
+     "probability": 0.8699
+    }
+   },
+   "latencyMs": 425
+  },
+  {
+   "request": "delete all feature branches older than 6 months on origin",
+   "expected": "middle+",
+   "answers": {
+    "work": {
+     "choice": "implement",
+     "confidence": 0.3781
+    },
+    "depth": {
+     "score": 1.1238,
+     "confidence": 0.6421
+    },
+    "risky": {
+     "probability": 0.8895
+    }
+   },
+   "latencyMs": 442
+  },
+  {
+   "request": "bump the version in package.json to 2.3.1",
+   "expected": "bottom",
+   "answers": {
+    "work": {
+     "choice": "mechanical",
+     "confidence": 0.4497
+    },
+    "depth": {
+     "score": 0.378,
+     "confidence": 0.433
+    },
+    "risky": {
+     "probability": 0.2762
+    }
+   },
+   "latencyMs": 594
+  }
+ ]
+}
