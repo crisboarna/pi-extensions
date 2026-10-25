@@ -1,9 +1,13 @@
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { textOf } from "./classifier/evidence.ts";
 import { explain, summarize } from "./record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
 import { registerTierCommand } from "./commands/tier.ts";
+import { readJson, userConfigPath, findProjectConfig } from "./config/load.ts";
+import { runTierEditor } from "./tui/editor.ts";
+import { openNavigator, startWidget } from "./tui/pi-tui.ts";
 import { Runtime } from "./runtime.ts";
 
 /**
@@ -24,10 +28,27 @@ export default function switchboard(pi: ExtensionAPI): void {
 		return new Text(head + body, 0, 0);
 	});
 
-	registerTierCommand(runtime);
+	registerTierCommand(runtime, {
+		watch: async (_args, ctx) => openNavigator(runtime, ctx),
+		models: async (args, ctx) => {
+			const project = findProjectConfig(ctx.cwd);
+			const target = args.includes("--project") ? (project ?? `${ctx.cwd}/.pi/pi-switchboard.json`) : args.includes("--global") ? userConfigPath(runtime.agentDir) : (await ctx.ui.select("Edit which config?", [userConfigPath(runtime.agentDir), project ?? `${ctx.cwd}/.pi/pi-switchboard.json`]));
+			if (!target) return;
+			const raw = readJson(target).value ?? { version: 1 };
+			const models = ctx.modelRegistry.getAvailable().filter((m) => !runtime.isVirtual(m.provider)).map((m) => `${m.provider}/${m.id}`).sort();
+			await runTierEditor(ctx.ui, { path: target, raw, models });
+		},
+	});
+	pi.registerShortcut(runtime.config.ui.navigator.shortcut as never, {
+		description: "pi-switchboard navigator",
+		handler: async (ctx) => openNavigator(runtime, ctx),
+	});
+	let stopWidget = () => {};
 
 	pi.on("session_start", async (_event, ctx) => {
 		await runtime.onSessionStart(ctx);
+		stopWidget();
+		stopWidget = startWidget(runtime, ctx);
 	});
 	pi.on("model_select", (event, ctx) => {
 		runtime.onModelSelect(event.model, ctx);
@@ -35,13 +56,30 @@ export default function switchboard(pi: ExtensionAPI): void {
 	pi.on("after_provider_response", (event) => {
 		runtime.onAfterProviderResponse(event.status, event.headers);
 	});
+	pi.on("message_start", (event) => {
+		if ((event.message as { role?: string }).role === "assistant") runtime.live?.streamStarted();
+	});
+	pi.on("turn_start", () => {
+		if (runtime.live) runtime.live.update({ turn: runtime.live.status.turn + 1 });
+	});
 	pi.on("message_end", (event, ctx) => {
-		const message = event.message as { role?: string };
+		const message = event.message as { role?: string; content?: unknown; provider?: string; model?: string; usage?: never; errorMessage?: string; stopReason?: string };
+		if (runtime.live) {
+			if (message.role === "user") runtime.live.append({ kind: "task", text: textOf(message.content as never) });
+			if (message.role === "assistant") {
+				runtime.live.assistant({ text: textOf(message.content as never), ...(message.provider ? { provider: message.provider } : {}), ...(message.model ? { model: message.model } : {}), ...(message.usage ? { usage: message.usage } : {}), ...(message.errorMessage ? { error: message.errorMessage } : {}) });
+				if (message.stopReason === "error") runtime.live.update({ status: "error" });
+			}
+		}
 		if (message.role !== "assistant") return undefined;
 		const rewrite = runtime.onAssistantMessage(event.message as never, ctx);
 		return rewrite ? { message: { ...event.message, ...rewrite } as typeof event.message } : undefined;
 	});
 	pi.on("tool_call", async (event, ctx) => {
+		if (runtime.live) {
+			runtime.live.update({ currentTool: event.toolName });
+			runtime.live.append({ kind: "tool-call", tool: event.toolName, text: JSON.stringify(event.input ?? {}) });
+		}
 		if (event.toolName !== "subagent") return undefined;
 		try {
 			await runtime.onSubagentCall(event.toolCallId, event.input as Record<string, unknown>, ctx);
@@ -51,10 +89,15 @@ export default function switchboard(pi: ExtensionAPI): void {
 		return undefined;
 	});
 	pi.on("tool_result", (event) => {
+		if (runtime.live) {
+			runtime.live.update({ currentTool: undefined });
+			runtime.live.append({ kind: "tool-result", tool: event.toolName, isError: event.isError === true, text: textOf(event.content as never) });
+		}
 		if (event.toolName === "subagent") runtime.onSubagentResult(event.toolCallId, event.details);
 		return undefined;
 	});
 	pi.on("session_shutdown", () => {
+		stopWidget();
 		runtime.shutdown();
 	});
 }

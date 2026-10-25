@@ -23,6 +23,9 @@ import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
 import { BudgetTracker } from "./budgets/track.ts";
 import { DebugLog } from "./record/debug-log.ts";
+import { createRedactor } from "./classifier/redact.ts";
+import { LiveWriter, sweep } from "./live/live.ts";
+import { PROFILE_TYPE, type ProfileSnapshotEntry } from "./record/types.ts";
 import { type ThinkingLevel, THINKING_LEVELS } from "./util/model-ref.ts";
 
 export const STATUS_KEY = "tier";
@@ -82,6 +85,9 @@ export class Runtime {
 	/** When a pending auto-continue fires, epoch ms. */
 	autoContinueAt?: number;
 	private debugLog?: DebugLog;
+	/** Set in subagent children: publishes live status and the transcript mirror. */
+	live?: LiveWriter;
+	private snapshotProfile?: string;
 
 	constructor(pi: ExtensionAPI) {
 		this.pi = pi;
@@ -178,6 +184,7 @@ export class Runtime {
 		this.warmup.stop();
 		void this.warmup.start(this.config.classifiers.map((entry) => ({ model: entry.model, local: isLocalClassifier(ctx, entry.model, this.config.classifierProviders), ...(entry.warmup !== undefined ? { warmup: entry.warmup } : {}), ...(entry.keepWarmMs !== undefined ? { keepWarmMs: entry.keepWarmMs } : {}) })));
 		await this.setupChildren(ctx);
+		this.setupLive(ctx);
 		this.setupAccountAffinity(ctx);
 		if (this.blocked) ctx.ui.notify(`pi-switchboard: not routing because ${this.blocked} is installed; remove one of the two routers.`, "warning");
 		for (const warning of this.config.warnings.slice(0, 5)) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
@@ -200,6 +207,26 @@ export class Runtime {
 			this.launchModeReason = reason ?? "required child extensions unavailable";
 			if (this.config.subagents.mode === "child") ctx.ui.notify(`pi-switchboard: subagents fall back to launch-time models: ${this.launchModeReason}`, "warning");
 		}
+	}
+
+	/** In a subagent child, starts the live status and transcript mirror (DESIGN.md 11.6). */
+	private setupLive(ctx: ExtensionContext): void {
+		const liveDir = join(this.dir, "live");
+		sweep(liveDir, this.config.live.retainHours);
+		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
+		const parent = header?.parentSession ?? process.env.PI_SUBAGENT_PARENT_SESSION;
+		if (!parent) return;
+		this.live?.finish("done");
+		this.live = new LiveWriter({
+			dir: liveDir,
+			session: ctx.sessionManager.getSessionId(),
+			parent,
+			redact: createRedactor({ home: this.home, extra: this.config.classification.evidence.redact }),
+			limits: { toolResultBytes: this.config.live.toolResultBytes },
+			mirror: this.config.live.mirror,
+		});
+		const model = ctx.model;
+		if (model) this.live.update({ launchModel: `${model.provider}/${model.id}` });
 	}
 
 	/** Children map members onto the account their parent last used (DESIGN.md 5.5). */
@@ -355,6 +382,8 @@ export class Runtime {
 	record(decision: DecisionEntry, ctx?: ExtensionContext): void {
 		if (decision.switch.cacheMiss) this.switches++;
 		if (decision.reason === "user" && decision.scope === "main") this.budgets.startTask(decision.task);
+		if (decision.profile.name && decision.profile.name !== this.snapshotProfile) this.snapshot(decision.profile.name, ctx ?? this.ctx);
+		if (this.live && decision.tier.chosen) this.live.update({ tier: decision.tier.chosen });
 		this.pi.appendEntry(DECISION_TYPE, decision);
 		const target = ctx ?? this.ctx;
 		this.debugLog?.write(decision, { session: target?.sessionManager.getSessionId() ?? "", cwd: target?.cwd ?? "" });
@@ -366,6 +395,33 @@ export class Runtime {
 			}
 		}
 		this.updateFooter(ctx ?? this.ctx);
+	}
+
+	/** Records the active profile's tiers and catalog prices for the inspector's counterfactuals. */
+	private snapshot(name: string, ctx: ExtensionContext | undefined): void {
+		const profile = this.config.profiles[name];
+		if (!profile) return;
+		this.snapshotProfile = name;
+		const price = (provider: string, id: string) => {
+			const model = ctx?.modelRegistry.find(provider, id) as { cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } } | undefined;
+			const cost = model?.cost;
+			return cost && (cost.input || cost.output) ? { input: cost.input ?? 0, output: cost.output ?? 0, ...(cost.cacheRead ? { cacheRead: cost.cacheRead } : {}), ...(cost.cacheWrite ? { cacheWrite: cost.cacheWrite } : {}) } : undefined;
+		};
+		const entry: ProfileSnapshotEntry = {
+			v: 1,
+			profile: name,
+			baselineTier: profile.baselineTier,
+			topTier: profile.tiers.at(-1)?.name ?? profile.fallbackTier,
+			tiers: profile.tiers.map((tier) => ({
+				name: tier.name,
+				rank: tier.rank,
+				members: tier.members.map((m) => {
+					const p = price(m.provider, m.id);
+					return { key: m.key, ...(p ? { price: p } : {}) };
+				}),
+			})),
+		};
+		this.pi.appendEntry(PROFILE_TYPE, entry);
 	}
 
 	onAfterProviderResponse(status: number, headers: Record<string, string>): void {
@@ -455,6 +511,7 @@ export class Runtime {
 
 	shutdown(): void {
 		this.cancelAutoContinue();
+		this.live?.finish(this.live.status.status === "error" ? "error" : "done");
 		this.warmup.stop();
 		this.childRegistration?.dispose();
 		this.childRegistration = undefined;
