@@ -1,5 +1,9 @@
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+import { explain, summarize } from "./record/describe.ts";
+import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
+import { registerTierCommand } from "./commands/tier.ts";
 import { Runtime } from "./runtime.ts";
 
 /**
@@ -11,6 +15,16 @@ export default function switchboard(pi: ExtensionAPI): void {
 	const runtime = new Runtime(pi);
 	runtime.entryPath = fileURLToPath(import.meta.url);
 	runtime.bootstrap();
+
+	pi.registerEntryRenderer<DecisionEntry>(DECISION_TYPE, (entry, { expanded }, theme) => {
+		const decision = entry.data;
+		if (!decision) return undefined;
+		const head = theme.fg(decision.kind === "fallback" || decision.kind === "inactive" ? "warning" : "dim", summarize(decision));
+		const body = expanded || runtime.config.ui.entries === "expanded" ? `\n${explain(decision).map((line) => theme.fg("dim", `  ${line}`)).join("\n")}` : "";
+		return new Text(head + body, 0, 0);
+	});
+
+	registerTierCommand(runtime);
 
 	pi.on("session_start", async (_event, ctx) => {
 		await runtime.onSessionStart(ctx);

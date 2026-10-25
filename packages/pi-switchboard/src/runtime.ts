@@ -21,6 +21,8 @@ import { extractTasks, resultLinks } from "./subagents/tasks.ts";
 import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
 import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
+import { BudgetTracker } from "./budgets/track.ts";
+import { DebugLog } from "./record/debug-log.ts";
 import { type ThinkingLevel, THINKING_LEVELS } from "./util/model-ref.ts";
 
 export const STATUS_KEY = "tier";
@@ -75,6 +77,11 @@ export class Runtime {
 	/** The entry file pi-subagents loads into children. */
 	entryPath = "";
 	readonly listeners = new Set<(decision: DecisionEntry) => void>();
+	readonly budgets = new BudgetTracker();
+	private autoContinueTimer?: ReturnType<typeof setTimeout>;
+	/** When a pending auto-continue fires, epoch ms. */
+	autoContinueAt?: number;
+	private debugLog?: DebugLog;
 
 	constructor(pi: ExtensionAPI) {
 		this.pi = pi;
@@ -128,6 +135,7 @@ export class Runtime {
 				return ledgerQuota(ledgerCache.entries, member, Date.now());
 			},
 			custom: (module) => this.customs.get(module),
+			budget: (profile) => this.budgets.exceeded(profile.budgets ?? this.config.budgets),
 		});
 	}
 
@@ -158,6 +166,9 @@ export class Runtime {
 		this.engine.deps.config = this.config;
 		this.engine.deps.missingConfig = this.missingConfig;
 		this.engine.deps.cwd = ctx.cwd;
+		this.debugLog = this.config.debug.log
+			? new DebugLog({ path: join(this.dir, "decisions.jsonl"), maxBytes: this.config.debug.maxBytes, maxFiles: this.config.debug.maxFiles, fullEvidence: this.config.debug.fullEvidence })
+			: undefined;
 		if (!this.blocked) this.registerVirtualModels();
 		await this.loadCustomStrategies();
 		this.restoreControls(ctx);
@@ -327,7 +338,10 @@ export class Runtime {
 				...(request.reason === "direct" ? { contextTokens: estimateTokens(request.messages) } : {}),
 			});
 		} catch (error) {
-			if (error instanceof ExhaustedError) ctx.ui.notify(error.message, "warning");
+			if (error instanceof ExhaustedError) {
+				ctx.ui.notify(error.message, "warning");
+				if (error.earliest && request.reason === "user") this.scheduleAutoContinue(error.earliest.at, ctx);
+			}
 			throw error;
 		}
 		if (request.reason !== "direct") this.noteAccount(out.provider);
@@ -340,7 +354,10 @@ export class Runtime {
 
 	record(decision: DecisionEntry, ctx?: ExtensionContext): void {
 		if (decision.switch.cacheMiss) this.switches++;
+		if (decision.reason === "user" && decision.scope === "main") this.budgets.startTask(decision.task);
 		this.pi.appendEntry(DECISION_TYPE, decision);
+		const target = ctx ?? this.ctx;
+		this.debugLog?.write(decision, { session: target?.sessionManager.getSessionId() ?? "", cwd: target?.cwd ?? "" });
 		for (const listener of this.listeners) {
 			try {
 				listener(decision);
@@ -378,6 +395,11 @@ export class Runtime {
 		this.engine.noteSuccess(model, this.lastRouteAt ? Date.now() - this.lastRouteAt : undefined);
 		const usage = message.usage;
 		const last = this.engine.recent.at(-1);
+		this.budgets.add((usage?.input ?? 0) + (usage?.output ?? 0) + (usage?.cacheRead ?? 0) + (usage?.cacheWrite ?? 0), usage?.cost?.total ?? 0);
+		const profile = last ? this.config.profiles[last.profile.name] : undefined;
+		for (const crossed of this.budgets.newlyCrossed(profile?.budgets ?? this.config.budgets)) {
+			ctx.ui.notify(`pi-switchboard: ${crossed.scope} ${crossed.metric === "costUsd" ? "cost" : "tokens"} budget exceeded (${crossed.metric === "costUsd" ? `$${crossed.used.toFixed(2)}` : crossed.used} of ${crossed.limit})`, "warning");
+		}
 		this.ledger.append({
 			ts: new Date().toISOString(),
 			session: ctx.sessionManager.getSessionId(),
@@ -410,7 +432,29 @@ export class Runtime {
 		ctx.ui.setStatus(STATUS_SUB_KEY, this.routedSubagents > 0 ? renderTemplate(this.config.ui.statusSub, { routed: this.routedSubagents }) : undefined);
 	}
 
+	/** Opt-in: sends `continue` once at the earliest reset (DESIGN.md 9.6). */
+	scheduleAutoContinue(at: number, ctx: ExtensionContext): void {
+		if (!this.config.exhaustion.autoContinue || this.autoContinueTimer) return;
+		const wait = at - Date.now() + 5_000;
+		if (wait <= 0 || wait > this.config.exhaustion.maxWaitMs) return;
+		this.autoContinueAt = Date.now() + wait;
+		ctx.ui.notify(`pi-switchboard: will send "continue" at ${new Date(this.autoContinueAt).toLocaleTimeString()}; /tier resume cancel stops it`, "info");
+		this.autoContinueTimer = setTimeout(() => {
+			this.autoContinueTimer = undefined;
+			this.autoContinueAt = undefined;
+			this.pi.sendUserMessage("continue", { deliverAs: "followUp" });
+		}, wait);
+		this.autoContinueTimer.unref?.();
+	}
+
+	cancelAutoContinue = (): void => {
+		if (this.autoContinueTimer) clearTimeout(this.autoContinueTimer);
+		this.autoContinueTimer = undefined;
+		this.autoContinueAt = undefined;
+	};
+
 	shutdown(): void {
+		this.cancelAutoContinue();
 		this.warmup.stop();
 		this.childRegistration?.dispose();
 		this.childRegistration = undefined;
