@@ -25,23 +25,15 @@ _Avoid_: Label (multi-pass uses that word for its own display names)
 ### Accounts and places
 
 **Account**:
-A model provider id together with its auth source, as pi's model registry sees them, such as `openai-codex-2` on its OAuth login or `anthropic` on the `ANTHROPIC_API_KEY` environment variable. It stands for the credentials that pay for a request. The same provider id on a different auth source is a different account.
+A model provider id as pi's model registry sees it, such as `openai-codex-2` or `switchboard`. It stands for the credentials that pay for a request.
 _Avoid_: Subscription, sub, provider (alone), login
-
-**Auth source**:
-Where the credentials behind a provider id come from: a stored login, a stored key, an environment variable, or a key or command in pi's model configuration.
-_Avoid_: Auth type, credential (alone)
-
-**Tag prompt**:
-The one-step question shown when an account in the Unknown zone is blocked: which zones does this account belong to. Its answer becomes the account's zone tag.
-_Avoid_: Setup, wizard, onboarding
 
 **Place**:
 The directory a pi session works in, resolved to exactly one zone.
 _Avoid_: Project, repo, workspace, cwd
 
 **Place rule**:
-A user-defined condition on a place's path, its git remote, or both, that assigns a zone. Rules are ordered; the first one that matches decides the place's zone.
+A user-defined condition on a place's path or git remote that assigns a zone.
 _Avoid_: Mapping, path rule
 
 ### Enforcement
@@ -55,5 +47,5 @@ The guard's refusal to let a user turn reach a model, or its abort of a turn who
 _Avoid_: Deny, reject
 
 **Override**:
-An explicit user decision to let turns through despite a failed match: once (one turn), or for the rest of the session, each for one account, or for one headless pi process (set from the environment, and only for accounts in the Unknown zone). Never persisted.
+An explicit user decision to let turns through despite a failed match: once (one turn) or for the rest of the session. Never persisted.
 _Avoid_: Bypass, exception
