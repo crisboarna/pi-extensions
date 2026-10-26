@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="pi-account-guard">
+  <title>pi-account-guard</title>
+  <rect width="64" height="64" rx="12" fill="#233040"/>
+  <!-- the zone's lamp, lit green: the account matches the place -->
+  <circle cx="47" cy="14" r="7" fill="#7fbf6a" opacity="0.25"/>
+  <circle cx="47" cy="14" r="4.2" fill="#7fbf6a"/>
+  <!-- the zone's jack, a keyway cut at the bottom -->
+  <circle cx="47" cy="38" r="10" fill="#c9a34e"/>
+  <circle cx="47" cy="38" r="5" fill="#1a2431"/>
+  <rect x="45" y="41" width="4" height="6" fill="#1a2431"/>
+  <!-- the cord and the keyed plug, its key tab under the sleeve, seated in the jack -->
+  <path d="M5 50 C 14 50, 16 38, 25 38" fill="none" stroke="#3f8f8c" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="24" y="33" width="17" height="10" rx="2.5" fill="#3f8f8c"/>
+  <rect x="45" y="40" width="4" height="6" fill="#3f8f8c"/>
+  <rect x="40" y="35.5" width="9" height="5" rx="1.5" fill="#d9e6e0"/>
+</svg>

@@ -8,7 +8,11 @@
 	"keywords": [
 		"pi-package",
 		"pi-extension",
-		"account-guard"
+		"account-guard",
+		"work",
+		"personal",
+		"subscription",
+		"accounts"
 	],
 	"repository": {
 		"type": "git",
@@ -29,7 +33,8 @@
 	"pi": {
 		"extensions": [
 			"./src/index.ts"
-		]
+		],
+		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/cover.png"
 	},
 	"files": [
 		"src",
@@ -47,6 +52,7 @@
 		"test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
 		"test:integration": "node --test \"test/integration/**/*.test.ts\"",
 		"test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
-		"coverage": "ACCOUNT_GUARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\""
+		"coverage": "ACCOUNT_GUARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\"",
+		"media": "node ../../scripts/tools/media.ts packages/pi-account-guard/media"
 	}
 }
