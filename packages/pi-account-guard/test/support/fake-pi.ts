@@ -69,7 +69,12 @@ export interface FakeSession {
 	aborts: number;
 }
 
-export function createFakeSession(options: { cwd?: string; model?: { provider: string; id: string }; hasUI?: boolean; idle?: boolean } = {}): FakeSession {
+export interface FakeAuth {
+	usingOAuth?: boolean;
+	status?: { configured: boolean; source?: string; label?: string };
+}
+
+export function createFakeSession(options: { cwd?: string; model?: { provider: string; id: string } | null; hasUI?: boolean; idle?: boolean; auth?: FakeAuth } = {}): FakeSession {
 	const statuses = new Map<string, string | undefined>();
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
@@ -81,7 +86,11 @@ export function createFakeSession(options: { cwd?: string; model?: { provider: s
 		ctx: {
 			cwd: options.cwd ?? "/work/repo",
 			hasUI: options.hasUI ?? false,
-			model: options.model ?? { provider: "acme", id: "mid" },
+			model: options.model === null ? undefined : (options.model ?? { provider: "acme", id: "mid" }),
+			modelRegistry: {
+				isUsingOAuth: () => options.auth?.usingOAuth ?? false,
+				getProviderAuthStatus: () => options.auth?.status ?? { configured: true, source: "stored" },
+			},
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
 				setStatus: (key: string, text: string | undefined) => statuses.set(key, text),

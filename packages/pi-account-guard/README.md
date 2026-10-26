@@ -2,7 +2,7 @@
 
 A pi extension that stops a session from sending a user turn to a model account that does not belong to the zone of the directory the session works in. See `DESIGN.md` for the design, `GLOSSARY.md` for the vocabulary and `docs/adr/` for the decisions.
 
-The package is a scaffold: it loads as an empty extension and registers no behaviour yet.
+Status: the first guard behaviour is in. A turn whose account does not match the place zone is blocked in headless mode (message on stderr, exit code 77). Configuration is read from `account-guard.json` in the pi agent directory; the TUI dialogs, remote rules and `/guard` commands are not built yet.
 
 ## Development
 

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { createJiti } from "jiti";
@@ -8,6 +10,7 @@ const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
 
 /** Loads the extension through jiti, as pi does, and runs its factory against a fake host. */
 async function boot() {
+	process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), "account-guard-agent-"));
 	const jiti = createJiti(import.meta.url, { moduleCache: false });
 	const factory = (await jiti.import(INDEX, { default: true })) as (pi: unknown) => unknown;
 	assert.equal(typeof factory, "function", "src/index.ts default-exports the extension factory");
@@ -17,21 +20,20 @@ async function boot() {
 }
 
 describe("extension load", () => {
-	it("loads through jiti without registering behaviour", async () => {
+	it("loads through jiti and registers only the session_start and input gates", async () => {
 		const host = await boot();
-		assert.deepEqual(host.calls, []);
-		assert.deepEqual(host.handledEvents(), []);
+		assert.deepEqual(host.calls.filter((call) => call.method !== "on"), []);
+		assert.deepEqual(host.handledEvents().sort(), ["input", "session_start"]);
 		assert.equal(host.commands.size, 0);
 		assert.equal(host.providers.size, 0);
 	});
 
-	it("leaves a session untouched when events fire", async () => {
+	it("blocks an untagged account from the real wiring when the agent directory has no config", async () => {
 		const host = await boot();
-		const session = createFakeSession();
+		const session = createFakeSession({ hasUI: true, cwd: tmpdir() });
 		assert.equal(await host.fire("session_start", { reason: "startup" }, session.ctx), undefined);
-		assert.equal(await host.fire("input", { text: "hello", source: "interactive" }, session.ctx), undefined);
-		assert.deepEqual(session.notices, []);
-		assert.equal(session.aborts, 0);
+		assert.deepEqual(await host.fire("input", { text: "hello", source: "interactive" }, session.ctx), { action: "handled" });
+		assert.match(session.notices[0]?.message ?? "", /^BLOCKED acme \(stored-key\) has no zone tag/);
 	});
 });
 
