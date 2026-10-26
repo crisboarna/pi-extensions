@@ -10,15 +10,20 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: scorecard
+  cancel-in-progress: true
+
 jobs:
   analysis:
+    name: analysis
     if: github.event.repository.private == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
-      security-events: write
-      id-token: write
+      contents: read # check out the repository
+      security-events: write # upload the results to code scanning
+      id-token: write # publish the results to the Scorecard API
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

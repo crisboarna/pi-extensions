@@ -18,7 +18,10 @@ const GATES = [
 	{ name: "biome", fast: true, command: bin("biome", "check", "--error-on-warnings", ".") },
 	{ name: "typecheck", fast: true, command: bin("tsc", "-p", "tsconfig.json") },
 	{ name: "markdown", fast: false, command: bin("markdownlint-cli2") },
-	{ name: "knip", fast: false, command: bin("knip", "--no-progress") },
+	{ name: "knip (docker)", fast: false, command: node("scripts/tools/knip.ts") },
+	{ name: "gitleaks (docker)", fast: false, command: node("scripts/tools/gitleaks.ts") },
+	{ name: "actionlint (docker)", fast: false, command: node("scripts/tools/actionlint.ts") },
+	{ name: "zizmor (docker)", fast: false, command: node("scripts/tools/zizmor.ts") },
 	{ name: "npm-policy", fast: false, command: node("scripts/checks/npm-policy.ts") },
 	{ name: "pack", fast: false, command: node("scripts/checks/pack.ts") },
 ];

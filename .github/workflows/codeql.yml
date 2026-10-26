@@ -1,7 +1,9 @@
+# CodeQL static analysis of the TypeScript and of the workflows themselves.
 name: CodeQL
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
   schedule:
@@ -9,13 +11,18 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
+    name: analyze
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
-      security-events: write
+      contents: read # check out the repository
+      security-events: write # upload the results to code scanning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

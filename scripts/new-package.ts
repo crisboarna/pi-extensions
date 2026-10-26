@@ -44,7 +44,7 @@ const files: Record<string, string> = {
 		scripts: {
 			test: 'node --test --test-reporter=dot "test/**/*.test.ts"',
 			coverage:
-				'node --test --experimental-test-coverage --test-coverage-include="src/**" --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=90 "test/**/*.test.ts"',
+				'node --test --experimental-test-coverage --test-coverage-include="src/**" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 "test/**/*.test.ts"',
 		},
 	}),
 	"tsconfig.json": pretty({ extends: "../../tsconfig.base.json", include: ["src", "test"] }),
@@ -72,6 +72,36 @@ import { greeting } from "../src/greeting.ts";
 
 test("greeting names the working directory", () => {
 	assert.equal(greeting("/work"), "${name} is running in /work");
+});
+`,
+	"test/extension.test.ts": `import assert from "node:assert/strict";
+import { test } from "node:test";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import extension from "../src/index.ts";
+
+test("the command shows the greeting for the working directory", async () => {
+	const commands = new Map<string, { handler: (args: string, ctx: unknown) => Promise<void> }>();
+	const notices: string[] = [];
+	const pi = { registerCommand: (name: string, command: { handler: (args: string, ctx: unknown) => Promise<void> }) => commands.set(name, command) };
+	extension(pi as unknown as ExtensionAPI);
+	await commands.get("${name.replace(/^pi-/, "")}")?.handler("", { cwd: "/work", ui: { notify: (message: string) => notices.push(message) } });
+	assert.deepEqual(notices, ["${name} is running in /work"]);
+});
+`,
+	"test/all-modules.test.ts": `// Imports every module under src/, so the coverage run measures files that no
+// other test loads (node --test only reports files it saw).
+import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { test } from "node:test";
+import { pathToFileURL } from "node:url";
+
+const SRC = join(import.meta.dirname, "..", "src");
+
+test("every source module loads", async () => {
+	const files = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".ts"));
+	assert.ok(files.length > 0);
+	for (const file of files) await import(pathToFileURL(join(SRC, file)).href);
 });
 `,
 	"README.md": `# ${full}

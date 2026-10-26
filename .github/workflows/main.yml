@@ -1,0 +1,129 @@
+# Pushes to main: full verification and a signature check of the pushed
+# commits; only when both pass, Changesets either opens the version pull
+# request or publishes to npm with provenance (trusted publishing, OIDC)
+# from the protected npm environment.
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: main
+  cancel-in-progress: false # never interrupt a publish
+
+jobs:
+  verify:
+    name: verify
+    uses: ./.github/workflows/verify.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    permissions:
+      contents: read # passed to the reusable workflow's jobs
+
+  signatures:
+    name: signed commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # read the pushed commits and their verification
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Every pushed commit is signed and verified by GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: node scripts/checks/github-signatures.ts --push "$BEFORE" "$AFTER"
+
+  release-mode:
+    name: release mode
+    needs: [verify, signatures]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # read pending changesets
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false # no caches in the release path
+
+      - run: npm ci
+
+      - id: mode
+        uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+
+  version:
+    name: version pull request
+    needs: release-mode
+    if: needs.release-mode.outputs.mode == 'version'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the version branch (commits are signed by GitHub through the API)
+      pull-requests: write # open or update the version pull request
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false # no caches in the release path
+
+      - run: npm ci
+
+      - uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          script: npm run version-packages
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
+
+  publish:
+    name: publish to npm
+    needs: release-mode
+    if: needs.release-mode.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: write # push release tags and create GitHub releases
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false # no caches in the release path
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - run: npm run smoke:pack
+
+      - uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          script: npm run release
+          create-github-releases: true
+        env:
+          NPM_CONFIG_PROVENANCE: "true"

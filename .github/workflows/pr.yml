@@ -1,0 +1,64 @@
+# Pull requests into main: full verification, plus the rules that only make
+# sense for a pull request (commit messages, signatures, changesets, new
+# dependencies).
+name: Pull request
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    uses: ./.github/workflows/verify.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    permissions:
+      contents: read # passed to the reusable workflow's jobs
+
+  rules:
+    name: pull request rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository and read commits
+      pull-requests: read # list the pull request's commits and their verification
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # commit-message and changeset checks read the whole range
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Every commit is signed and verified by GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/checks/github-signatures.ts --pull "$PR_NUMBER"
+
+      - name: Commit messages follow the convention
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/checks/commit-msg.ts --range "$BASE..$HEAD"
+
+      - name: Every changed package has a changeset
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: npx changeset status --since="$BASE"
+
+      - name: New dependencies have no known vulnerabilities and an allowed licence
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, CC0-1.0, Python-2.0, Unlicense

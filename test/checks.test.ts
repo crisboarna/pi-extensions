@@ -31,7 +31,10 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 	pi: { extensions: ["./src/index.ts"] },
 	files: ["src", "README.md", "LICENSE"],
 	peerDependencies: { "@earendil-works/pi-coding-agent": "*" },
-	scripts: { test: "node --test", coverage: "node --test --experimental-test-coverage --test-coverage-lines=90" },
+	scripts: {
+		test: "node --test",
+		coverage: "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90",
+	},
 	...overrides,
 });
 
@@ -44,6 +47,7 @@ const CLEAN: Record<string, string> = {
 		'import { join } from "node:path";\nimport type { ExtensionAPI } from "@earendil-works/pi-coding-agent";\nimport { helper } from "./helper.ts";\nexport default function (_pi: ExtensionAPI): void {\n\thelper(join("a", "b"));\n}\n',
 	"packages/pi-demo/src/helper.ts": "export function helper(_value: string): void {}\n",
 	"packages/pi-demo/test/helper.test.ts": 'import { helper } from "../src/helper.ts";\nhelper("x");\n',
+	"packages/pi-demo/test/all-modules.test.ts": 'import "../src/helper.ts";\n',
 	"AGENTS.md": "# Rules\n",
 	"CLAUDE.md": "@AGENTS.md\n",
 };
@@ -99,10 +103,18 @@ describe("manifests", () => {
 			repo({
 				"packages/pi-demo/package.json": JSON.stringify(manifest({ scripts: { test: "node --test" } })),
 				"packages/pi-demo/test/helper.test.ts": null,
+				"packages/pi-demo/test/all-modules.test.ts": null,
 			}),
 		);
 		assert.match(result.output, /scripts.test and scripts.coverage are required/);
 		assert.match(result.output, /at least one \*\.test\.ts/);
+	});
+	test("holds every coverage threshold at 90 or more", () => {
+		const low = manifest({ scripts: { test: "node --test", coverage: "node --test --test-coverage-lines=95 --test-coverage-branches=74" } });
+		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(low) }));
+		assert.match(result.output, /--test-coverage-branches=90 or higher \(found 74\)/);
+		assert.match(result.output, /--test-coverage-functions=90 or higher \(found none\)/);
+		assert.doesNotMatch(result.output, /coverage-lines/);
 	});
 	test("rejects floating runtime dependencies", () => {
 		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ dependencies: { jiti: "^2.7.0" } })) }));

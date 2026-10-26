@@ -13,7 +13,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - Run every command from the repository root unless a doc says otherwise.
 - `npm install` installs everything; the `.npmrc` refuses dependency install scripts not allowed in `package.json` `allowScripts` and versions younger than 3 days.
-- `npm run check` runs every repository gate (manifests, imports, text, file sizes, links, Biome, types, Markdown, knip, npm policy, pack contents) and reports all failures at once.
+- `npm run check` runs every repository gate (manifests, imports, text, file sizes, links, Biome, types, Markdown, knip, gitleaks, actionlint, zizmor, npm policy, pack contents) and reports all failures at once; knip, gitleaks, actionlint and zizmor run in Docker, which must be running.
 - `npm run check:fast` runs the gates the pre-commit hook runs.
 - `npm test` runs every package's unit tests and the repository script tests; `npm run test:integration` and `npm run coverage` run the rest of what CI runs.
 - `npm run smoke:pack` installs each package from its packed tarball and loads it through jiti, the way users get it.
@@ -23,6 +23,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - A change is done when `npm run check`, `npm test`, `npm run test:integration` and `npm run coverage` pass, and you have read their output.
 - Add or update tests in the same change as the behaviour; a bug fix starts with a test that fails without the fix.
+- Coverage stays at 90% or more for lines, branches and functions in every package (`npm run coverage`); cover new code with tests that assert behaviour, not with tests that only execute lines.
 - After changing how a package loads, its `files`, `bin` or `pi` manifest entries, run `npm run smoke:pack` and `node scripts/checks/pack.ts`.
 - After changing runtime behaviour, smoke it in a real pi: `pi -ne -e ./packages/<name>/src/index.ts`, with `PI_CODING_AGENT_DIR` pointing at a temporary directory.
 - Say in the handoff which checks ran, which live checks ran, and what remains unverified.
@@ -66,6 +67,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - Commit messages follow `<type>(<scope>): <subject>` (`docs/conventions/commits.md`); the scope is a package folder name or `repo`, `deps`, `release`, `ci`, `docs`, `scripts`.
 - Keep each commit to one intent and stage only the paths you mean to commit.
+- Every commit is signed (`commit.gpgsign`); never pass `--no-gpg-sign` or push unsigned commits.
 - Do not add AI attribution trailers or lines ("Co-Authored-By", "Generated with") to commits or pull requests; the commit-msg hook rejects them.
 - Add a changeset (`npm run changeset`) when a change alters what a package publishes; tests, docs and tooling-only changes do not need one.
 - Never push, publish, tag, create releases, change repository settings or change npm visibility without the user's explicit approval for that action.

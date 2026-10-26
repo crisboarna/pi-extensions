@@ -1,0 +1,10 @@
+# gitleaks configuration: the default rules, plus the fake credentials that
+# the redaction tests feed to the redactor on purpose.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake credentials in pi-switchboard's redaction test"
+condition = "AND"
+paths = ['''^packages/pi-switchboard/test/unit/classifier\.test\.ts$''']
+regexes = ['''AKIAABCDEFGHIJKLMNOP''', '''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.[A-Za-z0-9_-]+''']

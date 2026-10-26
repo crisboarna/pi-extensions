@@ -9,6 +9,9 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { HOST_PROVIDED, listPackages, type Manifest, REPOSITORY_URL, ROOT, readJson, reporter, SCOPE } from "../lib/repo.ts";
 
+/** Minimum coverage, in percent, for lines, branches and functions in every package. */
+const COVERAGE_FLOOR = 90;
+
 const report = reporter("manifests");
 const root = readJson<Manifest>(join(ROOT, "package.json"));
 if (root.private !== true) report.fail("root package.json must be private");
@@ -46,7 +49,14 @@ for (const { dir, path, manifest: m } of listPackages()) {
 		? readdirSync(join(path, "test"), { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".test.ts"))
 		: [];
 	need(tests.length > 0, "test/ must contain at least one *.test.ts file; node --test passes when a glob matches nothing");
-	need(/--test-coverage-lines=\d+/.test(m.scripts?.coverage ?? ""), "scripts.coverage must set --test-coverage-lines (and branches, functions)");
+	for (const metric of ["lines", "branches", "functions"]) {
+		const threshold = Number(new RegExp(`--test-coverage-${metric}=(\\d+)`).exec(m.scripts?.coverage ?? "")?.[1] ?? 0);
+		need(threshold >= COVERAGE_FLOOR, `scripts.coverage must set --test-coverage-${metric}=${COVERAGE_FLOOR} or higher (found ${threshold || "none"})`);
+	}
+	need(
+		tests.some((file) => file.endsWith("all-modules.test.ts")),
+		"test/ must contain all-modules.test.ts, which imports every src/ module so coverage measures files no other test loads",
+	);
 
 	const pi = m.pi ?? {};
 	const entries = [...(pi.extensions ?? []), ...(pi.skills ?? []), ...(pi.prompts ?? []), ...(pi.themes ?? [])];

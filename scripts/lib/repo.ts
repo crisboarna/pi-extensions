@@ -2,7 +2,7 @@
 // checks run before (and without) any dev dependency.
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // REPO_CHECK_ROOT lets the repository tests run a check against a fixture tree.
@@ -80,10 +80,6 @@ export function repoFiles(): string[] {
 		.split("\0")
 		.filter(Boolean)
 		.filter((file) => existsSync(join(ROOT, file)));
-}
-
-export function toRepoPath(path: string): string {
-	return relative(ROOT, path).split(sep).join("/");
 }
 
 export interface Reporter {

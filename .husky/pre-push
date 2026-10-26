@@ -1,2 +1,3 @@
-# Everything CI runs, before it leaves the machine.
+# Unsigned commits never leave the machine; then everything CI runs.
+node scripts/checks/signatures.ts --pre-push
 npm run check && npm run coverage && npm run test:integration && npm run test:repo

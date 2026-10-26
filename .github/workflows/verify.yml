@@ -1,0 +1,106 @@
+# Verification shared by pull requests and main: every repository gate
+# (including knip, gitleaks, actionlint and zizmor in pinned Docker images),
+# the tests with 90% coverage thresholds, the tarball smoke test and the
+# dependency audits. Called by pr.yml and main.yml.
+name: Verify
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  gates:
+    name: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # check out the repository
+    env:
+      DOCKER_IMAGE_CACHE: .cache/docker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # Tool images are pinned by digest in scripts/tools and tools/docker, so the key changes only when a pin does.
+      - name: Cache tool images
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/docker
+          key: docker-${{ hashFiles('tools/docker/**', 'scripts/tools/*.ts') }}
+
+      - name: Cache knip analysis
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/knip
+          key: knip-${{ github.sha }}
+          restore-keys: knip-
+
+      - run: npm ci
+
+      - name: Repository gates
+        env:
+          GH_TOKEN: ${{ github.token }} # lets zizmor check pinned action SHAs online
+        run: npm run check
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit and integration tests with coverage thresholds
+        run: npm run coverage
+
+      - name: Integration tests through jiti, as pi loads extensions
+        run: npm run test:integration
+
+      - name: Repository script tests
+        run: npm run test:repo
+
+      - name: Install every package from its tarball and load it
+        run: npm run smoke:pack
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Registry signatures and provenance of installed packages
+        run: npm audit signatures
+
+      # Only runtime dependencies reach users; dev tooling is updated through Dependabot.
+      - name: Known vulnerabilities in runtime dependencies
+        run: npm audit --omit=dev --omit=peer --audit-level=moderate

@@ -2,7 +2,9 @@
 
 Every gate in this repository, where it runs, and the failure it prevents. A gate that fails prints the problem and how to fix it. No gate may be weakened to make a change pass (see `AGENTS.md`).
 
-Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI** pull requests and `main`, **R** release workflow.
+Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI** `verify.yml` (run by `pr.yml` for pull requests and `main.yml` for pushes to `main`), **PR** pull requests only, **R** the publish jobs in `main.yml`, which run only after verification passes.
+
+Tools that are not npm packages of this repository (knip, gitleaks, actionlint, zizmor) run from Docker images pinned by digest (`scripts/tools/`, `tools/docker/`), so they give the same result on every machine and in CI. Docker must be running for the full check.
 
 ## Code
 
@@ -12,9 +14,9 @@ Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI**
 | Cognitive complexity (Biome, max 25) | C P CI | Functions too tangled to review. Files that were already over the limit have a per-file ceiling in `biome.json` that may only go down |
 | TypeScript strict (`tsc -p tsconfig.json`) | C P CI | Type errors, with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `noImplicitReturns`, `noUnused*` and `erasableSyntaxOnly` on, across packages, tests and scripts |
 | File-size ratchet (`scripts/checks/file-sizes.ts`) | C P CI | Files that grow without limit. New files have a cap; files already over it are listed in `scripts/file-size-baseline.json` and can grow by at most 10% |
-| Dead code (`knip`) | P CI | Unused files, exports, types and dependencies |
+| Dead code (knip, in Docker) | P CI | Unused files, exports, types, enum members and dependencies; unlisted dependencies and binaries; unresolved imports; duplicate exports. Only real entry points (extension entries, bins, executable scripts, tests) count as used |
 | Import boundaries (`scripts/checks/imports.ts`) | C P CI | One package reaching into another by path, undeclared dependencies, unaliased typebox subpaths, deep imports into pi |
-| Unit tests with coverage thresholds | P CI | Untested changes. Thresholds sit just below today's coverage and only move up |
+| Coverage of 90% lines, branches and functions | P CI | Untested changes. Unit and integration tests together; every source file is imported by a test so none escapes measurement. `scripts/checks/manifests.ts` refuses a threshold below 90 |
 | Integration tests | P CI | Breakage that only shows when pi loads the extension through jiti |
 
 ## Packages
@@ -44,6 +46,8 @@ Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI**
 | No AI attribution trailers | M CI | "Co-Authored-By" lines naming an assistant, and "Generated with" lines |
 | Pull request template | PR | Changes merged without saying how they were verified |
 | CODEOWNERS | PR | Changes merged without the owner's review (with the branch ruleset, see `docs/repository-settings.md`) |
+| Signed commits (`scripts/checks/signatures.ts`) | P | Pushing commits without a valid signature from a key in `.github/allowed_signers` |
+| GitHub-verified commits (`scripts/checks/github-signatures.ts`) | PR, `main` | Any commit in a pull request or push that GitHub does not show as Verified; the branch ruleset also requires signed commits |
 
 ## Supply chain
 
@@ -57,12 +61,13 @@ Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI**
 | `npm audit` on runtime dependencies | CI | Known vulnerabilities in what users install |
 | Dependency review | CI (PR) | New dependencies with known vulnerabilities or licences outside the allow-list |
 | Dependabot with a 7-day cooldown | weekly | Stale dependencies and actions, without jumping on brand-new releases |
-| gitleaks | C (when installed) CI | Committed secrets |
-| actionlint and zizmor (pedantic) | CI | Broken workflows and workflow security mistakes (template injection, excessive permissions, credential persistence, cache poisoning) |
+| gitleaks (in Docker) | C (staged changes) P CI (whole history) | Committed secrets. Deliberate fakes in tests are allow-listed narrowly in `.gitleaks.toml` |
+| actionlint and zizmor (pedantic), in Docker | P CI | Broken workflows and workflow security mistakes (template injection, excessive or undocumented permissions, credential persistence, cache poisoning, impostor commits when online) |
 | Actions pinned to full commit SHAs | CI | A moved tag changing the code a workflow runs |
 | `permissions: {}` by default, per-job grants | CI R | Workflows holding more token scope than a job needs |
 | CodeQL (`security-and-quality`) | CI weekly | Common vulnerability patterns in TypeScript and in the workflows |
 | OpenSSF Scorecard | weekly (public repository) | Regressions in repository security practices |
+| Caches (npm, tool images, knip analysis) | CI | Slow runs. Tool images are keyed by their pinned digests; the publish jobs use no caches, so a poisoned cache cannot reach a release |
 | Trusted publishing with provenance | R | Long-lived npm tokens; packages that cannot be traced to the commit and workflow that built them |
 | Protected `npm` environment | R | Publishing without the owner's approval |
 

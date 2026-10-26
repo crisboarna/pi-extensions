@@ -6,3 +6,4 @@ coverage/
 .pi/
 .env
 .env.*
+.cache/

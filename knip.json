@@ -1,16 +1,30 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"rules": {
+		"files": "error",
+		"dependencies": "error",
+		"devDependencies": "error",
+		"optionalPeerDependencies": "error",
+		"unlisted": "error",
+		"binaries": "error",
+		"unresolved": "error",
+		"exports": "error",
+		"nsExports": "error",
+		"types": "error",
+		"nsTypes": "error",
+		"enumMembers": "error",
+		"duplicates": "error"
+	},
+	"ignoreExportsUsedInFile": true,
 	"workspaces": {
 		".": {
-			"entry": ["scripts/**/*.ts", "test/**/*.test.ts"],
+			"entry": ["scripts/checks/*.ts", "scripts/hooks/*.ts", "scripts/tools/*.ts", "test/**/*.test.ts"],
 			"project": ["scripts/**/*.ts", "test/**/*.ts"]
 		},
 		"packages/*": {
-			"entry": ["src/index.ts", "bin/*.mjs", "test/**/*.test.ts", "test/support/*.ts"],
+			"entry": ["src/index.ts", "bin/*.mjs", "test/**/*.test.ts"],
 			"project": ["src/**/*.ts", "bin/**/*.mjs", "test/**/*.ts"]
 		}
 	},
-	"ignoreDependencies": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"],
-	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": ["gitleaks"]
+	"ignoreDependencies": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"]
 }
