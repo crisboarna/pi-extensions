@@ -24,6 +24,7 @@ import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
 import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
 import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
+import { CHANGED_CHANNEL, quotaProviders, UsageCache } from "./selection/pi-usage.ts";
 import { BudgetTracker } from "./budgets/track.ts";
 import { DebugLog } from "./record/debug-log.ts";
 import { createRedactor } from "./classifier/redact.ts";
@@ -86,6 +87,9 @@ export class Runtime {
 	readonly listeners = new Set<(decision: DecisionEntry) => void>();
 	readonly budgets = new BudgetTracker();
 	private autoContinueTimer?: ReturnType<typeof setTimeout>;
+	/** pi-usage quota, refreshed in the background for providers a quota strategy needs. */
+	readonly usage: UsageCache;
+	private stopUsageListener?: () => void;
 	/** When a pending auto-continue fires, epoch ms. */
 	autoContinueAt?: number;
 	private debugLog?: DebugLog;
@@ -105,6 +109,10 @@ export class Runtime {
 		this.ledger = new UsageLedger(join(this.dir, "usage.jsonl"));
 		this.store = new MemoryHealthStore();
 		this.warmup = new WarmupTracker(createClassifyFn(() => this.ctx));
+		this.usage = new UsageCache({
+			events: this.pi.events,
+			session: () => (this.ctx ? { sessionManager: this.ctx.sessionManager, sessionId: this.ctx.sessionManager.getSessionId() } : undefined),
+		});
 	}
 
 	/** Synchronous setup in the extension factory: children resolve virtual models before session start. */
@@ -143,6 +151,11 @@ export class Runtime {
 			globalProfile: () => this.stateFile.read().globalProfile,
 			subscriptions: () => readMultiPassSubscriptions(this.agentDir),
 			quota: (member) => {
+				// pi-usage's account data wins; the local ledger covers members with their own budget.
+				if (this.config.metrics.piUsage !== "off") {
+					const reported = this.usage.quota(member);
+					if (reported) return reported;
+				}
 				if (!member.budget) return undefined;
 				if (Date.now() - ledgerCache.at > 30_000) {
 					ledgerCache.at = Date.now();
@@ -195,6 +208,7 @@ export class Runtime {
 		if (model && !this.routingSelected) this.engine.originModel = `${model.provider}/${model.id}`;
 		this.warmup.stop();
 		void this.warmup.start(this.config.classifiers.map((entry) => ({ model: entry.model, local: isLocalClassifier(ctx, entry.model, this.config.classifierProviders), ...(entry.warmup !== undefined ? { warmup: entry.warmup } : {}), ...(entry.keepWarmMs !== undefined ? { keepWarmMs: entry.keepWarmMs } : {}) })));
+		this.startUsage();
 		await this.setupChildren(ctx);
 		this.setupLive(ctx);
 		this.setupAccountAffinity(ctx);
@@ -335,6 +349,20 @@ export class Runtime {
 		this.pi.appendEntry(LINK_TYPE, entry);
 	}
 
+	/** Starts reading pi-usage for the providers quota strategies need; does nothing when none do. */
+	private startUsage(): void {
+		this.stopUsageListener?.();
+		this.stopUsageListener = this.pi.events.on(CHANGED_CHANNEL, () => this.usage.invalidate());
+		this.refreshUsage();
+	}
+
+	/** Non-blocking: reports arrive for the next decision. */
+	refreshUsage(): void {
+		if (this.config.metrics.piUsage === "off") return;
+		const providers = quotaProviders(Object.values(this.config.profiles));
+		if (providers.length) void this.usage.refreshFor(providers).catch(() => undefined);
+	}
+
 	/** Environment warnings around the config (Plannotator, multi-pass, classifiers); also used by /tier validate. */
 	environmentChecks(ctx: ExtensionContext): string[] {
 		return runChecks({
@@ -442,6 +470,7 @@ export class Runtime {
 			}
 			throw error;
 		}
+		if (request.reason === "user") this.refreshUsage();
 		if (request.reason !== "direct") {
 			this.noteAccount(out.provider);
 			this.engine.beginRequest();
@@ -586,6 +615,8 @@ export class Runtime {
 	};
 
 	shutdown(): void {
+		this.stopUsageListener?.();
+		this.stopUsageListener = undefined;
 		this.engine.endRequest();
 		for (const leases of this.launchLeases.values()) for (const lease of leases) this.engine.releaseLease(lease);
 		this.launchLeases.clear();

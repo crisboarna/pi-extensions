@@ -692,7 +692,13 @@ export class SwitchboardEngine {
 		const keys = member
 			? cooldownKeys(`${profile.name}/${tier.name}`, tier, member, failed.provider)
 			: { member: `model:${key}`, model: `model:${key}`, provider: `provider:${failed.provider}` };
-		const failure = recordFailure(this.deps.store, keys, errorClass, retryAt, now, { ...DEFAULT_FAILURE_CONFIG, overloadSwitchAfter: this.config.failover.overloadSwitchAfter, ...this.deps.failure });
+		// A tier's cooldown.defaultMs is how long a rate-limited member sits out when the provider gave no time.
+		const failure = recordFailure(this.deps.store, keys, errorClass, retryAt, now, {
+			...DEFAULT_FAILURE_CONFIG,
+			overloadSwitchAfter: this.config.failover.overloadSwitchAfter,
+			...(tier.cooldown.defaultMs ? { defaultCooldownMs: tier.cooldown.defaultMs } : {}),
+			...this.deps.failure,
+		});
 		const keep: RouteOutput = { provider: failed.provider, id: failed.id, thinking: (failed.thinking as ThinkingLevel | undefined) ?? effectiveThinking(current.member, input.selectedThinking) };
 		if (!failure.switchMember) return keep;
 

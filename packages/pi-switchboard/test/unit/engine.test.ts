@@ -252,6 +252,16 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		assert.equal(out.state?.tier, "standard");
 	});
 
+	it("benches a rate-limited member for the tier's cooldown.defaultMs when the provider gives no time", async () => {
+		const raw: RawConfig = { ...RAW, profiles: { main: { ...RAW.profiles!.main!, tiers: { ...RAW.profiles!.main!.tiers, standard: { rank: 2, members: ["acme/mid", "zen/mid:medium"], strategy: "ordered", cooldown: { defaultMs: 90_000 } } } } } };
+		const { e, deps } = engine({ raw });
+		const first = await e.route(input());
+		const out = await e.route(input({ reason: "retry", state: first.state, failed: { provider: "acme", id: "mid", errorMessage: "429 Too Many Requests" } }));
+		assert.equal(out.decision?.error?.benchedUntil, new Date(deps.clock.now() + 90_000).toISOString());
+		const explicit = await e.route(input({ reason: "retry", state: out.state, failed: { provider: "zen", id: "mid", errorMessage: "429 Too Many Requests. Retry-After: 20" } }));
+		assert.equal(explicit.decision?.error?.benchedUntil, new Date(deps.clock.now() + 20_000).toISOString(), "the provider's own time wins");
+	});
+
 	it("retries the same member on a first overload", async () => {
 		const { e, state } = await started();
 		const out = await e.route(input({ reason: "retry", state, failed: { provider: "acme", id: "mid", errorMessage: "529 overloaded_error" } }));
