@@ -7,8 +7,10 @@ export interface AccountTag {
 	note?: string;
 }
 
-export interface PathPlaceRule {
-	path: string;
+/** A place rule has a path, a remote or both; when both are present both must hold. */
+export interface PlaceRuleEntry {
+	path?: string;
+	remote?: string;
 	zone: string;
 	note?: string;
 }
@@ -17,7 +19,7 @@ export interface GuardConfig {
 	zones: string[];
 	defaultZone: string;
 	accounts: AccountTag[];
-	places: PathPlaceRule[];
+	places: PlaceRuleEntry[];
 }
 
 export interface ConfigError {
@@ -155,28 +157,38 @@ function readTagZones(value: unknown, path: string, declared: (zone: string) => 
 	return zones.length === value.length ? zones : undefined;
 }
 
-function readPlaces(value: unknown, declared: (zone: string) => boolean, undeclared: Undeclared, errors: ConfigError[]): PathPlaceRule[] {
+function readPlaces(value: unknown, declared: (zone: string) => boolean, undeclared: Undeclared, errors: ConfigError[]): PlaceRuleEntry[] {
 	if (value === undefined) return [];
 	if (!Array.isArray(value)) {
 		errors.push({ path: "places", message: "must be an array" });
 		return [];
 	}
-	const places: PathPlaceRule[] = [];
+	const places: PlaceRuleEntry[] = [];
 	value.forEach((entry, index) => {
 		const path = `places[${index}]`;
 		if (!isObject(entry)) return void errors.push({ path, message: "must be an object" });
-		rejectUnknownFields(entry, ["path", "zone", "note"], path, errors);
+		rejectUnknownFields(entry, ["path", "remote", "zone", "note"], path, errors);
 		const note = readNote(entry, path, errors);
 		let rulePath: string | undefined;
-		if (entry.path === undefined) errors.push({ path, message: "needs a path" });
-		else if (!isName(entry.path)) errors.push({ path: `${path}.path`, message: "must be a non-empty string" });
-		else if (!entry.path.startsWith("/") && entry.path !== "~" && !entry.path.startsWith("~/")) errors.push({ path: `${path}.path`, message: "must be absolute or start with ~" });
-		else rulePath = entry.path;
+		if (entry.path === undefined && entry.remote === undefined) errors.push({ path, message: "needs a path or a remote" });
+		if (entry.path !== undefined) {
+			if (!isName(entry.path)) errors.push({ path: `${path}.path`, message: "must be a non-empty string" });
+			else if (!entry.path.startsWith("/") && entry.path !== "~" && !entry.path.startsWith("~/")) errors.push({ path: `${path}.path`, message: "must be absolute or start with ~" });
+			else rulePath = entry.path;
+		}
+		let remote: string | undefined;
+		if (entry.remote !== undefined) {
+			if (!isName(entry.remote)) errors.push({ path: `${path}.remote`, message: "must be a non-empty string" });
+			else remote = entry.remote;
+		}
 		let zone: string | undefined;
 		if (!isName(entry.zone)) errors.push({ path: `${path}.zone`, message: "must be a zone name" });
 		else if (!declared(entry.zone)) undeclared(`${path}.zone`, entry.zone);
 		else zone = entry.zone;
-		if (rulePath !== undefined && zone !== undefined) places.push({ path: rulePath, zone, ...note });
+		const conditionsValid = (entry.path === undefined || rulePath !== undefined) && (entry.remote === undefined || remote !== undefined);
+		if (conditionsValid && (rulePath !== undefined || remote !== undefined) && zone !== undefined) {
+			places.push({ ...(rulePath === undefined ? {} : { path: rulePath }), ...(remote === undefined ? {} : { remote }), zone, ...note });
+		}
 	});
 	return places;
 }

@@ -73,8 +73,15 @@ describe("parseConfig", () => {
 		assert.deepEqual(errorsOf({ zones: ["work", "unknown"], defaultZone: "work" }), ['account-guard.json: zones[1]: "unknown" is reserved and cannot be declared']);
 	});
 
-	it("rejects a place rule with no usable path", () => {
-		assert.deepEqual(errorsOf({ places: [{ zone: "work" }] }), ["account-guard.json: places[0]: needs a path"]);
+	it("accepts a place rule with a path, a remote or both", () => {
+		const result = parse({ places: [{ path: "/a", zone: "work" }, { remote: "*/Acme/*", zone: "work" }, { path: "/a", remote: "*/Acme/*", zone: "personal" }] });
+		assert.deepEqual(result.ok && result.config.places, [{ path: "/a", zone: "work" }, { remote: "*/Acme/*", zone: "work" }, { path: "/a", remote: "*/Acme/*", zone: "personal" }]);
+	});
+
+	it("rejects a place rule with no usable condition", () => {
+		assert.deepEqual(errorsOf({ places: [{ zone: "work" }] }), ["account-guard.json: places[0]: needs a path or a remote"]);
+		assert.deepEqual(errorsOf({ places: [{ remote: "", zone: "work" }] }), ["account-guard.json: places[0].remote: must be a non-empty string"]);
+		assert.deepEqual(errorsOf({ places: [{ path: "/a", remote: 3, zone: "work" }] }), ["account-guard.json: places[0].remote: must be a non-empty string"]);
 		assert.deepEqual(errorsOf({ places: [{ path: "relative/dir", zone: "work" }] }), ["account-guard.json: places[0].path: must be absolute or start with ~"]);
 	});
 

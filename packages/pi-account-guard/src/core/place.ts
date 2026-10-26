@@ -1,6 +1,7 @@
-import type { PathPlaceRule } from "./config.ts";
+import type { PlaceRuleEntry } from "./config.ts";
+import { normalizeRemoteUrl } from "./remote.ts";
 
-export type PlaceRule = Pick<PathPlaceRule, "path" | "zone">;
+export type PlaceRule = Pick<PlaceRuleEntry, "path" | "remote" | "zone">;
 
 /** Filesystem facts the matcher needs; the pi glue supplies the real ones. */
 export interface PathReader {
@@ -9,19 +10,53 @@ export interface PathReader {
 	realpath(path: string): string | undefined;
 }
 
-export interface PlaceZone {
-	zone: string;
-	/** Index of the deciding rule in file order; absent when the default zone applies. */
-	ruleIndex?: number;
-}
+/** The fetch URLs of every configured remote, or the reason git could not tell (DESIGN.md section 7). */
+export type RemoteUrls = { ok: true; urls: string[] } | { ok: false; reason: string };
+
+/** Reads the remotes of the place; the pi glue runs git, tests inject fakes. */
+export type RemoteReader = () => RemoteUrls;
+
+export type PlaceZone =
+	| {
+			ok: true;
+			zone: string;
+			/** Index of the deciding rule in file order; absent when the default zone applies. */
+			ruleIndex?: number;
+	  }
+	| { ok: false; reason: string };
 
 const GLOB_CHARACTERS = /[*?{]/;
 
-/** The first matching rule in file order decides; no match falls to the default zone. `placePath` must already be a real path. */
-export function resolvePlaceZone(placePath: string, rules: PlaceRule[], defaultZone: string, paths: PathReader): PlaceZone {
-	const index = rules.findIndex((rule) => compileRulePath(rule.path, paths)(placePath));
-	const rule = rules[index];
-	return rule ? { zone: rule.zone, ruleIndex: index } : { zone: defaultZone };
+/**
+ * The first matching rule in file order decides; no match falls to the default zone. `placePath` must already be a real path.
+ * `readRemotes` runs only when a rule's remote condition has to be checked, so a place that a path-only rule decides never calls git.
+ * When git fails and a rule with a remote condition could apply, the place is undecidable.
+ */
+export function resolvePlaceZone(placePath: string, rules: PlaceRule[], defaultZone: string, paths: PathReader, readRemotes: RemoteReader): PlaceZone {
+	let remotes: RemoteUrls | undefined;
+	const normalizedRemotes = (): RemoteUrls => (remotes ??= readNormalizedRemotes(readRemotes));
+	for (const [index, rule] of rules.entries()) {
+		if (rule.path !== undefined && !compileRulePath(rule.path, paths)(placePath)) continue;
+		if (rule.remote !== undefined) {
+			const known = normalizedRemotes();
+			if (!known.ok) return { ok: false, reason: known.reason };
+			const matches = compileRemote(rule.remote);
+			if (!known.urls.some(matches)) continue;
+		}
+		return { ok: true, zone: rule.zone, ruleIndex: index };
+	}
+	return { ok: true, zone: defaultZone };
+}
+
+function readNormalizedRemotes(readRemotes: RemoteReader): RemoteUrls {
+	const result = readRemotes();
+	return result.ok ? { ok: true, urls: result.urls.map(normalizeRemoteUrl) } : result;
+}
+
+/** Remote conditions are globs over `host/path`, matched case-insensitively. */
+function compileRemote(remote: string): (normalizedUrl: string) => boolean {
+	const pattern = new RegExp(`^${globSource(remote)}$`, "i");
+	return (normalizedUrl) => pattern.test(normalizedUrl);
 }
 
 /** Replaces the home directory prefix with `~` for display. */

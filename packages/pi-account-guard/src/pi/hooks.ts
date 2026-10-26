@@ -5,7 +5,7 @@ import { decide, type BlockCause, type Decision, type PlaceOutcome } from "../co
 import { logData } from "../core/block-dialog.ts";
 import { headlessBlockMessage } from "../core/messages.ts";
 import { applyOverrides, NO_OVERRIDES, releaseOnce, type Overrides } from "../core/overrides.ts";
-import { resolvePlaceZone } from "../core/place.ts";
+import { resolvePlaceZone, type RemoteUrls } from "../core/place.ts";
 import { accountOfModel } from "./account-of.ts";
 import { runInteractiveBlock, showOverrideFooter } from "./interactive-block.ts";
 
@@ -20,6 +20,8 @@ export interface GuardDeps {
 	readConfigText(path: string): string | undefined;
 	/** The real path, `undefined` when the path does not exist; may throw. */
 	realpath(path: string): string | undefined;
+	/** The fetch URLs of the remotes of the repository around `cwd`, or why git could not tell. */
+	readRemoteUrls(cwd: string): RemoteUrls;
 	writeStderr(text: string): void;
 	setExitCode(code: number): void;
 }
@@ -48,8 +50,9 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		if (!config.ok) return { ok: false, reason: "the config is invalid" };
 		const path = deps.realpath(cwd);
 		if (path === undefined) return { ok: false, reason: `cannot resolve the real path of ${cwd}` };
-		const { zone, ruleIndex } = resolvePlaceZone(path, config.config.places, config.config.defaultZone, deps);
-		return { ok: true, path, zone, ...(ruleIndex === undefined ? {} : { ruleIndex }) };
+		const resolved = resolvePlaceZone(path, config.config.places, config.config.defaultZone, deps, () => deps.readRemoteUrls(cwd));
+		if (!resolved.ok) return resolved;
+		return { ok: true, path, zone: resolved.zone, ...(resolved.ruleIndex === undefined ? {} : { ruleIndex: resolved.ruleIndex }) };
 	}
 
 	function currentPlace(cwd: string, config: ConfigResult): PlaceOutcome {

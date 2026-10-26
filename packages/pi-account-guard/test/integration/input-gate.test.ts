@@ -22,6 +22,7 @@ function rig(config?: unknown, overrides: Partial<GuardDeps> = {}): Rig {
 		configPath: CONFIG_PATH,
 		readConfigText: () => state.file.text,
 		realpath: (path) => state.links[path] ?? path,
+		readRemoteUrls: () => ({ ok: true, urls: [] }),
 		writeStderr: (text) => void state.stderr.push(text),
 		setExitCode: (code) => void state.exitCodes.push(code),
 		...overrides,

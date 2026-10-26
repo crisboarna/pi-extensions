@@ -37,6 +37,7 @@ function rig(fileText: string | undefined = JSON.stringify(config)) {
 		configPath: CONFIG_PATH,
 		readConfigText: () => file.text,
 		realpath: (path) => path,
+		readRemoteUrls: () => ({ ok: true, urls: [] }),
 		writeStderr: (text) => void stderr.push(text),
 		setExitCode: () => undefined,
 	});

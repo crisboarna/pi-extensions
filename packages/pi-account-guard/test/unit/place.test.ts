@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolvePlaceZone, type PathReader, type PlaceRule } from "../../src/core/place.ts";
+import { resolvePlaceZone, type PathReader, type PlaceRule, type RemoteReader } from "../../src/core/place.ts";
 
 /** A reader over a fake file system: `links` maps a path to its real path, `existing` lists real directories. */
 function reader(links: Record<string, string> = {}, existing: string[] = []): PathReader {
@@ -10,7 +10,20 @@ function reader(links: Record<string, string> = {}, existing: string[] = []): Pa
 	};
 }
 
-const zoneOf = (place: string, rules: PlaceRule[], paths: PathReader = reader()) => resolvePlaceZone(place, rules, "personal", paths);
+const noGit: RemoteReader = () => {
+	throw new Error("git must not run for path-only rules");
+};
+
+/** Resolves with path-only rules; the zone and the deciding rule, with git forbidden. */
+function zoneOf(place: string, rules: PlaceRule[], paths: PathReader = reader()) {
+	const { ok, ...resolved } = resolvePlaceZone(place, rules, "personal", paths, noGit);
+	assert.ok(ok);
+	return resolved as { zone: string; ruleIndex?: number };
+}
+
+const resolveWith = (rules: PlaceRule[], remotes: RemoteReader, place = "/srv/app") => resolvePlaceZone(place, rules, "personal", reader(), remotes);
+const remotesOf = (...urls: string[]): RemoteReader => () => ({ ok: true, urls });
+const gitFails: RemoteReader = () => ({ ok: false, reason: "git is not installed or not on PATH" });
 
 describe("resolvePlaceZone", () => {
 	it("falls to the default zone when no rule matches", () => {
@@ -95,5 +108,85 @@ describe("resolvePlaceZone", () => {
 		assert.deepEqual(zoneOf("/work/co/personal-fork/x", rules), { zone: "personal", ruleIndex: 0 });
 		assert.deepEqual(zoneOf("/work/co/api", rules), { zone: "work", ruleIndex: 1 });
 		assert.deepEqual(zoneOf("/work/elsewhere", rules), { zone: "other", ruleIndex: 2 });
+	});
+});
+
+describe("resolvePlaceZone with remote conditions", () => {
+	it("matches a remote-only rule against any remote of the place", () => {
+		const rules = [{ remote: "*/Acme/*", zone: "work" }];
+		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:Acme/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rules, remotesOf("https://github.com/me/fork.git", "git@github.com:Acme/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rules, remotesOf("https://github.com/me/fork.git")), { ok: true, zone: "personal" });
+	});
+
+	it("matches the ssh and https forms of one repository with the same rule", () => {
+		const rules = [{ remote: "github.com/Acme/api", zone: "work" }];
+		for (const url of ["git@github.com:Acme/api.git", "ssh://git@github.com/Acme/api.git", "https://github.com/Acme/api.git", "https://user:secret@github.com/Acme/api"]) {
+			assert.deepEqual(resolveWith(rules, remotesOf(url)), { ok: true, zone: "work", ruleIndex: 0 }, url);
+		}
+	});
+
+	it("matches remotes case-insensitively", () => {
+		assert.deepEqual(resolveWith([{ remote: "*/acme/*", zone: "work" }], remotesOf("git@GitHub.com:ACME/Api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+	});
+
+	it("matches * against one segment and ** against any depth", () => {
+		const one = resolveWith([{ remote: "gitlab.com/acme/*", zone: "work" }], remotesOf("https://gitlab.com/acme/team/api.git"));
+		assert.deepEqual(one, { ok: true, zone: "personal" });
+		const deep = resolveWith([{ remote: "gitlab.com/acme/**", zone: "work" }], remotesOf("https://gitlab.com/acme/team/api.git"));
+		assert.deepEqual(deep, { ok: true, zone: "work", ruleIndex: 0 });
+	});
+
+	it("requires both conditions of a combined rule", () => {
+		const rules = [{ path: "/srv", remote: "*/Acme/*", zone: "work" }];
+		const acme = remotesOf("git@github.com:Acme/api.git");
+		assert.deepEqual(resolveWith(rules, acme, "/srv/app"), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rules, acme, "/elsewhere/app"), { ok: true, zone: "personal" });
+		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:me/api.git"), "/srv/app"), { ok: true, zone: "personal" });
+	});
+
+	it("lets the first matching rule win across rule kinds", () => {
+		const rules = [
+			{ path: "/srv", remote: "*/me/*", zone: "personal" },
+			{ path: "/srv", zone: "work" },
+			{ remote: "*/Acme/*", zone: "other" },
+		];
+		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:me/site.git")), { ok: true, zone: "personal", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:Acme/api.git")), { ok: true, zone: "work", ruleIndex: 1 });
+		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:Acme/api.git"), "/elsewhere"), { ok: true, zone: "other", ruleIndex: 2 });
+	});
+
+	it("does not match remote rules for a place without remotes, while path rules still apply", () => {
+		const rules = [{ remote: "*/Acme/*", zone: "work" }, { path: "/srv", zone: "other" }];
+		assert.deepEqual(resolveWith(rules, remotesOf()), { ok: true, zone: "other", ruleIndex: 1 });
+		assert.deepEqual(resolveWith([rules[0]!], remotesOf()), { ok: true, zone: "personal" });
+	});
+
+	it("is undecidable when git fails and a rule with a remote condition applies", () => {
+		assert.deepEqual(resolveWith([{ remote: "*/Acme/*", zone: "work" }], gitFails), { ok: false, reason: "git is not installed or not on PATH" });
+		const combined = [{ path: "/srv", remote: "*/Acme/*", zone: "work" }];
+		assert.equal(resolveWith(combined, gitFails).ok, false);
+	});
+
+	it("lets a path-only rule that matches before any remote rule decide when git fails", () => {
+		const rules = [{ path: "/srv", zone: "work" }, { remote: "*/Acme/*", zone: "other" }];
+		assert.deepEqual(resolveWith(rules, gitFails), { ok: true, zone: "work", ruleIndex: 0 });
+	});
+
+	it("does not need git for a combined rule whose path misses", () => {
+		const rules = [{ path: "/other", remote: "*/Acme/*", zone: "work" }];
+		assert.deepEqual(resolveWith(rules, noGit), { ok: true, zone: "personal" });
+	});
+
+	it("is undecidable when git fails before a later path-only rule could decide", () => {
+		const rules = [{ remote: "*/Acme/*", zone: "other" }, { path: "/srv", zone: "work" }];
+		assert.equal(resolveWith(rules, gitFails).ok, false);
+	});
+
+	it("reads the remotes at most once per resolution", () => {
+		let reads = 0;
+		const counting: RemoteReader = () => (reads++, { ok: true, urls: ["git@github.com:me/x.git"] });
+		resolveWith([{ remote: "*/a/*", zone: "work" }, { remote: "*/b/*", zone: "work" }], counting);
+		assert.equal(reads, 1);
 	});
 });
