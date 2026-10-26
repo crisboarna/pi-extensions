@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { BUILTIN_QUESTIONS } from "../../src/classifier/questions.ts";
-import { type DoctorFacts, doctorLines } from "../../src/commands/doctor.ts";
+import { type DoctorFacts, doctorLines, footerShowsTier } from "../../src/commands/doctor.ts";
 import { runTour, TOUR_STEPS } from "../../src/commands/tour.ts";
 import { formatPreview, parseTryArgs } from "../../src/commands/try.ts";
 import { TYPED_ANSWERS } from "../../src/router/engine.ts";
@@ -100,6 +100,32 @@ const healthy: DoctorFacts = {
 	piUsage: true,
 	warnings: [],
 };
+
+describe("/tier doctor footer check", () => {
+	const powerline = { packages: ["npm:pi-powerline-footer"] };
+	it("counts pi's own footer and powerline presets that list extension statuses", () => {
+		assert.equal(footerShowsTier({}), true);
+		assert.equal(footerShowsTier(powerline), true);
+		for (const preset of ["default", "full", "nerd"]) assert.equal(footerShowsTier({ ...powerline, powerline: { preset } }), true, preset);
+		assert.equal(footerShowsTier({ ...powerline, powerline: "nerd" }), true);
+	});
+
+	it("warns when the preset, the layout or disabledSegments drop extension statuses", () => {
+		for (const preset of ["minimal", "compact", "ascii"]) assert.equal(footerShowsTier({ ...powerline, powerline: { preset } }), false, preset);
+		assert.equal(footerShowsTier({ ...powerline, powerline: "ascii" }), false);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { disabledSegments: ["cost", "extension_statuses"] } }), false);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { layout: { secondary: [] } } }), false);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { preset: "minimal", layout: { right: ["extension_statuses"] } } }), true);
+	});
+
+	it("counts a customItems entry for the tier key, named by statusKey or by id", () => {
+		const hidden = { preset: "minimal" };
+		assert.equal(footerShowsTier({ ...powerline, powerline: { ...hidden, customItems: [{ id: "t", statusKey: "tier" }] } }), true);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { ...hidden, customItems: [{ id: "tier" }] } }), true);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { ...hidden, customItems: [{ id: "tier", statusKey: "other" }] } }), false);
+		assert.equal(footerShowsTier({ ...powerline, powerline: { ...hidden, customItems: [{ id: "tier" }], disabledSegments: ["custom:tier"] } }), false);
+	});
+});
 
 describe("/tier doctor", () => {
 	it("reports a healthy setup", () => {

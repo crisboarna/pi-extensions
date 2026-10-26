@@ -76,8 +76,10 @@ describe("/tier doctor and /tier tour", () => {
 		assert.match(text, /✓ profile work: 1 tiers, 1 members/);
 	});
 
-	it("reports a classifier that does not answer and a missing footer", async () => {
-		const { session, tier } = await boot({ scenario: "fail" });
+	it("reports a classifier that does not answer and a powerline preset without extension statuses", async () => {
+		const { session, tier, agentDir } = await boot({ scenario: "fail" });
+		mkdirSync(agentDir, { recursive: true });
+		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: ["npm:pi-powerline-footer"], powerline: "minimal" }));
 		await tier("doctor");
 		assert.match(last(session), /✗ classifier local\/judge did not answer \(connection refused\)/);
 		assert.match(last(session), /! the footer does not show the tier/);

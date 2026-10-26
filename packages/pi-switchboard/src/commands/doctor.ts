@@ -61,7 +61,10 @@ function sessionLines(facts: DoctorFacts, out: Lines): void {
 	else if (facts.subagents.launchModeReason) out.warn.push(`! subagents use launch-time models: ${facts.subagents.launchModeReason}`);
 	else out.ok.push("✓ subagents are routed inside their children");
 	if (facts.footer) out.ok.push("✓ the footer shows the tier");
-	else out.warn.push('! the footer does not show the tier: add { "id": "tier", "statusKey": "tier" } to powerline.customItems (README: Footer)');
+	else
+		out.warn.push(
+			'! the footer does not show the tier: powerline leaves out extension statuses; add { "id": "tier", "statusKey": "tier" } to powerline.customItems (README: Footer)',
+		);
 	if (facts.quotaProviders.length > 0) {
 		if (facts.piUsage) out.ok.push(`✓ pi-usage provides quota for ${facts.quotaProviders.join(", ")}`);
 		else out.warn.push(`! quota strategies for ${facts.quotaProviders.join(", ")} without pi-usage: install @narumitw/pi-usage or give members a budget`);
@@ -79,7 +82,43 @@ export function doctorLines(facts: DoctorFacts): string[] {
 	return [`pi-switchboard doctor: ${summary}`, ...out.bad, ...out.warn, ...out.ok];
 }
 
-function readSettings(agentDir: string): { packages?: unknown[]; powerline?: { customItems?: Array<{ statusKey?: string }> } } {
+type PowerlineGroup = "left" | "right" | "secondary";
+type PowerlineSettings = {
+	preset?: string;
+	layout?: Partial<Record<PowerlineGroup, string[]>>;
+	disabledSegments?: string[];
+	customItems?: Array<{ id?: string; statusKey?: string }>;
+};
+/** The pi settings `/tier doctor` reads. */
+export type DoctorSettings = { packages?: unknown[]; powerline?: string | PowerlineSettings };
+
+/** The group that lists pi-powerline-footer's aggregate extension statuses in each preset that has it (pi-powerline-footer 0.20). */
+const POWERLINE_STATUS_GROUP: Record<string, PowerlineGroup> = { default: "secondary", full: "right", nerd: "right" };
+const STATUSES = "extension_statuses";
+
+/**
+ * Whether the footer shows the `tier` status. pi's own footer shows every
+ * extension status; so does pi-powerline-footer, through its extension statuses
+ * segment, unless the preset, `layout` or `disabledSegments` leave it out. A
+ * `customItems` entry for the key shows it in any case.
+ */
+export function footerShowsTier(settings: DoctorSettings): boolean {
+	const installed = (settings.packages ?? []).some((entry) => JSON.stringify(entry).includes("pi-powerline-footer"));
+	if (!installed) return true;
+	const powerline: PowerlineSettings = typeof settings.powerline === "string" ? { preset: settings.powerline } : (settings.powerline ?? {});
+	const disabled = new Set(powerline.disabledSegments ?? []);
+	const item = (powerline.customItems ?? []).find((entry) => (entry.statusKey ?? entry.id) === "tier");
+	if (item && !disabled.has(`custom:${item.id}`)) return true;
+	return !disabled.has(STATUSES) && listsStatuses(powerline);
+}
+
+function listsStatuses({ preset = "default", layout = {} }: PowerlineSettings): boolean {
+	if (Object.values(layout).some((segments) => segments?.includes(STATUSES))) return true;
+	const group = POWERLINE_STATUS_GROUP[preset];
+	return group !== undefined && layout[group] === undefined;
+}
+
+function readSettings(agentDir: string): DoctorSettings {
 	try {
 		return JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8"));
 	} catch {
@@ -132,7 +171,7 @@ export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext,
 		routingSelected: runtime.routingSelected,
 		blocked: runtime.blocked,
 		subagents: { enabled: config.subagents.enabled, launchModeReason: runtime.launchModeReason },
-		footer: (settings.powerline?.customItems ?? []).some((item) => item?.statusKey === "tier"),
+		footer: footerShowsTier(settings),
 		quotaProviders: quotaProviders(Object.values(config.profiles)),
 		piUsage: packages.some((entry) => entry.includes("pi-usage")),
 		warnings: [...config.warnings, ...runtime.environmentChecks(ctx)],

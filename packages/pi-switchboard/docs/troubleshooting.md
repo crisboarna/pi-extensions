@@ -9,7 +9,7 @@ Run `/tier doctor` first: it checks the setup and names the fix for each problem
 | LM Studio rejects the classifier model | An MLX build loads as a chat model | Use the GGUF build ([classifier setup](classifier-setup.md)) |
 | A classifier is "skipped: remote" | Its server is not on this machine, so it would receive request text | Set `"allowRemote": true` on that classifier, or use a local one |
 | Many fallbacks with a working classifier | The threshold is above what the classifier usually reaches | Lower `classifiers[].threshold`; check the histogram in `/tier report` |
-| The footer shows nothing | No `powerline.customItems` entry, or a physical model is selected | Add the [footer](footer.md) items; pick `switchboard/auto` in `/model` |
+| The footer shows nothing | A powerline preset without extension statuses and no `powerline.customItems` entry, or a physical model is selected | Add the [footer](footer.md) items; pick `switchboard/auto` in `/model` |
 | `switchboard inactive: no profiles configured` | No config, or every profile is invalid | Run `/tier init`, then `/tier validate` |
 | `Ctrl+Alt+W` does nothing (macOS) | The terminal does not send Option as Alt | Ghostty: `macos-option-as-alt`; or change `ui.navigator.shortcut` |
 | `/tier` prints nothing with `pi -p` | Print mode does not show notifications | Use the interactive TUI, or the `pi-switchboard` CLI |
