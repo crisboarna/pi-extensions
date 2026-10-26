@@ -1,10 +1,10 @@
-import { classify as systemOneClassify } from "@earendil-works/pi-ai/api/typesafe-system-one";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ClassifierProviderConfig } from "../config/types.ts";
 import type { Answers } from "../rules/types.ts";
 import { parseModelRef } from "../util/model-ref.ts";
 import type { ClassifyFn } from "./chain.ts";
 import { toWireQuestions } from "./questions.ts";
+import { classifySystemOne } from "./system-one.ts";
 import { isLocalUrl } from "./warmup.ts";
 
 /** pi-ai's API id for System One servers; any server answering POST <baseUrl>/systemone works. */
@@ -36,7 +36,7 @@ export function registerClassifierProviders(pi: ExtensionAPI, providers: readonl
 				cost: ZERO_COST,
 				contextWindow: 32_768,
 			})),
-			classifiers: { [SYSTEM_ONE_API]: { classify: systemOneClassify } },
+			classifiers: { [SYSTEM_ONE_API]: { classify: classifySystemOne } },
 		});
 	}
 	return warnings;

@@ -9,18 +9,19 @@
 //   by path. Tests may also use the root devDependencies.
 // - typebox is only aliased by pi for `typebox`, `typebox/value` and
 //   `typebox/compile`; any other subpath loads a second copy.
-// - Deep imports into pi's packages are listed in ALLOWED_HOST_SUBPATHS after
-//   checking that they load under pi, because pi does not alias every subpath.
+// - From pi's packages, only the entry points pi maps for installed extensions
+//   may be imported (PI_MAPPED_SUBPATHS, copied from pi's extension loader).
+//   pi installs packages without their peers, so any other subpath fails to
+//   load for users even though it resolves in this repository.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { HOST_PROVIDED, listPackages, type Manifest, ROOT, readJson, reporter } from "../lib/repo.ts";
 
 const TYPEBOX_ALIASED = new Set(["typebox", "typebox/value", "typebox/compile", "@sinclair/typebox", "@sinclair/typebox/value", "@sinclair/typebox/compile"]);
-const ALLOWED_HOST_SUBPATHS = new Set([
-	// Used by pi-switchboard's hosted-classifier adapter; loads under pi 1.4 (verified live on the main session).
-	"@earendil-works/pi-ai/api/typesafe-system-one",
-]);
+const PI_MAPPED_SUBPATHS = new Set(
+	["@earendil-works", "@mariozechner"].flatMap((scope) => ["compat", "models", "oauth", "providers/all"].map((entry) => `${scope}/pi-ai/${entry}`)),
+);
 const SOURCE = /\.(ts|mts|cts|mjs|js)$/;
 const BUILTINS = new Set(builtinModules.filter((name) => !name.startsWith("_")));
 
@@ -77,8 +78,10 @@ for (const pkg of listPackages()) {
 			if (name === pkg.manifest.name) continue;
 			if ((name === "typebox" || name === "@sinclair/typebox") && !TYPEBOX_ALIASED.has(specifier))
 				report.fail(`${at}: "${specifier}" is not aliased by pi; use typebox, typebox/value or typebox/compile`);
-			if (HOST_PROVIDED.includes(name) && specifier !== name && !TYPEBOX_ALIASED.has(specifier) && !ALLOWED_HOST_SUBPATHS.has(specifier))
-				report.fail(`${at}: deep import "${specifier}" into a pi package; verify it loads under pi, then add it to ALLOWED_HOST_SUBPATHS`);
+			if (HOST_PROVIDED.includes(name) && specifier !== name && !TYPEBOX_ALIASED.has(specifier) && !PI_MAPPED_SUBPATHS.has(specifier))
+				report.fail(
+					`${at}: "${specifier}" is not an entry point pi maps for installed extensions, so it fails to load for users; use the package's main entry or carry the code`,
+				);
 			if (declared.has(name)) continue;
 			if (isTest && rootDev.has(name)) continue;
 			report.fail(`${at}: "${name}" is not declared in packages/${pkg.dir}/package.json${isTest ? " or the root devDependencies" : ""}`);

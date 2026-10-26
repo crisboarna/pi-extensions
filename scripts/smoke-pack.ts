@@ -5,23 +5,48 @@
 // node_modules, where Node will not strip TypeScript types and only the
 // `files` list exists. For every package this script:
 //   1. packs it and installs the tarball into an empty temporary project;
-//   2. loads each pi.extensions entry through jiti (pi's loader), with pi's
-//      packages linked in as pi provides them, and expects a default export
-//      function;
+//   2. installs it into a fresh pi agent folder the way `pi install npm:` does
+//      (pi's own packages are peers that pi never installs; it maps only their
+//      main entry points), starts the repository's pi on that folder in RPC
+//      mode, and fails on any extension load error;
 //   3. runs each bin with --help and expects exit code 0.
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { HOST_PROVIDED, listPackages, ROOT, reporter } from "./lib/repo.ts";
+import { join } from "node:path";
+import { listPackages, ROOT, reporter } from "./lib/repo.ts";
 
 const report = reporter("smoke-pack");
-const require = createRequire(join(ROOT, "package.json"));
-const { createJiti } = (await import(require.resolve("jiti"))) as typeof import("jiti");
 const only = process.argv.slice(2);
-// pi provides its own packages to extensions; link the root copies in as installed peers.
-const hostPackages = HOST_PROVIDED.map((name): [string, string] => [name, join(ROOT, "node_modules", name)]).filter(([, path]) => existsSync(path));
+const PI_CLI = join(ROOT, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
+
+/** Starts pi on `agentDir`, waits until it answers over RPC, and returns what it printed to stderr. */
+function startPi(agentDir: string, cwd: string): Promise<{ stderr: string; answered: boolean }> {
+	return new Promise((resolve) => {
+		const child = spawn(process.execPath, [PI_CLI, "--mode", "rpc", "--no-session", "--offline"], {
+			cwd,
+			env: { ...process.env, HOME: cwd, PI_CODING_AGENT_DIR: agentDir, PI_OFFLINE: "1" },
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		let stderr = "";
+		let answered = false;
+		const finish = () => {
+			clearTimeout(timer);
+			child.kill();
+			resolve({ stderr, answered });
+		};
+		const timer = setTimeout(finish, 60_000);
+		child.stderr.on("data", (data) => (stderr += data));
+		child.stdout.on("data", (data) => {
+			if (String(data).includes('"command":"get_commands"')) {
+				answered = true;
+				finish();
+			}
+		});
+		child.on("exit", finish);
+		child.stdin.write(`${JSON.stringify({ id: "smoke", type: "get_commands" })}\n`);
+	});
+}
 
 for (const { manifest } of listPackages()) {
 	if (manifest.private === true || (only.length > 0 && !only.includes(manifest.name))) continue;
@@ -33,28 +58,23 @@ for (const { manifest } of listPackages()) {
 				encoding: "utf8",
 			}),
 		);
-		writeFileSync(join(work, "package.json"), JSON.stringify({ name: "smoke", private: true, type: "module" }));
-		execFileSync("npm", ["install", "--ignore-scripts", "--omit=peer", "--no-audit", "--no-fund", "--min-release-age=3", join(work, pack.filename)], {
-			cwd: work,
-			stdio: "pipe",
-		});
-		const installed = join(work, "node_modules", ...manifest.name.split("/"));
-		for (const [name, path] of hostPackages) {
-			const link = join(work, "node_modules", name);
-			if (existsSync(link)) continue;
-			mkdirSync(dirname(link), { recursive: true });
-			symlinkSync(path, link, "dir");
-		}
+		const agentDir = join(work, "agent");
+		const npmDir = join(agentDir, "npm");
+		mkdirSync(npmDir, { recursive: true });
+		writeFileSync(join(npmDir, "package.json"), JSON.stringify({ name: "pi-packages", private: true }));
+		execFileSync(
+			"npm",
+			["install", "--ignore-scripts", "--omit=peer", "--legacy-peer-deps", "--no-audit", "--no-fund", "--min-release-age=3", join(work, pack.filename)],
+			{ cwd: npmDir, stdio: "pipe" },
+		);
+		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [`npm:${manifest.name}`] }));
+		const installed = join(npmDir, "node_modules", ...manifest.name.split("/"));
 
-		const jiti = createJiti(join(work, "index.js"), { moduleCache: false });
-		for (const entry of manifest.pi?.extensions ?? []) {
-			try {
-				const mod = await jiti.import<{ default?: unknown }>(join(installed, entry));
-				const factory = mod?.default ?? mod;
-				if (typeof factory !== "function") report.fail(`${manifest.name}: ${entry} has no default export function`);
-			} catch (error) {
-				report.fail(`${manifest.name}: ${entry} does not load from the tarball: ${String(error).split("\n")[0]}`);
-			}
+		if ((manifest.pi?.extensions ?? []).length > 0) {
+			const { stderr, answered } = await startPi(agentDir, work);
+			const failures = stderr.split("\n").filter((line) => /Failed to load extension|Error:/u.test(line));
+			for (const line of failures) report.fail(`${manifest.name}: pi could not load it from the tarball: ${line.trim()}`);
+			if (!answered && failures.length === 0) report.fail(`${manifest.name}: pi did not start with it installed (no RPC answer in 60 s)`);
 		}
 		for (const [name, target] of Object.entries(manifest.bin ?? {})) {
 			const run = spawnSync(process.execPath, [join(installed, target), "--help"], { cwd: work, encoding: "utf8" });
@@ -65,4 +85,6 @@ for (const { manifest } of listPackages()) {
 	}
 }
 
-report.finish("make the published files self-sufficient: no TypeScript executed by Node from node_modules, every runtime import declared.");
+report.finish(
+	"make the published files self-sufficient: every runtime import declared in dependencies, and from pi's packages only the entry points pi maps (see scripts/checks/imports.ts).",
+);

@@ -1,10 +1,9 @@
-import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import type { ClassifyFn } from "../classifier/chain.ts";
 import { runClassifierChain } from "../classifier/chain.ts";
 import { toWireQuestions } from "../classifier/questions.ts";
+import { classifySystemOne } from "../classifier/system-one.ts";
 import { loadConfig } from "../config/load.ts";
 import type { ClassifierProviderConfig } from "../config/types.ts";
 import type { DecisionEntry } from "../record/types.ts";
@@ -12,57 +11,36 @@ import { evaluateRules } from "../rules/evaluate.ts";
 import type { Answers } from "../rules/types.ts";
 import { parseModelRef } from "../util/model-ref.ts";
 
-/** pi-ai from the installed pi release (`PI_PACKAGE_DIR` or the newest release). */
-function piAiRoot(): string | undefined {
-	const fromEnv = process.env.PI_PACKAGE_DIR ? join(process.env.PI_PACKAGE_DIR, "..", "pi-ai") : undefined;
-	if (fromEnv && existsSync(fromEnv)) return fromEnv;
-	const releases = join(homedir(), ".pi", "agent", "install", "releases");
-	try {
-		const latest = readdirSync(releases)
-			.filter((name) => /^\d+\.\d+\.\d+$/u.test(name))
-			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-			.at(-1);
-		const root = latest ? join(releases, latest, "node_modules", "@earendil-works", "pi-ai") : undefined;
-		return root && existsSync(root) ? root : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
 /**
- * A ClassifyFn for use outside pi: local System One servers are called through
- * pi-ai's own client; other classifiers need pi's credentials and are reported
- * as unavailable here.
+ * A ClassifyFn for use outside pi: local System One servers are called
+ * directly; other classifiers need pi's credentials and are reported as
+ * unavailable here.
  */
-async function standaloneClassify(providers: readonly ClassifierProviderConfig[]): Promise<ClassifyFn | undefined> {
-	const root = piAiRoot();
-	if (!root) return undefined;
-	const module = (await import(pathToFileURL(join(root, "dist", "api", "typesafe-system-one.js")).href)) as {
-		classify?: (...args: unknown[]) => Promise<Record<string, unknown>>;
-	};
-	const classify = module.classify;
-	if (!classify) return undefined;
+function standaloneClassify(providers: readonly ClassifierProviderConfig[]): ClassifyFn {
 	return async (model, request, options) => {
 		const ref = parseModelRef(model);
 		const provider = providers.find((p) => p.name === ref?.provider);
 		if (!ref || !provider)
 			return { stopReason: "error", errorMessage: `${model} is not a local System One classifier; re-run inside pi with /tier explain` };
-		const result = await classify(
+		const result = await classifySystemOne(
 			{
 				id: ref.id,
+				name: ref.id,
 				provider: provider.name,
 				api: "typesafe-system-one",
 				baseUrl: provider.baseUrl,
 				type: "classifier",
+				input: ["text"],
 				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-			},
-			{ state: request.state, questions: toWireQuestions(request.questions) },
+				contextWindow: 32_768,
+			} as never,
+			{ state: request.state as never, questions: toWireQuestions(request.questions) as never },
 			{ apiKey: provider.apiKey ?? "local", signal: options.signal },
 		);
 		return {
-			stopReason: (result.stopReason as "stop" | "error" | "aborted") ?? "error",
-			...(result.answers ? { answers: result.answers as Answers } : {}),
-			...(typeof result.errorMessage === "string" ? { errorMessage: result.errorMessage } : {}),
+			stopReason: result.stopReason,
+			...(Object.keys(result.answers).length > 0 ? { answers: result.answers as unknown as Answers } : {}),
+			...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
 		};
 	};
 }
@@ -70,8 +48,7 @@ async function standaloneClassify(providers: readonly ClassifierProviderConfig[]
 /** Re-runs the classifier chain on each decision's recorded evidence with the current config. */
 export async function reclassifyDecisions(decisions: readonly DecisionEntry[]): Promise<string[]> {
 	const { config } = loadConfig({ agentDir: join(homedir(), ".pi", "agent"), cwd: process.cwd(), projectTrusted: false });
-	const classify = await standaloneClassify(config.classifierProviders);
-	if (!classify) return ["reclassify: could not find pi-ai in the installed pi release"];
+	const classify = standaloneClassify(config.classifierProviders);
 	const lines = ["", "Reclassified with the current config:"];
 	for (const decision of decisions) {
 		const state = decision.evidence?.state;

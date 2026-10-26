@@ -7,3 +7,6 @@ coverage/
 .env
 .env.*
 .cache/
+
+# Scene homes kept by MEDIA_KEEP when debugging terminal media
+packages/*/media/.debug/

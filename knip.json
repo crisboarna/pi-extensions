@@ -26,5 +26,11 @@
 			"project": ["src/**/*.ts", "bin/**/*.mjs", "test/**/*.ts"]
 		}
 	},
-	"ignoreDependencies": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"]
+	"ignoreDependencies": [
+		"@earendil-works/pi-agent-core",
+		"@earendil-works/pi-ai",
+		"@earendil-works/pi-coding-agent",
+		"@earendil-works/pi-tui",
+		"pi-subagents"
+	]
 }

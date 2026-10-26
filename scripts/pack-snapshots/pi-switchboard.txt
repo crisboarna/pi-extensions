@@ -17,6 +17,7 @@ src/classifier/evidence.ts
 src/classifier/pi-adapter.ts
 src/classifier/questions.ts
 src/classifier/redact.ts
+src/classifier/system-one.ts
 src/classifier/warmup.ts
 src/cli/inspector.ts
 src/cli/main.ts

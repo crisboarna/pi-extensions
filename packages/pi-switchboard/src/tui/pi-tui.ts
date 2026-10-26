@@ -55,6 +55,17 @@ function mainTranscript(ctx: ExtensionContext): MirrorLine[] {
 	return out;
 }
 
+/**
+ * Draws overlay rows inside a rounded border, each padded to the full width:
+ * an overlay only covers the cells it writes, so a short row would let the
+ * transcript behind it show through.
+ */
+export function framed(lines: string[], width: number, border: (text: string) => string): string[] {
+	const inner = Math.max(1, width - 4);
+	const edge = "─".repeat(Math.max(0, width - 2));
+	return [border(`╭${edge}╮`), ...lines.map((line) => `${border("│")} ${truncateToWidth(line, inner, "…", true)} ${border("│")}`), border(`╰${edge}╯`)];
+}
+
 /** Opens the navigator overlay (DESIGN.md 11.5). */
 export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Promise<void> {
 	if (!ctx.hasUI) {
@@ -93,7 +104,7 @@ export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Pr
 										height,
 										style,
 									);
-					return lines.map((line) => truncateToWidth(line, width));
+					return framed(lines, width, (text) => theme.fg("border", text));
 				},
 				handleInput(data: string): void {
 					if (matchesKey(data, "escape")) {

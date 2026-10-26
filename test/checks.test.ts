@@ -191,6 +191,15 @@ describe("imports", () => {
 		assert.match(result.output, /"typebox\/type" is not aliased by pi/);
 		assert.match(result.output, /"\.\/nope" does not exist/);
 	});
+	test("allows only the pi-ai entry points pi maps for installed extensions", () => {
+		const peers = { peerDependencies: { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-ai": "*" } };
+		const mapped = 'import { getModel } from "@earendil-works/pi-ai/models";\nvoid getModel;\n';
+		const ok = run("imports", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest(peers)), "packages/pi-demo/src/helper.ts": mapped }));
+		assert.ok(ok.ok, ok.output);
+		const deep = 'import { classify } from "@earendil-works/pi-ai/api/typesafe-system-one";\nvoid classify;\n';
+		const result = run("imports", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest(peers)), "packages/pi-demo/src/helper.ts": deep }));
+		assert.match(result.output, /"@earendil-works\/pi-ai\/api\/typesafe-system-one" is not an entry point pi maps/);
+	});
 	test("lets tests use the root devDependencies", () => {
 		const result = run("imports", repo({ "packages/pi-demo/test/a.test.ts": 'import ts from "typescript";\nvoid ts;\n' }));
 		assert.ok(result.ok, result.output);
