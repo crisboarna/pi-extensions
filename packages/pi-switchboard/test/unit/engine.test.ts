@@ -143,6 +143,58 @@ describe("engine: user turns", () => {
 	});
 });
 
+describe("engine: in-flight leases", () => {
+	const limited: RawConfig = {
+		...RAW,
+		profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: [{ model: "acme/mid", maxConcurrency: 1 }, "zen/mid"], strategy: "ordered" }, deep: { rank: 3, members: ["acme/big"] } }, fallbackTier: "standard" } },
+	};
+	const leasesOn = (store: MemoryHealthStore, key: string) => store.read().members[key]?.leases?.length ?? 0;
+
+	it("holds a lease while a request streams and releases it when the request ends", async () => {
+		const { e, deps } = engine();
+		await e.route(input());
+		e.beginRequest();
+		assert.equal(leasesOn(deps.store as MemoryHealthStore, "acme/mid"), 1);
+		e.beginRequest();
+		assert.equal(leasesOn(deps.store as MemoryHealthStore, "acme/mid"), 1, "a new request replaces the lease");
+		e.endRequest();
+		assert.equal(leasesOn(deps.store as MemoryHealthStore, "acme/mid"), 0);
+		e.endRequest();
+	});
+
+	it("lets another process see the request in flight and respect maxConcurrency", async () => {
+		const first = engine({ raw: limited });
+		await first.e.route(input());
+		first.e.beginRequest();
+		const second = engine({ raw: limited });
+		second.deps.store = first.deps.store;
+		const out = await second.e.route(input());
+		assert.deepEqual([out.provider, out.id], ["zen", "mid"], "acme/mid is at its concurrency limit");
+		first.e.endRequest();
+		const third = engine({ raw: limited });
+		third.deps.store = first.deps.store;
+		assert.equal((await third.e.route(input())).provider, "acme", "free again once the request ended");
+	});
+
+	it("selects launch-mode members with the tier's strategy and health, and leases them", async () => {
+		const raw: RawConfig = { ...RAW, profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: ["acme/mid", "zen/mid", "acme-2/mid"], strategy: { name: "round-robin", granularity: "request" } }, deep: { rank: 3, members: ["acme/big"] } } } } };
+		const { e, deps } = engine({ raw });
+		const profile = e.config.profiles.main;
+		assert.ok(profile);
+		const picks = [0, 1, 2, 3].map((task) => {
+			const selected = e.selectForLaunch(profile, "standard", task, undefined);
+			assert.ok(selected.ok);
+			return selected.ok ? selected.member.key : "";
+		});
+		assert.deepEqual(picks, ["acme/mid", "zen/mid", "acme-2/mid", "acme/mid"], "round robin across launches");
+		assert.equal(leasesOn(deps.store as MemoryHealthStore, "zen/mid"), 1, "each launch holds a lease");
+		// The first member is cooling down: launches skip it.
+		e.prepareFailover({ provider: "acme", id: "mid" }, "usage limit reached");
+		const skipped = e.selectForLaunch(profile, "standard", 9, undefined);
+		assert.ok(skipped.ok && skipped.member.provider !== "acme");
+	});
+});
+
 describe("engine: remote classifiers", () => {
 	it("never sends request text to a remote classifier without allowRemote, and falls back with the reason", async () => {
 		const seen: string[] = [];
@@ -243,6 +295,12 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		const out = await e.route(input({ reason: "retry", state: first.state, failed: { provider: "acme", id: "small", errorMessage: "Codex error: The usage limit has been reached" } }));
 		assert.equal(out.decision?.kind, "borrowed");
 		assert.deepEqual([out.provider, out.id], ["zen", "mid"], "acme/mid is on the same exhausted account");
+	});
+
+	it("records a usage limit even when the engine has no current route", () => {
+		const { e, deps } = engine();
+		assert.deepEqual(e.prepareFailover({ provider: "acme", id: "mid" }, "The usage limit has been reached. Try again in ~20 min."), { errorClass: "quota", canFailOver: false });
+		assert.ok((deps.store.read().members["provider:acme"]?.cooldownUntil ?? 0) > deps.clock.now());
 	});
 
 	it("does not offer a failover when every model is on the exhausted account", async () => {

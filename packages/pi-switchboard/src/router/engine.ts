@@ -9,7 +9,7 @@ import type { Signals } from "../rules/types.ts";
 import { accountSiblings, type Subscription } from "../selection/accounts.ts";
 import { classifyError, type ErrorClass, parseRetryAt, parseRetryHeaders } from "../selection/errors.ts";
 import type { HealthStore } from "../selection/health.ts";
-import { activeCooldown, borrowOrder, type CandidateView, cooldownKey, cooldownKeys, DEFAULT_FAILURE_CONFIG, type FailureConfig, type MemberInfo, modelKey, type QuotaView, recordFailure, recordSuccess, selectMember } from "../selection/select.ts";
+import { acquireLease, activeCooldown, borrowOrder, type CandidateView, cooldownKey, cooldownKeys, DEFAULT_FAILURE_CONFIG, releaseLease, type FailureConfig, type MemberInfo, modelKey, type QuotaView, recordFailure, recordSuccess, selectMember } from "../selection/select.ts";
 import type { CustomSelect } from "../selection/strategies.ts";
 import { decideUserTier, escalate, escalationTrigger } from "../tiering/decide.ts";
 import { formatModelRef, shiftThinking, THINKING_LEVELS, type ThinkingLevel } from "../util/model-ref.ts";
@@ -115,6 +115,30 @@ export class ExhaustedError extends Error {
 	}
 }
 
+/** A request that streams for longer than this is assumed dead; its lease expires. */
+const REQUEST_LEASE_TTL_MS = 10 * 60_000;
+/** Launch-mode children can run long and may be in the background; the lease expires on its own. */
+export const LAUNCH_LEASE_TTL_MS = 15 * 60_000;
+
+/** A claim on a model for requests in flight, shared across processes through the health file. */
+export interface LeaseRef {
+	key: string;
+	id: string;
+}
+
+export type LaunchSelection =
+	| {
+			ok: true;
+			tier: Tier;
+			member: Member;
+			/** The provider the model is served from (account affinity applied). */
+			provider: string;
+			borrowedFrom?: string;
+			selection: DecisionEntry["selection"];
+			lease: LeaseRef;
+	  }
+	| { ok: false; earliest?: { member: string; at: number } };
+
 const MEDIUM = THINKING_LEVELS.indexOf("medium");
 const MAX_RECENT = 50;
 
@@ -167,6 +191,7 @@ export class SwitchboardEngine {
 	originModel?: string;
 	readonly recent: DecisionEntry[] = [];
 	private lastRoute?: { profile: string; tier: string; member: Member; provider: string };
+	private requestLease?: LeaseRef;
 	private readonly pending = new Map<string, { errorClass: ErrorClass; retryAt?: number; message?: string }>();
 
 	constructor(deps: EngineDeps) {
@@ -225,6 +250,50 @@ export class SwitchboardEngine {
 		}
 	}
 
+	/** Takes an in-flight lease on a configured member's model. */
+	takeLease(member: Pick<Member, "provider" | "id">, ttlMs: number): LeaseRef {
+		const ref = { key: modelKey(member), id: newId("l_", this.deps.clock, this.deps.rng) };
+		acquireLease(this.deps.store, ref.key, ref.id, this.deps.clock.now(), ttlMs);
+		return ref;
+	}
+
+	releaseLease(ref: LeaseRef): void {
+		releaseLease(this.deps.store, ref.key, ref.id, this.deps.clock.now());
+	}
+
+	/** Marks the routed model as streaming a request; a later request replaces the lease. */
+	beginRequest(): void {
+		this.endRequest();
+		if (this.lastRoute) this.requestLease = this.takeLease(this.lastRoute.member, REQUEST_LEASE_TTL_MS);
+	}
+
+	/** The request finished (answered, failed or aborted). */
+	endRequest(): void {
+		if (!this.requestLease) return;
+		this.releaseLease(this.requestLease);
+		this.requestLease = undefined;
+	}
+
+	/**
+	 * Picks the member a launch-mode subagent task will run on: the tier's
+	 * strategy over healthy members, borrowing within the agent's tier limits,
+	 * with an in-flight lease taken so parallel launches see each other.
+	 */
+	selectForLaunch(profile: Profile, tierName: string, task: number, agent: string | undefined): LaunchSelection {
+		const pick = this.pickInTier(profile, tierName, undefined, task, { bounds: this.agentLimits(agent, profile) });
+		if ("exhausted" in pick) return { ok: false, ...(pick.earliest ? { earliest: pick.earliest } : {}) };
+		const selection = this.selectionRecord(pick);
+		return {
+			ok: true,
+			tier: pick.tier,
+			member: pick.member,
+			provider: this.physical(pick.member).provider,
+			...(pick.borrowedFrom ? { borrowedFrom: pick.borrowedFrom } : {}),
+			...(selection ? { selection } : {}),
+			lease: this.takeLease(pick.member, LAUNCH_LEASE_TTL_MS),
+		} as LaunchSelection;
+	}
+
 	/** Called on `after_provider_response`: remembers the provider's retry time for the routed model. */
 	noteResponse(status: number, headers: Record<string, string>): void {
 		if (status < 400 || !this.lastRoute) return;
@@ -245,10 +314,19 @@ export class SwitchboardEngine {
 		const key = modelKey(failed);
 		const retryAt = this.pending.get(key)?.retryAt ?? parseRetryAt(errorMessage, this.deps.clock.now());
 		this.pending.set(key, { errorClass, ...(retryAt ? { retryAt } : {}), ...(errorMessage ? { message: errorMessage } : {}) });
+		const now = this.deps.clock.now();
+		// pi will not retry this error, so when nothing can take over it is recorded now and the next turn skips the account.
+		const recordUnretried = () => {
+			this.pending.delete(key);
+			recordFailure(this.deps.store, { member: `model:${key}`, model: `model:${key}`, provider: `provider:${failed.provider}` }, errorClass, retryAt, now, { ...DEFAULT_FAILURE_CONFIG, ...this.deps.failure });
+		};
 		const route = this.lastRoute;
 		const profile = route ? this.config.profiles[route.profile] : undefined;
-		if (!route || !profile) return { errorClass, canFailOver: false };
-		const now = this.deps.clock.now();
+		if (!route || !profile) {
+			// No current route (for example right after a reload): nothing to fail over to, but the failure still counts.
+			recordUnretried();
+			return { errorClass, canFailOver: false };
+		}
 		const data = this.deps.store.read();
 		// The failure is not recorded yet, so treat its scope as cooling too.
 		const failedProvider = errorClass === "quota" || errorClass === "auth" ? failed.provider : undefined;
@@ -263,11 +341,7 @@ export class SwitchboardEngine {
 			const tier = profile.tiers.find((t) => t.name === name);
 			return tier ? healthy(tier) : false;
 		}) || this.siblingFor(failed) !== undefined;
-		if (!canFailOver) {
-			// pi will not retry this error, so record it now: the next turn skips the account.
-			this.pending.delete(key);
-			recordFailure(this.deps.store, { member: `model:${key}`, model: `model:${key}`, provider: `provider:${failed.provider}` }, errorClass, retryAt, now, { ...DEFAULT_FAILURE_CONFIG, ...this.deps.failure });
-		}
+		if (!canFailOver) recordUnretried();
 		return { errorClass, canFailOver };
 	}
 

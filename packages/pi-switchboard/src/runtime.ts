@@ -9,7 +9,7 @@ import { dataDir, loadConfig } from "./config/load.ts";
 import type { Config } from "./config/types.ts";
 import { footerText, renderTemplate } from "./record/footer.ts";
 import { CONTROL_TYPE, type ControlEntry, DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
-import { ExhaustedError, type ModelChoice, type RouterState, SwitchboardEngine } from "./router/engine.ts";
+import { ExhaustedError, type LeaseRef, type ModelChoice, type RouterState, SwitchboardEngine } from "./router/engine.ts";
 import { agentFromMessages, catalogView, conflictingRouter, engineCatalog, estimateTokens, queryPlanPhase, type RegistryLike, StateFile, virtualModelIds } from "./router/pi-glue.ts";
 import { readMultiPassSubscriptions } from "./selection/accounts.ts";
 import { FileHealthStore, type HealthStore, MemoryHealthStore } from "./selection/health.ts";
@@ -17,7 +17,7 @@ import { ledgerQuota, UsageLedger } from "./selection/ledger.ts";
 import { type CustomSelect, loadCustomStrategy } from "./selection/strategies.ts";
 import { routeLaunch } from "./subagents/launch.ts";
 import { createPinLookup, registerChildExtension, type RequiredRegistration } from "./subagents/pi-subagents.ts";
-import { extractTasks, resultLinks } from "./subagents/tasks.ts";
+import { extractTasks, isAsyncLaunch, resultLinks } from "./subagents/tasks.ts";
 import { attachBinding, matchLaunch, readBinding, type SwitchboardBinding, taskDigest } from "./subagents/binding.ts";
 import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
 import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
@@ -79,6 +79,7 @@ export class Runtime {
 	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
 	launchModeReason?: string;
 	private readonly launches = new Map<string, DecisionEntry[]>();
+	private readonly launchLeases = new Map<string, LeaseRef[]>();
 	/** The entry file pi-subagents loads into children. */
 	entryPath = "";
 	readonly listeners = new Set<(decision: DecisionEntry) => void>();
@@ -307,10 +308,17 @@ export class Runtime {
 			});
 		}
 		this.launches.set(toolCallId, result.decisions);
+		if (result.leases.length) this.launchLeases.set(toolCallId, result.leases);
 		for (const decision of result.decisions) this.record(decision, ctx);
 	}
 
 	onSubagentResult(toolCallId: string, details: unknown): void {
+		// Children still running in the background keep their lease until it expires.
+		const leases = this.launchLeases.get(toolCallId);
+		if (leases && !isAsyncLaunch(details)) {
+			for (const lease of leases) this.engine.releaseLease(lease);
+			this.launchLeases.delete(toolCallId);
+		}
 		const decisions = this.launches.get(toolCallId);
 		if (!decisions) return;
 		this.launches.delete(toolCallId);
@@ -405,7 +413,10 @@ export class Runtime {
 			}
 			throw error;
 		}
-		if (request.reason !== "direct") this.noteAccount(out.provider);
+		if (request.reason !== "direct") {
+			this.noteAccount(out.provider);
+			this.engine.beginRequest();
+		}
 		const model = ctx.modelRegistry.find(out.provider, out.id);
 		if (!model) throw new Error(`pi-switchboard: ${out.provider}/${out.id} is not in pi's model catalog`);
 		if (out.decision) this.record(out.decision, ctx);
@@ -471,6 +482,7 @@ export class Runtime {
 		errorMessage?: string;
 		usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
 	}, ctx: ExtensionContext): { errorMessage: string } | undefined {
+		this.engine.endRequest();
 		if (!this.isVirtual(ctx.model?.provider)) return undefined;
 		const model = { provider: message.provider, id: message.model };
 		if (message.stopReason === "error") {
@@ -545,6 +557,9 @@ export class Runtime {
 	};
 
 	shutdown(): void {
+		this.engine.endRequest();
+		for (const leases of this.launchLeases.values()) for (const lease of leases) this.engine.releaseLease(lease);
+		this.launchLeases.clear();
 		this.cancelAutoContinue();
 		this.live?.finish(this.live.status.status === "error" ? "error" : "done");
 		this.warmup.stop();

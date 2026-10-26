@@ -3,7 +3,7 @@ import { buildEvidence, type PlanPhase } from "../classifier/evidence.ts";
 import type { Profile } from "../config/types.ts";
 import type { DecisionEntry } from "../record/types.ts";
 import { evaluateRules } from "../rules/evaluate.ts";
-import type { SwitchboardEngine } from "../router/engine.ts";
+import type { LeaseRef, SwitchboardEngine } from "../router/engine.ts";
 import { chooseProfile } from "../router/profiles.ts";
 import { decideLaunchTier } from "../tiering/decide.ts";
 import { formatModelRef, type ThinkingLevel } from "../util/model-ref.ts";
@@ -39,6 +39,8 @@ export interface LaunchContext {
 export interface LaunchResult {
 	decisions: DecisionEntry[];
 	routed: number;
+	/** In-flight leases taken for launch-mode tasks; release them when the call finishes. */
+	leases: LeaseRef[];
 }
 
 function skipped(ctx: LaunchContext, task: LaunchTask, profile: Profile | undefined, reason: string, runner: Runner = "unknown"): DecisionEntry {
@@ -70,11 +72,12 @@ type Runner = "native" | "external" | "unknown";
 export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask[]): Promise<LaunchResult> {
 	const { engine } = ctx;
 	const config = engine.config;
-	if (!config.subagents.enabled || tasks.length === 0) return { decisions: [], routed: 0 };
+	if (!config.subagents.enabled || tasks.length === 0) return { decisions: [], routed: 0, leases: [] };
 	const { choice } = engine.resolveProfile(ctx.parentVirtualId ?? "auto");
 	const subProfile = config.subagents.profile ? chooseProfile({ config, fromModel: config.subagents.profile, cwd: engine.deps.cwd, home: engine.deps.home }) : undefined;
 	const profile = subProfile?.profile ?? choice?.profile;
 
+	const leases: LeaseRef[] = [];
 	const decisions = await Promise.all(
 		tasks.map(async (task): Promise<DecisionEntry> => {
 			const pinned = await ctx.pinLookup(task.agent, task.task);
@@ -117,16 +120,22 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 
 			let model: DecisionEntry["model"];
 			let written: string;
+			let chosen = tier;
+			let selection: DecisionEntry["selection"] | undefined;
+			let borrowedFrom: string | undefined;
 			if (ctx.mode === "child") {
 				written = `${config.virtualModel.provider}/${profile.name}.${tier.name}:${ctx.parentThinking}`;
 				model = { provider: config.virtualModel.provider, id: `${profile.name}.${tier.name}`, thinking: ctx.parentThinking };
 			} else {
-				const member = tier.members.find((m) => m.enabled) ?? tier.members[0];
-				if (!member) return skipped(ctx, task, profile, `tier ${tier.name} has no member`);
-				const physical = engine.deps.accountFor ? engine.deps.accountFor(member.provider, member.id) : member.provider;
-				const thinking = member.thinking ?? ctx.parentThinking;
-				written = formatModelRef({ provider: physical, id: member.id, thinking });
-				model = { provider: physical, id: member.id, thinking };
+				const selected = engine.selectForLaunch(profile, tier.name, task.index, task.agent);
+				if (!selected.ok) return skipped(ctx, task, profile, `every model of ${tier.name} and its neighbours is cooling down${selected.earliest ? `; earliest reset ${new Date(selected.earliest.at).toLocaleTimeString()}` : ""}`, runner);
+				leases.push(selected.lease);
+				chosen = selected.tier;
+				selection = selected.selection;
+				borrowedFrom = selected.borrowedFrom;
+				const thinking = selected.member.thinking ?? ctx.parentThinking;
+				written = formatModelRef({ provider: selected.provider, id: selected.member.id, thinking });
+				model = { provider: selected.provider, id: selected.member.id, thinking };
 			}
 			task.setModel(written);
 			const why = outcome?.fallback
@@ -155,7 +164,8 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 					: {}),
 				...(chain?.ok ? { answers: chain.answers } : {}),
 				...(outcome ? { rules: { ruleset: profile.rulesetName, matched: outcome.ruleIndex, gate: outcome.gate, floors: outcome.floors } } : {}),
-				tier: { candidate: tierTarget, chosen: tier.name, rank: tier.rank, why },
+				tier: { candidate: tierTarget, chosen: chosen.name, rank: chosen.rank, why: borrowedFrom ? `${why}; borrowed from ${chosen.name} because every ${borrowedFrom} member is unavailable` : why, ...(borrowedFrom ? { borrowedFrom } : {}) },
+				...(selection ? { selection } : {}),
 				model,
 				switch: { cacheMiss: false },
 				subagent: {
@@ -164,11 +174,11 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 					toolCallId: ctx.toolCallId,
 					mode: ctx.mode,
 					runner,
-					launchTier: tier.name,
+					launchTier: chosen.name,
 					...(limits?.maxTier ? { maxTier: limits.maxTier } : {}),
 				},
 			};
 		}),
 	);
-	return { decisions, routed: decisions.filter((d) => d.subagent?.mode !== "skipped").length };
+	return { decisions, routed: decisions.filter((d) => d.subagent?.mode !== "skipped").length, leases };
 }

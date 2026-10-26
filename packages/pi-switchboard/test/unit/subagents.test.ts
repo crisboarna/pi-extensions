@@ -6,7 +6,7 @@ import type { Answers } from "../../src/rules/types.ts";
 import { type EngineDeps, SwitchboardEngine } from "../../src/router/engine.ts";
 import { MemoryHealthStore } from "../../src/selection/health.ts";
 import { type LaunchContext, routeLaunch } from "../../src/subagents/launch.ts";
-import { extractTasks, resultLinks } from "../../src/subagents/tasks.ts";
+import { extractTasks, isAsyncLaunch, resultLinks } from "../../src/subagents/tasks.ts";
 import { attachBinding, BINDING_NAMESPACE, matchLaunch, readBinding, taskDigest } from "../../src/subagents/binding.ts";
 import { runnerOf } from "../../src/subagents/pi-subagents.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -86,6 +86,12 @@ describe("extractTasks", () => {
 		assert.deepEqual(extractTasks({ workflow: "scripts/flow.js" }), []);
 	});
 
+	it("tells background launches from finished ones", () => {
+		assert.equal(isAsyncLaunch({ asyncId: "a1", results: [] }), true);
+		assert.equal(isAsyncLaunch({ runId: "r", results: [{}] }), false);
+		assert.equal(isAsyncLaunch(undefined), false);
+	});
+
 	it("reads child run links from a tool result", () => {
 		assert.deepEqual(resultLinks({ runId: "r", results: [{ index: 1, sessionFile: "/s.jsonl", model: "p/m" }, {}] }), [
 			{ index: 1, runId: "r", sessionFile: "/s.jsonl", model: "p/m" },
@@ -137,6 +143,30 @@ describe("routeLaunch", () => {
 		const input = { agent: "worker", task: "rename foo" };
 		await routeLaunch(ctx({ mode: "launch" }), extractTasks(input));
 		assert.equal((input as Record<string, unknown>).model, "acme/mid:medium", "depth 1 is not shallow, so the middle tier");
+	});
+
+	it("runs the tier's strategy in launch mode, spreads parallel tasks and holds leases", async () => {
+		const rr: RawConfig = { ...RAW, profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: ["acme/mid", "zen/mid"], strategy: { name: "round-robin", granularity: "request" } }, deep: { rank: 3, members: ["acme/big"] } } } } };
+		const { engine, ctx } = setup(() => "implement");
+		engine.deps.config = normalizeConfig(rr);
+		const input = { tasks: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }, { agent: "c", task: "z" }] };
+		const result = await routeLaunch(ctx({ mode: "launch" }), extractTasks(input));
+		assert.deepEqual(input.tasks.map((t) => (t as Record<string, unknown>).model), ["acme/mid:medium", "zen/mid:medium", "acme/mid:medium"]);
+		assert.equal(result.leases.length, 3);
+		for (const lease of result.leases) engine.releaseLease(lease);
+		assert.equal(engine.deps.store.read().members["acme/mid"]?.leases?.length, 0);
+	});
+
+	it("skips a launch-mode task when its whole tier and neighbours are cooling down", async () => {
+		const { engine, ctx } = setup(() => "implement");
+		for (const model of ["acme/small", "acme/mid", "acme/big"]) {
+			const [provider = "", id = ""] = model.split("/");
+			engine.prepareFailover({ provider, id }, "usage limit reached");
+		}
+		const input = { agent: "worker", task: "build it" };
+		const result = await routeLaunch(ctx({ mode: "launch" }), extractTasks(input));
+		assert.equal((input as Record<string, unknown>).model, undefined);
+		assert.match(result.decisions[0]?.subagent?.skipped ?? "", /cooling down/u);
 	});
 
 	it("honours /tier pin --subagents without classifying", async () => {

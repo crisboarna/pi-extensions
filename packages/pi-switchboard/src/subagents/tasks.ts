@@ -100,6 +100,11 @@ export function extractTasks(input: unknown): LaunchTask[] {
 	];
 }
 
+/** Whether a `subagent` result describes children still running in the background. */
+export function isAsyncLaunch(details: unknown): boolean {
+	return isObject(details) && (str(details.asyncId) !== undefined || str(details.asyncDir) !== undefined);
+}
+
 /** Child run ids and session files from a `subagent` tool result, by task index. */
 export function resultLinks(details: unknown): Array<{ index: number; runId?: string; sessionFile?: string; model?: string }> {
 	if (!isObject(details)) return [];
