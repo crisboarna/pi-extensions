@@ -59,9 +59,7 @@ export function decideUserTier(input: UserTierInput): TierDecision {
 	}
 	if (!input.outcome || input.outcome.fallback) {
 		const candidate = input.outcome?.tier ?? profile.fallbackTier;
-		const why = input.outcome
-			? `confidence ${input.outcome.gate.confidence.toFixed(2)} below ${input.outcome.gate.threshold}`
-			: (input.classifierFailure ?? "no classifier answer");
+		const why = input.outcome ? lowConfidence(input.outcome) : (input.classifierFailure ?? "no classifier answer");
 		const tier = previous ? maxTier(previous, candidate, tiers) : candidate;
 		const held = previous !== undefined && tier === previous && tier !== candidate;
 		return {
@@ -82,6 +80,12 @@ export function decideUserTier(input: UserTierInput): TierDecision {
 		return { tier: candidate, kind: "classified", why: `lowered from ${previous} after ${downVotes} lower turns`, candidate, downVotes: 0 };
 	}
 	return { tier: previous, kind: "held", why: `held ${previous}: ${downVotes} of ${profile.hysteresis.downTurns} lower turns`, candidate, downVotes };
+}
+
+/** Why an unsure answer fell back, and which tier the matched rule wanted. */
+function lowConfidence(outcome: RuleOutcome): string {
+	const below = `confidence ${outcome.gate.confidence.toFixed(2)} below ${outcome.gate.threshold}`;
+	return outcome.ruleTier === outcome.tier ? below : `${below}; rule ${outcome.ruleIndex + 1} wanted ${outcome.ruleTier}`;
 }
 
 export interface AgentLimits {

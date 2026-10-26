@@ -64,10 +64,10 @@ export function footerText(
 ): string | undefined {
 	if (state.off) return "switchboard off";
 	if (state.inactive) return `switchboard inactive: ${state.inactive}`;
-	if (!decision) return undefined;
+	const modes = [state.pinned ? `pinned ${state.pinned}` : "", state.dryRun ? "dry-run" : ""].filter(Boolean);
+	// Before the first decision there is nothing to show but a pin or dry-run the user just set.
+	if (!decision) return modes.length ? `switchboard · ${modes.join(" · ")}` : undefined;
 	const base = renderTemplate(template, footerValues(decision, { ...(state.switches !== undefined ? { switches: state.switches } : {}) }));
-	const markers = [state.pinned ? `pinned ${state.pinned}` : "", state.dryRun ? "dry-run" : "", decision.kind === "fallback" ? "fallback" : ""].filter(
-		Boolean,
-	);
+	const markers = [...modes, decision.kind === "fallback" ? "fallback" : ""].filter(Boolean);
 	return markers.length ? `${base} · ${markers.join(" · ")}` : base;
 }

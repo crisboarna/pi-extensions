@@ -108,7 +108,7 @@ export function proposeConfig(models: readonly CatalogModel[], options: ProposeO
 	const currentProvider = options.current?.slice(0, options.current.indexOf("/"));
 	const defaultProfile = currentProvider && profiles[profileName(currentProvider)] ? profileName(currentProvider) : Object.keys(profiles)[0];
 	return {
-		$schema: "https://github.com/crisboarna/pi-switchboard/schema/pi-switchboard.schema.json",
+		$schema: "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/schema/pi-switchboard.schema.json",
 		version: 1,
 		...(options.classifierProviders?.length ? { classifierProviders: options.classifierProviders } : {}),
 		classifiers: options.classifiers ?? [],

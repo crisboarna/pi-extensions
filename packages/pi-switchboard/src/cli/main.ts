@@ -1,7 +1,7 @@
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { summarize } from "../record/describe.ts";
+import { responseCount, summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
 import { liveChildMirror, liveDirOf } from "../timeline/mirror.ts";
 import { aggregate, readEntries, type Timeline, timelineFromFile } from "../timeline/parse.ts";
@@ -143,7 +143,7 @@ export async function main(argv: string[]): Promise<number> {
 			for (const [name, rows] of totals) {
 				lines.push(`by ${name}:`);
 				for (const [k, v] of [...rows.entries()].sort((a, b) => b[1].cost - a[1].cost))
-					lines.push(`  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
+					lines.push(`  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${responseCount(v.requests)}`);
 			}
 			process.stdout.write(`${lines.join("\n")}\n`);
 			return 0;

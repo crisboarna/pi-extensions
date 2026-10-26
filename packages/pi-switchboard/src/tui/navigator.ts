@@ -47,6 +47,11 @@ function clock(ms: number): string {
 }
 
 /** Builds rows from the main session's latest decision and the children's live status files. */
+/** The tier a child was launched on, from a tier-pinned model such as `switchboard/work.standard`, before its first request. */
+function launchTier(launchModel: string | undefined): string | undefined {
+	return /^[^/]+\/[^/.]+\.([\w-]+)$/u.exec(launchModel ?? "")?.[1];
+}
+
 export function buildRows(
 	main: { decision?: DecisionEntry; running: boolean; tokensIn: number; tokensOut: number; cost: number },
 	children: readonly LiveStatus[],
@@ -74,7 +79,9 @@ export function buildRows(
 			key: child.session,
 			label: child.agent ?? "subagent",
 			status: child.status,
-			...((child.tier ?? decision?.tier.chosen) ? { tier: child.tier ?? decision?.tier.chosen } : {}),
+			...((child.tier ?? decision?.tier.chosen ?? launchTier(child.launchModel))
+				? { tier: child.tier ?? decision?.tier.chosen ?? launchTier(child.launchModel) }
+				: {}),
 			...(child.model ? { model: child.model } : {}),
 			turn: child.turn,
 			...(child.currentTool ? { tool: child.currentTool } : {}),

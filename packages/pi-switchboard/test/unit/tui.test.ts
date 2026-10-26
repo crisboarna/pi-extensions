@@ -62,6 +62,15 @@ describe("navigator", () => {
 		assert.equal(exact[1]?.tier, "deep");
 	});
 
+	it("shows a starting child's tier from its tier-pinned launch model", () => {
+		const { agent: _agent, ...unnamed } = child("c3", "scout", "running", start);
+		const starting: LiveStatus = { ...unnamed, launchModel: "switchboard/work.standard" };
+		const physical: LiveStatus = { ...starting, session: "c4", launchModel: "acme/small" };
+		const [, pinned, plain] = buildRows({ running: false, tokensIn: 0, tokensOut: 0, cost: 0 }, [starting, physical], []);
+		assert.deepEqual([pinned?.label, pinned?.tier], ["subagent", "standard"]);
+		assert.equal(plain?.tier, undefined);
+	});
+
 	it("builds a main row and one row per child, joined to launch decisions", () => {
 		assert.deepEqual(
 			rows.map((r) => [r.label, r.status, r.tier]),

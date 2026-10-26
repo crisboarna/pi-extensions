@@ -88,6 +88,15 @@ describe("summarize", () => {
 		});
 		assert.equal(routed, "⇄ task 1 · scout · work=plan (0.40) · fallback · mid → mid");
 	});
+
+	it("shows the tier a dry-run request would have used next to the baseline that ran", () => {
+		const { subagent: _subagent, ...main } = full;
+		const dry = { ...main, kind: "dry-run" as const, switch: { cacheMiss: false } };
+		const would = summarize({ ...dry, tier: { candidate: "light", chosen: "mid", rank: 2, why: "dry-run routes to the baseline tier" } });
+		assert.equal(would, "⇄ task 1 · work=plan (0.40) · dry-run · would use light · mid → mid:high");
+		const same = summarize({ ...dry, tier: { candidate: "mid", chosen: "mid", rank: 2, why: "dry-run routes to the baseline tier" } });
+		assert.ok(!same.includes("would use"));
+	});
 });
 
 describe("explain", () => {
@@ -116,6 +125,13 @@ describe("explain", () => {
 		assert.ok(!text.includes("floor 3"));
 	});
 
+	it("says a catch-all rule has no confidence gate instead of an empty one", () => {
+		const rules = { ...full.rules!, gate: { ...full.rules!.gate, referenced: [] } };
+		const text = explain({ ...full, rules }).join("\n");
+		assert.ok(text.includes("rules: custom rule 1; no confidence gate"), text);
+		assert.ok(!text.includes("on []"));
+	});
+
 	it("keeps a minimal decision short", () => {
 		const lines = explain({ ...minimal, error: { class: "auth", message: "no key" }, budget: [] });
 		assert.deepEqual(lines.slice(1), ["profile: (none) (default)", "tier: - → -: no profile matches", "model: /:", "error: auth: no key"]);
@@ -130,6 +146,8 @@ describe("footer", () => {
 		assert.equal(footerValues(minimal).account, undefined);
 		assert.equal(footerText("{tier}", full, { pinned: "deep", dryRun: true }), "mid↑ · pinned deep · dry-run · fallback");
 		assert.equal(footerText("{tier}", undefined, {}), undefined);
+		assert.equal(footerText("{tier}", undefined, { pinned: "@top" }), "switchboard · pinned @top", "a pin shows before the first decision");
+		assert.equal(footerText("{tier}", undefined, { dryRun: true }), "switchboard · dry-run");
 		assert.equal(footerText("{tier}", full, { inactive: "no classifier" }), "switchboard inactive: no classifier");
 	});
 });

@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://github.com/crisboarna/pi-switchboard/schema/pi-switchboard.schema.json",
+	"$id": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/schema/pi-switchboard.schema.json",
 	"title": "pi-switchboard configuration",
 	"description": "Profiles of tiered models, the classifier that picks a tier, and how a model is selected within a tier. See DESIGN.md section 7.",
 	"type": "object",

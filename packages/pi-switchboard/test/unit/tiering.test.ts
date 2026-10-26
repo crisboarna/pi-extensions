@@ -57,6 +57,12 @@ describe("decideUserTier", () => {
 		assert.equal(failed.kind, "fallback");
 	});
 
+	it("says which tier the matched rule wanted when an unsure answer falls back", () => {
+		const unsure = { ...outcome("standard", true), ruleTier: "deep", ruleIndex: 1 };
+		assert.equal(decideUserTier({ profile, state: { downVotes: 0 }, outcome: unsure }).why, "confidence 0.50 below 0.8; rule 2 wanted deep");
+		assert.equal(decideUserTier({ profile, state: { downVotes: 0 }, outcome: outcome("standard", true) }).why, "confidence 0.50 below 0.8");
+	});
+
 	it("honours pin and dry-run", () => {
 		assert.equal(decideUserTier({ profile, state: { downVotes: 0 }, outcome: outcome("light"), pin: "@top" }).tier, "deep");
 		const dry = decideUserTier({ profile, state: { downVotes: 0 }, outcome: outcome("deep"), dryRun: true });

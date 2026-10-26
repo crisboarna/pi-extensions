@@ -74,6 +74,8 @@ describe("engine preview", () => {
 		assert.match(typed.join("\n"), /answers: work=plan \(0\.95\), depth=1\.00, risky=no \(0\.10\) \[typed answers\]/);
 		assert.match(typed.join("\n"), /rule: builtin rule \d, gate 0\.95 vs 0\.8 passed/);
 		assert.deepEqual(formatPreview("x", undefined, false), ['/tier try: nothing would be routed for "x"']);
+		const catchAll = formatPreview("x", await e.preview("x", { answers: answers("implement") }), true).join("\n");
+		assert.match(catchAll, /rule: builtin rule \d, no confidence gate/);
 	});
 
 	it("says when switchboard is inactive and when the gate fails", async () => {

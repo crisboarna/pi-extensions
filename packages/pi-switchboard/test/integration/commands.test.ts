@@ -142,7 +142,7 @@ describe("/tier health, report and budget", () => {
 		const text = last(session);
 		assert.match(text, /Session: 2 routed responses, \$0\.25/);
 		assert.match(text, /By tier:\n {2}standard: \$0\.25, 1340 tokens, 2 responses/);
-		assert.match(text, /By model:\n {2}zen\/mid: \$0\.25, 820 tokens, 1 responses\n {2}acme\/mid: \$0\.0040, 520 tokens, 1 responses/);
+		assert.match(text, /By model:\n {2}zen\/mid: \$0\.25, 820 tokens, 1 response\n {2}acme\/mid: \$0\.0040, 520 tokens, 1 response/);
 		assert.match(text, /Calibration: 2 classified, 0 fallbacks \(0%\)/);
 		assert.match(text, /≥0\.9: 2/);
 	});

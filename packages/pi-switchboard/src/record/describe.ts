@@ -18,11 +18,25 @@ export function summarize(decision: DecisionEntry): string {
 	const work = decision.answers?.work;
 	if (work) parts.push(answerText("work", work));
 	if (decision.kind !== "classified") parts.push(decision.kind);
+	// Dry-run's point is the tier a request would have used; the baseline tier is what ran.
+	if (decision.kind === "dry-run" && decision.tier.candidate && decision.tier.candidate !== decision.tier.chosen)
+		parts.push(`would use ${decision.tier.candidate}`);
 	const model = decision.model.id ? `${decision.model.id}${decision.model.thinking ? `:${decision.model.thinking}` : ""}` : "";
 	const target = decision.tier.chosen ? `${decision.tier.chosen}${decision.tier.borrowedFrom ? " (borrowed)" : ""} → ${model}` : decision.tier.why;
 	parts.push(target + (decision.selection && !decision.selection.kept ? ` (${decision.selection.strategy})` : ""));
 	if (decision.switch.cacheMiss) parts.push("cache miss");
 	return `⇄ ${parts.join(" · ")}`;
+}
+
+/** "1 response", "2 responses". */
+export function responseCount(n: number): string {
+	return `${n} ${n === 1 ? "response" : "responses"}`;
+}
+
+/** The confidence gate of the matched rule; a catch-all rule reads no answer with a confidence, so has none. */
+function gateText(gate: NonNullable<DecisionEntry["rules"]>["gate"]): string {
+	if (gate.referenced.length === 0) return "no confidence gate";
+	return `gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} on [${gate.referenced.join(", ")}] ${gate.passed ? "passed" : "failed"}`;
 }
 
 /** The full explanation for `/tier explain` and expanded TUI entries. */
@@ -50,9 +64,7 @@ export function explain(decision: DecisionEntry): string[] {
 		);
 	if (decision.rules) {
 		const { gate } = decision.rules;
-		lines.push(
-			`rules: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}; gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} on [${gate.referenced.join(", ")}] ${gate.passed ? "passed" : "failed"}`,
-		);
+		lines.push(`rules: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}; ${gateText(gate)}`);
 		for (const floor of decision.rules.floors.filter((f) => f.applied))
 			lines.push(`  floor ${floor.index + 1}: at least ${floor.atLeast}${floor.raised ? " (raised)" : ""}`);
 	}

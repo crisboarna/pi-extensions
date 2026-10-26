@@ -89,7 +89,11 @@ export function formatPreview(text: string, decision: DecisionEntry | undefined,
 	if (decision.rules) {
 		const gate = decision.rules.gate;
 		lines.push(
-			`rule: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}, gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} ${gate.passed ? "passed" : "failed, so the fallback tier"}`,
+			`rule: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}, ${
+				gate.referenced.length === 0
+					? "no confidence gate"
+					: `gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} ${gate.passed ? "passed" : "failed, so the fallback tier"}`
+			}`,
 		);
 	}
 	lines.push(`tier: ${decision.tier.chosen} (${decision.tier.why})`);

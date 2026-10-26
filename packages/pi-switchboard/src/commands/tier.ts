@@ -1,6 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "../config/load.ts";
-import { explain, summarize } from "../record/describe.ts";
+import { explain, responseCount, summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
 import { catalogView, type RegistryLike } from "../router/pi-glue.ts";
 import type { Runtime } from "../runtime.ts";
@@ -185,7 +185,7 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 						}
 						return [...map.entries()]
 							.sort((a, b) => b[1].cost - a[1].cost)
-							.map(([k, v]) => `  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
+							.map(([k, v]) => `  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${responseCount(v.requests)}`);
 					};
 					const classified = decisions.filter((d) => d.rules);
 					const fallbacks = decisions.filter((d) => d.kind === "fallback").length;

@@ -45,6 +45,12 @@ describe("auto-tiering", () => {
 		);
 	});
 
+	it("points a proposed config at the schema this package publishes", () => {
+		const schema = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "schema", "pi-switchboard.schema.json"), "utf8")) as { $id: string };
+		assert.equal(proposeConfig(models).$schema, schema.$id);
+		assert.match(schema.$id, /crisboarna\/pi-extensions\/main\/packages\/pi-switchboard\/schema\//u);
+	});
+
 	it("proposes a profile per provider plus a mixed profile, skipping extra accounts", () => {
 		const config = proposeConfig(models, { current: "zen/zen-large", isAccount: (p) => p === "acme-2" });
 		assert.deepEqual(Object.keys(config.profiles ?? {}), ["acme", "llama-cpp", "zen", "all"]);
