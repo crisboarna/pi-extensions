@@ -13,6 +13,9 @@ import {
 	queryPlanPhase,
 	type RegistryLike,
 } from "../../src/router/pi-glue.ts";
+import { keepEventLoopAlive } from "../support/keep-alive.ts";
+
+keepEventLoopAlive();
 
 const MODELS = [
 	{ provider: "acme", id: "mid", contextWindow: 128_000, cost: { input: 2, output: 8 } },

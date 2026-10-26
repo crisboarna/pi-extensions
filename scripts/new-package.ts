@@ -37,7 +37,7 @@ const files: Record<string, string> = {
 		homepage: `https://github.com/crisboarna/pi-extensions/tree/main/packages/${name}#readme`,
 		bugs: { url: "https://github.com/crisboarna/pi-extensions/issues" },
 		publishConfig: { access: "public", provenance: true },
-		engines: { node: ">=24" },
+		engines: { node: (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { engines: { node: string } }).engines.node },
 		pi: { extensions: ["./src/index.ts"] },
 		files: ["src", "README.md", "LICENSE"],
 		peerDependencies: { "@earendil-works/pi-coding-agent": "*" },

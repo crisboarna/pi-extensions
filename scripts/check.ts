@@ -15,6 +15,7 @@ const GATES = [
 	{ name: "text", fast: true, command: node("scripts/checks/text.ts") },
 	{ name: "file-sizes", fast: true, command: node("scripts/checks/file-sizes.ts") },
 	{ name: "links", fast: true, command: node("scripts/checks/links.ts") },
+	{ name: "licenses", fast: true, command: node("scripts/checks/licenses.ts") },
 	{ name: "biome", fast: true, command: bin("biome", "check", "--error-on-warnings", ".") },
 	{ name: "typecheck", fast: true, command: bin("tsc", "-p", "tsconfig.json") },
 	{ name: "markdown", fast: false, command: bin("markdownlint-cli2") },

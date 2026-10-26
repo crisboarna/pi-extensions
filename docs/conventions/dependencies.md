@@ -15,3 +15,9 @@
 - Dependabot proposes updates weekly, after a 7-day cooldown. Review the changelog of anything that reaches users before merging.
 - Known vulnerabilities in dev-only packages that come from pi itself are fixed by updating pi, not with `overrides`, unless an advisory affects this repository's tooling directly.
 - Never run `npm audit fix --force`.
+
+## Licences
+
+Every package here is MIT. Every dependency in `package-lock.json`, runtime or dev, must be under a permissive licence: MIT, ISC, BSD, Apache-2.0, 0BSD, BlueOak, CC0, Unlicense or the Python licences. `scripts/checks/licenses.ts` reads the licence npm recorded for each one and fails on anything else, including a missing licence.
+
+Tools that are not npm dependencies are used only to build and check, and nothing from them is published: the Docker images (gitleaks, actionlint and zizmor are MIT, knip is ISC, Playwright is Apache-2.0, ffmpeg is LGPL or GPL), and the IBM Plex and JetBrains Mono fonts (SIL Open Font License), which only appear as rendered pixels in `media/`. Do not ship the font files or ffmpeg binaries in a package.

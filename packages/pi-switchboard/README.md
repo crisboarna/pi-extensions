@@ -17,7 +17,7 @@ Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs t
 pi install npm:@crisboarna/pi-switchboard
 ```
 
-Restart pi. Requires Node 24 or later and pi 1.4 or later.
+Restart pi. Requires Node 22.19 or later and pi 1.4 or later.
 
 ## Try it first
 

@@ -5,7 +5,7 @@
 // read, provenance on publish, and pi's host-provided packages declared as
 // "*" peers. Pi aliases those modules at runtime; an installed copy puts a
 // second instance of the same module in one process.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { HOST_PROVIDED, listPackages, type Manifest, REPOSITORY_URL, ROOT, readJson, reporter, SCOPE } from "../lib/repo.ts";
 
@@ -17,6 +17,17 @@ const root = readJson<Manifest>(join(ROOT, "package.json"));
 if (root.private !== true) report.fail("root package.json must be private");
 for (const field of ["dependencies", "peerDependencies", "optionalDependencies"] as const) {
 	if (root[field]) report.fail(`root package.json must not declare ${field}; use devDependencies`);
+}
+
+// Root engines.node is the oldest Node the packages support, and CI runs the
+// tests on exactly that version, so the claim is always tested.
+const floor = /^>=(\d+\.\d+\.\d+)$/.exec(root.engines?.node ?? "")?.[1];
+if (!floor) report.fail(`root engines.node must be ">=x.y.z", the oldest Node the packages support (found "${root.engines?.node}")`);
+else {
+	const verifyPath = join(ROOT, ".github", "workflows", "verify.yml");
+	const verify = existsSync(verifyPath) ? readFileSync(verifyPath, "utf8") : "";
+	if (!new RegExp(`^\\s*node-version: ${floor.replaceAll(".", "\\.")}(\\s|$)`, "m").test(verify))
+		report.fail(`.github/workflows/verify.yml must run the tests on Node ${floor} (node-version: ${floor}), the floor in root engines.node`);
 }
 
 for (const { dir, path, manifest: m } of listPackages()) {
@@ -40,7 +51,7 @@ for (const { dir, path, manifest: m } of listPackages()) {
 	need(m.publishConfig?.provenance === true, "publishConfig.provenance must be true");
 	need(
 		m.engines?.node === root.engines?.node,
-		`engines.node must be "${root.engines?.node}", the Node version the repository tests on (found "${m.engines?.node}")`,
+		`engines.node must be "${root.engines?.node}", the oldest Node the repository tests on (found "${m.engines?.node}")`,
 	);
 	need(Array.isArray(m.files) && m.files.length > 0, "files must list what is published");
 	need(existsSync(join(path, "README.md")), "README.md is required");

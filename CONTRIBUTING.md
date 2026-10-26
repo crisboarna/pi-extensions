@@ -2,7 +2,7 @@
 
 ## Setup
 
-Node 24 (the version in `.node-version`, which CI uses), npm 11.10 or later, Docker (knip, gitleaks, actionlint and zizmor run in pinned images), and commit signing:
+Node 24 for development (the version in `.node-version`; the packages support Node 22.19 and later, and CI tests both), npm 11.10 or later, Docker (knip, gitleaks, actionlint and zizmor run in pinned images), and commit signing:
 
 ```bash
 git config commit.gpgsign true

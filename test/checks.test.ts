@@ -27,7 +27,7 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 	homepage: "https://github.com/crisboarna/pi-extensions/tree/main/packages/pi-demo#readme",
 	bugs: { url: "https://github.com/crisboarna/pi-extensions/issues" },
 	publishConfig: { access: "public", provenance: true },
-	engines: { node: ">=24" },
+	engines: { node: ">=22.19.0" },
 	pi: { extensions: ["./src/index.ts"] },
 	files: ["src", "README.md", "LICENSE"],
 	peerDependencies: { "@earendil-works/pi-coding-agent": "*" },
@@ -39,7 +39,7 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const CLEAN: Record<string, string> = {
-	"package.json": JSON.stringify({ name: "root", private: true, engines: { node: ">=24" }, devDependencies: { typescript: "7.0.2" } }),
+	"package.json": JSON.stringify({ name: "root", private: true, engines: { node: ">=22.19.0" }, devDependencies: { typescript: "7.0.2" } }),
 	"packages/pi-demo/package.json": JSON.stringify(manifest()),
 	"packages/pi-demo/README.md": "# demo\n\nSee [the source](src/index.ts).\n",
 	"packages/pi-demo/LICENSE": "MIT\n",
@@ -48,6 +48,8 @@ const CLEAN: Record<string, string> = {
 	"packages/pi-demo/src/helper.ts": "export function helper(_value: string): void {}\n",
 	"packages/pi-demo/test/helper.test.ts": 'import { helper } from "../src/helper.ts";\nhelper("x");\n',
 	"packages/pi-demo/test/all-modules.test.ts": 'import "../src/helper.ts";\n',
+	".github/workflows/verify.yml": "jobs:\n  floor:\n    steps:\n      - with:\n          node-version: 22.19.0 # root engines.node\n",
+	"package-lock.json": JSON.stringify({ lockfileVersion: 3, packages: { "": {}, "node_modules/typescript": { license: "Apache-2.0" } } }),
 	"AGENTS.md": "# Rules\n",
 	"CLAUDE.md": "@AGENTS.md\n",
 };
@@ -71,7 +73,7 @@ function run(check: string, root: string, ...args: string[]): { ok: boolean; out
 }
 
 describe("every gate passes a clean tree", () => {
-	for (const check of ["manifests", "imports", "text", "file-sizes", "links"]) {
+	for (const check of ["manifests", "imports", "text", "file-sizes", "links", "licenses"]) {
 		test(check, () => {
 			const result = run(check, repo());
 			assert.ok(result.ok, result.output);
@@ -117,12 +119,55 @@ describe("manifests", () => {
 		assert.doesNotMatch(result.output, /coverage-lines/);
 	});
 	test("holds every package to the root's Node version", () => {
-		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ engines: { node: ">=22.19" } })) }));
-		assert.match(result.output, /engines.node must be ">=24"/);
+		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ engines: { node: ">=24" } })) }));
+		assert.match(result.output, /engines.node must be ">=22.19.0"/);
+	});
+	test("requires CI to test the oldest supported Node", () => {
+		const result = run(
+			"manifests",
+			repo({ ".github/workflows/verify.yml": "jobs:\n  tests:\n    steps:\n      - with:\n          node-version: 24.19.0\n" }),
+		);
+		assert.match(result.output, /verify.yml must run the tests on Node 22.19.0/);
+		const loose = run("manifests", repo({ "package.json": JSON.stringify({ name: "root", private: true, engines: { node: ">=22" } }) }));
+		assert.match(loose.output, /root engines.node must be ">=x.y.z"/);
 	});
 	test("rejects floating runtime dependencies", () => {
 		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ dependencies: { jiti: "^2.7.0" } })) }));
 		assert.match(result.output, /must be pinned exactly/);
+	});
+});
+
+describe("licenses", () => {
+	const lock = (packages: Record<string, unknown>) => JSON.stringify({ lockfileVersion: 3, packages: { "": {}, ...packages } });
+	test("passes permissive licences, dual licences and workspace links", () => {
+		const result = run(
+			"licenses",
+			repo({
+				"package-lock.json": lock({
+					"node_modules/a": { license: "MIT" },
+					"node_modules/b": { license: "MIT OR Apache-2.0" },
+					"node_modules/c": { license: "(MIT AND BSD-3-Clause)" },
+					"node_modules/@crisboarna/pi-demo": { link: true },
+				}),
+			}),
+		);
+		assert.ok(result.ok, result.output);
+	});
+	test("rejects copyleft, unknown and missing licences", () => {
+		const result = run(
+			"licenses",
+			repo({
+				"package-lock.json": lock({
+					"node_modules/gpl": { license: "GPL-3.0-only" },
+					"node_modules/mixed": { license: "MIT AND LGPL-2.1" },
+					"node_modules/none": {},
+				}),
+			}),
+		);
+		assert.equal(result.ok, false);
+		assert.match(result.output, /node_modules\/gpl: "GPL-3.0-only" is not on the permissive allow-list/);
+		assert.match(result.output, /node_modules\/mixed: "MIT AND LGPL-2.1"/);
+		assert.match(result.output, /node_modules\/none: no licence recorded/);
 	});
 });
 

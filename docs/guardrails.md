@@ -18,12 +18,14 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Import boundaries (`scripts/checks/imports.ts`) | C P CI | One package reaching into another by path, undeclared dependencies, unaliased typebox subpaths, deep imports into pi |
 | Coverage of 90% lines, branches and functions | P CI | Untested changes. Unit and integration tests together; every source file is imported by a test so none escapes measurement. `scripts/checks/manifests.ts` refuses a threshold below 90 |
 | Integration tests | P CI | Breakage that only shows when pi loads the extension through jiti |
+| Tests on the oldest supported Node (`floor` job, Node 22.19.0) | CI | Code or tests that only work on newer Node, while `engines.node` claims older. `scripts/checks/manifests.ts` keeps this job's version equal to root `engines.node` |
 
 ## Packages
 
 | Gate | Where | Prevents |
 |---|---|---|
-| Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, unpinned runtime dependencies |
+| Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, unpinned runtime dependencies, an `engines.node` floor that CI does not test |
+| Licences (`scripts/checks/licenses.ts`) | C P CI | A runtime or dev dependency under a copyleft, unknown or missing licence in the MIT packages' install tree |
 | Pack contents (`scripts/checks/pack.ts`) | P CI | Publishing tests, secrets or local files, or silently adding or dropping files. The file list is a committed snapshot in `scripts/pack-snapshots/` |
 | Tarball smoke (`scripts/smoke-pack.ts`) | CI R | A package that works from the repository but not once installed: TypeScript that Node will not strip under `node_modules`, files missing from `files`, undeclared imports |
 | Changeset per changed package (`changeset status`) | CI | A release that does not mention a change |

@@ -5,6 +5,9 @@ import { buildEvidence, clip, type TranscriptMessage } from "../../src/classifie
 import { BUILTIN_QUESTIONS, toWireQuestions } from "../../src/classifier/questions.ts";
 import { createRedactor } from "../../src/classifier/redact.ts";
 import { isLocalUrl, WarmupTracker } from "../../src/classifier/warmup.ts";
+import { keepEventLoopAlive } from "../support/keep-alive.ts";
+
+keepEventLoopAlive();
 
 const limits = { maxTokens: 4000, requestTokens: 2500, toolErrors: { max: 5, chars: 200 } };
 const user = (text: string): TranscriptMessage => ({ role: "user", content: text });

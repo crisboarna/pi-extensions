@@ -1,7 +1,8 @@
 # Verification shared by pull requests and main: every repository gate
 # (including knip, gitleaks, actionlint and zizmor in pinned Docker images),
-# the tests with 90% coverage thresholds, the tarball smoke test and the
-# dependency audits. Called by pr.yml and main.yml.
+# the tests with 90% coverage thresholds, the same tests on the oldest
+# supported Node, the tarball smoke test and the dependency audits. Called by
+# pr.yml and main.yml.
 name: Verify
 
 on:
@@ -76,6 +77,40 @@ jobs:
 
       - name: Repository script tests
         run: npm run test:repo
+
+      - name: Install every package from its tarball and load it
+        run: npm run smoke:pack
+
+  # Packages claim root engines.node; scripts/checks/manifests.ts fails if this version and that floor differ.
+  floor:
+    name: tests on the oldest supported Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Install with the repository's Node and npm: Node 22 ships npm 10, which ignores min-release-age and strict-allow-scripts.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      # Then run everything on the oldest Node the packages support.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.19.0
+
+      - name: Unit and repository script tests
+        run: npm test
+
+      - name: Integration tests through jiti, as pi loads extensions
+        run: npm run test:integration
 
       - name: Install every package from its tarball and load it
         run: npm run smoke:pack

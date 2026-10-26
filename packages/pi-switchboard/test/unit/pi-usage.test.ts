@@ -5,6 +5,9 @@ import { MemoryHealthStore } from "../../src/selection/health.ts";
 import { type EventsLike, queryUsage, quotaFromReport, quotaProviders, UsageCache, type UsageReport } from "../../src/selection/pi-usage.ts";
 import { selectMember } from "../../src/selection/select.ts";
 import { seededRng } from "../../src/util/runtime.ts";
+import { keepEventLoopAlive } from "../support/keep-alive.ts";
+
+keepEventLoopAlive();
 
 const SESSION = { id: "s1" };
 
