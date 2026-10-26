@@ -66,6 +66,121 @@
 				"fps": 12
 			},
 			"tailMs": 400
+		},
+		{
+			"kind": "terminal",
+			"page": "hero.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "hero",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"still": true,
+			"crf": 28,
+			"tailMs": 300
+		},
+		{
+			"kind": "terminal",
+			"page": "init.html",
+			"setup": "terminal/setup.ts",
+			"scene": "init",
+			"out": "init",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "dry-run.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "dry-run",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "explain.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "explain",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "watch.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "watch",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "pin.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "pin",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "report.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "report",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
 		}
 	]
 }

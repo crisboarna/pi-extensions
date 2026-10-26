@@ -54,6 +54,8 @@ Thresholds are per classifier (`classifiers[].threshold`), with `classification.
 | 0.80 | 0.84 | ≥ 0.90 or ≤ 0.10 |
 | 0.85 | 0.88 | ≥ 0.925 or ≤ 0.075 |
 
+![a planning request answered with 0.62 confidence falls below the 0.85 gate, so the fallback tier runs; /tier explain shows why](../media/explain.gif)
+
 ## Tuning
 
 - `/tier report` shows the fallback rate and a histogram of gate confidence. Many fallbacks mean the threshold is too high for your classifier.

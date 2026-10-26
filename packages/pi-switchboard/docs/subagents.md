@@ -10,6 +10,8 @@ With [pi-subagents](https://www.npmjs.com/package/pi-subagents) installed, every
 4. pi-switchboard is loaded into every native child (foreground, background, nested), so the child picks a member of that tier itself, and fails over and escalates inside the child, capped by `maxTier`.
 5. When the call returns, a link entry joins each launch decision to the child's run and session file, so the inspector shows children under the task that launched them.
 
+![three subagents in the navigator: the scout on the light tier, the worker on standard and the reviewer on deep; the worker's account hits its usage limit and it continues on another account](../media/watch.gif)
+
 ## What is never overridden
 
 - A task or call that already names a model.
@@ -30,4 +32,4 @@ With [pi-subagents](https://www.npmjs.com/package/pi-subagents) installed, every
 
 ## Not covered
 
-Workflow-script children (`workflow: true`, `runs.run`, `runs.all`): their script text comes from the model's reply, so no hook can change it.
+Workflow-script children (`workflow: true`, `runs.run`, `runs.all`) get no tier at launch: their script text comes from the model's reply, so no hook can change it. pi-switchboard still loads into each child and classifies the child's first request there, so they run on a fitting tier, without a launch decision. `workflow: "parallel"` with `args.tasks` is routed at launch.

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// /tier init: from no config to a reviewed proposal, then routing on after /reload.
+clip(async (stage) => {
+	stage.caption("New to pi-switchboard? <b>/tier init</b> proposes a config from the models you are signed in to.", "init");
+	stage.callout(/switchboard inactive: no config; run \/tier init/, "nothing is routed until there is a config", { place: "above" });
+	await sleep(2600);
+	stage.clear();
+	await stage.command("/tier init");
+	await stage.waitFor(/Save .*pi-switchboard\.json\?/);
+	await sleep(400);
+	stage.callout(/Save .*pi-switchboard\.json\?/, "a diff first; nothing is written until you confirm", { place: "right" });
+	stage.callout(/"light": \{/, "small models go to the <b>light</b> tier", { place: "right" });
+	await stage.still();
+	await sleep(3600);
+	stage.clear();
+	await stage.press("Enter", { after: 900 });
+	await stage.waitFor(/Saved /);
+	await stage.command("/reload");
+	await stage.waitFor(/\(switchboard\) auto/, { last: true });
+	await stage.waitGone(/switchboard inactive/, { timeout: 15000 });
+	await sleep(600);
+	stage.caption("Saved and reloaded: every request is routed from now on.", "init");
+	stage.callout(/\(switchboard\) auto/, "the <b>auto</b> model now routes", { place: "above", last: true });
+	await sleep(3200);
+});
+</script>
+</body>
+</html>

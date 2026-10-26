@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// /tier dry-run: decisions are classified and recorded, the baseline tier runs.
+clip(async (stage) => {
+	stage.caption("Not ready to trust it? <b>Dry-run</b> classifies and records every request, but runs your baseline tier.", "dry-run");
+	await stage.command("/tier dry-run on");
+	await stage.waitFor(/Dry-run on/);
+	await sleep(800);
+	await stage.type("summarize the README");
+	await stage.press("Enter");
+	await stage.waitFor(/acme-shop: an upload client/);
+	await sleep(300);
+	stage.callout(/would use light/, "what it <b>would</b> have used", { place: "right", last: true });
+	await sleep(1800);
+	stage.clear();
+	await stage.type("design the caching layer for the pricing API");
+	await stage.press("Enter");
+	await stage.waitFor(/during promotions/, { timeout: 30000 });
+	await sleep(300);
+	stage.callout(/would use deep/, "<b>deep</b> here; standard actually ran", { place: "right", last: true });
+	await sleep(2200);
+	stage.clear();
+	await stage.command("/tier log");
+	await stage.waitFor(/would use deep[^\n]*$/m, { last: true });
+	await sleep(500);
+	stage.caption("<b>/tier log</b> lists them all. Turn dry-run off when the choices look right.", "dry-run");
+	stage.callout(/^\s*\w+ ⇄ task 1[^\n]*/m, "every decision is recorded", { place: "above", last: true });
+	await stage.still();
+	await sleep(3400);
+});
+</script>
+</body>
+</html>

@@ -4,5 +4,14 @@
 		"allowJs": true,
 		"checkJs": true
 	},
-	"include": ["packages/*/src", "packages/*/test", "packages/*/bin", "packages/*/scripts", "packages/*/media/*.ts", "scripts", "test"]
+	"include": [
+		"packages/*/src",
+		"packages/*/test",
+		"packages/*/bin",
+		"packages/*/scripts",
+		"packages/*/media/*.ts",
+		"packages/*/media/terminal",
+		"scripts",
+		"test"
+	]
 }

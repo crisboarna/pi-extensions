@@ -1,6 +1,6 @@
 # @crisboarna/pi-switchboard
 
-[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D24-green)](package.json)
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D22.19-green)](package.json)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/banner-dark.png">
@@ -9,7 +9,9 @@
 
 Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs to small models, design and review to the strongest, and each subagent to its own tier. A local classifier answers three questions about the request, your rules turn the answers into a tier, and a strategy picks one of the tier's models, moving to another account when a subscription runs dry. Every choice is recorded, so you can see why each model ran and what it cost.
 
-![A request to review a diff is classified as work=review (0.93), depth 1.6, not risky; rule 2 matches and its confidence 0.93 clears the 0.85 threshold; the deep tier is chosen; its first model is cooling down after a rate limit, so the strategy picks the second; the decision is recorded. At 0.62 confidence the standard tier would have run instead](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.gif)
+[![A one-minute demo in a real pi session: a rename goes to a small model, a design task to the strongest, three subagents each get their own tier, one hits a usage limit and moves to another account mid-task, and the navigator shows the receipt for each choice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/hero.png)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4)
+
+▶ [Watch the one-minute demo](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4): real pi, pi-switchboard and pi-subagents; only the model replies are scripted.
 
 ## Install
 
@@ -31,7 +33,9 @@ None of these runs a model; only `/tier init` writes a file, after you confirm t
 /tier doctor                                    # check the setup, with what to fix
 ```
 
-Then pick `switchboard/auto` in `/model`. To watch decisions before trusting them, `/tier dry-run on` classifies and records every request but runs your baseline tier.
+![/tier init proposes a config from the signed-in models, shows the diff, saves it after confirmation, and /reload turns routing on](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/init.gif)
+
+Then pick `switchboard/auto` in `/model`. To watch decisions before trusting them, `/tier dry-run on` classifies and records every request but runs your baseline tier ([see it](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/dry-run.gif)).
 
 The classifier is a small local model (about 0.2–0.7 s per decision); [classifier setup](docs/classifier-setup.md) takes a few minutes. Without one, requests use your fallback tier and everything else still works.
 
@@ -52,6 +56,10 @@ The classifier is a small local model (about 0.2–0.7 s per decision); [classif
 4. The tier's strategy picks a healthy member: cooling-down members sit out, and the previous member is kept so the prompt cache survives.
 5. The request runs on that model, and the decision is recorded next to the conversation, outside the model's context.
 
+![A request to review a diff is classified as work=review (0.93), depth 1.6, not risky; rule 2 matches and its confidence 0.93 clears the 0.85 threshold; the deep tier is chosen; its first model is cooling down after a rate limit, so the strategy picks the second; the decision is recorded. At 0.62 confidence the standard tier would have run instead](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.gif)
+
+`/tier explain` prints the same reasoning for any real decision ([see it](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/explain.gif)).
+
 More: [rules and confidence](docs/rules-and-confidence.md), [strategies and failover](docs/strategies-and-failover.md).
 
 ## When a subscription runs dry
@@ -64,7 +72,7 @@ pi does not retry a usage-limit error itself, so pi-switchboard moves the reques
 
 ![A parent task launches three subagents; the scout gets the light tier, the worker the standard tier and the reviewer the deep tier; the worker escalates one tier after bash fails twice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/subagents.gif)
 
-Each task of a `subagent` call is classified at launch and given a tier-pinned model such as `switchboard/work.deep`, within the agent's own limits. Explicit models, agent frontmatter and external runners are never overridden. [How it works](docs/subagents.md).
+Each task of a `subagent` call is classified at launch and given a tier-pinned model such as `switchboard/work.deep`, within the agent's own limits. Explicit models, agent frontmatter and external runners are never overridden. `Ctrl+Alt+W` opens a live navigator over the children ([see it](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/watch.gif)). [How it works](docs/subagents.md).
 
 ## How it compares
 
@@ -121,12 +129,12 @@ Remove the footer items if you added them.
 
 ## Limitations
 
-- **Workflow-script children** (`workflow: true`, `runs.run`, `runs.all`) are not routed: their script text comes from the model's reply, so no hook can change it.
+- **Workflow-script children** (`workflow: true`, `runs.run`, `runs.all`) get no tier at launch: their script text comes from the model's reply, so no hook can change it. pi-switchboard still runs inside each child and classifies its first request there.
 - **Exact child linking needs the next pi-subagents release** after 0.82.1 ([#3049](https://github.com/nicobailon/pi-subagents/pull/3049), merged); before that, foreground children are matched to their launch by agent and start time. Routing works on every version.
 - **Agents with an external runner** (`claude-code`, `codex-exec`) are never routed.
 - **`/model` lists every tier** of every profile as `switchboard/<profile>.<tier>`.
 - **`/tier` output uses pi's notifications**, which print mode (`pi -p`) does not show.
-- **Not yet verified end to end**: a real pi-subagents child on a tier-pinned model, and the interactive TUI (navigator, widget, tier editor, tour). The integration tests drive the same code against a fake pi host; the main session is verified live.
+- **The tier editor's save path** is covered by integration tests only; it was opened live, not saved. Real pi-subagents children, the navigator, `/tier init`, dry-run, pin and report were run live for the [terminal clips](docs/commands.md#in-a-session).
 - **Quota data is best effort**: the first decision after start-up may run before pi-usage answers, and then the quota strategy's fallback chooses.
 
 ## Development
@@ -137,7 +145,7 @@ This package lives in the [pi-extensions](https://github.com/crisboarna/pi-exten
 npm test                   # unit tests (node --test)
 npm run test:integration   # loads the extension through jiti against a fake pi host
 npm run coverage           # unit and integration tests, 90% line, branch and function thresholds
-npm run media              # rebuilds the banner, cover and animations (Docker)
+npm run media              # rebuilds the banner, cover, animations, hero video and terminal clips (Docker)
 ```
 
 Repository-wide gates run from the root with `npm run check`; see the root [CONTRIBUTING.md](../../CONTRIBUTING.md). `test/support/lmstudio-chat.ts` registers LM Studio's chat models as a pi provider for free local end-to-end runs:

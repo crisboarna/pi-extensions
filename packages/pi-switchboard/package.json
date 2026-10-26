@@ -41,7 +41,7 @@
 			"./skills"
 		],
 		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/cover.png",
-		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.mp4"
+		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/hero.mp4"
 	},
 	"files": [
 		"src",

@@ -1,0 +1,41 @@
+/* pi-switchboard's title and end cards for the terminal scenes. */
+.stage-card .mark {
+	width: 120px;
+	height: 120px;
+}
+.stage-card .name {
+	font-family: "IBM Plex Sans Condensed", sans-serif;
+	font-weight: 600;
+	font-size: 64px;
+	letter-spacing: -0.01em;
+	color: var(--stage-ink);
+}
+.stage-card .line {
+	font-size: 28px;
+	color: #c9bfab;
+	max-width: 900px;
+	text-align: center;
+	line-height: 1.35;
+}
+.stage-card .line b {
+	color: var(--stage-accent);
+	font-weight: 600;
+}
+.stage-card code {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 26px;
+	background: #10161e;
+	color: var(--stage-ink);
+	padding: 14px 22px;
+	border-radius: 10px;
+	border: 1px solid #33445a;
+}
+.stage-card .small {
+	font-size: 20px;
+	color: var(--stage-muted);
+}
+.stage-card .small code {
+	font-size: 19px;
+	padding: 3px 8px;
+	border-radius: 6px;
+}

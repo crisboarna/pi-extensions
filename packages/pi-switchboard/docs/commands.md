@@ -24,6 +24,34 @@
 
 `/tier` output goes through pi's notifications, which print mode (`pi -p`) does not show.
 
+## In a session
+
+Each clip is a real pi session with pi-switchboard; only the classifier's answers and the model replies are scripted (`media/terminal/scenes/demo.ts`).
+
+`/tier init` proposes a config, shows the diff, and writes it after you confirm:
+
+![/tier init proposes profiles and tiers from the signed-in models, shows the diff, saves after confirmation, and /reload turns routing on](../media/init.gif)
+
+`/tier dry-run on` records what each request would have used while the baseline tier runs; `/tier log` lists them:
+
+![dry-run is turned on; a summary request would use the light tier and a design request the deep tier, while the standard tier runs both; /tier log lists the decisions](../media/dry-run.gif)
+
+`/tier explain` shows the reasoning behind a decision, here a planning request the classifier was only 62% sure of:
+
+![a planning request answered with 0.62 confidence falls below the 0.85 gate, so the fallback tier runs; /tier explain shows the answers, the failed gate and that rule 2 wanted the deep tier](../media/explain.gif)
+
+`Ctrl+Alt+W` (or `/tier watch`) opens the navigator; Enter opens a row's decision, `t` its transcript:
+
+![three subagents run in the navigator with their tiers, models and tokens; the worker moves to another account after a usage limit; the reviewer's launch decision and transcript open from its row](../media/watch.gif)
+
+`/tier pin @top` skips classification until `/tier pin auto`:
+
+![after /tier pin @top a rename runs on the deep tier and the footer shows pinned @top; /tier pin auto removes the pin](../media/pin.gif)
+
+`/tier report` shows cost by tier, model and task, and the confidence histogram:
+
+![/tier report after three requests lists cost by tier, model and task, and a histogram of gate confidence](../media/report.gif)
+
 ## `/tier try` output
 
 ```text

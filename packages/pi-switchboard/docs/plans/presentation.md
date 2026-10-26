@@ -1,6 +1,6 @@
 # Presentation plan: making pi-switchboard easy to understand and want
 
-Status: phases 1, 3 and 4 done on 2026-10-26; phases 0, 2 and 5 open. See "Progress" at the end.
+Status: phases 1 to 4 done on 2026-10-26; phases 0 and 5 open. See "Progress" at the end.
 
 ## 1. What the popular pi packages do beyond the code
 
@@ -221,8 +221,9 @@ Done:
 - **Phase 3, concept animations**: decision, failover and subagent animations (MP4 and GIF), driven by data the real engine produces (`media/data.ts`), rendered in a pinned Docker image (`npm run media`).
 - **Phase 4, in-product**: first-run notice, `/tier try`, `/tier doctor`, `/tier tour` and the bundled `pi-switchboard` skill, with unit and integration tests; `/tier try`, `/tier doctor` and the tour were also run in a real pi (RPC mode) against LM Studio's H2O-Lightning-4B.
 
+- **Phase 2, terminal recordings**: a 60-second hero video (`pi.video`) and six clips (init, dry-run, explain, watch, pin, report) with captions and callouts, recorded from real pi, pi-switchboard and pi-subagents sessions in the media image (`tools/media/stage-server.mjs`, `media/terminal/`), not VHS. Only the classifier's answers and the model replies are scripted. The same scenes served as the live TUI checks: the navigator, the decision view, `/tier models`, and real pi-subagents children routed at launch. They found eight bugs, all fixed with tests, the worst being that an npm-installed package did not load in pi at all.
+
 Open:
 
-- **Phase 0**: make the repository public (the README images and the gallery fields point at `raw.githubusercontent.com`), and verify the navigator, tier editor and a real pi-subagents child live.
-- **Phase 2, terminal recordings**: the hero video and the VHS clips need the interactive TUI checks first.
-- **Phase 5, site and playground**: optional.
+- **Phase 0**: make the repository public (the README images and the gallery fields point at `raw.githubusercontent.com`).
+- **Phase 5, site and playground**: optional; a WebContainer spike ran the real pi in a browser tab (see the conversation of 2026-10-26).

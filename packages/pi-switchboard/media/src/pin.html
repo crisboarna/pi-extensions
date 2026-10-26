@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// /tier pin: force a tier for a while, then hand routing back.
+clip(async (stage) => {
+	stage.caption("Need the strongest model for a while? <b>/tier pin @top</b> skips classification.", "pin");
+	await stage.command("/tier pin @top");
+	await stage.waitFor(/Pinned to @top/);
+	await sleep(300);
+	stage.callout(/pinned @top/, "the footer says so", { place: "above", last: true });
+	await sleep(2000);
+	stage.clear();
+	await stage.type("rename foo to bar in utils.ts");
+	await stage.press("Enter");
+	await stage.waitFor(/Renamed foo to bar/);
+	await sleep(300);
+	stage.callout(/pinned · deep → big-model:medium \(ordered\)/, "even a small job runs on <b>deep</b>", { place: "right", last: true });
+	await stage.still();
+	await sleep(2600);
+	stage.clear();
+	stage.caption("<b>/tier pin auto</b> hands routing back to the classifier.", "pin");
+	await stage.command("/tier pin auto");
+	await stage.waitFor(/Pin removed/);
+	await stage.waitGone(/pinned @top/);
+	await sleep(2400);
+});
+</script>
+</body>
+</html>

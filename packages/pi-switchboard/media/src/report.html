@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// /tier report: where the money went, and how sure the classifier was.
+clip(async (stage) => {
+	for (const ask of ["rename foo to bar in utils.ts", "summarize the README", "design the caching layer for the pricing API"]) {
+		await stage.type(ask, { delay: 14 });
+		await stage.press("Enter");
+		await stage.waitGone(/Working/, { timeout: 30000 });
+		await sleep(900);
+	}
+	stage.caption("<b>/tier report</b>: cost by tier, model and task, and how sure the classifier was.", "report");
+	await stage.command("/tier report");
+	await stage.waitFor(/gate confidence/, { last: true });
+	await sleep(400);
+	stage.callout(/^\s*By tier:/m, "where the money went", { place: "right", last: true });
+	stage.callout(/gate confidence[^\n]*/, "confidence histogram, for tuning the gate", { place: "right", last: true });
+	await stage.still();
+	await sleep(4200);
+});
+</script>
+</body>
+</html>

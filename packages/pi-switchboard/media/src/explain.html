@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// /tier explain: why a request got the model it got.
+clip(async (stage) => {
+	await stage.type("plan the checkout v2 flow");
+	await stage.press("Enter");
+	await stage.waitFor(/split cart, payment and fulfilment/);
+	await sleep(400);
+	stage.caption("Why did that run on the standard tier? <b>/tier explain</b> shows the reasoning.", "explain");
+	stage.callout(/fallback · standard → mid-model/, "planning work, yet the <b>fallback</b> tier", { place: "right", last: true });
+	await sleep(2600);
+	stage.clear();
+	await stage.command("/tier explain");
+	await stage.waitFor(/model: provider-/, { last: true });
+	await sleep(400);
+	stage.callout(/answers: work=plan \(0\.62\), depth=[\d.]+, risky=[\d.]+/, "the classifier said plan, but only <b>62%</b> sure", { place: "right", last: true });
+	await sleep(1200);
+	stage.callout(/tier: standard → standard: confidence 0\.62 below 0\.85; rule 2 wanted deep/, "below the <b>0.85</b> gate, so the fallback tier ran", { place: "right", last: true });
+	stage.caption("Unsure answers never pick a tier on their own: below the gate, the fallback tier runs.", "explain");
+	await stage.still();
+	await sleep(3800);
+});
+</script>
+</body>
+</html>

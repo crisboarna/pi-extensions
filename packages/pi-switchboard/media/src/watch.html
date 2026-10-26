@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="terminal.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="clip.js"></script>
+</head>
+<body>
+<script>
+// The navigator (Ctrl+Alt+W): subagent children live, their decisions and transcripts.
+clip(async (stage) => {
+	await stage.type("review the upload retries: a scout, a worker and a reviewer in parallel", { delay: 22 });
+	await stage.press("Enter");
+	await stage.waitFor(/reviewer · work=review/, { timeout: 30000, last: true });
+	await stage.press("Control+Alt+w", { after: 600 });
+	await stage.waitFor(/scout\s+light\s+provider-a\/small-model/, { timeout: 30000 });
+	stage.caption("<b>Ctrl+Alt+W</b> (or /tier watch) opens the navigator: every subagent, live.", "watch");
+	stage.callout(/├ . scout|└ . scout/, "tier, model, turn, tokens and cost per child", { place: "right" });
+	await stage.waitFor(/worker\s+standard\s+provider-b\/mid-model/, { timeout: 30000 });
+	await sleep(1600);
+	stage.clear();
+	for (let i = 0; i < 5 && !stage.find(/› .*reviewer/); i++) await stage.press("ArrowDown", { after: 250 });
+	stage.caption("<b>Enter</b> opens the decision behind a row.", "watch");
+	await stage.press("Enter", { after: 700 });
+	await stage.waitFor(/reviewer · decision/);
+	stage.callout(/answers: work=review \([\d.]+\), depth=[\d.]+, risky=[\d.]+/, "why the reviewer got the <b>deep</b> tier", { place: "right" });
+	await stage.still();
+	await sleep(3000);
+	stage.clear();
+	stage.caption("<b>t</b> follows that child in its own transcript.", "watch");
+	await stage.press("t", { after: 900 });
+	await stage.waitFor(/No race: attempts run one after another/, { timeout: 15000 });
+	await sleep(3000);
+	await stage.press("Escape", { after: 300 });
+	await stage.press("Escape", { after: 300 });
+});
+</script>
+</body>
+</html>
