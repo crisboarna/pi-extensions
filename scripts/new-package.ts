@@ -122,8 +122,14 @@ for (const [file, content] of Object.entries(files)) {
 for (const template of [".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/feature.yml"]) {
 	const path = join(ROOT, template);
 	const text = readFileSync(path, "utf8");
-	if (!text.includes(`        - ${name}\n`)) writeFileSync(path, text.replace("      options:\n", `      options:\n        - ${name}\n`));
+	// Insert the package as the first option, at the indentation of the existing options.
+	const match = /^( *)options:\n( *)- /m.exec(text);
+	if (match && !text.includes(`- ${name}\n`)) {
+		const item = `${match[2]}- ${name}\n`;
+		writeFileSync(path, text.replace(`${match[1]}options:\n`, `${match[1]}options:\n${item}`));
+	}
 }
 execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: ROOT, stdio: "inherit" });
+execFileSync(join(ROOT, "node_modules/.bin/biome"), ["format", "--write", `packages/${name}`, ".github/ISSUE_TEMPLATE"], { cwd: ROOT, stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/checks/pack.ts", "--update"], { cwd: ROOT, stdio: "inherit" });
 console.log(`\nCreated packages/${name} (${full}). Next: add it to the table in README.md, write the README, then npm run check.`);

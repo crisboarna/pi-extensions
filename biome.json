@@ -317,5 +317,10 @@
 				}
 			}
 		}
-	]
+	],
+	"yaml": {
+		"formatter": {
+			"indentWidth": 2
+		}
+	}
 }

@@ -2,23 +2,23 @@ name: Feature request
 description: Suggest a change to one of the packages.
 labels: [enhancement]
 body:
-    - type: dropdown
-      id: package
-      attributes:
-          label: Package
-          options:
-              - pi-switchboard
-              - a new package
-      validations:
-          required: true
-    - type: textarea
-      id: problem
-      attributes:
-          label: The problem
-          description: What you are trying to do and what gets in the way.
-      validations:
-          required: true
-    - type: textarea
-      id: proposal
-      attributes:
-          label: What you would like instead
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - pi-switchboard
+        - a new package
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and what gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead

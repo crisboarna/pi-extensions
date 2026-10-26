@@ -8,100 +8,100 @@
 name: Release
 
 on:
-    push:
-        branches: [main]
-    workflow_dispatch:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-    group: release
-    cancel-in-progress: false
+  group: release
+  cancel-in-progress: false
 
 jobs:
-    checks:
-        uses: ./.github/workflows/ci.yml
-        permissions:
-            contents: read
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
 
-    select-mode:
-        needs: checks
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-        permissions:
-            contents: read
-        outputs:
-            mode: ${{ steps.mode.outputs.mode }}
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
+  select-mode:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version-file: .node-version
-                  package-manager-cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
 
-            - run: npm ci
+      - run: npm ci
 
-            - id: mode
-              uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+      - id: mode
+        uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
 
-    version:
-        needs: select-mode
-        if: needs.select-mode.outputs.mode == 'version'
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-        permissions:
-            contents: write
-            pull-requests: write
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
+  version:
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'version'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version-file: .node-version
-                  package-manager-cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
 
-            - run: npm ci
+      - run: npm ci
 
-            - uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-              with:
-                  script: npm run version-packages
-                  commit-message: "chore(release): version packages"
-                  pr-title: "chore(release): version packages"
+      - uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          script: npm run version-packages
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
 
-    publish:
-        needs: select-mode
-        if: needs.select-mode.outputs.mode == 'publish'
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        environment: npm
-        permissions:
-            contents: write
-            id-token: write
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
+  publish:
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version-file: .node-version
-                  package-manager-cache: false
-                  registry-url: https://registry.npmjs.org
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
 
-            - run: npm ci
+      - run: npm ci
 
-            - run: npm run smoke:pack
+      - run: npm run smoke:pack
 
-            - uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-              with:
-                  script: npm run release
-                  create-github-releases: true
-              env:
-                  NPM_CONFIG_PROVENANCE: "true"
+      - uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          script: npm run release
+          create-github-releases: true
+        env:
+          NPM_CONFIG_PROVENANCE: "true"

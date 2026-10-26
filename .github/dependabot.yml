@@ -1,30 +1,30 @@
 version: 2
 updates:
-    - package-ecosystem: npm
-      directory: /
-      schedule:
-          interval: weekly
-      # Wait a week before proposing a new release; most malicious versions are pulled sooner.
-      cooldown:
-          default-days: 7
-      groups:
-          pi-host:
-              patterns: ["@earendil-works/*", "typebox", "jiti"]
-          dev-tooling:
-              dependency-type: development
-              exclude-patterns: ["@earendil-works/*", "typebox", "jiti"]
-      commit-message:
-          prefix: "build(deps)"
-      open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Wait a week before proposing a new release; most malicious versions are pulled sooner.
+    cooldown:
+      default-days: 7
+    groups:
+      pi-host:
+        patterns: ["@earendil-works/*", "typebox", "jiti"]
+      dev-tooling:
+        dependency-type: development
+        exclude-patterns: ["@earendil-works/*", "typebox", "jiti"]
+    commit-message:
+      prefix: "build(deps)"
+    open-pull-requests-limit: 5
 
-    - package-ecosystem: github-actions
-      directory: /
-      schedule:
-          interval: weekly
-      cooldown:
-          default-days: 7
-      groups:
-          actions:
-              patterns: ["*"]
-      commit-message:
-          prefix: "ci(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci(deps)"

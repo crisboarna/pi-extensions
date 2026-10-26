@@ -1,91 +1,91 @@
 name: CI
 
 on:
-    pull_request:
-    push:
-        branches: [main]
-    workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
 
 permissions: {}
 
 concurrency:
-    group: ci-${{ github.ref }}
-    cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    check:
-        name: check (node ${{ matrix.node }})
-        runs-on: ubuntu-latest
-        timeout-minutes: 20
-        permissions:
-            contents: read
-        strategy:
-            fail-fast: false
-            matrix:
-                # The lowest supported Node (engines) and the current LTS.
-                node: ["22.19.0", "24"]
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
+  check:
+    name: check (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest supported Node (engines) and the current LTS.
+        node: ["22.19.0", "24"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version: ${{ matrix.node }}
-                  cache: npm
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
 
-            # Node 22 ships npm 10, which ignores min-release-age and allowScripts.
-            - name: Use the pinned npm
-              run: npm install --global "npm@$(node -p "require('./package.json').packageManager.split('@')[1]")"
+      # Node 22 ships npm 10, which ignores min-release-age and allowScripts.
+      - name: Use the pinned npm
+        run: npm install --global "npm@$(node -p "require('./package.json').packageManager.split('@')[1]")"
 
-            - run: npm ci
+      - run: npm ci
 
-            - name: Verify registry signatures and provenance of installed packages
-              run: npm audit signatures
+      - name: Verify registry signatures and provenance of installed packages
+        run: npm audit signatures
 
-            - name: Repository gates
-              run: npm run check
+      - name: Repository gates
+        run: npm run check
 
-            - name: Unit tests with coverage thresholds
-              run: npm run coverage
+      - name: Unit tests with coverage thresholds
+        run: npm run coverage
 
-            - name: Integration tests
-              run: npm run test:integration
+      - name: Integration tests
+        run: npm run test:integration
 
-            - name: Repository script tests
-              run: npm run test:repo
+      - name: Repository script tests
+        run: npm run test:repo
 
-            - name: Install every package from its tarball and load it
-              run: npm run smoke:pack
+      - name: Install every package from its tarball and load it
+        run: npm run smoke:pack
 
-    pull-request:
-        name: pull request rules
-        if: github.event_name == 'pull_request'
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-        permissions:
-            contents: read
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
+  pull-request:
+    name: pull request rules
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version-file: .node-version
-                  cache: npm
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
 
-            - run: npm ci
+      - run: npm ci
 
-            - name: Commit messages follow the convention
-              env:
-                  BASE: ${{ github.event.pull_request.base.sha }}
-                  HEAD: ${{ github.event.pull_request.head.sha }}
-              run: node scripts/checks/commit-msg.ts --range "$BASE..$HEAD"
+      - name: Commit messages follow the convention
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/checks/commit-msg.ts --range "$BASE..$HEAD"
 
-            - name: Every changed package has a changeset
-              env:
-                  BASE: ${{ github.event.pull_request.base.sha }}
-              run: npx changeset status --since="$BASE"
+      - name: Every changed package has a changeset
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: npx changeset status --since="$BASE"
