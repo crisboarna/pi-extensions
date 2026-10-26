@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { PinLookup } from "./launch.ts";
+import type { PinInfo, PinLookup } from "./launch.ts";
 
 /** pi-subagents' package root under pi's npm directory, if installed. */
 export function subagentsRoot(agentDir: string): string | undefined {
@@ -44,6 +44,19 @@ export async function registerChildExtension(agentDir: string, sessionId: string
 	}
 }
 
+/** Whether an agent runs as a native pi child or through an external runner, from its frontmatter. */
+export function runnerOf(filePath: string | undefined): "native" | "external" {
+	if (!filePath) return "native";
+	try {
+		const text = readFileSync(filePath, "utf8");
+		const frontmatter = /^---\n([\s\S]*?)\n---/u.exec(text)?.[1] ?? "";
+		const type = /^runner:\s*\n\s+type:\s*["']?([\w-]+)/mu.exec(frontmatter)?.[1] ?? /^runner:\s*["']?([\w-]+)/mu.exec(frontmatter)?.[1];
+		return type && type !== "native" && type !== "pi" ? "external" : "native";
+	} catch {
+		return "native";
+	}
+}
+
 /**
  * Asks pi-subagents' launch preflight which model an agent resolves to
  * without a model in the call; `unknown` when preflight is unavailable or
@@ -58,11 +71,14 @@ export async function createPinLookup(agentDir: string, cwd: string, projectTrus
 		try {
 			const result = (await resolve({ agent, task, cwd, projectTrusted, context: "fresh" })) as {
 				ok: boolean;
-				contract?: { model?: string; tools?: { effectiveAllowlist?: string[] } };
+				contract?: { model?: string; tools?: { effectiveAllowlist?: string[] }; agent?: { filePath?: string } };
 			};
 			if (!result.ok || !result.contract) return "unknown";
 			const tools = result.contract.tools?.effectiveAllowlist;
-			return { ...(result.contract.model ? { model: result.contract.model } : {}), ...(tools ? { tools } : {}) };
+			const info: PinInfo = { runner: runnerOf(result.contract.agent?.filePath) };
+			if (result.contract.model) info.model = result.contract.model;
+			if (tools) info.tools = tools;
+			return info;
 		} catch {
 			return "unknown";
 		}

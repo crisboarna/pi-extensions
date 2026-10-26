@@ -7,6 +7,11 @@ import { type EngineDeps, SwitchboardEngine } from "../../src/router/engine.ts";
 import { MemoryHealthStore } from "../../src/selection/health.ts";
 import { type LaunchContext, routeLaunch } from "../../src/subagents/launch.ts";
 import { extractTasks, resultLinks } from "../../src/subagents/tasks.ts";
+import { attachBinding, BINDING_NAMESPACE, matchLaunch, readBinding, taskDigest } from "../../src/subagents/binding.ts";
+import { runnerOf } from "../../src/subagents/pi-subagents.ts";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { seededRng } from "../../src/util/runtime.ts";
 
 const RAW: RawConfig = {
@@ -144,5 +149,57 @@ describe("routeLaunch", () => {
 		assert.equal((input as Record<string, unknown>).model, "switchboard/main.light:medium");
 		assert.equal(result.decisions[0]?.kind, "pinned");
 		assert.equal(calls, 0);
+	});
+});
+
+describe("external runners", () => {
+	it("reads the runner type from agent frontmatter", () => {
+		const dir = mkdtempSync(join(tmpdir(), "switchboard-agents-"));
+		const external = join(dir, "ext.md");
+		const native = join(dir, "native.md");
+		writeFileSync(external, "---\nname: ext\nrunner:\n  type: external-cli\n  command: tool\n---\nbody\n");
+		writeFileSync(native, "---\nname: native\nmodel: inherit\n---\nbody\n");
+		assert.equal(runnerOf(external), "external");
+		assert.equal(runnerOf(native), "native");
+		assert.equal(runnerOf(undefined), "native");
+	});
+
+	it("never routes an external-runner agent and records each task's runner", async () => {
+		const { ctx } = setup();
+		const input = { tasks: [{ agent: "codex-exec", task: "x" }, { agent: "worker", task: "y" }] };
+		const pinLookup: LaunchContext["pinLookup"] = async (agent) => (agent === "codex-exec" ? { runner: "external" } : { runner: "native" });
+		const result = await routeLaunch(ctx({ pinLookup }), extractTasks(input));
+		assert.equal((input.tasks[0] as Record<string, unknown>).model, undefined);
+		assert.equal(result.decisions[0]?.subagent?.skipped, "the agent uses an external runner");
+		assert.deepEqual(result.decisions.map((d) => d.subagent?.runner), ["external", "native"]);
+	});
+});
+
+describe("launch bindings", () => {
+	it("adds the pi-switchboard/1 binding next to other extensions' bindings", () => {
+		const input: Record<string, unknown> = { agent: "worker", task: "t", options: { extensionBindings: { "other.ext/2": { keep: true } } } };
+		assert.ok(attachBinding(input, { parent: "/s/p.jsonl", launches: [{ d: taskDigest("worker", "t"), a: "worker", id: "d_1" }] }));
+		const bindings = (input.options as Record<string, Record<string, unknown>>).extensionBindings ?? {};
+		assert.deepEqual(Object.keys(bindings).sort(), ["other.ext/2", BINDING_NAMESPACE]);
+		assert.match(BINDING_NAMESPACE, /^[a-z0-9][a-z0-9._-]*\/[1-9]\d*$/u, "pi-subagents namespace format");
+		assert.ok(JSON.stringify(bindings).length < 16 * 1024);
+		assert.equal(attachBinding({}, { parent: "p", launches: [] }), false);
+	});
+
+	it("reads the binding in a child and matches its launch", () => {
+		const launches = [
+			{ d: taskDigest("scout", "scan src"), a: "scout", id: "d_a" },
+			{ d: taskDigest("scout", "scan test"), a: "scout", id: "d_b" },
+			{ d: taskDigest("reviewer", "review"), a: "reviewer", id: "d_c" },
+		];
+		const env = { PI_SUBAGENT_EXTENSION_BINDINGS: JSON.stringify({ [BINDING_NAMESPACE]: { parent: "p", launches }, "x/1": {} }) };
+		const binding = readBinding(env);
+		assert.ok(binding);
+		if (!binding) return;
+		assert.equal(matchLaunch(binding, "scout", "scan test"), "d_b", "exact digest");
+		assert.equal(matchLaunch(binding, "reviewer", "review, with a prefix the runner added"), "d_c", "the only launch of that agent");
+		assert.equal(matchLaunch(binding, "scout", "something else"), undefined, "ambiguous");
+		assert.equal(readBinding({}), undefined);
+		assert.equal(readBinding({ PI_SUBAGENT_EXTENSION_BINDINGS: "{bad" }), undefined);
 	});
 });

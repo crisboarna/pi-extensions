@@ -63,7 +63,9 @@ export function buildRows(main: { decision?: DecisionEntry; running: boolean; to
 		...(d ? { decision: d } : {}),
 	});
 	for (const child of children) {
-		const decision = [...launches].reverse().find((l) => l.subagent?.agent === child.agent && Date.parse(l.ts) <= child.startedAt + 5_000);
+		const decision =
+			(child.launchDecisionId ? launches.find((l) => l.id === child.launchDecisionId) : undefined) ??
+			[...launches].reverse().find((l) => l.subagent?.agent === child.agent && Date.parse(l.ts) <= child.startedAt + 5_000);
 		rows.push({
 			key: child.session,
 			label: child.agent ?? "subagent",

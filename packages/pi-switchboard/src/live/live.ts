@@ -9,8 +9,8 @@ export interface LiveStatus {
 	/** Parent session file or id, from the child's header. */
 	parent?: string;
 	agent?: string;
-	/** Digest of agent and task, to join the parent's launch decision. */
-	taskDigest?: string;
+	/** The parent's launch decision, from the pi-switchboard/1 binding. */
+	launchDecisionId?: string;
 	status: "running" | "done" | "error";
 	launchModel?: string;
 	model?: string;

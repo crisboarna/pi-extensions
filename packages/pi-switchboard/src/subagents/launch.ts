@@ -10,8 +10,15 @@ import { formatModelRef, type ThinkingLevel } from "../util/model-ref.ts";
 import { newId } from "../util/runtime.ts";
 import type { LaunchTask } from "./tasks.ts";
 
+export interface PinInfo {
+	/** The model the agent resolves to without one in the call. */
+	model?: string;
+	tools?: string[];
+	runner?: "native" | "external";
+}
+
 /** What pi-subagents would run for an agent without a model in the call. */
-export type PinLookup = (agent: string, task: string) => Promise<{ model?: string; tools?: string[] } | "unknown">;
+export type PinLookup = (agent: string, task: string) => Promise<PinInfo | "unknown">;
 
 export interface LaunchContext {
 	engine: SwitchboardEngine;
@@ -34,7 +41,7 @@ export interface LaunchResult {
 	routed: number;
 }
 
-function skipped(ctx: LaunchContext, task: LaunchTask, profile: Profile | undefined, reason: string): DecisionEntry {
+function skipped(ctx: LaunchContext, task: LaunchTask, profile: Profile | undefined, reason: string, runner: Runner = "unknown"): DecisionEntry {
 	const { engine } = ctx;
 	return {
 		v: 1,
@@ -48,9 +55,11 @@ function skipped(ctx: LaunchContext, task: LaunchTask, profile: Profile | undefi
 		tier: { candidate: "", chosen: "", rank: 0, why: reason },
 		model: { provider: "", id: task.model ?? "", thinking: "" },
 		switch: { cacheMiss: false },
-		subagent: { agent: task.agent, taskIndex: task.index, toolCallId: ctx.toolCallId, mode: "skipped", skipped: reason },
+		subagent: { agent: task.agent, taskIndex: task.index, toolCallId: ctx.toolCallId, mode: "skipped", skipped: reason, runner },
 	};
 }
+
+type Runner = "native" | "external" | "unknown";
 
 /**
  * Routes the tasks of one `subagent` call (DESIGN.md 5.3): skips pinned and
@@ -68,19 +77,21 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 
 	const decisions = await Promise.all(
 		tasks.map(async (task): Promise<DecisionEntry> => {
-			if (!profile) return skipped(ctx, task, undefined, engine.inactiveReason());
-			if (config.subagents.exclude.includes(task.agent)) return skipped(ctx, task, profile, "agent excluded in config");
-			if (task.model && !ctx.isSwitchboard(task.model)) return skipped(ctx, task, profile, `the call names model ${task.model}`);
-			const pinned = task.model ? undefined : await ctx.pinLookup(task.agent, task.task);
-			if (pinned === "unknown") return skipped(ctx, task, profile, "could not tell whether the agent pins a model");
-			if (pinned?.model && !ctx.isSwitchboard(pinned.model)) return skipped(ctx, task, profile, `agent settings pin ${pinned.model}`);
+			const pinned = await ctx.pinLookup(task.agent, task.task);
+			const runner: Runner = pinned === "unknown" ? "unknown" : (pinned.runner ?? "native");
+			if (!profile) return skipped(ctx, task, undefined, engine.inactiveReason(), runner);
+			if (config.subagents.exclude.includes(task.agent)) return skipped(ctx, task, profile, "agent excluded in config", runner);
+			if (runner === "external") return skipped(ctx, task, profile, "the agent uses an external runner", runner);
+			if (task.model && !ctx.isSwitchboard(task.model)) return skipped(ctx, task, profile, `the call names model ${task.model}`, runner);
+			if (pinned === "unknown") return skipped(ctx, task, profile, "could not tell whether the agent pins a model", runner);
+			if (!task.model && pinned.model && !ctx.isSwitchboard(pinned.model)) return skipped(ctx, task, profile, `agent settings pin ${pinned.model}`, runner);
 
 			const limits = config.subagents.agents[task.agent];
 			const evidence = buildEvidence({
 				messages: [],
 				request: task.task,
 				scope: "subagent",
-				agent: { name: task.agent, ...(pinned?.tools ? { tools: pinned.tools } : {}) },
+				agent: { name: task.agent, ...(pinned.tools ? { tools: pinned.tools } : {}) },
 				planPhase: ctx.planPhase,
 				limits: config.classification.evidence,
 				redact: config.classification.evidence.redact,
@@ -152,6 +163,7 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 					taskIndex: task.index,
 					toolCallId: ctx.toolCallId,
 					mode: ctx.mode,
+					runner,
 					launchTier: tier.name,
 					...(limits?.maxTier ? { maxTier: limits.maxTier } : {}),
 				},

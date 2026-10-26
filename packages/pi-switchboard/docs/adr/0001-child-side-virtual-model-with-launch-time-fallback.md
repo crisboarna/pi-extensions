@@ -10,7 +10,7 @@ Subagent children route through pi-switchboard's own virtual models, so member s
 
 - **Launch-time physical model only.** Simple and robust, but a child that hits a rate limit or loops on tool failures cannot fail over or escalate, and pi-subagents has had no per-launch fallback models since 0.68.0.
 - **Child-side only, failing when blocked.** Purest, but one conflicting extension would break all subagent routing.
-- **Passing the tier through `options.extensionBindings`.** Rejected after reading pi-subagents' source: local foreground children never receive bindings (the environment variable is only set for background runner children), and default parallel launches accept a model per task but no binding per task.
+- **Passing the tier through `options.extensionBindings`.** Rejected after reading pi-subagents' source: local foreground children never received bindings, and default parallel launches accept a model per task but no binding per task. The foreground gap was fixed upstream (pi-subagents #3049, merged 2026-10-25); the parallel limit remains, so tier-pinned models stay the routing channel and bindings are used only to link children to their launch decisions exactly.
 
 ## Consequences
 

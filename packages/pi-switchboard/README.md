@@ -169,7 +169,8 @@ Remove the two `powerline.customItems` entries if you added them.
 ## Known limitations
 
 - **Workflow-script children** (`workflow: true`, `runs.run`, `runs.all`) are not routed: their script text is read from the reply, so no hook can change it.
-- **Foreground children and `extensionBindings`**: pi-subagents does not pass bindings to foreground children; pi-switchboard does not need them (it uses tier-pinned models). Upstream fix: [pi-subagents#3049](https://github.com/nicobailon/pi-subagents/pull/3049).
+- **Exact child linking needs the next pi-subagents release.** pi-switchboard passes each launch's decision id to the child through `extensionBindings`. Foreground children receive bindings from the first pi-subagents release after 0.82.1 ([#3049](https://github.com/nicobailon/pi-subagents/pull/3049), merged); before that they are matched by agent and start time. Routing itself works on every version.
+- **Agents with an external runner** (`claude-code`, `codex-exec`, other `runner.type` agents) are never routed; they keep their own model settings.
 - **`/model` size**: every tier of every profile appears as `switchboard/<profile>.<tier>`.
 - **Usage-limit failover rewrites the error text** of the failed message so pi retries it; the original error stays in the decision record.
 - **`--reclassify` outside pi** only reaches local System One classifiers; remote ones need pi's credentials.

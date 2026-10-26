@@ -205,7 +205,7 @@ Verified in pi-subagents source (paths under its package root):
 - Local foreground children never load the parent's ambient extensions and never receive `options.extensionBindings`: the `PI_SUBAGENT_EXTENSION_BINDINGS` variable is only set for background runner children (`src/runs/shared/child-launch.js:225`). Default parallel launches (`workflow: "parallel"`) accept a model per task but no binding per task.
 - `registerRequiredChildExtensions({ sessionId, extensions: [{ id, path }] })` from `pi-subagents/required-child-extensions` loads an extension into native foreground, background, nested and recovered children. One registration per parent session; a second throws. Virtual models registered in the extension factory resolve before the child's model is resolved (`src/runs/shared/child-session.js:266-289`); registering them in `session_start` is too late.
 - The child run ID is generated when the tool executes, so it is unknown at `tool_call`. The tool result's `details.results[i]` carries `runId`, `model` and `sessionFile`, and each child session header records `parentSession`.
-- Upstream: pi-subagents PR [#3049](https://github.com/nicobailon/pi-subagents/pull/3049) restores `extensionBindings` for foreground children. This design does not depend on it.
+- Upstream: pi-subagents PR [#3049](https://github.com/nicobailon/pi-subagents/pull/3049), merged 2026-10-25 (`7fe94c3f`), restores `extensionBindings` for foreground children; it ships in the first release after 0.82.1. Routing does not depend on it; exact child linking (5.7) uses it.
 - There is no public API that says whether an agent's model is pinned by frontmatter, `agentOverrides` or `subagents.defaultModel`. `resolveSubagentLaunchContract` from `pi-subagents/preflight` returns the resolved model without a parent model; an undefined model means nothing pins it.
 
 ### 5.2 Launch tier reaches the child through a tier-pinned model
@@ -240,10 +240,16 @@ Launch mode is used when `subagents.mode` is `"launch"`, when pi-switchboard cou
 
 `accountAffinity: "parent"` maps a member such as `openai-codex/x` onto the account the parent last used for that base provider (for example `openai-codex-2/x`) when that model exists and has credentials. In launch mode the parent applies it directly. In child mode the parent writes its last account per base provider into the health file, keyed by its session file, and the child reads it through its header's `parentSession`. `"none"` uses members exactly as configured.
 
+### 5.7 Exact child linking through bindings
+
+The parent adds a `pi-switchboard/1` entry to the call's `options.extensionBindings` (next to any bindings other extensions set): its session, and for each routed task the agent, a digest of agent and task text, and the launch decision id. One binding covers all tasks of a parallel call, so launches are keyed by digest. The child reads the binding while its extensions load and at `session_start` (foreground children see it only then), matches its first message by digest (else the only launch of its agent, else the only launch), and stamps `launchDecisionId` on its own decisions and its live status. The navigator and inspector then join children to launch decisions exactly instead of by agent and start time.
+
+The binding is attached only when every task of the call runs natively: pi-subagents rejects bindings for external runners. Background children have received bindings in every pi-subagents version; foreground children receive them from the first release after 0.82.1. Without a binding, joining falls back to agent and start time.
+
 ### 5.6 Not covered
 
 - Workflow scripts (`workflow: true` or a script file) and their `runs.run` or `runs.all` children, including chains written as scripts: the script text is read from the assistant message or a file, so a hook cannot edit it. A child-side `switchboard/child` model that classifies its own task was considered and rejected (decision 42).
-- External CLI and external-job runners in child mode (they do not load required extensions); they get launch mode or are skipped.
+- Agents with an external runner (`runner.type` in their frontmatter, such as `external-cli`): they are never routed, because they cannot use pi models, and a call that includes one gets no binding.
 
 ## 6. Interaction with pi-multi-pass
 
@@ -1002,6 +1008,8 @@ Done means: all tests pass, typecheck is clean, `pi -na` loads the extension wit
 | 60 | Local classifiers get a background warm-up and cold-start recording, for any local server (System One HTTP or pi's llama.cpp provider) |
 | 61 | Yes/no confidence is `|2p − 1|`, the same scale as choice confidence (amends 3) |
 | 62 | DESIGN.md approved as the build specification (2026-10-25) |
+| 63 | Use `extensionBindings` for exact linking only; tier-pinned models stay the routing channel (works on every pi-subagents version and for parallel tasks) |
+| 64 | Agents with an external runner are never routed (found while adding bindings: they would have received a model they cannot use) |
 
 Derived in this document (not asked, flag if wrong): unconfident decisions never lower the tier (4.1 step 5); `$planMode: planning` is a built-in top-tier rule (7.2); escalation climbs one rank, not to `@top` (4.2); the virtual model lives under its own provider id (4); when pi-subagents' preflight cannot tell whether an agent's model is pinned, the task is treated as pinned and left alone (5.3); hysteresis does not apply to subagent launches (5.3); `/tier init` is the only way auto-tiered profiles appear, never implicitly at runtime (7.7); the all-exhausted case throws from `route()` instead of sending a request that would fail (9.6); the navigator shortcut defaults to `ctrl+alt+w` (11.5).
 
@@ -1050,3 +1058,9 @@ None. Resolved: reclassify outside pi (43), chains (44), upstream bindings PR (4
 ### Operational finding
 
 LM Studio's just-in-time loading keeps only the last loaded model by default. When it serves both the classifier and chat models, the classifier warm-up and a chat request evict each other ("Model is unloaded"). Load models explicitly or disable that option (README).
+
+### Update 2026-10-26: pi-subagents #3049 merged
+
+- Exact child linking through `extensionBindings` (5.7, decision 63); verified against pi-subagents' own binding validator at the 48-launch maximum (3.2 KB).
+- Fixed: agents with an external runner were routable and would have received a `switchboard/...` model (decision 64).
+- 173 unit tests, typecheck clean.

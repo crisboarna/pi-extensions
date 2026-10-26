@@ -18,6 +18,8 @@ import { type CustomSelect, loadCustomStrategy } from "./selection/strategies.ts
 import { routeLaunch } from "./subagents/launch.ts";
 import { createPinLookup, registerChildExtension, type RequiredRegistration } from "./subagents/pi-subagents.ts";
 import { extractTasks, resultLinks } from "./subagents/tasks.ts";
+import { attachBinding, matchLaunch, readBinding, type SwitchboardBinding, taskDigest } from "./subagents/binding.ts";
+import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
 import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
 import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
@@ -88,6 +90,10 @@ export class Runtime {
 	/** Set in subagent children: publishes live status and the transcript mirror. */
 	live?: LiveWriter;
 	private snapshotProfile?: string;
+	/** In a child: the parent's binding, read while extensions load (DESIGN.md 5.7). */
+	binding?: SwitchboardBinding;
+	/** In a child: the parent's launch decision this child belongs to. */
+	launchDecisionId?: string;
 
 	constructor(pi: ExtensionAPI) {
 		this.pi = pi;
@@ -101,6 +107,7 @@ export class Runtime {
 
 	/** Synchronous setup in the extension factory: children resolve virtual models before session start. */
 	bootstrap(): void {
+		this.binding = readBinding();
 		const loaded = loadConfig({ agentDir: this.agentDir, cwd: process.cwd(), projectTrusted: false });
 		this.config = loaded.config;
 		this.missingConfig = loaded.missing;
@@ -166,6 +173,8 @@ export class Runtime {
 	/** Reloads config with pi's catalog and project trust; registers any new virtual models. */
 	async onSessionStart(ctx: ExtensionContext): Promise<void> {
 		this.ctx = ctx;
+		// Foreground children see the binding only until session_start ends.
+		this.binding = readBinding() ?? this.binding;
 		const loaded = loadConfig({ agentDir: this.agentDir, cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike) });
 		this.config = loaded.config;
 		this.missingConfig = loaded.missing;
@@ -227,6 +236,10 @@ export class Runtime {
 		});
 		const model = ctx.model;
 		if (model) this.live.update({ launchModel: `${model.provider}/${model.id}` });
+		if (this.binding?.launches.length === 1 && this.binding.launches[0]) {
+			this.launchDecisionId = this.binding.launches[0].id;
+			this.live.update({ launchDecisionId: this.launchDecisionId });
+		}
 	}
 
 	/** Children map members onto the account their parent last used (DESIGN.md 5.5). */
@@ -280,6 +293,18 @@ export class Runtime {
 			tasks,
 		);
 		this.routedSubagents += result.routed;
+		const routed = result.decisions.filter((d) => d.subagent?.mode !== "skipped");
+		const allNative = result.decisions.every((d) => d.subagent?.runner === "native");
+		if (routed.length && allNative) {
+			const parent = ctx.sessionManager.getSessionFile() ?? ctx.sessionManager.getSessionId();
+			attachBinding(input, {
+				parent,
+				launches: routed.map((d) => {
+					const task = tasks.find((t) => t.index === d.subagent?.taskIndex);
+					return { d: taskDigest(d.subagent?.agent ?? "", task?.task ?? ""), a: d.subagent?.agent ?? "", id: d.id };
+				}),
+			});
+		}
 		this.launches.set(toolCallId, result.decisions);
 		for (const decision of result.decisions) this.record(decision, ctx);
 	}
@@ -346,6 +371,14 @@ export class Runtime {
 		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
 		const scope = header?.parentSession || process.env.PI_SUBAGENT_CHILD === "1" ? "subagent" : "main";
 		const agent = scope === "subagent" ? agentFromMessages(messages) : undefined;
+		if (scope === "subagent" && this.binding && !this.launchDecisionId) {
+			const task = messageText(messages[lastUserIndex(messages)]?.content);
+			const id = matchLaunch(this.binding, agent, task);
+			if (id) {
+				this.launchDecisionId = id;
+				this.live?.update({ launchDecisionId: id });
+			}
+		}
 		const thinking = (THINKING_LEVELS as readonly string[]).includes(request.thinkingLevel) ? (request.thinkingLevel as ThinkingLevel) : "medium";
 		const previous = choice(request.previous);
 		const failed = request.failed ? { ...choice(request.failed), ...(request.failed.message.errorMessage ? { errorMessage: request.failed.message.errorMessage } : {}) } : undefined;
@@ -381,6 +414,7 @@ export class Runtime {
 
 	record(decision: DecisionEntry, ctx?: ExtensionContext): void {
 		if (decision.switch.cacheMiss) this.switches++;
+		if (this.launchDecisionId && decision.scope === "subagent" && decision.reason !== "launch") decision.launchDecisionId = this.launchDecisionId;
 		if (decision.reason === "user" && decision.scope === "main") this.budgets.startTask(decision.task);
 		if (decision.profile.name && decision.profile.name !== this.snapshotProfile) this.snapshot(decision.profile.name, ctx ?? this.ctx);
 		if (this.live && decision.tier.chosen) this.live.update({ tier: decision.tier.chosen });

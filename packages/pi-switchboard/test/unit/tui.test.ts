@@ -44,6 +44,12 @@ describe("navigator", () => {
 	const start = Date.UTC(2026, 9, 26, 10);
 	const rows = buildRows({ running: true, tokensIn: 41_000, tokensOut: 12_000, cost: 0.18 }, [child("c1", "scout", "running", start), child("c2", "reviewer", "done", start)], [launch("scout", "light", new Date(start - 1000).toISOString())]);
 
+	it("joins a child to its launch decision by the binding's id first", () => {
+		const exact = buildRows({ running: false, tokensIn: 0, tokensOut: 0, cost: 0 }, [{ ...child("c9", "scout", "running", start), launchDecisionId: "d_other" } as LiveStatus], [launch("scout", "light", new Date(start - 1000).toISOString()), { ...launch("scout", "deep", new Date(start - 500).toISOString()), id: "d_other" }]);
+		assert.equal(exact[1]?.decision?.id, "d_other");
+		assert.equal(exact[1]?.tier, "deep");
+	});
+
 	it("builds a main row and one row per child, joined to launch decisions", () => {
 		assert.deepEqual(rows.map((r) => [r.label, r.status, r.tier]), [["main", "running", undefined], ["scout", "running", "light"], ["reviewer", "done", undefined]]);
 	});

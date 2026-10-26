@@ -70,7 +70,18 @@ export interface DecisionEntry {
 	model: { provider: string; id: string; thinking: string; contextWindow?: number; account?: string; subscription?: boolean };
 	switch: { from?: string; cacheMiss: boolean };
 	error?: { class: string; message: string; benchedUntil?: string };
-	subagent?: { agent: string; taskIndex: number; toolCallId: string; mode: "child" | "launch" | "skipped"; skipped?: string; launchTier?: string; maxTier?: string };
+	subagent?: {
+		agent: string;
+		taskIndex: number;
+		toolCallId: string;
+		mode: "child" | "launch" | "skipped";
+		skipped?: string;
+		runner?: "native" | "external" | "unknown";
+		launchTier?: string;
+		maxTier?: string;
+	};
+	/** In a child: the parent's launch decision, from the pi-switchboard/1 binding. */
+	launchDecisionId?: string;
 	budget?: Array<{ scope: "task" | "session"; metric: "tokens" | "costUsd"; used: number; limit: number }>;
 	dryRun?: boolean;
 	/** The virtual model that was selected (provider/id). */
