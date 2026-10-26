@@ -124,12 +124,14 @@ function renderMarkdown(markdown: string): string {
 	});
 	// Badges point at npm and GitHub; the site says the same in its own words.
 	const withoutBadges = markdown.replace(/^\[!\[[^\]]*\]\(https:\/\/img\.shields\.io[^\n]*\n/m, "");
-	// A poster that links to its video becomes the video itself.
-	const withVideos = withoutBadges.replace(
-		/\[!\[([^\]]*)\]\(([^)\s]+\.png)\)\]\(([^)\s]+\.mp4)\)/g,
-		(_all, alt: string, poster: string, video: string) =>
-			`<video controls preload="none" poster="${poster}" src="${video.replace("/blob/main/", "/raw/main/")}" aria-label="${alt.replace(/"/g, "&quot;")}"></video>`,
-	);
+	// A poster that links to its video becomes the video itself, with the narration's subtitles when they exist.
+	const withVideos = withoutBadges.replace(/\[!\[([^\]]*)\]\(([^)\s]+\.png)\)\]\(([^)\s]+\.mp4)\)/g, (_all, alt: string, poster: string, video: string) => {
+		const src = video.replace("/blob/main/", "/raw/main/");
+		const subtitles = src.replace(/\.mp4$/, ".vtt");
+		const local = subtitles.startsWith(`${REPO_URL}/raw/main/`) ? subtitles.slice(`${REPO_URL}/raw/main/`.length) : undefined;
+		const track = local && existsSync(join(ROOT, local)) ? `<track kind="captions" srclang="en" label="Narration" src="${subtitles}" default>` : "";
+		return `<video controls preload="none" poster="${poster}" src="${src}" aria-label="${alt.replace(/"/g, "&quot;")}">${track}</video>`;
+	});
 	return marked.parse(withVideos, { async: false });
 }
 
@@ -140,7 +142,7 @@ function rewriteLinks(html: string, page: SitePage, pages: Map<string, string>, 
 	const toOut = (out: string) => posix.relative(fromOut, out) || posix.basename(out);
 	const rewrite = (target: string): string => {
 		for (const prefix of [RAW_PREFIX, `${REPO_URL}/raw/main/`, BLOB_PREFIX]) {
-			if (target.startsWith(prefix) && /\/media\/[^/]+$/.test(target)) {
+			if (target.startsWith(prefix) && /\/media\/[^/]+$/.test(target) && existsSync(join(ROOT, target.slice(prefix.length)))) {
 				const source = target.slice(prefix.length);
 				copies.add(source);
 				return toOut(source.replace(/^packages\//, ""));

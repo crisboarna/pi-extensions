@@ -28,6 +28,7 @@ const TYPES = {
 	".txt": "text/plain",
 	".md": "text/markdown",
 	".json": "application/json",
+	".vtt": "text/vtt",
 };
 const server = createServer((request, response) => {
 	const path = join(root, decodeURIComponent(new URL(request.url, "http://site").pathname));

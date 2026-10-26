@@ -1,0 +1,20 @@
+{
+	"voice": "af_heart",
+	"speed": 0.92,
+	"pause": 0.6,
+	"lines": {
+		"title": "This is pi-switchboard. It picks the right model for every request in pi, subagents included, and keeps a receipt for each choice.",
+		"auto": "pi is set to switchboard slash auto, a virtual model. Instead of one model for everything, every request is routed on its own.",
+		"small-ask": "First, a small job: rename a function.",
+		"small-classify": "A small classifier, running on this machine, reads the request in a fraction of a second. It answers three questions: what kind of work this is, how deep it goes, and how risky it is.",
+		"small-tier": "The answer here is mechanical work, ninety-six percent sure. Your rules turn that into the light tier, so a small, cheap model does the job.",
+		"design-ask": "Now some design work: a caching layer for the pricing API.",
+		"design-tier": "The classifier calls this planning, and deep. Your rules send it to the deep tier, the strongest model in the profile.",
+		"sub-ask": "Next, the agent splits a review into three subagents that run in parallel: a scout, a worker and a reviewer.",
+		"sub-tiers": "pi-switchboard classifies each child's task when it launches. The scout's quick search gets the light tier, the worker's coding gets standard, and the careful review gets deep.",
+		"navigator": "Control, Alt, W opens the navigator: every child, live, with its tier, its model and its tokens.",
+		"limit": "Mid-task, the worker's account hits its usage limit. The whole account sits out until it resets, and the worker carries on with the next account in the same tier. Nobody has to retry by hand.",
+		"receipt": "Every choice has a receipt. Opening the worker shows why it ran where it did: the task as the classifier saw it, the answers with their confidence, and the rule that earned the standard tier.",
+		"end": "To install it, run the command on screen. Then start with slash tier tour."
+	}
+}

@@ -79,7 +79,8 @@
 			"gif": false,
 			"still": true,
 			"crf": 28,
-			"tailMs": 300
+			"tailMs": 300,
+			"narration": "hero.narration.json"
 		},
 		{
 			"kind": "terminal",

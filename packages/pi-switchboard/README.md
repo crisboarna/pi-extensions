@@ -9,9 +9,9 @@
 
 Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs to small models, design and review to the strongest, and each subagent to its own tier. A local classifier answers three questions about the request, your rules turn the answers into a tier, and a strategy picks one of the tier's models, moving to another account when a subscription runs dry. Every choice is recorded, so you can see why each model ran and what it cost.
 
-[![A one-minute demo in a real pi session: a rename goes to a small model, a design task to the strongest, three subagents each get their own tier, one hits a usage limit and moves to another account mid-task, and the navigator shows the receipt for each choice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/hero.png)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4)
+[![A two-minute narrated demo in a real pi session: a rename goes to a small model, a design task to the strongest, three subagents each get their own tier, one hits a usage limit and moves to another account mid-task, and the navigator shows the receipt for each choice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/hero.png)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4)
 
-▶ [Watch the one-minute demo](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4): real pi, pi-switchboard and pi-subagents; only the model replies are scripted.
+▶ [Watch the two-minute demo, with narration](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/media/hero.mp4): real pi, pi-switchboard and pi-subagents; only the model replies are scripted.
 
 ## Install
 

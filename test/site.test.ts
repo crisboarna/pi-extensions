@@ -29,6 +29,9 @@ describe("the family site", () => {
 	it("serves media from the site, plays the hero as a video, and leaves out the npm badges", () => {
 		const guard = readFileSync(join(out, "pi-account-guard", "index.html"), "utf8");
 		assert.match(guard, /<video controls preload="none" poster="media\/hero\.png" src="media\/hero\.mp4"/);
+		const switchboard = readFileSync(join(out, "pi-switchboard", "index.html"), "utf8");
+		assert.match(switchboard, /<track kind="captions" srclang="en" label="Narration" src="media\/hero\.vtt" default><\/video>/);
+		assert.ok(existsSync(join(out, "pi-switchboard", "media", "hero.vtt")));
 		assert.doesNotMatch(guard, /raw\.githubusercontent\.com|img\.shields\.io/);
 		assert.ok(existsSync(join(out, "pi-account-guard", "media", "hero.mp4")));
 	});

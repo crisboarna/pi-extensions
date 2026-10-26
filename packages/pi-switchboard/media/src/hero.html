@@ -11,7 +11,8 @@
 <body>
 <script>
 // The hero demo: real pi, pi-switchboard and pi-subagents in a terminal, with
-// scripted classifier answers and provider replies (media/terminal/scenes/demo.ts).
+// scripted classifier answers and provider replies (media/terminal/scenes/demo.ts),
+// narrated from hero.narration.json.
 const MARK = '<img class="mark" src="mark.svg" alt="">';
 
 let stage;
@@ -23,49 +24,57 @@ window.prepare = async () => {
 };
 
 window.play = async () => {
-	await sleep(3200);
+	// The narration (hero.narration.json) sets the pace: stage.say() waits until each line is spoken.
+	// Lines about something being done start with the action and are awaited after it.
+	await stage.say("title");
 	stage.card(null);
-	await sleep(600);
+	await sleep(400);
 
 	// 1. A small job.
 	stage.caption("One model for everything is slow and costly, or too weak. pi-switchboard picks per request.", "1/5");
 	stage.callout(/\(switchboard\) auto/, "<b>auto</b>: a virtual model that routes every request", { place: "above" });
-	await sleep(2600);
+	await stage.say("auto");
 	stage.clear();
+	let spoken = stage.say("small-ask");
 	await stage.type("rename foo to bar in utils.ts");
+	await spoken;
 	await stage.press("Enter");
 	await stage.waitFor(/Renamed foo to bar/);
-	await sleep(500);
 	stage.caption("A local classifier reads the request in milliseconds. A small job goes to a small, cheap model.", "1/5");
 	stage.callout(/work=mechanical \(0\.96\)/, "<b>classifier</b>: mechanical work, 96% sure", { place: "above", last: true });
+	await stage.say("small-classify");
 	stage.callout(/light → small-model:medium \(sticky\)/, "<b>light tier</b>: its first healthy model", { place: "right", last: true });
-	await sleep(4200);
+	await stage.say("small-tier");
 	stage.clear();
 
 	// 2. Design work.
+	stage.caption("Design work goes to the strongest tier.", "2/5");
+	spoken = stage.say("design-ask");
 	await stage.type("design the caching layer for the pricing API");
+	await spoken;
 	await stage.press("Enter");
 	await stage.waitFor(/deep → big-model/, { last: true });
-	stage.caption("Design work goes to the strongest tier.", "2/5");
 	await stage.waitFor(/during promotions/, { timeout: 30000 });
-	await sleep(300);
 	stage.callout(/work=plan \(0\.94\)/, "<b>plan</b>, depth 1.8: a hard problem", { place: "above", last: true });
 	stage.callout(/deep → big-model[^│]*cache miss/, "<b>deep tier</b>: the strongest model", { place: "right", last: true });
-	await sleep(4000);
+	await stage.say("design-tier");
 	stage.clear();
 
 	// 3. Subagents, each with its own tier.
+	stage.caption("pi-subagents launches three children. Each task is classified at launch and gets its own tier.", "3/5");
+	spoken = stage.say("sub-ask");
 	await stage.type("review the upload retries: a scout, a worker and a reviewer in parallel", { delay: 30 });
+	await spoken;
 	await stage.press("Enter");
 	await stage.waitFor(/reviewer · work=review/, { timeout: 30000, last: true });
-	await sleep(300);
-	stage.caption("pi-subagents launches three children. Each task is classified at launch and gets its own tier.", "3/5");
+	spoken = stage.say("sub-tiers");
+	await sleep(1500);
 	stage.callout(/scout · work=research \(0\.94\) · light → work\.light:medium/, "<b>scout</b>: a quick search, <b>light</b>", { place: "right", last: true });
-	await sleep(900);
+	await sleep(2500);
 	stage.callout(/worker · work=implement \(0\.90\) · standard → work\.standard:medium/, "<b>worker</b>: writes code, <b>standard</b>", { place: "right", last: true });
-	await sleep(900);
+	await sleep(2000);
 	stage.callout(/reviewer · work=review \(0\.95\) · deep → work\.deep:medium/, "<b>reviewer</b>: careful review, <b>deep</b>", { place: "right", last: true });
-	await sleep(2600);
+	await spoken;
 	stage.clear();
 
 	// 4. The live navigator, and a usage limit mid-task.
@@ -73,15 +82,15 @@ window.play = async () => {
 	await stage.waitFor(/scout\s+light\s+provider-a\/small-model/, { timeout: 30000 });
 	stage.caption("<b>Ctrl+Alt+W</b> opens the navigator: every child, live, with its tier, model and tokens.", "4/5");
 	stage.callout(/scout\s+light\s+provider-a\/small-model/, "each child on <b>its own tier</b>", { place: "right" });
+	await stage.say("navigator");
 	await stage.waitFor(/worker\s+standard\s+provider-b\/mid-model/, { timeout: 30000 });
-	await sleep(1200);
 	stage.clear();
 	stage.caption("The worker's account hit its usage limit mid-task. The child moved to the next account and carried on.", "4/5");
 	stage.callout(/cooldown: provider-a/, "<b>usage limit</b>: the whole account sits out until its reset", { place: "below", alert: true });
 	stage.callout(/worker\s+standard\s+provider-b\/mid-model/, "same tier, <b>next account</b>, no retry by hand", { place: "right" });
-	await sleep(600);
+	spoken = stage.say("limit");
 	await stage.still();
-	await sleep(4200);
+	await spoken;
 	stage.clear();
 
 	// 5. The receipt.
@@ -93,12 +102,13 @@ window.play = async () => {
 	stage.callout(/request: add exponential backoff to the upload retry loop/, "the task as the classifier saw it", { place: "right" });
 	stage.callout(/answers: work=implement \(0\.90\), depth=1\.00, risky=0\.15/, "its answers, with confidence", { place: "right" });
 	stage.callout(/tier: standard → standard: rules/, "the tier it earned", { place: "right" });
-	await sleep(5200);
+	await stage.say("receipt");
 	stage.clear();
 	stage.caption("", "");
 
 	stage.card(`${MARK}<div class="name">pi-switchboard</div><code>pi install npm:@crisboarna/pi-switchboard</code><div class="small">then <code>/tier tour</code> · <code>/tier try</code> · <code>/tier doctor</code></div>`);
-	await sleep(4200);
+	await stage.say("end");
+	await sleep(1500);
 };
 </script>
 </body>

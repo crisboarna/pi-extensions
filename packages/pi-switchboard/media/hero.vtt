@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.005 --> 00:00:09.055
+This is pi-switchboard. It picks the right model for every request in pi, subagents included, and keeps a receipt for each choice.
+
+2
+00:00:10.310 --> 00:00:19.610
+pi is set to switchboard slash auto, a virtual model. Instead of one model for everything, every request is routed on its own.
+
+3
+00:00:20.214 --> 00:00:23.539
+First, a small job: rename a function.
+
+4
+00:00:24.646 --> 00:00:37.096
+A small classifier, running on this machine, reads the request in a fraction of a second. It answers three questions: what kind of work this is, how deep it goes, and how risky it is.
+
+5
+00:00:37.702 --> 00:00:47.277
+The answer here is mechanical work, ninety-six percent sure. Your rules turn that into the light tier, so a small, cheap model does the job.
+
+6
+00:00:47.882 --> 00:00:52.607
+Now some design work: a caching layer for the pricing API.
+
+7
+00:00:55.575 --> 00:01:03.450
+The classifier calls this planning, and deep. Your rules send it to the deep tier, the strongest model in the profile.
+
+8
+00:01:04.060 --> 00:01:12.260
+Next, the agent splits a review into three subagents that run in parallel: a scout, a worker and a reviewer.
+
+9
+00:01:13.951 --> 00:01:25.301
+pi-switchboard classifies each child's task when it launches. The scout's quick search gets the light tier, the worker's coding gets standard, and the careful review gets deep.
+
+10
+00:01:26.518 --> 00:01:34.443
+Control, Alt, W opens the navigator: every child, live, with its tier, its model and its tokens.
+
+11
+00:01:35.049 --> 00:01:48.349
+Mid-task, the worker's account hits its usage limit. The whole account sits out until it resets, and the worker carries on with the next account in the same tier. Nobody has to retry by hand.
+
+12
+00:01:50.357 --> 00:02:02.932
+Every choice has a receipt. Opening the worker shows why it ran where it did: the task as the classifier saw it, the answers with their confidence, and the rule that earned the standard tier.
+
+13
+00:02:03.545 --> 00:02:08.795
+To install it, run the command on screen. Then start with slash tier tour.
