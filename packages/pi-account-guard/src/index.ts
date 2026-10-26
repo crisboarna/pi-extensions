@@ -9,6 +9,8 @@ import { registerGuard } from "./pi/hooks.ts";
 import { pooledProviders } from "./pi/pooled.ts";
 
 export default function accountGuard(pi: ExtensionAPI): void {
+	// Stored next to the config, so the notice shows once per agent folder.
+	const firstRunMarker = join(getAgentDir(), "account-guard.first-run");
 	registerGuard(pi, {
 		home: homedir(),
 		configPath: join(getAgentDir(), "account-guard.json"),
@@ -25,6 +27,10 @@ export default function accountGuard(pi: ExtensionAPI): void {
 		realpath: realpathIfPresent,
 		readRemoteUrls: (cwd) => readGitRemoteUrls(cwd),
 		pooledProviders,
+		firstRun: {
+			seen: () => readTextIfPresent(firstRunMarker) !== undefined,
+			remember: () => writeTextAtomically(firstRunMarker, `${new Date().toISOString()} the first-run notice was shown\n`),
+		},
 		writeStderr: (text) => void process.stderr.write(text),
 		setExitCode: createExitCodeKeeper(),
 	});

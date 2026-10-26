@@ -29,6 +29,7 @@ import { type FailHeadless, reportOnError } from "./handler-errors.ts";
 import { offersOf } from "./interactive-block.ts";
 import { createPlaceZoneCommands } from "./place-zone-commands.ts";
 import { askZones } from "./tag-prompt.ts";
+import { runTour } from "./tour.ts";
 
 /** Exit code of a `/guard` command that failed without a UI. */
 const COMMAND_FAILED_EXIT_CODE = 2;
@@ -252,7 +253,7 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 	});
 
 	pi.registerCommand("guard", {
-		description: "Show the guard status, check a directory, tag and untag accounts, edit place rules and zones",
+		description: "Show the guard status, check a directory, take the tour, tag and untag accounts, edit place rules and zones",
 		handler: reportOnError(pi, "/guard", deps.failHeadless, async (args: string, ctx) => {
 			const [command, ...words] = args.split(/\s+/).filter((word) => word !== "");
 			switch (command) {
@@ -260,6 +261,8 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 					return status(ctx);
 				case "check":
 					return check(ctx, words);
+				case "tour":
+					return void (await runTour(ctx));
 				case "tag":
 					return tag(ctx, words);
 				case "untag":

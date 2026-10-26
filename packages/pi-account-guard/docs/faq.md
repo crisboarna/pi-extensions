@@ -34,4 +34,4 @@ So a script can tell a guard block from a model error (exit code 1). See [ADR 00
 
 ## Does it write anything?
 
-Only `account-guard.json`, and only when you tag an account or edit rules and zones through `/guard`. It writes atomically and never over a malformed file. Overrides are never written.
+Only `account-guard.json`, and only when you tag an account or edit rules and zones through `/guard`. It writes atomically and never over a malformed file. Overrides are never written. The one other file is `account-guard.first-run` next to it, which remembers that the first-run notice was shown.

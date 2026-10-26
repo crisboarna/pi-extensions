@@ -1,6 +1,7 @@
 import { parseZoneList } from "./tag-prompt.ts";
 
 export const CHECK_USAGE = "/guard check <path|here> [provider [source]]";
+export const TOUR_USAGE = "/guard tour";
 export const TAG_USAGE = "/guard tag [provider [source] [zones]]";
 export const UNTAG_USAGE = "/guard untag [provider [source]]";
 
@@ -18,6 +19,7 @@ export const GUARD_USAGE = [
 	"Usage:",
 	"  /guard",
 	`  ${CHECK_USAGE}`,
+	`  ${TOUR_USAGE}`,
 	`  ${TAG_USAGE}`,
 	`  ${UNTAG_USAGE}`,
 	`  ${PLACE_ADD_USAGE}`,

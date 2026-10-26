@@ -9,6 +9,7 @@ import { footerText } from "../core/footer.ts";
 import { configFallbackWarning, headlessBlockMessage } from "../core/messages.ts";
 import { applyOverrides, NO_OVERRIDES, type Overrides, releaseOnce } from "../core/overrides.ts";
 import { type RemoteUrls, resolvePlaceZone } from "../core/place.ts";
+import { FIRST_RUN_NOTICE } from "../core/tour.ts";
 import { createAccountResolver } from "./account-of.ts";
 import { registerGuardCommand } from "./commands.ts";
 import { BLOCK_EXIT_CODE } from "./exit-code.ts";
@@ -31,6 +32,8 @@ export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writ
 	setExitCode(code: number): void;
 	/** Provider ids that pool several accounts under one id; `/guard` lists them. Defaults to none. */
 	pooledProviders?(ctx: ExtensionContext): string[];
+	/** Remembers that the first-run notice was shown; without it the notice never shows. */
+	firstRun?: { seen(): boolean; remember(): void };
 }
 
 /** A decision with the place and config it was made on. */
@@ -165,8 +168,22 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			unknownAccounts.reset();
 			currentPlace(ctx.cwd, loadConfig(ctx));
 			refreshFooter(ctx);
+			showFirstRunNotice(ctx);
 		}),
 	);
+
+	/** Once per agent folder: with a UI, before any config file exists. A failure to read or remember only skips the notice. */
+	function showFirstRunNotice(ctx: ExtensionContext): void {
+		const { firstRun } = deps;
+		if (!ctx.hasUI || !firstRun) return;
+		try {
+			if (deps.readConfigText(deps.configPath) !== undefined || firstRun.seen()) return;
+			firstRun.remember();
+		} catch {
+			return;
+		}
+		ctx.ui.notify(FIRST_RUN_NOTICE, "info");
+	}
 
 	pi.on(
 		"model_select",

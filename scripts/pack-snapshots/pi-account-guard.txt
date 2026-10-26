@@ -28,6 +28,7 @@ src/core/process-override.ts
 src/core/remote.ts
 src/core/status.ts
 src/core/tag-prompt.ts
+src/core/tour.ts
 src/core/zone-edit.ts
 src/index.ts
 src/pi/account-of.ts
@@ -44,4 +45,5 @@ src/pi/place-zone-commands.ts
 src/pi/pooled.ts
 src/pi/tag-checklist.ts
 src/pi/tag-prompt.ts
+src/pi/tour.ts
 src/pi/unknown-account.ts
