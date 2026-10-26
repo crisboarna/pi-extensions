@@ -23,6 +23,7 @@ import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
 import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
 import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
+import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
 import { BudgetTracker } from "./budgets/track.ts";
 import { DebugLog } from "./record/debug-log.ts";
 import { createRedactor } from "./classifier/redact.ts";
@@ -198,7 +199,7 @@ export class Runtime {
 		this.setupLive(ctx);
 		this.setupAccountAffinity(ctx);
 		if (this.blocked) ctx.ui.notify(`pi-switchboard: not routing because ${this.blocked} is installed; remove one of the two routers.`, "warning");
-		for (const warning of this.config.warnings.slice(0, 5)) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
+		this.announce(ctx);
 		this.updateFooter(ctx);
 	}
 
@@ -332,6 +333,34 @@ export class Runtime {
 			}),
 		};
 		this.pi.appendEntry(LINK_TYPE, entry);
+	}
+
+	/** Environment warnings around the config (Plannotator, multi-pass, classifiers); also used by /tier validate. */
+	environmentChecks(ctx: ExtensionContext): string[] {
+		return runChecks({
+			config: this.config,
+			agentDir: this.agentDir,
+			cwd: ctx.cwd,
+			projectTrusted: ctx.isProjectTrusted(),
+			plannotatorBuiltin: join(this.agentDir, "npm", "node_modules", "@plannotator", "pi-extension", "plannotator.json"),
+			classifierAvailable: (model) => {
+				const ref = model.indexOf("/");
+				return ref > 0 && ctx.modelRegistry.findOfType("classifier", model.slice(0, ref), model.slice(ref + 1)) !== undefined;
+			},
+			classifierIsLocal: (model) => isLocalClassifier(ctx, model, this.config.classifierProviders),
+		});
+	}
+
+	/** Shows config and environment warnings once, and the terms-of-service notice only the first time ever. */
+	private announce(ctx: ExtensionContext): void {
+		const notices = [...withoutTosWarnings(this.config.warnings), ...(this.blocked ? [] : this.environmentChecks(ctx))];
+		const shown = notices.slice(0, 6);
+		for (const warning of shown) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
+		if (notices.length > shown.length) ctx.ui.notify(`pi-switchboard: ${notices.length - shown.length} more warnings; run /tier validate`, "warning");
+		if (needsTosNotice(this.config) && !this.stateFile.read().warned?.tos) {
+			ctx.ui.notify(`pi-switchboard: ${TOS_WARNING}. This notice is shown once.`, "warning");
+			this.stateFile.write((state) => ({ ...state, warned: { ...state.warned, tos: true } }));
+		}
 	}
 
 	private async loadCustomStrategies(): Promise<void> {

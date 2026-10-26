@@ -197,6 +197,7 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 						`Valid profiles: ${Object.keys(loaded.config.profiles).join(", ") || "none"}`,
 						...invalid.flatMap(([name, errors]) => [`Invalid profile ${name}:`, ...errors.map((e) => `  ${e}`)]),
 						...loaded.config.warnings.map((w) => `warning: ${w}`),
+						...runtime.environmentChecks(ctx).map((w) => `warning: ${w}`),
 					]);
 					return;
 				}
