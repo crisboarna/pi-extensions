@@ -172,10 +172,10 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		}),
 	);
 
-	/** Once per agent folder: with a UI, before any config file exists. A failure to read or remember only skips the notice. */
+	/** Once per agent folder: in the TUI, before any config file exists; over RPC a program reads the notifications. A failure to read or remember only skips the notice. */
 	function showFirstRunNotice(ctx: ExtensionContext): void {
 		const { firstRun } = deps;
-		if (!ctx.hasUI || !firstRun) return;
+		if (ctx.mode !== "tui" || !firstRun) return;
 		try {
 			if (deps.readConfigText(deps.configPath) !== undefined || firstRun.seen()) return;
 			firstRun.remember();

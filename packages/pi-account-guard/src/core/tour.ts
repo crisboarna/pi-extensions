@@ -96,6 +96,6 @@ export const TOUR_STEPS: TourStep[] = [
 	},
 ];
 
-/** Shown once, on the first session without a config file (stored next to it). */
+/** Shown once, in the TUI, on the first session without a config file (remembered next to it). */
 export const FIRST_RUN_NOTICE =
 	"pi-account-guard is on. Accounts start untagged: the first turn on an account asks which zones it belongs to. /guard shows this place and the account; /guard tour explains the rest.";

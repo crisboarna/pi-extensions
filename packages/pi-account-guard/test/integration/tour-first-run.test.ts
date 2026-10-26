@@ -10,9 +10,10 @@ const MARKER_PATH = "/home/me/.pi/agent/account-guard.first-run";
 const acmeMid: FakeModel = { provider: "acme", id: "mid" };
 
 /** A guard over an in-memory agent folder; `files` maps a path to its text. */
-function rig({ files = new Map<string, string>(), mode = "rpc" as "rpc" | "print" } = {}) {
+function rig({ files = new Map<string, string>(), mode = "tui" as "tui" | "rpc" | "print" } = {}) {
 	const host = createFakeHost();
 	const session = createFakeSession({ cwd: "/home/me/garden", hasUI: mode !== "print", model: acmeMid });
+	(session.ctx as { mode?: string }).mode = mode;
 	const dialogs = attachDialogs(host, session, [acmeMid]);
 	const writes: string[] = [];
 	registerGuard(dialogs.pi as never, {
@@ -53,6 +54,12 @@ describe("the first-run notice", () => {
 		assert.equal(first.shown() + next.shown(), 1);
 	});
 
+	it("stays quiet over RPC, where a program reads the notifications", async () => {
+		const rpc = rig({ mode: "rpc" });
+		await rpc.start();
+		assert.deepEqual([rpc.shown(), rpc.writes], [0, []]);
+	});
+
 	it("stays quiet when a config file already exists, and without a UI", async () => {
 		const configured = rig({ files: new Map([[CONFIG_PATH, "{}"]]) });
 		await configured.start();
@@ -79,6 +86,7 @@ describe("the first-run notice when the agent folder cannot be read", () => {
 	it("skips the notice instead of failing the session", async () => {
 		const host = createFakeHost();
 		const session = createFakeSession({ cwd: "/home/me/garden", hasUI: true, model: acmeMid });
+		(session.ctx as { mode?: string }).mode = "tui";
 		const dialogs = attachDialogs(host, session, [acmeMid]);
 		registerGuard(dialogs.pi as never, {
 			home: "/home/me",
