@@ -1,0 +1,82 @@
+{
+	"ignoredTerms": [
+		{
+			"term": "context",
+			"reason": "Ordinary programming word: pi's ExtensionContext type and our MessageContext (the data a message is built from). Neither names a Zone."
+		},
+		{
+			"term": "environment",
+			"reason": "Ordinary word: process environment variables (\"environment variable\", the env object of the Claude bridge). Neither names a Zone."
+		},
+		{
+			"term": "exception",
+			"reason": "Node's ErrnoException type for file system errors. It is not an Override."
+		},
+		{
+			"term": "reject",
+			"reason": "rejectUnknownFields validates the config file against its schema. It is not a Block."
+		},
+		{
+			"term": "allowed",
+			"reason": "The list of field names a config object may have. It is not a Match."
+		}
+	],
+	"allowedUses": [
+		{
+			"term": "cwd",
+			"files": [
+				"src/core/status.ts",
+				"src/index.ts",
+				"src/pi/commands.ts",
+				"src/pi/git.ts",
+				"src/pi/hooks.ts",
+				"src/pi/place-zone-commands.ts"
+			],
+			"reason": "pi names the session directory ctx.cwd and child_process takes a cwd option. These names carry that value in and out; the resolved Place is never called cwd."
+		},
+		{
+			"term": "label",
+			"files": [
+				"src/core/account.ts",
+				"src/core/block-dialog.ts",
+				"src/core/known-accounts.ts",
+				"src/core/multi-pass.ts",
+				"src/core/overrides.ts",
+				"src/core/status.ts",
+				"src/core/tag-prompt.ts",
+				"src/index.ts",
+				"src/pi/commands.ts",
+				"src/pi/hooks.ts",
+				"src/pi/interactive-block.ts",
+				"src/pi/mid-turn-block.ts",
+				"src/pi/place-zone-commands.ts",
+				"src/pi/tag-prompt.ts",
+				"src/pi/unknown-account.ts"
+			],
+			"reason": "The glossary allows the word for pi-multi-pass display names (multiPassLabel), and pi's auth status has a label field. The rest is the display text of a select row or of a status line. None of it names a Zone tag."
+		},
+		{
+			"term": "login",
+			"files": [
+				"src/core/tag-prompt.ts"
+			],
+			"reason": "Describes an Auth source in words (OAuth login, Claude Code login). The glossary definition of Auth source itself says \"a stored login\"; no Account is called a login."
+		},
+		{
+			"term": "subscription",
+			"files": [
+				"src/core/multi-pass.ts"
+			],
+			"reason": "The `subscriptions` key of the pi-multi-pass file format that the file is read from. Not our name for an Account."
+		},
+		{
+			"term": "provider",
+			"files": [
+				"src/core/config.ts",
+				"src/core/guard-command.ts",
+				"src/pi/commands.ts"
+			],
+			"reason": "Names the provider id argument or the config key `provider` in usage lines and messages, where the text around it makes clear it is the id half of an Account."
+		}
+	]
+}

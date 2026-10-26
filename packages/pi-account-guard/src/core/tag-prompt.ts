@@ -21,7 +21,7 @@ function sourceInWords(source: string): string {
 		case "fallback":
 			return "fallback key";
 		case "unconfigured":
-			return "no credentials";
+			return "no auth source";
 		case "claude-code":
 			return "Claude Code cloud login";
 	}

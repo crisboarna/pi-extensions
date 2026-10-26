@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { handlerErrorNotice } from "../core/messages.ts";
 
 /** Session log entry type of a failed guard handler. */
-export const HANDLER_ERROR_ENTRY = "guard.error";
+const HANDLER_ERROR_ENTRY = "guard.error";
 
 export const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 

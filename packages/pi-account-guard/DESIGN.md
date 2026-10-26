@@ -400,6 +400,8 @@ schema/account-guard.schema.json
 
 Known structure debt (accepted, judgement calls of the review): the `cause.kind` switch recurs in the headless text, the Block title, the mid-turn notice and the Allow once confirm, so a new cause touches several files; the dependency groups (`home`, `configPath`, `writeStderr`, `setExitCode`, readers) repeat across the `*Deps` interfaces; `registerGuard` is one closure that holds the place cache, Overrides, footer, check and `input`; the auth source is a free string that `tag-prompt.ts` parses by prefix. None changes behaviour; splitting them is left for when a change needs it.
 
+Each feature registers its own pi handlers from its own module under `src/pi`, and `registerGuard` only wires them together. Parallel work on tickets that touch `registerGuard` collided four times during the build, so such tickets are sequenced or merged by one writer.
+
 Code is erasable TypeScript (no enums, no parameter properties, `.ts` import extensions) so the same files load under jiti in pi and under plain Node in tests.
 
 ## 17. Testing

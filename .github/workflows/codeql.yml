@@ -18,6 +18,8 @@ concurrency:
 jobs:
   analyze:
     name: analyze
+    # Code scanning uploads need GitHub Advanced Security on a private repository; the job runs once the repository is public.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

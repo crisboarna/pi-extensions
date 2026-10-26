@@ -11,18 +11,18 @@ export interface Overrides {
 
 export const NO_OVERRIDES: Overrides = {};
 
-export type OverrideKind = "allow-once" | "allow-session";
+type OverrideKind = "allow-once" | "allow-session";
 
 /** What a Decision becomes once the Overrides are applied. */
 export type Verdict = { verdict: "match" } | { verdict: "override"; by: OverrideKind } | Extract<Decision, { verdict: "block" }>;
 
 /** Identifies the place an allow-once is bound to: the real path, or one shared id for an undecidable place. */
-export function placeId(place: PlaceOutcome): string {
+function placeId(place: PlaceOutcome): string {
 	return place.ok ? place.path : "undecidable";
 }
 
 /** The zone shown for a place in the footer and in log entries. */
-export function placeZoneLabel(place: PlaceOutcome): string {
+function placeZoneLabel(place: PlaceOutcome): string {
 	return place.ok ? place.zone : "unknown";
 }
 

@@ -376,6 +376,21 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["packages/pi-account-guard/test/support/glossary-scan.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 75
+							}
+						}
+					}
+				}
+			}
 		}
 	],
 	"yaml": {

@@ -61,13 +61,13 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Lockfile policy (`scripts/checks/npm-policy.ts`) | P CI | Dependencies resolved from anywhere but the npm registry, or without a sha512 hash; the `.npmrc` guards being removed |
 | `npm audit signatures` | CI | Installed packages whose registry signatures or provenance attestations do not verify |
 | `npm audit` on runtime dependencies | CI | Known vulnerabilities in what users install |
-| Dependency review | CI (PR) | New dependencies with known vulnerabilities or licences outside the allow-list |
+| Dependency review | CI (PR), public repository only | New dependencies with known vulnerabilities or licences outside the allow-list |
 | Dependabot with a 7-day cooldown | weekly | Stale dependencies and actions, without jumping on brand-new releases |
 | gitleaks (in Docker) | C (staged changes) P CI (whole history) | Committed secrets. Deliberate fakes in tests are allow-listed narrowly in `.gitleaks.toml` |
 | actionlint and zizmor (pedantic), in Docker | P CI | Broken workflows and workflow security mistakes (template injection, excessive or undocumented permissions, credential persistence, cache poisoning, impostor commits when online) |
 | Actions pinned to full commit SHAs | CI | A moved tag changing the code a workflow runs |
 | `permissions: {}` by default, per-job grants | CI R | Workflows holding more token scope than a job needs |
-| CodeQL (`security-and-quality`) | CI weekly | Common vulnerability patterns in TypeScript and in the workflows |
+| CodeQL (`security-and-quality`) | CI weekly, public repository only | Common vulnerability patterns in TypeScript and in the workflows |
 | OpenSSF Scorecard | weekly (public repository) | Regressions in repository security practices |
 | Caches (npm, tool images, knip analysis) | CI | Slow runs. Tool images are keyed by their pinned digests; the publish jobs use no caches, so a poisoned cache cannot reach a release |
 | Trusted publishing with provenance | R | Long-lived npm tokens; packages that cannot be traced to the commit and workflow that built them |

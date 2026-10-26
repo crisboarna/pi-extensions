@@ -5,7 +5,7 @@ export interface AccountKey {
 }
 
 /** What pi's public `getProviderAuthStatus` returns; it holds no secrets. */
-export interface AuthStatusView {
+interface AuthStatusView {
 	configured: boolean;
 	source?: string;
 	label?: string;

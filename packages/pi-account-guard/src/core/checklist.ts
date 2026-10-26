@@ -1,7 +1,7 @@
 export type ChecklistKey = "up" | "down" | "toggle" | "submit" | "cancel";
 
 /** `done` holds the checked options in list order, or `undefined` when the user cancelled. */
-export type ChecklistOutcome = { done: string[] | undefined };
+type ChecklistOutcome = { done: string[] | undefined };
 
 export interface Checklist {
 	/** The lines to draw. */

@@ -2,7 +2,7 @@ import type { AccountKey } from "./account.ts";
 import { accountZones, type ConfigError, type ConfigResult } from "./config.ts";
 
 export type PlaceOutcome = { ok: true; path: string; zone: string; ruleIndex?: number } | { ok: false; reason: string };
-export type ResolvedPlace = Extract<PlaceOutcome, { ok: true }>;
+type ResolvedPlace = Extract<PlaceOutcome, { ok: true }>;
 
 export interface DecideInput {
 	place: PlaceOutcome;
