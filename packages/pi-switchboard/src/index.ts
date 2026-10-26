@@ -3,8 +3,11 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
 import { textOf } from "./classifier/evidence.ts";
+import { doctorLines, gatherDoctorFacts } from "./commands/doctor.ts";
 import { openFile, writeInspector } from "./commands/inspect.ts";
 import { registerTierCommand } from "./commands/tier.ts";
+import { runTour } from "./commands/tour.ts";
+import { formatPreview, parseTryArgs, TRY_USAGE } from "./commands/try.ts";
 import { findProjectConfig, readJson, userConfigPath } from "./config/load.ts";
 import { explain, summarize } from "./record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
@@ -49,6 +52,24 @@ export default function switchboard(pi: ExtensionAPI): void {
 			});
 			const opened = args.includes("--open") ? await openFile(out) : undefined;
 			ctx.ui.notify(`Inspector written to ${out}${opened === false ? " (could not open it; open the file yourself)" : ""}`, "info");
+		},
+		try: async (args, ctx) => {
+			const parsed = parseTryArgs(args, runtime.config.classification.questions);
+			if (parsed.errors.length) return ctx.ui.notify(`/tier try: ${parsed.errors.join("; ")}`, "error");
+			if (!parsed.text) return ctx.ui.notify(TRY_USAGE, "info");
+			const virtualId = ctx.model && runtime.isVirtual(ctx.model.provider) ? ctx.model.id : "auto";
+			try {
+				const decision = await runtime.engine.preview(parsed.text, { virtualId, ...(parsed.answers ? { answers: parsed.answers } : {}) });
+				ctx.ui.notify(formatPreview(parsed.text, decision, parsed.answers !== undefined).join("\n"), "info");
+			} catch (error) {
+				ctx.ui.notify(`/tier try: ${error instanceof Error ? error.message : String(error)}`, "warning");
+			}
+		},
+		doctor: async (_args, ctx) => {
+			ctx.ui.notify(doctorLines(await gatherDoctorFacts(runtime, ctx)).join("\n"), "info");
+		},
+		tour: async (_args, ctx) => {
+			await runTour(ctx);
 		},
 		init: async (_args, ctx) => {
 			const path = userConfigPath(runtime.agentDir);

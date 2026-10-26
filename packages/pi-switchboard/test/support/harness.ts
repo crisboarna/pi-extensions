@@ -41,6 +41,8 @@ afterEach(() => {
 
 export interface BootOptions {
 	config?: Record<string, unknown>;
+	/** Start with no config file at all, as right after installing. */
+	noConfig?: boolean;
 	/** Install a stand-in for pi-subagents (required child extensions and launch preflight). */
 	subagents?: Record<string, never>;
 	scenario?: Scenario;
@@ -55,7 +57,7 @@ export async function boot(options: BootOptions = {}) {
 	const agentDir = join(dir, "agent");
 	mkdirSync(agentDir, { recursive: true });
 	const configPath = join(dir, "pi-switchboard.json");
-	writeFileSync(configPath, JSON.stringify({ ...BASE_CONFIG, ...options.config }));
+	if (!options.noConfig) writeFileSync(configPath, JSON.stringify({ ...BASE_CONFIG, ...options.config }));
 	process.env.PI_CODING_AGENT_DIR = agentDir;
 	process.env.PI_SWITCHBOARD_CONFIG = configPath;
 	for (const [key, value] of Object.entries(options.env ?? {})) process.env[key] = value;

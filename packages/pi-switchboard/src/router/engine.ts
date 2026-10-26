@@ -5,7 +5,7 @@ import type { Config, Member, Profile, Tier } from "../config/types.ts";
 import type { CandidateRecord, DecisionEntry, DecisionKind, ProfileSource } from "../record/types.ts";
 import { evaluateRules, type RuleOutcome } from "../rules/evaluate.ts";
 import { rankOf, resolveTarget } from "../rules/targets.ts";
-import type { Signals } from "../rules/types.ts";
+import type { Answers, Signals } from "../rules/types.ts";
 import { accountSiblings, type Subscription } from "../selection/accounts.ts";
 import { classifyError, type ErrorClass, parseRetryAt, parseRetryHeaders } from "../selection/errors.ts";
 import type { HealthStore } from "../selection/health.ts";
@@ -120,6 +120,9 @@ export interface Controls {
 	dryRun: boolean;
 	profile?: string;
 }
+
+/** The classifier name `/tier try` records when typed answers stand in for a classifier. */
+export const TYPED_ANSWERS = "typed/answers";
 
 /** Raised when every member of every allowed tier is cooling down. */
 export class ExhaustedError extends Error {
@@ -854,6 +857,44 @@ export class SwitchboardEngine {
 		const fallback = input.previous ?? (this.lastRoute ? { provider: this.lastRoute.provider, id: this.lastRoute.member.id } : undefined);
 		if (!fallback) throw new ExhaustedError();
 		return { provider: fallback.provider, id: fallback.id, thinking: (fallback.thinking as ThinkingLevel | undefined) ?? input.selectedThinking };
+	}
+
+	/**
+	 * Routes `text` as a new user turn without any effect: health, pointers,
+	 * leases and routing state stay as they are, and nothing is recorded.
+	 * With `answers`, those stand in for the classifier (`/tier try`).
+	 */
+	async preview(text: string, options: { virtualId?: string; answers?: Answers } = {}): Promise<DecisionEntry | undefined> {
+		const data = structuredClone(this.deps.store.read());
+		const source = this.deps.store;
+		const store: HealthStore = { shared: source.shared, degraded: source.degraded, read: () => data, update: (fn) => fn(data) };
+		const { answers } = options;
+		// Typed answers are gated like the first configured classifier's answers would be.
+		const threshold = this.deps.config.classifiers[0]?.threshold;
+		const twin = new SwitchboardEngine({
+			...this.deps,
+			store,
+			...(answers
+				? {
+						config: {
+							...this.deps.config,
+							classifiers: [{ model: TYPED_ANSWERS, timeoutMs: 1000, ...(threshold !== undefined ? { threshold } : {}) }],
+						},
+						classify: async () => ({ stopReason: "stop" as const, answers }),
+						isLocalClassifier: () => true,
+					}
+				: {}),
+		});
+		twin.controls = { ...this.controls, dryRun: false };
+		if (this.originModel) twin.originModel = this.originModel;
+		const out = await twin.route({
+			virtualId: options.virtualId ?? "auto",
+			selectedThinking: "medium",
+			reason: "user",
+			messages: [{ role: "user", content: text }],
+			scope: "main",
+		});
+		return out.decision;
 	}
 
 	/** The tier rank a decision ended on, for display. */

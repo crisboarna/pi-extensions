@@ -7,6 +7,7 @@ examples/single-tier.json
 examples/two-subscriptions.json
 package.json
 schema/pi-switchboard.schema.json
+skills/pi-switchboard/SKILL.md
 src/autocontinue.ts
 src/autotier/hints.ts
 src/autotier/propose.ts
@@ -20,8 +21,11 @@ src/classifier/warmup.ts
 src/cli/inspector.ts
 src/cli/main.ts
 src/cli/reclassify.ts
+src/commands/doctor.ts
 src/commands/inspect.ts
 src/commands/tier.ts
+src/commands/tour.ts
+src/commands/try.ts
 src/config/checks.ts
 src/config/load.ts
 src/config/normalize.ts

@@ -121,7 +121,7 @@ export function virtualModelIds(config: Config): Array<{ id: string; name: strin
 /** Extension-owned runtime state: the global manual profile and one-time warnings. */
 export interface SwitchboardState {
 	globalProfile?: string | undefined;
-	warned?: { tos?: boolean };
+	warned?: { tos?: boolean; firstRun?: boolean };
 }
 
 export class StateFile {

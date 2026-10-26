@@ -11,10 +11,16 @@ export interface CommandHandlers {
 	models?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
 	watch?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
 	inspect?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
+	try?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
+	doctor?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
+	tour?: (args: string[], ctx: ExtensionCommandContext) => Promise<void>;
 }
 
 const SUBCOMMANDS: Array<{ value: string; description: string }> = [
 	{ value: "init", description: "Propose a config from your signed-in models" },
+	{ value: "try", description: "How a request would route, without running it: [question=value ...] <request>" },
+	{ value: "doctor", description: "Check the setup and say what to fix" },
+	{ value: "tour", description: "A short walkthrough of what pi-switchboard records" },
 	{ value: "models", description: "Edit profiles, tiers and members" },
 	{ value: "watch", description: "Live view of running work" },
 	{ value: "profile", description: "Choose the profile: <name|auto> [--global]" },

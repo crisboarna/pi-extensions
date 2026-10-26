@@ -74,6 +74,10 @@ function choice(entry: { model: { provider: string; id: string }; thinkingLevel?
  * shared health, the usage ledger and the hooks that feed them. Commands,
  * the subagent hook and the navigator read from here.
  */
+/** Shown once, the first time pi starts with pi-switchboard installed but not configured. */
+export const FIRST_RUN_NOTICE =
+	"pi-switchboard is installed but not configured yet. Run /tier init to propose a config from your signed-in models, /tier tour for a two-minute walkthrough, or /tier doctor to check the setup.";
+
 export class Runtime {
 	readonly pi: ExtensionAPI;
 	readonly agentDir: string;
@@ -432,6 +436,10 @@ export class Runtime {
 		const shown = notices.slice(0, 6);
 		for (const warning of shown) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
 		if (notices.length > shown.length) ctx.ui.notify(`pi-switchboard: ${notices.length - shown.length} more warnings; run /tier validate`, "warning");
+		if (this.missingConfig && !this.stateFile.read().warned?.firstRun) {
+			ctx.ui.notify(FIRST_RUN_NOTICE, "info");
+			this.stateFile.write((state) => ({ ...state, warned: { ...state.warned, firstRun: true } }));
+		}
 		if (needsTosNotice(this.config) && !this.stateFile.read().warned?.tos) {
 			ctx.ui.notify(`pi-switchboard: ${TOS_WARNING}. This notice is shown once.`, "warning");
 			this.stateFile.write((state) => ({ ...state, warned: { ...state.warned, tos: true } }));

@@ -36,6 +36,9 @@
 	"pi": {
 		"extensions": [
 			"./src/index.ts"
+		],
+		"skills": [
+			"./skills"
 		]
 	},
 	"files": [
@@ -43,6 +46,7 @@
 		"bin",
 		"schema",
 		"examples",
+		"skills",
 		"README.md",
 		"LICENSE"
 	],

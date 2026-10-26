@@ -63,7 +63,7 @@ describe("/tier status, profiles, pins and logs", () => {
 		const { session, tier } = await boot();
 		await tier("frobnicate");
 		assert.deepEqual(session.notices.at(-1)?.type, "error");
-		assert.match(last(session), /Unknown \/tier subcommand "frobnicate"\. Try: init, models/);
+		assert.match(last(session), /Unknown \/tier subcommand "frobnicate"\. Try: init, try, doctor, tour, models/);
 	});
 
 	it("completes subcommands and their arguments", async () => {
