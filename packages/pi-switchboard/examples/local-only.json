@@ -1,19 +1,17 @@
 {
-  "$schema": "../schema/pi-switchboard.schema.json",
-  "version": 1,
-  "classifierProviders": [
-    { "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "api": "system-one", "models": ["h2o-lightning-4b"] }
-  ],
-  "classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }],
-  "profiles": {
-    "local": {
-      "description": "Every tier on local models",
-      "tiers": {
-        "big": { "rank": 2, "members": ["llama.cpp/qwen3.6-35b-a3b"] },
-        "small": { "rank": 1, "members": ["llama.cpp/gemma-4-e4b"] }
-      },
-      "fallbackTier": "big"
-    }
-  },
-  "profileSelection": { "default": "local" }
+	"$schema": "../schema/pi-switchboard.schema.json",
+	"version": 1,
+	"classifierProviders": [{ "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "api": "system-one", "models": ["h2o-lightning-4b"] }],
+	"classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }],
+	"profiles": {
+		"local": {
+			"description": "Every tier on local models",
+			"tiers": {
+				"big": { "rank": 2, "members": ["llama.cpp/qwen3.6-35b-a3b"] },
+				"small": { "rank": 1, "members": ["llama.cpp/gemma-4-e4b"] }
+			},
+			"fallbackTier": "big"
+		}
+	},
+	"profileSelection": { "default": "local" }
 }

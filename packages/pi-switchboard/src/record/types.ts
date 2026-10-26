@@ -24,10 +24,10 @@ export interface CandidateRecord {
 	member: string;
 	eligible: boolean;
 	excluded?: string;
-	cooldownUntil?: string;
+	cooldownUntil?: string | undefined;
 	fails?: number;
 	inFlight?: number;
-	quota?: { remaining: number; resetsAt?: string; source: string };
+	quota?: { remaining: number; resetsAt?: string | undefined; source: string };
 }
 
 /** One routing decision, appended as a session custom entry (never in LLM context). */
@@ -47,7 +47,7 @@ export interface DecisionEntry {
 		model?: string;
 		latencyMs: number;
 		attempts: Array<{ model: string; ok: boolean; error?: string; latencyMs: number; cold?: boolean }>;
-		usage?: { input: number; output: number; cost: number };
+		usage?: { input: number; output: number; cost: number } | undefined;
 		failure?: string;
 	};
 	answers?: Record<string, Answer>;
@@ -58,18 +58,20 @@ export interface DecisionEntry {
 		floors: Array<{ index: number; atLeast: string; confidence: number; applied: boolean; raised: boolean }>;
 	};
 	tier: { candidate: string; chosen: string; previous?: string; rank: number; why: string; downVotes?: number; borrowedFrom?: string };
-	selection?: {
-		strategy: string;
-		granularity: string;
-		why: string;
-		metricFallback?: string;
-		kept: boolean;
-		shared: boolean;
-		candidates: CandidateRecord[];
-	};
+	selection?:
+		| {
+				strategy: string;
+				granularity: string;
+				why: string;
+				metricFallback?: string;
+				kept: boolean;
+				shared: boolean;
+				candidates: CandidateRecord[];
+		  }
+		| undefined;
 	model: { provider: string; id: string; thinking: string; contextWindow?: number; account?: string; subscription?: boolean };
 	switch: { from?: string; cacheMiss: boolean };
-	error?: { class: string; message: string; benchedUntil?: string };
+	error?: { class: string; message: string; benchedUntil?: string | undefined };
 	subagent?: {
 		agent: string;
 		taskIndex: number;
@@ -107,7 +109,11 @@ export interface ControlEntry {
 export interface ProfileSnapshotEntry {
 	v: 1;
 	profile: string;
-	tiers: Array<{ name: string; rank: number; members: Array<{ key: string; price?: { input: number; output: number; cacheRead?: number; cacheWrite?: number } }> }>;
+	tiers: Array<{
+		name: string;
+		rank: number;
+		members: Array<{ key: string; price?: { input: number; output: number; cacheRead?: number; cacheWrite?: number } }>;
+	}>;
 	baselineTier: string;
 	topTier: string;
 }

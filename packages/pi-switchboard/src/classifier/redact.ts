@@ -19,14 +19,15 @@ const RULES: Rule[] = [
 	{ pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}/gu, replace: REDACTED },
 	{ pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/gu, replace: REDACTED },
 	{ pattern: /\bxox[abprs]-[A-Za-z0-9-]{10,}/gu, replace: REDACTED },
-	{ pattern: /\b(api[_-]?key|secret|token|password|passwd|access[_-]?key)(\s*[:=]\s*)["']?[^\s"']{6,}["']?/giu, replace: (_m, key, sep) => `${key}${sep}${REDACTED}` },
+	{
+		pattern: /\b(api[_-]?key|secret|token|password|passwd|access[_-]?key)(\s*[:=]\s*)["']?[^\s"']{6,}["']?/giu,
+		replace: (_m, key, sep) => `${key}${sep}${REDACTED}`,
+	},
 	{ pattern: /\b[0-9a-f]{32,}\b/giu, replace: REDACTED },
 	{ pattern: /[A-Za-z0-9+]{40,}={0,2}/gu, replace: (run) => (looksRandom(run) ? REDACTED : run) },
 ];
 
-export interface Redactor {
-	(text: string): string;
-}
+export type Redactor = (text: string) => string;
 
 /**
  * Masks secret-shaped strings and replaces the home directory with `~`.

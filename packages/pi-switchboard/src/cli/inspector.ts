@@ -7,7 +7,8 @@ const esc = (value: unknown): string =>
 	String(value ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 const money = (value: number): string => (value === 0 ? "$0" : value < 0.01 ? `$${value.toFixed(4)}` : `$${value.toFixed(2)}`);
-const tokens = (value: number): string => (value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value));
+const tokens = (value: number): string =>
+	value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value);
 
 interface Price {
 	input: number;
@@ -36,7 +37,8 @@ function decisionBlock(decision: DecisionEntry): string {
 function mirrorBlock(lines: readonly MirrorLine[]): string {
 	const rows = lines
 		.map((line) => {
-			const tag = line.kind === "tool-call" ? `→ ${line.tool ?? ""}` : line.kind === "tool-result" ? `${line.isError ? "✗" : "←"} ${line.tool ?? ""}` : line.kind;
+			const tag =
+				line.kind === "tool-call" ? `→ ${line.tool ?? ""}` : line.kind === "tool-result" ? `${line.isError ? "✗" : "←"} ${line.tool ?? ""}` : line.kind;
 			return `<div class="${line.isError || line.kind === "error" ? "err" : ""}"><span class="dim">${esc(tag.padEnd(14))}</span> ${esc(line.text.replace(/\s+/gu, " ").slice(0, 600))}</div>`;
 		})
 		.join("");
@@ -57,11 +59,18 @@ function taskBlock(task: Task, snapshot: ProfileSnapshotEntry | undefined, depth
 				`<tr${r.switched ? ' class="switch"' : ""}${r.error ? ' class="err"' : ""}><td>${esc(r.ts.slice(11, 19))}</td><td>${esc(`${r.provider}/${r.model}`)}${r.thinking ? `:${esc(r.thinking)}` : ""}${r.switched ? ' <span class="tag">switch</span>' : ""}</td><td class="n">${tokens(r.input)}</td><td class="n">${tokens(r.cacheRead)}</td><td class="n">${tokens(r.output)}</td><td class="n">${money(r.cost)}</td><td class="n">${r.durationMs !== undefined ? `${(r.durationMs / 1000).toFixed(1)}s` : ""}</td><td>${esc(r.error ?? r.stopReason ?? "")}</td></tr>`,
 		)
 		.join("");
-	const tools = task.tools.map((t) => `<li class="${t.isError ? "err" : ""}"><code>${esc(t.name)}</code> ${t.isError ? "✗" : "✓"} <span class="dim">${esc(t.preview.replace(/\s+/gu, " ").slice(0, 160))}</span></li>`).join("");
+	const tools = task.tools
+		.map(
+			(t) =>
+				`<li class="${t.isError ? "err" : ""}"><code>${esc(t.name)}</code> ${t.isError ? "✗" : "✓"} <span class="dim">${esc(t.preview.replace(/\s+/gu, " ").slice(0, 160))}</span></li>`,
+		)
+		.join("");
 	const children = task.children
 		.map((child) => {
 			const transcript = child.timeline?.mirror ? mirrorBlock(child.timeline.mirror) : "";
-			const nested = child.timeline ? child.timeline.tasks.map((t) => taskBlock(t, snapshot, depth + 1)).join("") + transcript : '<p class="dim">Child session not available (in-memory child, removed file, or its transcript mirror was already swept).</p>';
+			const nested = child.timeline
+				? child.timeline.tasks.map((t) => taskBlock(t, snapshot, depth + 1)).join("") + transcript
+				: '<p class="dim">Child session not available (in-memory child, removed file, or its transcript mirror was already swept).</p>';
 			return `<div class="child">${decisionBlock(child.decision)}${child.runId ? `<p class="dim">run ${esc(child.runId)}</p>` : ""}${nested}</div>`;
 		})
 		.join("");
@@ -79,7 +88,10 @@ ${children}
 function rows(map: Map<string, { cost: number; tokens: number; requests: number }>): string {
 	return [...map.entries()]
 		.sort((a, b) => b[1].cost - a[1].cost || b[1].tokens - a[1].tokens)
-		.map(([key, v]) => `<tr><td>${esc(key)}</td><td class="n">${money(v.cost)}</td><td class="n">${tokens(v.tokens)}</td><td class="n">${v.requests}</td></tr>`)
+		.map(
+			([key, v]) =>
+				`<tr><td>${esc(key)}</td><td class="n">${money(v.cost)}</td><td class="n">${tokens(v.tokens)}</td><td class="n">${v.requests}</td></tr>`,
+		)
 		.join("");
 }
 

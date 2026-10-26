@@ -9,7 +9,23 @@ import type { Signals } from "../rules/types.ts";
 import { accountSiblings, type Subscription } from "../selection/accounts.ts";
 import { classifyError, type ErrorClass, parseRetryAt, parseRetryHeaders } from "../selection/errors.ts";
 import type { HealthStore } from "../selection/health.ts";
-import { acquireLease, activeCooldown, borrowOrder, type CandidateView, cooldownKey, cooldownKeys, DEFAULT_FAILURE_CONFIG, releaseLease, type FailureConfig, type MemberInfo, modelKey, type QuotaView, recordFailure, recordSuccess, selectMember } from "../selection/select.ts";
+import {
+	acquireLease,
+	activeCooldown,
+	borrowOrder,
+	type CandidateView,
+	cooldownKey,
+	cooldownKeys,
+	DEFAULT_FAILURE_CONFIG,
+	type FailureConfig,
+	type MemberInfo,
+	modelKey,
+	type QuotaView,
+	recordFailure,
+	recordSuccess,
+	releaseLease,
+	selectMember,
+} from "../selection/select.ts";
 import type { CustomSelect } from "../selection/strategies.ts";
 import { decideUserTier, escalate, escalationTrigger } from "../tiering/decide.ts";
 import { formatModelRef, shiftThinking, THINKING_LEVELS, type ThinkingLevel } from "../util/model-ref.ts";
@@ -48,7 +64,7 @@ export interface RouteInput {
 	reason: "user" | "continuation" | "retry" | "direct";
 	previous?: ModelChoice;
 	failed?: ModelChoice & { errorMessage?: string };
-	state?: RouterState;
+	state?: RouterState | undefined;
 	messages: readonly TranscriptMessage[];
 	signal?: AbortSignal;
 	scope: "main" | "subagent";
@@ -107,7 +123,7 @@ export interface Controls {
 
 /** Raised when every member of every allowed tier is cooling down. */
 export class ExhaustedError extends Error {
-	readonly earliest?: { member: string; at: number };
+	readonly earliest?: { member: string; at: number } | undefined;
 	constructor(earliest?: { member: string; at: number }) {
 		const when = earliest ? `; earliest reset ${new Date(earliest.at).toLocaleTimeString()} on ${earliest.member}` : "";
 		super(`pi-switchboard: every model is cooling down${when}`);
@@ -165,7 +181,9 @@ function candidateRecords(views: readonly CandidateView[]): CandidateRecord[] {
 		...(view.cooldownUntil ? { cooldownUntil: iso(view.cooldownUntil) } : {}),
 		...(view.fails ? { fails: view.fails } : {}),
 		...(view.inFlight ? { inFlight: view.inFlight } : {}),
-		...(view.quota ? { quota: { remaining: view.quota.remaining, source: view.quota.source, ...(view.quota.resetsAt ? { resetsAt: iso(view.quota.resetsAt) } : {}) } } : {}),
+		...(view.quota
+			? { quota: { remaining: view.quota.remaining, source: view.quota.source, ...(view.quota.resetsAt ? { resetsAt: iso(view.quota.resetsAt) } : {}) } }
+			: {}),
 	}));
 }
 
@@ -191,7 +209,7 @@ export class SwitchboardEngine {
 	originModel?: string;
 	readonly recent: DecisionEntry[] = [];
 	private lastRoute?: { profile: string; tier: string; member: Member; provider: string };
-	private requestLease?: LeaseRef;
+	private requestLease?: LeaseRef | undefined;
 	private readonly pending = new Map<string, { errorClass: ErrorClass; retryAt?: number; message?: string }>();
 
 	constructor(deps: EngineDeps) {
@@ -298,9 +316,17 @@ export class SwitchboardEngine {
 	noteResponse(status: number, headers: Record<string, string>): void {
 		if (status < 400 || !this.lastRoute) return;
 		const retryAt = parseRetryHeaders(headers, this.deps.clock.now());
-		const key = modelKey(this.lastRoute.member.provider === this.lastRoute.provider ? this.lastRoute.member : { provider: this.lastRoute.provider, id: this.lastRoute.member.id });
+		const key = modelKey(
+			this.lastRoute.member.provider === this.lastRoute.provider
+				? this.lastRoute.member
+				: { provider: this.lastRoute.provider, id: this.lastRoute.member.id },
+		);
 		const existing = this.pending.get(key);
-		this.pending.set(key, { errorClass: existing?.errorClass ?? (status === 429 ? "rate-limit" : "other"), ...(retryAt ? { retryAt } : {}), ...(existing?.message ? { message: existing.message } : {}) });
+		this.pending.set(key, {
+			errorClass: existing?.errorClass ?? (status === 429 ? "rate-limit" : "other"),
+			...(retryAt ? { retryAt } : {}),
+			...(existing?.message ? { message: existing.message } : {}),
+		});
 	}
 
 	/**
@@ -318,7 +344,14 @@ export class SwitchboardEngine {
 		// pi will not retry this error, so when nothing can take over it is recorded now and the next turn skips the account.
 		const recordUnretried = () => {
 			this.pending.delete(key);
-			recordFailure(this.deps.store, { member: `model:${key}`, model: `model:${key}`, provider: `provider:${failed.provider}` }, errorClass, retryAt, now, { ...DEFAULT_FAILURE_CONFIG, ...this.deps.failure });
+			recordFailure(
+				this.deps.store,
+				{ member: `model:${key}`, model: `model:${key}`, provider: `provider:${failed.provider}` },
+				errorClass,
+				retryAt,
+				now,
+				{ ...DEFAULT_FAILURE_CONFIG, ...this.deps.failure },
+			);
 		};
 		const route = this.lastRoute;
 		const profile = route ? this.config.profiles[route.profile] : undefined;
@@ -337,10 +370,11 @@ export class SwitchboardEngine {
 				return !activeCooldown(data, cooldownKeys(`${profile.name}/${tier.name}`, tier, m, provider), now);
 			});
 		const order = [route.tier, ...borrowOrder(profile.tiers, route.tier, this.config.exhaustion.borrow)];
-		const canFailOver = order.some((name) => {
-			const tier = profile.tiers.find((t) => t.name === name);
-			return tier ? healthy(tier) : false;
-		}) || this.siblingFor(failed) !== undefined;
+		const canFailOver =
+			order.some((name) => {
+				const tier = profile.tiers.find((t) => t.name === name);
+				return tier ? healthy(tier) : false;
+			}) || this.siblingFor(failed) !== undefined;
 		if (!canFailOver) recordUnretried();
 		return { errorClass, canFailOver };
 	}
@@ -445,7 +479,14 @@ export class SwitchboardEngine {
 		return { ...(min ? { min } : {}), ...(max ? { max } : {}) };
 	}
 
-	private baseDecision(input: RouteInput, profile: Profile, source: ProfileSource, task: number, kind: DecisionKind, reason: DecisionEntry["reason"]): Pick<DecisionEntry, "v" | "id" | "ts" | "task" | "scope" | "reason" | "kind" | "profile" | "virtualModel"> {
+	private baseDecision(
+		input: RouteInput,
+		profile: Profile,
+		source: ProfileSource,
+		task: number,
+		kind: DecisionKind,
+		reason: DecisionEntry["reason"],
+	): Pick<DecisionEntry, "v" | "id" | "ts" | "task" | "scope" | "reason" | "kind" | "profile" | "virtualModel"> {
 		return {
 			v: 1,
 			id: newId("d_", this.deps.clock, this.deps.rng),
@@ -484,7 +525,11 @@ export class SwitchboardEngine {
 	}
 
 	private inactive(input: RouteInput, task: number): RouteOutput {
-		const fallback = input.previous ?? (this.originModel ? { provider: this.originModel.slice(0, this.originModel.indexOf("/")), id: this.originModel.slice(this.originModel.indexOf("/") + 1) } : undefined);
+		const fallback =
+			input.previous ??
+			(this.originModel
+				? { provider: this.originModel.slice(0, this.originModel.indexOf("/")), id: this.originModel.slice(this.originModel.indexOf("/") + 1) }
+				: undefined);
 		if (!fallback) throw new Error(`pi-switchboard is inactive: ${this.inactiveReason()}. Select a physical model or run /tier init.`);
 		const thinking = (fallback.thinking as ThinkingLevel | undefined) ?? input.selectedThinking;
 		const decision: DecisionEntry = {
@@ -503,7 +548,11 @@ export class SwitchboardEngine {
 		return { provider: fallback.provider, id: fallback.id, thinking, decision: input.reason === "user" ? this.remember(decision) : decision };
 	}
 
-	private async classify(input: RouteInput, profile: Profile, evidenceRequest?: string): Promise<{ evidence: Evidence; chain: ChainResult; signals: Signals; outcome?: RuleOutcome }> {
+	private async classify(
+		input: RouteInput,
+		profile: Profile,
+		evidenceRequest?: string,
+	): Promise<{ evidence: Evidence; chain: ChainResult; signals: Signals; outcome?: RuleOutcome }> {
 		const planPhase = input.scope === "main" ? await this.deps.planPhase() : "unknown";
 		const signals: Signals = { $scope: input.scope, $planMode: planPhase, ...(input.agent ? { $agent: input.agent } : {}) };
 		const { evidence: limits, questions } = this.config.classification;
@@ -517,14 +566,18 @@ export class SwitchboardEngine {
 			...(input.agent ? { agent: { name: input.agent } } : {}),
 			...(evidenceRequest !== undefined ? { request: evidenceRequest } : {}),
 		});
-		const chain = await runClassifierChain(this.classifierEntries(), { state: evidence.state, questions }, {
-			classify: this.deps.classify,
-			budgetMs: this.config.classification.decisionBudgetMs,
-			clock: this.deps.clock,
-			...(input.signal ? { signal: input.signal } : {}),
-			...(this.config.classification.temperature ? { temperature: this.config.classification.temperature } : {}),
-			...(this.deps.warmup ? { isWarm: this.deps.warmup.isWarm } : {}),
-		});
+		const chain = await runClassifierChain(
+			this.classifierEntries(),
+			{ state: evidence.state, questions },
+			{
+				classify: this.deps.classify,
+				budgetMs: this.config.classification.decisionBudgetMs,
+				clock: this.deps.clock,
+				...(input.signal ? { signal: input.signal } : {}),
+				...(this.config.classification.temperature ? { temperature: this.config.classification.temperature } : {}),
+				...(this.deps.warmup ? { isWarm: this.deps.warmup.isWarm } : {}),
+			},
+		);
 		if (!chain.ok) return { evidence, chain, signals };
 		this.deps.warmup?.markWarm(chain.model);
 		const threshold = profile.threshold ?? chain.threshold ?? this.config.classification.threshold;
@@ -564,7 +617,13 @@ export class SwitchboardEngine {
 			...this.baseDecision(input, profile, choice.source, task, pick.borrowedFrom ? "borrowed" : kind, "user"),
 			...(classified
 				? {
-						evidence: { digest: classified.evidence.digest, excerpt: classified.evidence.excerpt, tokens: classified.evidence.tokens, truncated: classified.evidence.truncated, state: classified.evidence.state },
+						evidence: {
+							digest: classified.evidence.digest,
+							excerpt: classified.evidence.excerpt,
+							tokens: classified.evidence.tokens,
+							truncated: classified.evidence.truncated,
+							state: classified.evidence.state,
+						},
 						classifier: {
 							...(classified.chain.ok ? { model: classified.chain.model, usage: classified.chain.usage } : { failure: classified.chain.reason }),
 							latencyMs: classified.chain.ok ? classified.chain.latencyMs : classified.chain.attempts.reduce((sum, a) => sum + a.latencyMs, 0),
@@ -588,7 +647,9 @@ export class SwitchboardEngine {
 				chosen: pick.tier.name,
 				...(base.tier ? { previous: base.tier } : {}),
 				rank: pick.tier.rank,
-				why: pick.borrowedFrom ? `${decision.why}; borrowed from ${pick.tier.name} because every ${pick.borrowedFrom} member is unavailable` : decision.why,
+				why: pick.borrowedFrom
+					? `${decision.why}; borrowed from ${pick.tier.name} because every ${pick.borrowedFrom} member is unavailable`
+					: decision.why,
 				...(decision.downVotes ? { downVotes: decision.downVotes } : {}),
 				...(pick.borrowedFrom ? { borrowedFrom: pick.borrowedFrom } : {}),
 			},
@@ -668,7 +729,11 @@ export class SwitchboardEngine {
 		const previous = input.previous;
 		if (previous) {
 			this.lastRoute = { profile: profile.name, tier: current.tier.name, member: current.member, provider: previous.provider };
-			return { provider: previous.provider, id: previous.id, thinking: (previous.thinking as ThinkingLevel | undefined) ?? effectiveThinking(current.member, input.selectedThinking) };
+			return {
+				provider: previous.provider,
+				id: previous.id,
+				thinking: (previous.thinking as ThinkingLevel | undefined) ?? effectiveThinking(current.member, input.selectedThinking),
+			};
 		}
 		const physical = this.physical(current.member);
 		return { ...physical, thinking: effectiveThinking(current.member, input.selectedThinking) };
@@ -678,16 +743,20 @@ export class SwitchboardEngine {
 		const failed = input.failed;
 		const state = input.state;
 		const current = this.stateMember(state);
-		if (!failed || !state || !current) return failed ? { provider: failed.provider, id: failed.id, thinking: (failed.thinking as ThinkingLevel | undefined) ?? input.selectedThinking } : this.routeUser(input);
+		if (!failed || !state || !current)
+			return failed
+				? { provider: failed.provider, id: failed.id, thinking: (failed.thinking as ThinkingLevel | undefined) ?? input.selectedThinking }
+				: this.routeUser(input);
 		const { profile } = current;
 		const now = this.deps.clock.now();
 		const key = modelKey(failed);
 		const pending = this.pending.get(key);
 		this.pending.delete(key);
 		const message = pending?.message ?? failed.errorMessage;
-		const errorClass = pending && pending.errorClass !== "other" ? pending.errorClass : classifyError(failed.errorMessage, this.config.failover.errorClasses);
+		const errorClass =
+			pending && pending.errorClass !== "other" ? pending.errorClass : classifyError(failed.errorMessage, this.config.failover.errorClasses);
 		const retryAt = pending?.retryAt ?? parseRetryAt(message, now);
-		const tier = current.member.id === failed.id ? current.tier : profile.tiers.find((t) => t.members.some((m) => m.id === failed.id)) ?? current.tier;
+		const tier = current.member.id === failed.id ? current.tier : (profile.tiers.find((t) => t.members.some((m) => m.id === failed.id)) ?? current.tier);
 		const member = tier.members.find((m) => m.id === failed.id && (m.provider === failed.provider || this.physical(m).provider === failed.provider));
 		const keys = member
 			? cooldownKeys(`${profile.name}/${tier.name}`, tier, member, failed.provider)
@@ -699,10 +768,18 @@ export class SwitchboardEngine {
 			...(tier.cooldown.defaultMs ? { defaultCooldownMs: tier.cooldown.defaultMs } : {}),
 			...this.deps.failure,
 		});
-		const keep: RouteOutput = { provider: failed.provider, id: failed.id, thinking: (failed.thinking as ThinkingLevel | undefined) ?? effectiveThinking(current.member, input.selectedThinking) };
+		const keep: RouteOutput = {
+			provider: failed.provider,
+			id: failed.id,
+			thinking: (failed.thinking as ThinkingLevel | undefined) ?? effectiveThinking(current.member, input.selectedThinking),
+		};
 		if (!failure.switchMember) return keep;
 
-		const errorRecord = { class: errorClass, message: (message ?? "").slice(0, 300), ...(failure.benchedUntil ? { benchedUntil: iso(failure.benchedUntil) } : {}) };
+		const errorRecord = {
+			class: errorClass,
+			message: (message ?? "").slice(0, 300),
+			...(failure.benchedUntil ? { benchedUntil: iso(failure.benchedUntil) } : {}),
+		};
 		const sibling = this.siblingFor(failed);
 		if (sibling && member) {
 			const thinking = keep.thinking;
@@ -735,7 +812,14 @@ export class SwitchboardEngine {
 			switch: { from: key, cacheMiss: key !== `${physical.provider}/${physical.id}` },
 			error: errorRecord,
 		};
-		const newState: RouterState = { ...state, member: pick.member.key, memberTier: pick.tier.name, memberTask: state.task, memberChosenAt: now, lastDecisionId: entry.id };
+		const newState: RouterState = {
+			...state,
+			member: pick.member.key,
+			memberTier: pick.tier.name,
+			memberTask: state.task,
+			memberChosenAt: now,
+			lastDecisionId: entry.id,
+		};
 		this.lastRoute = { profile: profile.name, tier: pick.tier.name, member: pick.member, provider: physical.provider };
 		return { ...physical, thinking, state: newState, decision: this.remember(entry) };
 	}

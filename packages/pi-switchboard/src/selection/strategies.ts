@@ -1,4 +1,5 @@
 import type { Member, ScheduleWindow, StrategyName, StrategySpec } from "../config/types.ts";
+import { entryOf } from "../util/record.ts";
 import type { Rng } from "../util/runtime.ts";
 import type { HealthData } from "./health.ts";
 
@@ -32,7 +33,10 @@ export interface StrategyContext {
 	custom?: CustomSelect;
 }
 
-export type CustomSelect = (members: ReadonlyArray<Readonly<Candidate>>, context: Readonly<{ tierKey: string; now: number; previous?: string }>) => string | undefined;
+export type CustomSelect = (
+	members: ReadonlyArray<Readonly<Candidate>>,
+	context: Readonly<{ tierKey: string; now: number; previous?: string }>,
+) => string | undefined;
 
 export interface Pick {
 	member: Member;
@@ -70,7 +74,7 @@ const roundRobin: Strategy = (candidates, _spec, ctx) => {
 
 /** Smooth weighted round robin (nginx): even spread in proportion to weight. */
 const weighted: Strategy = (candidates, _spec, ctx) => {
-	const counters = (ctx.data.swrr[ctx.tierKey] ??= {});
+	const counters = entryOf(ctx.data.swrr, ctx.tierKey, () => ({}));
 	let total = 0;
 	let best: Candidate | undefined;
 	for (const candidate of [...candidates].sort(byIndex)) {

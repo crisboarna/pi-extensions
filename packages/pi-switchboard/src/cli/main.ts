@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
-import { aggregate, readEntries, timelineFromFile, type Timeline } from "../timeline/parse.ts";
 import { liveChildMirror, liveDirOf } from "../timeline/mirror.ts";
+import { aggregate, readEntries, type Timeline, timelineFromFile } from "../timeline/parse.ts";
 import { renderInspector } from "./inspector.ts";
 
 /** Subagent transcript mirrors live next to the other pi-switchboard data. */
@@ -23,13 +23,17 @@ function money(value: number): string {
 
 export function formatReplay(timeline: Timeline): string {
 	const lines: string[] = [];
-	lines.push(`session ${timeline.sessionId ?? "?"} · ${timeline.tasks.length} tasks · ${money(timeline.totals.cost)} · ${timeline.totals.switches} model switches`);
+	lines.push(
+		`session ${timeline.sessionId ?? "?"} · ${timeline.tasks.length} tasks · ${money(timeline.totals.cost)} · ${timeline.totals.switches} model switches`,
+	);
 	const visit = (t: Timeline, indent: string) => {
 		for (const task of t.tasks) {
 			lines.push(`${indent}task ${task.index}: ${task.request.replace(/\s+/gu, " ").slice(0, 100)}`);
 			for (const decision of task.decisions) lines.push(`${indent}  ${summarize(decision)}`);
 			for (const request of task.requests) {
-				lines.push(`${indent}  → ${request.provider}/${request.model}${request.thinking ? `:${request.thinking}` : ""} ${request.input}+${request.cacheRead} in / ${request.output} out ${money(request.cost)}${request.switched ? " [switch]" : ""}${request.error ? ` ✗ ${request.error.slice(0, 80)}` : ""}`);
+				lines.push(
+					`${indent}  → ${request.provider}/${request.model}${request.thinking ? `:${request.thinking}` : ""} ${request.input}+${request.cacheRead} in / ${request.output} out ${money(request.cost)}${request.switched ? " [switch]" : ""}${request.error ? ` ✗ ${request.error.slice(0, 80)}` : ""}`,
+				);
 			}
 			for (const tool of task.tools) lines.push(`${indent}  ${tool.isError ? "✗" : "✓"} ${tool.name}`);
 			for (const child of task.children) {
@@ -59,7 +63,7 @@ function sessionFiles(dir: string, since: number): string[] {
 		}
 		for (const name of names) {
 			const path = join(d, name);
-			let stat;
+			let stat: import("node:fs").Stats;
 			try {
 				stat = statSync(path);
 			} catch {
@@ -89,6 +93,10 @@ export async function main(argv: string[]): Promise<number> {
 		return index >= 0 ? rest[index + 1] : undefined;
 	};
 	const file = rest.find((arg, i) => !arg.startsWith("-") && !["-o", "--since", "--sessions"].includes(rest[i - 1] ?? ""));
+	if (command === "--help" || command === "-h" || command === "help") {
+		process.stdout.write(USAGE);
+		return 0;
+	}
 	switch (command) {
 		case "replay": {
 			if (!file) break;
@@ -134,7 +142,8 @@ export async function main(argv: string[]): Promise<number> {
 			const lines = [`${files} routed sessions since ${new Date(since).toISOString().slice(0, 10)} · ${money(cost)}`];
 			for (const [name, rows] of totals) {
 				lines.push(`by ${name}:`);
-				for (const [k, v] of [...rows.entries()].sort((a, b) => b[1].cost - a[1].cost)) lines.push(`  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
+				for (const [k, v] of [...rows.entries()].sort((a, b) => b[1].cost - a[1].cost))
+					lines.push(`  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
 			}
 			process.stdout.write(`${lines.join("\n")}\n`);
 			return 0;

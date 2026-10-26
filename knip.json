@@ -1,0 +1,16 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"workspaces": {
+		".": {
+			"entry": ["scripts/**/*.ts", "test/**/*.test.ts"],
+			"project": ["scripts/**/*.ts", "test/**/*.ts"]
+		},
+		"packages/*": {
+			"entry": ["src/index.ts", "bin/*.mjs", "test/**/*.test.ts", "test/support/*.ts"],
+			"project": ["src/**/*.ts", "bin/**/*.mjs", "test/**/*.ts"]
+		}
+	},
+	"ignoreDependencies": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"],
+	"ignoreExportsUsedInFile": true,
+	"ignoreBinaries": ["gitleaks"]
+}

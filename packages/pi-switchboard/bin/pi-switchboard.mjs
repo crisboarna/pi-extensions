@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-// Runs the TypeScript CLI directly: Node strips types (Node >= 22.19).
-import { main } from "../src/cli/main.ts";
+// Loads the TypeScript CLI through jiti, the loader pi uses for extensions.
+// Node's own type stripping refuses files under node_modules, so a plain
+// import of ../src/cli/main.ts fails once the package is installed from npm.
+import { createJiti } from "jiti";
 
-process.exitCode = await main(process.argv.slice(2));
+const jiti = createJiti(import.meta.url);
+/** @type {{ main(argv: string[]): Promise<number> }} */
+const cli = await jiti.import("../src/cli/main.ts");
+
+process.exitCode = await cli.main(process.argv.slice(2));

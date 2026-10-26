@@ -8,7 +8,7 @@ pi-switchboard is a pi package that picks a model for every piece of agent work.
 
 The source contains no provider or model IDs. Profiles, tiers and members live only in user config and in `examples/`.
 
-```
+```text
             ┌──────────── evidence (bounded, redacted) ────────────┐
 user turn ─▶│ request · plan phase · tool outcomes · agent · edits │
             └───────────────────────────┬──────────────────────────┘
@@ -102,7 +102,7 @@ Why a new package: the gap the spec names (routing pi-subagents children) is unf
 | `tui/` | Navigator overlay, running-work widget, tier editor, entry renderer | no |
 | `autotier/` | Rank signed-in models and propose profiles for `/tier init` | yes |
 | `budgets/` | Track task and session spend against soft budgets | yes |
-| `cli/` | `pi-switchboard replay | inspect | report` | no |
+| `cli/` | `pi-switchboard replay \| inspect \| report` | no |
 
 Pure modules take a clock, a random source and plain data, so they are tested without pi.
 
@@ -851,7 +851,7 @@ pi's `/export` HTML filters out custom entries (`template.js` treats `custom` as
 
 **Navigator** (`/tier watch` or `ctrl+alt+w`): an overlay through `ctx.ui.custom({ overlay: true })`, refreshed every 500 ms while open.
 
-```
+```text
 ⇄ switchboard · copilot · 3 running · deep 1 · standard 1 · light 1 · $0.42 · budget ok
 ┌ task 7  main      standard  claude-sonnet-5.5      turn 3  edit        41k/12k  38 t/s  $0.18
 │ ├ scout   [fg]    light     claude-haiku-5.5       turn 5  grep         9k/2k   71 t/s  $0.01
@@ -1008,7 +1008,7 @@ Done means: all tests pass, typecheck is clean, `pi -na` loads the extension wit
 | 58 | Thresholds are per classifier (H2O at 0.80), with 0.85 as the global default and a profile override |
 | 59 | The built-in ruleset is the calibrated form, and the recorded H2O answers are a test fixture |
 | 60 | Local classifiers get a background warm-up and cold-start recording, for any local server (System One HTTP or pi's llama.cpp provider) |
-| 61 | Yes/no confidence is `|2p − 1|`, the same scale as choice confidence (amends 3) |
+| 61 | Yes/no confidence is `\|2p − 1\|`, the same scale as choice confidence (amends 3) |
 | 62 | DESIGN.md approved as the build specification (2026-10-25) |
 | 63 | Use `extensionBindings` for exact linking only; tier-pinned models stay the routing channel (works on every pi-subagents version and for parallel tasks) |
 | 64 | Agents with an external runner are never routed (found while adding bindings: they would have received a model they cannot use) |

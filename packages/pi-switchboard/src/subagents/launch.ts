@@ -2,9 +2,9 @@ import { runClassifierChain } from "../classifier/chain.ts";
 import { buildEvidence, type PlanPhase } from "../classifier/evidence.ts";
 import type { Profile } from "../config/types.ts";
 import type { DecisionEntry } from "../record/types.ts";
-import { evaluateRules } from "../rules/evaluate.ts";
 import type { LeaseRef, SwitchboardEngine } from "../router/engine.ts";
 import { chooseProfile } from "../router/profiles.ts";
+import { evaluateRules } from "../rules/evaluate.ts";
 import { decideLaunchTier } from "../tiering/decide.ts";
 import { formatModelRef, type ThinkingLevel } from "../util/model-ref.ts";
 import { newId } from "../util/runtime.ts";
@@ -74,7 +74,9 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 	const config = engine.config;
 	if (!config.subagents.enabled || tasks.length === 0) return { decisions: [], routed: 0, leases: [] };
 	const { choice } = engine.resolveProfile(ctx.parentVirtualId ?? "auto");
-	const subProfile = config.subagents.profile ? chooseProfile({ config, fromModel: config.subagents.profile, cwd: engine.deps.cwd, home: engine.deps.home }) : undefined;
+	const subProfile = config.subagents.profile
+		? chooseProfile({ config, fromModel: config.subagents.profile, cwd: engine.deps.cwd, home: engine.deps.home })
+		: undefined;
 	const profile = subProfile?.profile ?? choice?.profile;
 
 	const leases: LeaseRef[] = [];
@@ -87,7 +89,8 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 			if (runner === "external") return skipped(ctx, task, profile, "the agent uses an external runner", runner);
 			if (task.model && !ctx.isSwitchboard(task.model)) return skipped(ctx, task, profile, `the call names model ${task.model}`, runner);
 			if (pinned === "unknown") return skipped(ctx, task, profile, "could not tell whether the agent pins a model", runner);
-			if (!task.model && pinned.model && !ctx.isSwitchboard(pinned.model)) return skipped(ctx, task, profile, `agent settings pin ${pinned.model}`, runner);
+			if (!task.model && pinned.model && !ctx.isSwitchboard(pinned.model))
+				return skipped(ctx, task, profile, `agent settings pin ${pinned.model}`, runner);
 
 			const limits = config.subagents.agents[task.agent];
 			const evidence = buildEvidence({
@@ -102,12 +105,16 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 			});
 			const needsClassifier = !limits?.fixedTier && !(engine.controls.pin?.subagents && engine.controls.pin.target);
 			const chain = needsClassifier
-				? await runClassifierChain(engine.classifierEntries(), { state: evidence.state, questions: config.classification.questions }, {
-						classify: engine.deps.classify,
-						budgetMs: config.classification.decisionBudgetMs,
-						clock: engine.deps.clock,
-						...(engine.deps.warmup ? { isWarm: engine.deps.warmup.isWarm } : {}),
-					})
+				? await runClassifierChain(
+						engine.classifierEntries(),
+						{ state: evidence.state, questions: config.classification.questions },
+						{
+							classify: engine.deps.classify,
+							budgetMs: config.classification.decisionBudgetMs,
+							clock: engine.deps.clock,
+							...(engine.deps.warmup ? { isWarm: engine.deps.warmup.isWarm } : {}),
+						},
+					)
 				: undefined;
 			const signals = { $scope: "subagent", $agent: task.agent, $planMode: ctx.planPhase };
 			const threshold = profile.threshold ?? (chain?.ok ? chain.threshold : undefined) ?? config.classification.threshold;
@@ -128,7 +135,14 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 				model = { provider: config.virtualModel.provider, id: `${profile.name}.${tier.name}`, thinking: ctx.parentThinking };
 			} else {
 				const selected = engine.selectForLaunch(profile, tier.name, task.index, task.agent);
-				if (!selected.ok) return skipped(ctx, task, profile, `every model of ${tier.name} and its neighbours is cooling down${selected.earliest ? `; earliest reset ${new Date(selected.earliest.at).toLocaleTimeString()}` : ""}`, runner);
+				if (!selected.ok)
+					return skipped(
+						ctx,
+						task,
+						profile,
+						`every model of ${tier.name} and its neighbours is cooling down${selected.earliest ? `; earliest reset ${new Date(selected.earliest.at).toLocaleTimeString()}` : ""}`,
+						runner,
+					);
 				leases.push(selected.lease);
 				chosen = selected.tier;
 				selection = selected.selection;
@@ -164,7 +178,13 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 					: {}),
 				...(chain?.ok ? { answers: chain.answers } : {}),
 				...(outcome ? { rules: { ruleset: profile.rulesetName, matched: outcome.ruleIndex, gate: outcome.gate, floors: outcome.floors } } : {}),
-				tier: { candidate: tierTarget, chosen: chosen.name, rank: chosen.rank, why: borrowedFrom ? `${why}; borrowed from ${chosen.name} because every ${borrowedFrom} member is unavailable` : why, ...(borrowedFrom ? { borrowedFrom } : {}) },
+				tier: {
+					candidate: tierTarget,
+					chosen: chosen.name,
+					rank: chosen.rank,
+					why: borrowedFrom ? `${why}; borrowed from ${chosen.name} because every ${borrowedFrom} member is unavailable` : why,
+					...(borrowedFrom ? { borrowedFrom } : {}),
+				},
 				...(selection ? { selection } : {}),
 				model,
 				switch: { cacheMiss: false },

@@ -7,7 +7,17 @@ import type { Member, StrategyName, StrategySpec, Tier } from "../../src/config/
 import { classifyError, parseRetryAt, parseRetryHeaders } from "../../src/selection/errors.ts";
 import { MemoryHealthStore } from "../../src/selection/health.ts";
 import { ledgerQuota, type UsageEntry } from "../../src/selection/ledger.ts";
-import { borrowOrder, cooldownKey, DEFAULT_FAILURE_CONFIG, recordFailure, recordSuccess, acquireLease, releaseLease, selectMember, type SelectInput } from "../../src/selection/select.ts";
+import {
+	acquireLease,
+	borrowOrder,
+	cooldownKey,
+	DEFAULT_FAILURE_CONFIG,
+	recordFailure,
+	recordSuccess,
+	releaseLease,
+	type SelectInput,
+	selectMember,
+} from "../../src/selection/select.ts";
 import { inSchedule, loadCustomStrategy } from "../../src/selection/strategies.ts";
 import { seededRng } from "../../src/util/runtime.ts";
 
@@ -42,7 +52,11 @@ function picks(tier: Tier, n: number, options: Partial<SelectInput> = {}): strin
 	return out;
 }
 
-const count = (keys: string[]) => keys.reduce<Record<string, number>>((acc, key) => ({ ...acc, [key]: (acc[key] ?? 0) + 1 }), {});
+const count = (keys: string[]) => {
+	const counts: Record<string, number> = {};
+	for (const key of keys) counts[key] = (counts[key] ?? 0) + 1;
+	return counts;
+};
 
 describe("strategies", () => {
 	const three = [member("a/x", 0), member("b/y", 1), member("c/z", 2)];
@@ -86,7 +100,12 @@ describe("strategies", () => {
 
 	it("fastest explores until each member has three samples", () => {
 		const store = new MemoryHealthStore();
-		for (const [key, ms] of [["a/x", 900], ["b/y", 200], ["c/z", 500]] as const) for (let i = 0; i < 3; i++) recordSuccess(store, `x:${key}`, key, ms);
+		for (const [key, ms] of [
+			["a/x", 900],
+			["b/y", 200],
+			["c/z", 500],
+		] as const)
+			for (let i = 0; i < 3; i++) recordSuccess(store, `x:${key}`, key, ms);
 		assert.equal(picks(tierOf(three, "fastest"), 1, { store })[0], "b/y");
 		const fresh = selectMember({ tier: tierOf(three, "fastest"), tierKey: "p/t", store: new MemoryHealthStore(), now: NOW, rng: seededRng(1), task: 0 });
 		assert.ok(fresh.ok && fresh.metricFallback);
@@ -94,10 +113,19 @@ describe("strategies", () => {
 
 	it("quota-headroom and soonest-reset use quota data and fall back without it", () => {
 		const quota = (m: Member) =>
-			({ "a/x": { remaining: 0.2, resetsAt: NOW + 3_600_000, source: "test" }, "b/y": { remaining: 0.9, resetsAt: NOW + 7_200_000, source: "test" } })[m.key];
+			({ "a/x": { remaining: 0.2, resetsAt: NOW + 3_600_000, source: "test" }, "b/y": { remaining: 0.9, resetsAt: NOW + 7_200_000, source: "test" } })[
+				m.key
+			];
 		assert.equal(picks(tierOf(three, "quota-headroom"), 1, { quota })[0], "b/y");
 		assert.equal(picks(tierOf(three, "soonest-reset"), 1, { quota })[0], "a/x");
-		const missing = selectMember({ tier: tierOf(three, "quota-headroom"), tierKey: "p/t", store: new MemoryHealthStore(), now: NOW, rng: seededRng(1), task: 0 });
+		const missing = selectMember({
+			tier: tierOf(three, "quota-headroom"),
+			tierKey: "p/t",
+			store: new MemoryHealthStore(),
+			now: NOW,
+			rng: seededRng(1),
+			task: 0,
+		});
 		assert.ok(missing.ok && missing.member.key === "a/x" && missing.metricFallback);
 	});
 
@@ -110,7 +138,13 @@ describe("strategies", () => {
 		const day = new Date(NOW);
 		const hour = String(day.getHours()).padStart(2, "0");
 		const next = String((day.getHours() + 1) % 24).padStart(2, "0");
-		const tier = tierOf([member("a/x", 0, { schedule: [{ from: "00:00", to: "00:01", days: "daily" }] }), member("b/y", 1, { schedule: [{ from: `${hour}:00`, to: `${next}:00` }] })], "scheduled");
+		const tier = tierOf(
+			[
+				member("a/x", 0, { schedule: [{ from: "00:00", to: "00:01", days: "daily" }] }),
+				member("b/y", 1, { schedule: [{ from: `${hour}:00`, to: `${next}:00` }] }),
+			],
+			"scheduled",
+		);
 		assert.equal(picks(tier, 1)[0], "b/y");
 		assert.ok(inSchedule([{ from: "22:00", to: "02:00" }], new Date(2026, 0, 1, 23, 30).getTime()), "windows wrap midnight");
 	});
@@ -124,7 +158,15 @@ describe("strategies", () => {
 		const broken = () => {
 			throw new Error("boom");
 		};
-		const result = selectMember({ tier: tierOf(three, { name: "custom" }), tierKey: "p/t", store: new MemoryHealthStore(), now: NOW, rng: seededRng(1), task: 0, custom: broken });
+		const result = selectMember({
+			tier: tierOf(three, { name: "custom" }),
+			tierKey: "p/t",
+			store: new MemoryHealthStore(),
+			now: NOW,
+			rng: seededRng(1),
+			task: 0,
+			custom: broken,
+		});
 		assert.ok(result.ok && result.metricFallback?.includes("custom strategy failed: boom"));
 	});
 });
@@ -141,9 +183,25 @@ describe("granularity and affinity", () => {
 		const store = new MemoryHealthStore();
 		const first = selectMember({ tier, tierKey: "p/t", store, now: NOW, rng: seededRng(1), task: 1 });
 		assert.ok(first.ok);
-		const sameTask = selectMember({ tier, tierKey: "p/t", store, now: NOW, rng: seededRng(1), task: 1, previous: { key: first.member.key, task: 1, chosenAt: NOW } });
+		const sameTask = selectMember({
+			tier,
+			tierKey: "p/t",
+			store,
+			now: NOW,
+			rng: seededRng(1),
+			task: 1,
+			previous: { key: first.member.key, task: 1, chosenAt: NOW },
+		});
 		assert.ok(sameTask.ok && sameTask.kept);
-		const nextTask = selectMember({ tier, tierKey: "p/t", store, now: NOW, rng: seededRng(1), task: 2, previous: { key: first.member.key, task: 1, chosenAt: NOW } });
+		const nextTask = selectMember({
+			tier,
+			tierKey: "p/t",
+			store,
+			now: NOW,
+			rng: seededRng(1),
+			task: 2,
+			previous: { key: first.member.key, task: 1, chosenAt: NOW },
+		});
 		assert.ok(nextTask.ok && !nextTask.kept && nextTask.member.key === "b/y");
 	});
 
@@ -163,7 +221,17 @@ describe("granularity and affinity", () => {
 
 	it("force re-picks even when granularity would keep", () => {
 		const tier = tierOf(two, { name: "ordered", granularity: "session" });
-		const result = selectMember({ tier, tierKey: "p/t", store: new MemoryHealthStore(), now: NOW, rng: seededRng(1), task: 0, previous: { key: "a/x", task: 0, chosenAt: NOW }, exclude: ["a/x"], force: true });
+		const result = selectMember({
+			tier,
+			tierKey: "p/t",
+			store: new MemoryHealthStore(),
+			now: NOW,
+			rng: seededRng(1),
+			task: 0,
+			previous: { key: "a/x", task: 0, chosenAt: NOW },
+			exclude: ["a/x"],
+			force: true,
+		});
 		assert.ok(result.ok && result.member.key === "b/y");
 	});
 });
@@ -291,7 +359,18 @@ describe("ledger quota", () => {
 	it("computes the remaining share of a member budget in the current window", () => {
 		const m = member("a/x", 0, { budget: { window: "5h", tokens: 1000 } });
 		const windowStart = Math.floor(NOW / (5 * 3_600_000)) * 5 * 3_600_000;
-		const entry = (ts: number, tokens: number): UsageEntry => ({ ts: new Date(ts).toISOString(), session: "s", task: 1, provider: "a", model: "x", input: tokens, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+		const entry = (ts: number, tokens: number): UsageEntry => ({
+			ts: new Date(ts).toISOString(),
+			session: "s",
+			task: 1,
+			provider: "a",
+			model: "x",
+			input: tokens,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			cost: 0,
+		});
 		const quota = ledgerQuota([entry(windowStart + 1, 400), entry(windowStart - 1, 900)], m, NOW);
 		assert.deepEqual(quota, { remaining: 0.6, resetsAt: windowStart + 5 * 3_600_000, source: "ledger" });
 		assert.equal(ledgerQuota([], member("b/y", 1), NOW), undefined, "no budget, no quota");

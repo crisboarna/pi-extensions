@@ -30,12 +30,6 @@ function asList(value: string | string[]): string[] {
 	return Array.isArray(value) ? value : [value];
 }
 
-/** The keys of one alternative of a condition, or of all alternatives. */
-export function conditionKeys(condition: Condition): string[] {
-	const parts = Array.isArray(condition) ? condition : [condition];
-	return [...new Set(parts.flatMap((part) => Object.keys(part)))];
-}
-
 /** Checks one condition value against its question; returns a reason when invalid. */
 export function validateConditionValue(key: string, value: ConditionValue, questions: QuestionSet): string | undefined {
 	if (isSignalKey(key)) {

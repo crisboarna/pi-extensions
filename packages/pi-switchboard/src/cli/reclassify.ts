@@ -37,15 +37,25 @@ function piAiRoot(): string | undefined {
 async function standaloneClassify(providers: readonly ClassifierProviderConfig[]): Promise<ClassifyFn | undefined> {
 	const root = piAiRoot();
 	if (!root) return undefined;
-	const module = (await import(pathToFileURL(join(root, "dist", "api", "typesafe-system-one.js")).href)) as { classify?: (...args: unknown[]) => Promise<Record<string, unknown>> };
+	const module = (await import(pathToFileURL(join(root, "dist", "api", "typesafe-system-one.js")).href)) as {
+		classify?: (...args: unknown[]) => Promise<Record<string, unknown>>;
+	};
 	const classify = module.classify;
 	if (!classify) return undefined;
 	return async (model, request, options) => {
 		const ref = parseModelRef(model);
 		const provider = providers.find((p) => p.name === ref?.provider);
-		if (!ref || !provider) return { stopReason: "error", errorMessage: `${model} is not a local System One classifier; re-run inside pi with /tier explain` };
+		if (!ref || !provider)
+			return { stopReason: "error", errorMessage: `${model} is not a local System One classifier; re-run inside pi with /tier explain` };
 		const result = await classify(
-			{ id: ref.id, provider: provider.name, api: "typesafe-system-one", baseUrl: provider.baseUrl, type: "classifier", cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+			{
+				id: ref.id,
+				provider: provider.name,
+				api: "typesafe-system-one",
+				baseUrl: provider.baseUrl,
+				type: "classifier",
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			},
 			{ state: request.state, questions: toWireQuestions(request.questions) },
 			{ apiKey: provider.apiKey ?? "local", signal: options.signal },
 		);
@@ -70,13 +80,21 @@ export async function reclassifyDecisions(decisions: readonly DecisionEntry[]): 
 			lines.push(`  ${decision.id}: skipped (${state ? `profile ${decision.profile.name} no longer exists` : "no recorded evidence"})`);
 			continue;
 		}
-		const chain = await runClassifierChain(config.classifiers, { state, questions: config.classification.questions }, { classify, budgetMs: Math.max(config.classification.decisionBudgetMs, 30_000) });
+		const chain = await runClassifierChain(
+			config.classifiers,
+			{ state, questions: config.classification.questions },
+			{ classify, budgetMs: Math.max(config.classification.decisionBudgetMs, 30_000) },
+		);
 		if (!chain.ok) {
 			lines.push(`  ${decision.id}: classifier unavailable (${chain.attempts.map((a) => a.error).join("; ") || chain.reason})`);
 			continue;
 		}
 		const threshold = profile.threshold ?? chain.threshold ?? config.classification.threshold;
-		const signals = { $scope: decision.scope, ...(decision.subagent ? { $agent: decision.subagent.agent } : {}), ...(typeof state.planMode === "string" ? { $planMode: state.planMode } : {}) };
+		const signals = {
+			$scope: decision.scope,
+			...(decision.subagent ? { $agent: decision.subagent.agent } : {}),
+			...(typeof state.planMode === "string" ? { $planMode: state.planMode } : {}),
+		};
 		const outcome = evaluateRules(profile, config.classification.questions, chain.answers, signals, threshold);
 		const was = decision.tier.candidate || decision.tier.chosen;
 		lines.push(`  ${decision.id}: ${was} → ${outcome.tier}${outcome.tier === was ? "" : "  (changed)"}`);

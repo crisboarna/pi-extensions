@@ -22,7 +22,14 @@ function setup(over: { enabled?: boolean; maxWaitMs?: number } = {}) {
 			(handle as { cleared: boolean }).cleared = true;
 		},
 	};
-	const auto = new AutoContinue({ enabled: () => over.enabled ?? true, maxWaitMs: () => over.maxWaitMs ?? 6 * 3_600_000, send: () => sent.push(now), notify: (m) => notes.push(m), clock: { now: () => now }, timers });
+	const auto = new AutoContinue({
+		enabled: () => over.enabled ?? true,
+		maxWaitMs: () => over.maxWaitMs ?? 6 * 3_600_000,
+		send: () => sent.push(now),
+		notify: (m) => notes.push(m),
+		clock: { now: () => now },
+		timers,
+	});
 	return { auto, sent, notes, scheduled, advance: (ms: number) => (now += ms) };
 }
 

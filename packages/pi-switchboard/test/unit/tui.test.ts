@@ -24,38 +24,60 @@ const launch = (agent: string, tier: string, ts: string): DecisionEntry => ({
 	subagent: { agent, taskIndex: 0, toolCallId: "c", mode: "child", launchTier: tier },
 });
 
-const child = (session: string, agent: string, status: LiveStatus["status"], startedAt: number): LiveStatus => ({
-	v: 1,
-	session,
-	parent: "p",
-	agent,
-	status,
-	model: "acme/small",
-	turn: 3,
-	currentTool: status === "running" ? "grep" : undefined,
-	tokens: { input: 9000, output: 2000, cacheRead: 1000 },
-	cost: 0.01,
-	tokensPerSecond: 70,
-	startedAt,
-	updatedAt: startedAt,
-} as LiveStatus);
+const child = (session: string, agent: string, status: LiveStatus["status"], startedAt: number): LiveStatus =>
+	({
+		v: 1,
+		session,
+		parent: "p",
+		agent,
+		status,
+		model: "acme/small",
+		turn: 3,
+		currentTool: status === "running" ? "grep" : undefined,
+		tokens: { input: 9000, output: 2000, cacheRead: 1000 },
+		cost: 0.01,
+		tokensPerSecond: 70,
+		startedAt,
+		updatedAt: startedAt,
+	}) as LiveStatus;
 
 describe("navigator", () => {
 	const start = Date.UTC(2026, 9, 26, 10);
-	const rows = buildRows({ running: true, tokensIn: 41_000, tokensOut: 12_000, cost: 0.18 }, [child("c1", "scout", "running", start), child("c2", "reviewer", "done", start)], [launch("scout", "light", new Date(start - 1000).toISOString())]);
+	const rows = buildRows(
+		{ running: true, tokensIn: 41_000, tokensOut: 12_000, cost: 0.18 },
+		[child("c1", "scout", "running", start), child("c2", "reviewer", "done", start)],
+		[launch("scout", "light", new Date(start - 1000).toISOString())],
+	);
 
 	it("joins a child to its launch decision by the binding's id first", () => {
-		const exact = buildRows({ running: false, tokensIn: 0, tokensOut: 0, cost: 0 }, [{ ...child("c9", "scout", "running", start), launchDecisionId: "d_other" } as LiveStatus], [launch("scout", "light", new Date(start - 1000).toISOString()), { ...launch("scout", "deep", new Date(start - 500).toISOString()), id: "d_other" }]);
+		const exact = buildRows(
+			{ running: false, tokensIn: 0, tokensOut: 0, cost: 0 },
+			[{ ...child("c9", "scout", "running", start), launchDecisionId: "d_other" } as LiveStatus],
+			[
+				launch("scout", "light", new Date(start - 1000).toISOString()),
+				{ ...launch("scout", "deep", new Date(start - 500).toISOString()), id: "d_other" },
+			],
+		);
 		assert.equal(exact[1]?.decision?.id, "d_other");
 		assert.equal(exact[1]?.tier, "deep");
 	});
 
 	it("builds a main row and one row per child, joined to launch decisions", () => {
-		assert.deepEqual(rows.map((r) => [r.label, r.status, r.tier]), [["main", "running", undefined], ["scout", "running", "light"], ["reviewer", "done", undefined]]);
+		assert.deepEqual(
+			rows.map((r) => [r.label, r.status, r.tier]),
+			[
+				["main", "running", undefined],
+				["scout", "running", "light"],
+				["reviewer", "done", undefined],
+			],
+		);
 	});
 
 	it("renders the list with totals, per-tier counts and keys", () => {
-		const lines = renderList({ rows, profile: "work", cooldowns: [{ member: "acme/big", until: start + 600_000, reason: "rate limit" }], budgetWarnings: [], now: start }, 1);
+		const lines = renderList(
+			{ rows, profile: "work", cooldowns: [{ member: "acme/big", until: start + 600_000, reason: "rate limit" }], budgetWarnings: [], now: start },
+			1,
+		);
 		assert.match(lines[0] ?? "", /⇄ switchboard · work · 2 running · light 1 · \$0\.20 · budget ok/u);
 		assert.ok(lines.some((l) => l.startsWith("› ") && l.includes("scout") && l.includes("70 t/s")));
 		assert.ok(lines.some((l) => l.includes("cooldown: acme/big")));
@@ -75,7 +97,10 @@ describe("navigator", () => {
 	it("shows the widget only while children run or a continue is pending", () => {
 		assert.equal(widgetLine({ rows, cooldowns: [], budgetWarnings: [], now: start }), "⇄ 1 running · light 1 · $0.20");
 		assert.equal(widgetLine({ rows: rows.slice(0, 1), cooldowns: [], budgetWarnings: [], now: start }), undefined);
-		assert.match(widgetLine({ rows: rows.slice(0, 1), cooldowns: [], budgetWarnings: [], autoContinueAt: start + 120_000, now: start }) ?? "", /continue in 2 min/u);
+		assert.match(
+			widgetLine({ rows: rows.slice(0, 1), cooldowns: [], budgetWarnings: [], autoContinueAt: start + 120_000, now: start }) ?? "",
+			/continue in 2 min/u,
+		);
 	});
 });
 
@@ -130,13 +155,27 @@ describe("tier editor", () => {
 		assert.deepEqual(saved.profiles?.work?.tiers.standard?.members, ["acme/mid", "zen/small:low"]);
 		assert.equal(saved.profiles?.work?.tiers.standard?.strategy, "round-robin");
 		assert.equal(saved.profileSelection?.default, "work");
-		assert.ok(readdirSync(dir).some((f) => f.endsWith(".bak")), "a backup was written");
+		assert.ok(
+			readdirSync(dir).some((f) => f.endsWith(".bak")),
+			"a backup was written",
+		);
 	});
 
 	it("refuses to save an invalid result and never writes without confirmation", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "switchboard-editor-"));
 		const path = join(dir, "pi-switchboard.json");
-		const broken = scripted(["profile: work", "tier: standard", "members", "1. acme/mid", "remove", "← back", "← back", "← back", "✓ save and close", "✗ close without saving"]);
+		const broken = scripted([
+			"profile: work",
+			"tier: standard",
+			"members",
+			"1. acme/mid",
+			"remove",
+			"← back",
+			"← back",
+			"← back",
+			"✓ save and close",
+			"✗ close without saving",
+		]);
 		assert.equal(await runTierEditor(broken, { path, raw, models }), false);
 		assert.ok(broken.notes.some((n) => n.includes("Not saved")));
 		assert.equal(existsSync(path), false);

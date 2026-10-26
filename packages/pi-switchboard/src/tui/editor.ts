@@ -19,7 +19,28 @@ const CANCEL = "✗ close without saving";
 
 /** Formatted JSON with the schema's key order first, so saved files stay diffable. */
 export function stableStringify(config: RawConfig): string {
-	const order = ["$schema", "version", "virtualModel", "classifierProviders", "classifiers", "classification", "rulesets", "profiles", "profile", "profileSelection", "subagents", "failover", "metrics", "budgets", "exhaustion", "autoTier", "live", "state", "ui", "debug"];
+	const order = [
+		"$schema",
+		"version",
+		"virtualModel",
+		"classifierProviders",
+		"classifiers",
+		"classification",
+		"rulesets",
+		"profiles",
+		"profile",
+		"profileSelection",
+		"subagents",
+		"failover",
+		"metrics",
+		"budgets",
+		"exhaustion",
+		"autoTier",
+		"live",
+		"state",
+		"ui",
+		"debug",
+	];
 	const sorted: Record<string, unknown> = {};
 	for (const key of order) if (key in config) sorted[key] = (config as Record<string, unknown>)[key];
 	for (const [key, value] of Object.entries(config)) if (!(key in sorted)) sorted[key] = value;
@@ -33,7 +54,11 @@ export function lineDiff(before: string, after: string, context = 1): string {
 	const m = a.length;
 	const n = b.length;
 	const lcs: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
-	for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) lcs[i]![j] = a[i] === b[j] ? (lcs[i + 1]![j + 1] ?? 0) + 1 : Math.max(lcs[i + 1]![j] ?? 0, lcs[i]![j + 1] ?? 0);
+	const at = (row: number, column: number): number => lcs[row]?.[column] ?? 0;
+	for (let i = m - 1; i >= 0; i--) {
+		const row = lcs[i] ?? [];
+		for (let j = n - 1; j >= 0; j--) row[j] = a[i] === b[j] ? at(i + 1, j + 1) + 1 : Math.max(at(i + 1, j), at(i, j + 1));
+	}
 	const ops: Array<{ op: " " | "-" | "+"; line: string }> = [];
 	let i = 0;
 	let j = 0;
@@ -42,7 +67,7 @@ export function lineDiff(before: string, after: string, context = 1): string {
 			ops.push({ op: " ", line: a[i] ?? "" });
 			i++;
 			j++;
-		} else if ((lcs[i + 1]![j] ?? 0) >= (lcs[i]![j + 1] ?? 0)) ops.push({ op: "-", line: a[i++] ?? "" });
+		} else if (at(i + 1, j) >= at(i, j + 1)) ops.push({ op: "-", line: a[i++] ?? "" });
 		else ops.push({ op: "+", line: b[j++] ?? "" });
 	}
 	while (i < m) ops.push({ op: "-", line: a[i++] ?? "" });
@@ -103,7 +128,10 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 
 	const editMembers = async (tier: TierConfig): Promise<void> => {
 		for (;;) {
-			const rows = tier.members.map((m, i) => `${i + 1}. ${memberModel(m)}${typeof m === "object" && m.enabled === false ? " (disabled)" : ""}${typeof m === "object" && m.weight ? ` ×${m.weight}` : ""}`);
+			const rows = tier.members.map(
+				(m, i) =>
+					`${i + 1}. ${memberModel(m)}${typeof m === "object" && m.enabled === false ? " (disabled)" : ""}${typeof m === "object" && m.weight ? ` ×${m.weight}` : ""}`,
+			);
 			const pick = await ui.select("Members", ["+ add member", ...rows, BACK]);
 			if (!pick || pick === BACK) return;
 			if (pick === "+ add member") {
@@ -117,7 +145,15 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 			const current = tier.members[index];
 			if (current === undefined) continue;
 			const member = typeof current === "string" ? { model: current } : { ...current };
-			const action = await ui.select(memberModel(current), ["thinking level", "weight", member.enabled === false ? "enable" : "disable", "move up", "move down", "remove", BACK]);
+			const action = await ui.select(memberModel(current), [
+				"thinking level",
+				"weight",
+				member.enabled === false ? "enable" : "disable",
+				"move up",
+				"move down",
+				"remove",
+				BACK,
+			]);
 			if (action === "thinking level") {
 				const level = await ui.select("Thinking level", ["(from model reference)", ...THINKING_LEVELS]);
 				if (level && level !== "(from model reference)") member.thinking = level as never;
@@ -126,7 +162,8 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 				if (value > 0) member.weight = value;
 			} else if (action === "enable" || action === "disable") member.enabled = action === "enable";
 			else if (action === "move up" && index > 0) [tier.members[index - 1], tier.members[index]] = [current, tier.members[index - 1] as MemberInput];
-			else if (action === "move down" && index < tier.members.length - 1) [tier.members[index + 1], tier.members[index]] = [current, tier.members[index + 1] as MemberInput];
+			else if (action === "move down" && index < tier.members.length - 1)
+				[tier.members[index + 1], tier.members[index]] = [current, tier.members[index + 1] as MemberInput];
 			else if (action === "remove") {
 				tier.members.splice(index, 1);
 				continue;
@@ -140,7 +177,14 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 			const tier = profile.tiers[name];
 			if (!tier) return;
 			const strategy = typeof tier.strategy === "string" ? tier.strategy : (tier.strategy?.name ?? "sticky");
-			const action = await ui.select(`Tier ${name} (rank ${tier.rank}, ${strategy}, ${tier.members.length} members)`, ["members", "rank", "strategy", "rename", "delete tier", BACK]);
+			const action = await ui.select(`Tier ${name} (rank ${tier.rank}, ${strategy}, ${tier.members.length} members)`, [
+				"members",
+				"rank",
+				"strategy",
+				"rename",
+				"delete tier",
+				BACK,
+			]);
 			if (!action || action === BACK) return;
 			if (action === "members") await editMembers(tier);
 			else if (action === "rank") {
@@ -168,8 +212,20 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 		for (;;) {
 			const profile = config.profiles?.[name];
 			if (!profile) return;
-			const tiers = Object.entries(profile.tiers).sort((a, b) => a[1].rank - b[1].rank).map(([tierName]) => tierName);
-			const action = await ui.select(`Profile ${name}`, [...tiers.map((t) => `tier: ${t}`), "+ add tier", "fallback tier", "baseline tier", "direct tier", "make default", "rename", "delete profile", BACK]);
+			const tiers = Object.entries(profile.tiers)
+				.sort((a, b) => a[1].rank - b[1].rank)
+				.map(([tierName]) => tierName);
+			const action = await ui.select(`Profile ${name}`, [
+				...tiers.map((t) => `tier: ${t}`),
+				"+ add tier",
+				"fallback tier",
+				"baseline tier",
+				"direct tier",
+				"make default",
+				"rename",
+				"delete profile",
+				BACK,
+			]);
 			if (!action || action === BACK) return;
 			if (action.startsWith("tier: ")) await editTier(profile, action.slice(6));
 			else if (action === "+ add tier") {
@@ -203,7 +259,12 @@ export async function runTierEditor(ui: EditorUi, options: { path: string; raw: 
 
 	for (;;) {
 		const names = Object.keys(config.profiles ?? {});
-		const pick = await ui.select(`pi-switchboard profiles (${options.path})`, [...names.map((n) => `profile: ${n}${config.profileSelection?.default === n ? " (default)" : ""}`), "+ new profile", DONE, CANCEL]);
+		const pick = await ui.select(`pi-switchboard profiles (${options.path})`, [
+			...names.map((n) => `profile: ${n}${config.profileSelection?.default === n ? " (default)" : ""}`),
+			"+ new profile",
+			DONE,
+			CANCEL,
+		]);
 		if (!pick || pick === CANCEL) return false;
 		if (pick === DONE) return saveWithConfirmation(ui, options.path, before, config);
 		if (pick === "+ new profile") {

@@ -108,7 +108,12 @@ export function buildEvidence(input: EvidenceInput): Evidence {
 		planMode: input.planPhase,
 		editsThisTask: results.some((result) => !result.isError && editTools.has(result.toolName ?? "")),
 		...(previousResults.length > 0
-			? { previousTask: { edits: previousResults.some((r) => !r.isError && editTools.has(r.toolName ?? "")), toolErrors: previousResults.filter((r) => r.isError).length } }
+			? {
+					previousTask: {
+						edits: previousResults.some((r) => !r.isError && editTools.has(r.toolName ?? "")),
+						toolErrors: previousResults.filter((r) => r.isError).length,
+					},
+				}
 			: {}),
 		...(toolOutcomes.length ? { toolOutcomes } : {}),
 		...(input.limits.toolErrors.max > 0 && toolErrors.length ? { toolErrors } : {}),

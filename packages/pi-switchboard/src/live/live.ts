@@ -16,7 +16,7 @@ export interface LiveStatus {
 	model?: string;
 	tier?: string;
 	turn: number;
-	currentTool?: string;
+	currentTool?: string | undefined;
 	tokens: { input: number; output: number; cacheRead: number };
 	cost: number;
 	tokensPerSecond?: number;
@@ -62,7 +62,7 @@ export class LiveWriter {
 	private readonly limits: LiveLimits;
 	private readonly mirror: boolean;
 	private lastWrite = 0;
-	private pending?: ReturnType<typeof setTimeout>;
+	private pending?: ReturnType<typeof setTimeout> | undefined;
 	private streamStart?: number;
 
 	constructor(options: { dir: string; session: string; parent?: string; redact: Redactor; limits?: Partial<LiveLimits>; mirror?: boolean; now?: number }) {
@@ -113,7 +113,16 @@ export class LiveWriter {
 		this.streamStart = now;
 	}
 
-	assistant(message: { provider?: string; model?: string; text: string; usage?: { input?: number; output?: number; cacheRead?: number; cost?: { total?: number } }; error?: string }, now = Date.now()): void {
+	assistant(
+		message: {
+			provider?: string;
+			model?: string;
+			text: string;
+			usage?: { input?: number; output?: number; cacheRead?: number; cost?: { total?: number } };
+			error?: string;
+		},
+		now = Date.now(),
+	): void {
 		const usage = message.usage ?? {};
 		const output = usage.output ?? 0;
 		const seconds = this.streamStart ? (now - this.streamStart) / 1000 : 0;

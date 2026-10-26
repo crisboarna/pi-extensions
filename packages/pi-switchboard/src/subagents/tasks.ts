@@ -23,7 +23,13 @@ function str(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
-function fromItem(item: Json, index: number, shape: LaunchTask["shape"], fallbackTask: string | undefined, outerModel: string | undefined): LaunchTask | undefined {
+function fromItem(
+	item: Json,
+	index: number,
+	shape: LaunchTask["shape"],
+	fallbackTask: string | undefined,
+	outerModel: string | undefined,
+): LaunchTask | undefined {
 	const agent = str(item.agent);
 	if (!agent) return undefined;
 	const model = str(item.model) ?? outerModel;
@@ -55,13 +61,17 @@ export function extractTasks(input: unknown): LaunchTask[] {
 	if (workflow === "parallel") {
 		const args = isObject(input.args) ? input.args : isObject(options.args) ? options.args : undefined;
 		const items = Array.isArray(args?.tasks) ? args.tasks : [];
-		return items.flatMap((item, index) => (isObject(item) ? [fromItem(item, index, "parallel", undefined, outerModel)] : [])).filter((t): t is LaunchTask => t !== undefined);
+		return items
+			.flatMap((item, index) => (isObject(item) ? [fromItem(item, index, "parallel", undefined, outerModel)] : []))
+			.filter((t): t is LaunchTask => t !== undefined);
 	}
 	if (workflow !== undefined) return [];
 
 	const topTasks = Array.isArray(input.tasks) ? input.tasks : Array.isArray(options.tasks) ? options.tasks : undefined;
 	if (topTasks) {
-		return topTasks.flatMap((item, index) => (isObject(item) ? [fromItem(item, index, "tasks", undefined, outerModel)] : [])).filter((t): t is LaunchTask => t !== undefined);
+		return topTasks
+			.flatMap((item, index) => (isObject(item) ? [fromItem(item, index, "tasks", undefined, outerModel)] : []))
+			.filter((t): t is LaunchTask => t !== undefined);
 	}
 
 	const chain = Array.isArray(input.chain) ? input.chain : Array.isArray(options.chain) ? options.chain : undefined;

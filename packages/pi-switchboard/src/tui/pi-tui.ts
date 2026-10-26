@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { readChildren, readMirror, type MirrorLine } from "../live/live.ts";
-import type { DecisionEntry } from "../record/types.ts";
-import type { Runtime } from "../runtime.ts";
 import { textOf } from "../classifier/evidence.ts";
+import { type MirrorLine, readChildren, readMirror } from "../live/live.ts";
+
+import type { Runtime } from "../runtime.ts";
 import { buildRows, type NavModel, renderDecision, renderList, renderTranscript, type Style, widgetLine } from "./navigator.ts";
 
 const WIDGET_KEY = "switchboard";
@@ -25,10 +25,16 @@ export function navModel(runtime: Runtime, ctx: ExtensionContext): NavModel {
 		.map(([key, h]) => ({ member: key.replace(/^(member|model|provider):/u, ""), until: h.cooldownUntil ?? now, reason: h.cooldownReason ?? "error" }));
 	const last = main ? runtime.config.profiles[main.profile.name] : undefined;
 	return {
-		rows: buildRows({ ...(main ? { decision: main } : {}), running: !ctx.isIdle(), tokensIn: totals.session.tokens, tokensOut: 0, cost: totals.session.costUsd }, children, launches),
+		rows: buildRows(
+			{ ...(main ? { decision: main } : {}), running: !ctx.isIdle(), tokensIn: totals.session.tokens, tokensOut: 0, cost: totals.session.costUsd },
+			children,
+			launches,
+		),
 		...(main?.profile.name ? { profile: main.profile.name } : {}),
 		cooldowns,
-		budgetWarnings: runtime.budgets.exceeded(last?.budgets ?? runtime.config.budgets).map((b) => `${b.scope} ${b.metric === "costUsd" ? "cost" : "tokens"} over budget`),
+		budgetWarnings: runtime.budgets
+			.exceeded(last?.budgets ?? runtime.config.budgets)
+			.map((b) => `${b.scope} ${b.metric === "costUsd" ? "cost" : "tokens"} over budget`),
 		...(runtime.autoContinueAt ? { autoContinueAt: runtime.autoContinueAt } : {}),
 		now,
 	};
@@ -43,7 +49,8 @@ function mainTranscript(ctx: ExtensionContext): MirrorLine[] {
 		const text = textOf(e.message.content as never);
 		if (e.message.role === "user") out.push({ ts, kind: "task", text });
 		else if (e.message.role === "assistant" && text) out.push({ ts, kind: "text", text });
-		else if (e.message.role === "toolResult") out.push({ ts, kind: "tool-result", tool: e.message.toolName ?? "tool", isError: e.message.isError === true, text });
+		else if (e.message.role === "toolResult")
+			out.push({ ts, kind: "tool-result", tool: e.message.toolName ?? "tool", isError: e.message.isError === true, text });
 	}
 	return out;
 }
@@ -79,12 +86,21 @@ export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Pr
 							? renderList(model, selected, style)
 							: view === "decision"
 								? renderDecision(row, style)
-								: renderTranscript(row, row.session ? readMirror(join(runtime.dir, "live"), row.session) : mainTranscript(ctx), scroll, height, style);
+								: renderTranscript(
+										row,
+										row.session ? readMirror(join(runtime.dir, "live"), row.session) : mainTranscript(ctx),
+										scroll,
+										height,
+										style,
+									);
 					return lines.map((line) => truncateToWidth(line, width));
 				},
 				handleInput(data: string): void {
 					if (matchesKey(data, "escape")) {
-						if (view === "list") return close();
+						if (view === "list") {
+							close();
+							return;
+						}
 						view = "list";
 						scroll = 0;
 					} else if (matchesKey(data, "up")) {
@@ -97,8 +113,10 @@ export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Pr
 					else if (data === "t") {
 						view = "transcript";
 						scroll = 0;
-					} else if (data === "q") return close();
-					else return;
+					} else if (data === "q") {
+						close();
+						return;
+					} else return;
 					tui.requestRender();
 				},
 				invalidate(): void {},
@@ -136,5 +154,3 @@ export function startWidget(runtime: Runtime, ctx: ExtensionContext): () => void
 		if (shown) ctx.ui.setWidget(WIDGET_KEY, undefined);
 	};
 }
-
-export type { DecisionEntry };

@@ -26,7 +26,12 @@ export class DebugLog {
 		try {
 			mkdirSync(dirname(path), { recursive: true });
 			if (existsSync(path) && statSync(path).size > maxBytes) this.rotate(path, maxFiles);
-			const line = { ...decision, session: context.session, cwd: context.cwd, ...(this.options.fullEvidence && evidence ? { fullEvidence: evidence } : {}) };
+			const line = {
+				...decision,
+				session: context.session,
+				cwd: context.cwd,
+				...(this.options.fullEvidence && evidence ? { fullEvidence: evidence } : {}),
+			};
 			appendFileSync(path, `${JSON.stringify(line)}\n`, { mode: 0o600 });
 		} catch {
 			// Debugging aid only.

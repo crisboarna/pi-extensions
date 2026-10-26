@@ -3,8 +3,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { ClassifierProviderConfig } from "../config/types.ts";
 import type { Answers } from "../rules/types.ts";
 import { parseModelRef } from "../util/model-ref.ts";
-import { toWireQuestions } from "./questions.ts";
 import type { ClassifyFn } from "./chain.ts";
+import { toWireQuestions } from "./questions.ts";
 import { isLocalUrl } from "./warmup.ts";
 
 /** pi-ai's API id for System One servers; any server answering POST <baseUrl>/systemone works. */

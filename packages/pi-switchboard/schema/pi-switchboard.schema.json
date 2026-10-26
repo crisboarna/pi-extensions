@@ -1,250 +1,414 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/crisboarna/pi-switchboard/schema/pi-switchboard.schema.json",
-  "title": "pi-switchboard configuration",
-  "description": "Profiles of tiered models, the classifier that picks a tier, and how a model is selected within a tier. See DESIGN.md section 7.",
-  "type": "object",
-  "additionalProperties": false,
-  "$defs": {
-    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "modelRef": { "type": "string", "pattern": "^[^/\\s]+/\\S+$", "description": "provider/model, optionally with :thinking" },
-    "thinking": { "enum": ["off", "minimal", "low", "medium", "high", "xhigh"] },
-    "tierTarget": { "type": "string", "description": "A tier name or @top, @middle, @bottom" },
-    "strategyName": {
-      "enum": ["ordered", "sticky", "round-robin", "weighted", "random", "least-recently-used", "least-in-flight", "quota-headroom", "soonest-reset", "cheapest", "largest-context", "fastest", "subscription-preferred", "scheduled", "custom"]
-    },
-    "strategy": {
-      "oneOf": [
-        { "$ref": "#/$defs/strategyName" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["name"],
-          "properties": {
-            "name": { "$ref": "#/$defs/strategyName" },
-            "granularity": { "enum": ["session", "task", "request"] },
-            "fallback": { "$ref": "#/$defs/strategyName" },
-            "module": { "type": "string" }
-          }
-        }
-      ]
-    },
-    "conditionValue": {
-      "oneOf": [
-        { "type": "string" },
-        { "type": "number" },
-        { "type": "boolean" },
-        { "type": "array", "items": { "type": "string" } },
-        { "type": "object", "required": ["not"], "additionalProperties": false, "properties": { "not": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] } } }
-      ]
-    },
-    "conditionObject": { "type": "object", "additionalProperties": { "$ref": "#/$defs/conditionValue" } },
-    "condition": {
-      "oneOf": [
-        { "$ref": "#/$defs/conditionObject" },
-        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/conditionObject" } }
-      ]
-    },
-    "ruleset": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["tierRules"],
-      "properties": {
-        "tierRules": {
-          "type": "array",
-          "minItems": 1,
-          "description": "First match wins; must end with one rule without 'when'.",
-          "items": { "type": "object", "additionalProperties": false, "required": ["tier"], "properties": { "when": { "$ref": "#/$defs/condition" }, "tier": { "$ref": "#/$defs/tierTarget" } } }
-        },
-        "floorRules": {
-          "type": "array",
-          "description": "Every matching floor raises the tier to at least its target.",
-          "items": { "type": "object", "additionalProperties": false, "required": ["when", "atLeast"], "properties": { "when": { "$ref": "#/$defs/condition" }, "atLeast": { "$ref": "#/$defs/tierTarget" } } }
-        }
-      }
-    },
-    "member": {
-      "oneOf": [
-        { "$ref": "#/$defs/modelRef" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["model"],
-          "properties": {
-            "model": { "$ref": "#/$defs/modelRef" },
-            "thinking": { "$ref": "#/$defs/thinking" },
-            "weight": { "type": "number", "exclusiveMinimum": 0 },
-            "enabled": { "type": "boolean" },
-            "maxConcurrency": { "type": "integer", "minimum": 1 },
-            "schedule": {
-              "type": "array",
-              "items": { "type": "object", "additionalProperties": false, "required": ["from", "to"], "properties": { "days": { "type": "string" }, "from": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" }, "to": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" } } }
-            },
-            "budget": { "type": "object", "additionalProperties": false, "required": ["window"], "properties": { "window": { "type": "string", "pattern": "^\\d+[mhd]$" }, "tokens": { "type": "number" }, "costUsd": { "type": "number" } } },
-            "tags": { "type": "array", "items": { "type": "string" } }
-          }
-        }
-      ]
-    },
-    "tier": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["rank", "members"],
-      "properties": {
-        "rank": { "type": "integer", "description": "Higher rank means stronger; unique within a profile." },
-        "members": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/member" } },
-        "strategy": { "$ref": "#/$defs/strategy" },
-        "affinity": { "type": "object", "additionalProperties": false, "required": ["scope"], "properties": { "scope": { "enum": ["session", "task"] }, "ttlMs": { "type": ["number", "null"] } } },
-        "cooldown": { "type": "object", "additionalProperties": false, "properties": { "scope": { "enum": ["member", "provider-model-account"] }, "defaultMs": { "type": "number" } } }
-      }
-    },
-    "budgetLimits": { "type": "object", "additionalProperties": false, "properties": { "tokens": { "type": "number" }, "costUsd": { "type": "number" } } },
-    "budgets": { "type": "object", "additionalProperties": false, "properties": { "task": { "$ref": "#/$defs/budgetLimits" }, "session": { "$ref": "#/$defs/budgetLimits" } } },
-    "profile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["tiers"],
-      "properties": {
-        "description": { "type": "string" },
-        "projects": { "type": "array", "items": { "type": "string" } },
-        "ruleset": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/ruleset" }] },
-        "threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-        "strategy": { "$ref": "#/$defs/strategy" },
-        "tiers": { "type": "object", "minProperties": 1, "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/tier" } },
-        "fallbackTier": { "$ref": "#/$defs/tierTarget" },
-        "baselineTier": { "$ref": "#/$defs/tierTarget" },
-        "directTier": { "$ref": "#/$defs/tierTarget" },
-        "hysteresis": { "type": "object", "additionalProperties": false, "properties": { "downTurns": { "type": "integer", "minimum": 1 } } },
-        "escalation": { "type": "object", "additionalProperties": false, "properties": { "sameToolErrors": { "type": "integer", "minimum": 0 }, "totalToolErrors": { "type": "integer", "minimum": 0 }, "maxPerTask": { "type": "integer", "minimum": 0 } } },
-        "budgets": { "$ref": "#/$defs/budgets" }
-      }
-    },
-    "question": {
-      "oneOf": [
-        { "type": "object", "required": ["type", "instructions", "criteria"], "properties": { "type": { "const": "choice" }, "instructions": { "type": "string" }, "criteria": { "type": "object", "additionalProperties": { "type": "string" } } } },
-        { "type": "object", "required": ["type", "instructions", "criteria"], "properties": { "type": { "const": "score" }, "instructions": { "type": "string" }, "criteria": { "type": "array", "items": { "type": "string" } }, "labels": { "type": "array", "items": { "type": "string" } } } },
-        { "type": "object", "required": ["type", "instructions", "criteria"], "properties": { "type": { "const": "bool" }, "instructions": { "type": "string" }, "criteria": { "type": "object", "required": ["true", "false"], "properties": { "true": { "type": "string" }, "false": { "type": "string" } } } } }
-      ]
-    }
-  },
-  "properties": {
-    "$schema": { "type": "string" },
-    "version": { "const": 1 },
-    "virtualModel": { "type": "object", "additionalProperties": false, "properties": { "provider": { "type": "string" }, "id": { "type": "string" }, "name": { "type": "string" } } },
-    "classifierProviders": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["name", "baseUrl", "models"],
-        "properties": {
-          "name": { "type": "string" },
-          "baseUrl": { "type": "string", "format": "uri" },
-          "api": { "const": "system-one" },
-          "models": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-          "apiKey": { "type": "string" }
-        }
-      }
-    },
-    "classifiers": {
-      "type": "array",
-      "description": "Tried in order within one decision.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["model"],
-        "properties": {
-          "model": { "$ref": "#/$defs/modelRef" },
-          "timeoutMs": { "type": "integer", "minimum": 1 },
-          "threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-          "allowRemote": { "type": "boolean" },
-          "warmup": { "type": "boolean" },
-          "keepWarmMs": { "type": ["integer", "null"], "minimum": 1000 }
-        }
-      }
-    },
-    "classification": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-        "decisionBudgetMs": { "type": "integer", "minimum": 1 },
-        "temperature": { "type": ["number", "null"], "exclusiveMinimum": 0 },
-        "questions": { "oneOf": [{ "const": "builtin" }, { "type": "object", "additionalProperties": { "$ref": "#/$defs/question" } }] },
-        "evidence": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "maxTokens": { "type": "integer", "minimum": 100 },
-            "requestTokens": { "type": "integer", "minimum": 50 },
-            "toolErrors": { "type": "object", "additionalProperties": false, "properties": { "max": { "type": "integer", "minimum": 0 }, "chars": { "type": "integer", "minimum": 0 } } },
-            "redact": { "type": "array", "items": { "type": "string" } }
-          }
-        }
-      }
-    },
-    "rulesets": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ruleset" } },
-    "profiles": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/profile" } },
-    "profile": { "type": "string", "description": "Project files only: the profile this project uses." },
-    "profileSelection": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "default": { "type": "string" },
-        "rules": {
-          "type": "array",
-          "items": { "type": "object", "additionalProperties": false, "required": ["profile"], "properties": { "matchProvider": { "type": "string" }, "matchModel": { "type": "string" }, "profile": { "type": "string" } } }
-        }
-      }
-    },
-    "subagents": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "mode": { "enum": ["auto", "child", "launch"] },
-        "profile": { "type": ["string", "null"] },
-        "accountAffinity": { "enum": ["parent", "none"] },
-        "exclude": { "type": "array", "items": { "type": "string" } },
-        "agents": {
-          "type": "object",
-          "additionalProperties": { "type": "object", "additionalProperties": false, "properties": { "minTier": { "$ref": "#/$defs/tierTarget" }, "maxTier": { "$ref": "#/$defs/tierTarget" }, "fixedTier": { "$ref": "#/$defs/tierTarget" } } }
-        }
-      }
-    },
-    "failover": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "accountSiblings": { "enum": ["off", "on"] },
-        "overloadSwitchAfter": { "type": "integer", "minimum": 1 },
-        "errorClasses": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
-      }
-    },
-    "metrics": { "type": "object", "additionalProperties": false, "properties": { "piUsage": { "enum": ["auto", "off"] }, "ledger": { "type": "object", "additionalProperties": false, "properties": { "retainDays": { "type": "integer", "minimum": 1 } } } } },
-    "budgets": { "$ref": "#/$defs/budgets" },
-    "exhaustion": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "borrow": { "type": "array", "items": { "enum": ["up", "down"] }, "uniqueItems": true },
-        "autoContinue": { "type": "boolean" },
-        "maxWaitMs": { "type": "integer", "minimum": 0 }
-      }
-    },
-    "autoTier": { "type": "object", "additionalProperties": false, "properties": { "nameHints": { "type": "object", "additionalProperties": false, "properties": { "small": { "type": "array", "items": { "type": "string" } }, "large": { "type": "array", "items": { "type": "string" } } } } } },
-    "live": { "type": "object", "additionalProperties": false, "properties": { "mirror": { "type": "boolean" }, "toolResultBytes": { "type": "integer", "minimum": 0 }, "retainHours": { "type": "number", "minimum": 0 } } },
-    "state": { "type": "object", "additionalProperties": false, "properties": { "shared": { "type": "boolean" } } },
-    "ui": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "navigator": { "type": "object", "additionalProperties": false, "properties": { "shortcut": { "type": "string" }, "refreshMs": { "type": "integer", "minimum": 100 }, "widget": { "enum": ["auto", "off"] } } },
-        "status": { "type": "string" },
-        "statusSub": { "type": "string" },
-        "entries": { "enum": ["collapsed", "expanded"] }
-      }
-    },
-    "debug": { "type": "object", "additionalProperties": false, "properties": { "log": { "type": "boolean" }, "fullEvidence": { "type": "boolean" }, "maxBytes": { "type": "integer", "minimum": 1024 }, "maxFiles": { "type": "integer", "minimum": 1 } } }
-  }
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://github.com/crisboarna/pi-switchboard/schema/pi-switchboard.schema.json",
+	"title": "pi-switchboard configuration",
+	"description": "Profiles of tiered models, the classifier that picks a tier, and how a model is selected within a tier. See DESIGN.md section 7.",
+	"type": "object",
+	"additionalProperties": false,
+	"$defs": {
+		"name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+		"modelRef": { "type": "string", "pattern": "^[^/\\s]+/\\S+$", "description": "provider/model, optionally with :thinking" },
+		"thinking": { "enum": ["off", "minimal", "low", "medium", "high", "xhigh"] },
+		"tierTarget": { "type": "string", "description": "A tier name or @top, @middle, @bottom" },
+		"strategyName": {
+			"enum": [
+				"ordered",
+				"sticky",
+				"round-robin",
+				"weighted",
+				"random",
+				"least-recently-used",
+				"least-in-flight",
+				"quota-headroom",
+				"soonest-reset",
+				"cheapest",
+				"largest-context",
+				"fastest",
+				"subscription-preferred",
+				"scheduled",
+				"custom"
+			]
+		},
+		"strategy": {
+			"oneOf": [
+				{ "$ref": "#/$defs/strategyName" },
+				{
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["name"],
+					"properties": {
+						"name": { "$ref": "#/$defs/strategyName" },
+						"granularity": { "enum": ["session", "task", "request"] },
+						"fallback": { "$ref": "#/$defs/strategyName" },
+						"module": { "type": "string" }
+					}
+				}
+			]
+		},
+		"conditionValue": {
+			"oneOf": [
+				{ "type": "string" },
+				{ "type": "number" },
+				{ "type": "boolean" },
+				{ "type": "array", "items": { "type": "string" } },
+				{
+					"type": "object",
+					"required": ["not"],
+					"additionalProperties": false,
+					"properties": { "not": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }
+				}
+			]
+		},
+		"conditionObject": { "type": "object", "additionalProperties": { "$ref": "#/$defs/conditionValue" } },
+		"condition": {
+			"oneOf": [{ "$ref": "#/$defs/conditionObject" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/conditionObject" } }]
+		},
+		"ruleset": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["tierRules"],
+			"properties": {
+				"tierRules": {
+					"type": "array",
+					"minItems": 1,
+					"description": "First match wins; must end with one rule without 'when'.",
+					"items": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["tier"],
+						"properties": { "when": { "$ref": "#/$defs/condition" }, "tier": { "$ref": "#/$defs/tierTarget" } }
+					}
+				},
+				"floorRules": {
+					"type": "array",
+					"description": "Every matching floor raises the tier to at least its target.",
+					"items": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["when", "atLeast"],
+						"properties": { "when": { "$ref": "#/$defs/condition" }, "atLeast": { "$ref": "#/$defs/tierTarget" } }
+					}
+				}
+			}
+		},
+		"member": {
+			"oneOf": [
+				{ "$ref": "#/$defs/modelRef" },
+				{
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["model"],
+					"properties": {
+						"model": { "$ref": "#/$defs/modelRef" },
+						"thinking": { "$ref": "#/$defs/thinking" },
+						"weight": { "type": "number", "exclusiveMinimum": 0 },
+						"enabled": { "type": "boolean" },
+						"maxConcurrency": { "type": "integer", "minimum": 1 },
+						"schedule": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["from", "to"],
+								"properties": {
+									"days": { "type": "string" },
+									"from": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+									"to": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" }
+								}
+							}
+						},
+						"budget": {
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["window"],
+							"properties": {
+								"window": { "type": "string", "pattern": "^\\d+[mhd]$" },
+								"tokens": { "type": "number" },
+								"costUsd": { "type": "number" }
+							}
+						},
+						"tags": { "type": "array", "items": { "type": "string" } }
+					}
+				}
+			]
+		},
+		"tier": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["rank", "members"],
+			"properties": {
+				"rank": { "type": "integer", "description": "Higher rank means stronger; unique within a profile." },
+				"members": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/member" } },
+				"strategy": { "$ref": "#/$defs/strategy" },
+				"affinity": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["scope"],
+					"properties": { "scope": { "enum": ["session", "task"] }, "ttlMs": { "type": ["number", "null"] } }
+				},
+				"cooldown": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": { "scope": { "enum": ["member", "provider-model-account"] }, "defaultMs": { "type": "number" } }
+				}
+			}
+		},
+		"budgetLimits": { "type": "object", "additionalProperties": false, "properties": { "tokens": { "type": "number" }, "costUsd": { "type": "number" } } },
+		"budgets": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": { "task": { "$ref": "#/$defs/budgetLimits" }, "session": { "$ref": "#/$defs/budgetLimits" } }
+		},
+		"profile": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["tiers"],
+			"properties": {
+				"description": { "type": "string" },
+				"projects": { "type": "array", "items": { "type": "string" } },
+				"ruleset": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/ruleset" }] },
+				"threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+				"strategy": { "$ref": "#/$defs/strategy" },
+				"tiers": {
+					"type": "object",
+					"minProperties": 1,
+					"propertyNames": { "$ref": "#/$defs/name" },
+					"additionalProperties": { "$ref": "#/$defs/tier" }
+				},
+				"fallbackTier": { "$ref": "#/$defs/tierTarget" },
+				"baselineTier": { "$ref": "#/$defs/tierTarget" },
+				"directTier": { "$ref": "#/$defs/tierTarget" },
+				"hysteresis": { "type": "object", "additionalProperties": false, "properties": { "downTurns": { "type": "integer", "minimum": 1 } } },
+				"escalation": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"sameToolErrors": { "type": "integer", "minimum": 0 },
+						"totalToolErrors": { "type": "integer", "minimum": 0 },
+						"maxPerTask": { "type": "integer", "minimum": 0 }
+					}
+				},
+				"budgets": { "$ref": "#/$defs/budgets" }
+			}
+		},
+		"question": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["type", "instructions", "criteria"],
+					"properties": {
+						"type": { "const": "choice" },
+						"instructions": { "type": "string" },
+						"criteria": { "type": "object", "additionalProperties": { "type": "string" } }
+					}
+				},
+				{
+					"type": "object",
+					"required": ["type", "instructions", "criteria"],
+					"properties": {
+						"type": { "const": "score" },
+						"instructions": { "type": "string" },
+						"criteria": { "type": "array", "items": { "type": "string" } },
+						"labels": { "type": "array", "items": { "type": "string" } }
+					}
+				},
+				{
+					"type": "object",
+					"required": ["type", "instructions", "criteria"],
+					"properties": {
+						"type": { "const": "bool" },
+						"instructions": { "type": "string" },
+						"criteria": {
+							"type": "object",
+							"required": ["true", "false"],
+							"properties": { "true": { "type": "string" }, "false": { "type": "string" } }
+						}
+					}
+				}
+			]
+		}
+	},
+	"properties": {
+		"$schema": { "type": "string" },
+		"version": { "const": 1 },
+		"virtualModel": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": { "provider": { "type": "string" }, "id": { "type": "string" }, "name": { "type": "string" } }
+		},
+		"classifierProviders": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["name", "baseUrl", "models"],
+				"properties": {
+					"name": { "type": "string" },
+					"baseUrl": { "type": "string", "format": "uri" },
+					"api": { "const": "system-one" },
+					"models": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+					"apiKey": { "type": "string" }
+				}
+			}
+		},
+		"classifiers": {
+			"type": "array",
+			"description": "Tried in order within one decision.",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["model"],
+				"properties": {
+					"model": { "$ref": "#/$defs/modelRef" },
+					"timeoutMs": { "type": "integer", "minimum": 1 },
+					"threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+					"allowRemote": { "type": "boolean" },
+					"warmup": { "type": "boolean" },
+					"keepWarmMs": { "type": ["integer", "null"], "minimum": 1000 }
+				}
+			}
+		},
+		"classification": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+				"decisionBudgetMs": { "type": "integer", "minimum": 1 },
+				"temperature": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+				"questions": { "oneOf": [{ "const": "builtin" }, { "type": "object", "additionalProperties": { "$ref": "#/$defs/question" } }] },
+				"evidence": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"maxTokens": { "type": "integer", "minimum": 100 },
+						"requestTokens": { "type": "integer", "minimum": 50 },
+						"toolErrors": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": { "max": { "type": "integer", "minimum": 0 }, "chars": { "type": "integer", "minimum": 0 } }
+						},
+						"redact": { "type": "array", "items": { "type": "string" } }
+					}
+				}
+			}
+		},
+		"rulesets": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ruleset" } },
+		"profiles": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/profile" } },
+		"profile": { "type": "string", "description": "Project files only: the profile this project uses." },
+		"profileSelection": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"default": { "type": "string" },
+				"rules": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["profile"],
+						"properties": { "matchProvider": { "type": "string" }, "matchModel": { "type": "string" }, "profile": { "type": "string" } }
+					}
+				}
+			}
+		},
+		"subagents": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"mode": { "enum": ["auto", "child", "launch"] },
+				"profile": { "type": ["string", "null"] },
+				"accountAffinity": { "enum": ["parent", "none"] },
+				"exclude": { "type": "array", "items": { "type": "string" } },
+				"agents": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "object",
+						"additionalProperties": false,
+						"properties": {
+							"minTier": { "$ref": "#/$defs/tierTarget" },
+							"maxTier": { "$ref": "#/$defs/tierTarget" },
+							"fixedTier": { "$ref": "#/$defs/tierTarget" }
+						}
+					}
+				}
+			}
+		},
+		"failover": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"accountSiblings": { "enum": ["off", "on"] },
+				"overloadSwitchAfter": { "type": "integer", "minimum": 1 },
+				"errorClasses": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+			}
+		},
+		"metrics": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"piUsage": { "enum": ["auto", "off"] },
+				"ledger": { "type": "object", "additionalProperties": false, "properties": { "retainDays": { "type": "integer", "minimum": 1 } } }
+			}
+		},
+		"budgets": { "$ref": "#/$defs/budgets" },
+		"exhaustion": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"borrow": { "type": "array", "items": { "enum": ["up", "down"] }, "uniqueItems": true },
+				"autoContinue": { "type": "boolean" },
+				"maxWaitMs": { "type": "integer", "minimum": 0 }
+			}
+		},
+		"autoTier": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"nameHints": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": { "small": { "type": "array", "items": { "type": "string" } }, "large": { "type": "array", "items": { "type": "string" } } }
+				}
+			}
+		},
+		"live": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"mirror": { "type": "boolean" },
+				"toolResultBytes": { "type": "integer", "minimum": 0 },
+				"retainHours": { "type": "number", "minimum": 0 }
+			}
+		},
+		"state": { "type": "object", "additionalProperties": false, "properties": { "shared": { "type": "boolean" } } },
+		"ui": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"navigator": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"shortcut": { "type": "string" },
+						"refreshMs": { "type": "integer", "minimum": 100 },
+						"widget": { "enum": ["auto", "off"] }
+					}
+				},
+				"status": { "type": "string" },
+				"statusSub": { "type": "string" },
+				"entries": { "enum": ["collapsed", "expanded"] }
+			}
+		},
+		"debug": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"log": { "type": "boolean" },
+				"fullEvidence": { "type": "boolean" },
+				"maxBytes": { "type": "integer", "minimum": 1024 },
+				"maxFiles": { "type": "integer", "minimum": 1 }
+			}
+		}
+	}
 }

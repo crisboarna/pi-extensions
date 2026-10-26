@@ -1,4 +1,5 @@
 import type { Member, Tier } from "../config/types.ts";
+import { entryOf } from "../util/record.ts";
 import type { Rng } from "../util/runtime.ts";
 import type { ErrorClass } from "./errors.ts";
 import { type HealthData, type HealthStore, liveLeases, type MemberHealth } from "./health.ts";
@@ -11,9 +12,7 @@ export interface MemberInfo {
 	subscription?: boolean;
 }
 
-export interface QuotaView {
-	(member: Member): { remaining: number; resetsAt?: number; source: string } | undefined;
-}
+export type QuotaView = (member: Member) => { remaining: number; resetsAt?: number; source: string } | undefined;
 
 /** Health key of a physical model: in-flight leases, last use and latency are shared across tiers. */
 export function modelKey(member: Pick<Member, "provider" | "id">): string {
@@ -41,7 +40,8 @@ export function activeCooldown(data: HealthData, keys: CooldownKeys, now: number
 	let best: { until: number; reason: string } | undefined;
 	for (const key of [keys.member, keys.model, keys.provider]) {
 		const health = data.members[key];
-		if (health?.cooldownUntil && health.cooldownUntil > now && (!best || health.cooldownUntil > best.until)) best = { until: health.cooldownUntil, reason: health.cooldownReason ?? "error" };
+		if (health?.cooldownUntil && health.cooldownUntil > now && (!best || health.cooldownUntil > best.until))
+			best = { until: health.cooldownUntil, reason: health.cooldownReason ?? "error" };
 	}
 	return best;
 }
@@ -148,12 +148,24 @@ export function selectMember(input: SelectInput): SelectOutcome {
 		const shared = input.store.shared;
 		if (eligible.length === 0) {
 			const cooling = views.filter((view) => view.cooldownUntil !== undefined).sort((a, b) => (a.cooldownUntil ?? 0) - (b.cooldownUntil ?? 0))[0];
-			return { ok: false, candidates: views, shared, ...(cooling?.cooldownUntil ? { earliestReset: { member: cooling.member.key, at: cooling.cooldownUntil } } : {}) };
+			return {
+				ok: false,
+				candidates: views,
+				shared,
+				...(cooling?.cooldownUntil ? { earliestReset: { member: cooling.member.key, at: cooling.cooldownUntil } } : {}),
+			};
 		}
 		const previous = input.previous ? eligible.find((c) => c.member.key === input.previous?.key) : undefined;
 		if (previous && keepPrevious(input)) {
 			touch(data, previous.member, input.now);
-			return { ok: true, member: previous.member, why: `kept ${previous.member.key} (${input.tier.affinity ? "affinity" : `${input.tier.strategy.granularity} granularity`})`, kept: true, candidates: views, shared };
+			return {
+				ok: true,
+				member: previous.member,
+				why: `kept ${previous.member.key} (${input.tier.affinity ? "affinity" : `${input.tier.strategy.granularity} granularity`})`,
+				kept: true,
+				candidates: views,
+				shared,
+			};
 		}
 		const pick = pickMember(eligible, input.tier.strategy, {
 			tierKey: input.tierKey,
@@ -166,12 +178,20 @@ export function selectMember(input: SelectInput): SelectOutcome {
 		});
 		if (!pick) return { ok: false, candidates: views, shared };
 		touch(data, pick.member, input.now);
-		return { ok: true, member: pick.member, why: pick.why, ...(pick.metricFallback ? { metricFallback: pick.metricFallback } : {}), kept: false, candidates: views, shared };
+		return {
+			ok: true,
+			member: pick.member,
+			why: pick.why,
+			...(pick.metricFallback ? { metricFallback: pick.metricFallback } : {}),
+			kept: false,
+			candidates: views,
+			shared,
+		};
 	});
 }
 
 function touch(data: HealthData, member: Member, now: number): void {
-	const phys = (data.members[modelKey(member)] ??= {});
+	const phys = entryOf(data.members, modelKey(member), () => ({}));
 	phys.lastUsedAt = now;
 }
 
@@ -217,10 +237,17 @@ export function failureKey(target: string | CooldownKeys, errorClass: ErrorClass
  * bench until the provider's reset or a configured default, at the scope the
  * error covers (`failureKey`).
  */
-export function recordFailure(store: HealthStore, target: string | CooldownKeys, errorClass: ErrorClass, retryAt: number | undefined, now: number, config: FailureConfig = DEFAULT_FAILURE_CONFIG): FailureOutcome {
+export function recordFailure(
+	store: HealthStore,
+	target: string | CooldownKeys,
+	errorClass: ErrorClass,
+	retryAt: number | undefined,
+	now: number,
+	config: FailureConfig = DEFAULT_FAILURE_CONFIG,
+): FailureOutcome {
 	const key = failureKey(target, errorClass);
 	return store.update((data) => {
-		const health = (data.members[key] ??= {});
+		const health = entryOf(data.members, key, () => ({}));
 		const bench = (until: number, reason: string): FailureOutcome => {
 			health.cooldownUntil = Math.max(health.cooldownUntil ?? 0, until);
 			health.cooldownReason = reason;
@@ -263,7 +290,7 @@ export function recordSuccess(store: HealthStore, coolKey: string, physKey: stri
 			delete cool.fails;
 		}
 		if (latencyMs === undefined || latencyMs <= 0) return;
-		const phys = (data.members[physKey] ??= {});
+		const phys = entryOf(data.members, physKey, () => ({}));
 		phys.latencyEwma = phys.latencyEwma === undefined ? latencyMs : LATENCY_ALPHA * latencyMs + (1 - LATENCY_ALPHA) * phys.latencyEwma;
 		phys.latencySamples = (phys.latencySamples ?? 0) + 1;
 	});
@@ -272,7 +299,7 @@ export function recordSuccess(store: HealthStore, coolKey: string, physKey: stri
 /** Takes an in-flight lease on a physical model; returns its id. */
 export function acquireLease(store: HealthStore, physKey: string, id: string, now: number, ttlMs: number, pid: number = process.pid): string {
 	store.update((data) => {
-		const phys = (data.members[physKey] ??= {});
+		const phys = entryOf(data.members, physKey, () => ({}));
 		phys.leases = [...liveLeases(phys, now), { id, pid, expiresAt: now + ttlMs }];
 	});
 	return id;
@@ -289,13 +316,26 @@ export function releaseLease(store: HealthStore, physKey: string, id: string, no
  * Tiers to borrow from when every member of `tier` is unavailable: nearest
  * above first, then nearest below (or as `order` says), within the bounds.
  */
-export function borrowOrder(tiers: ReadonlyArray<{ name: string }>, tier: string, order: ReadonlyArray<"up" | "down">, bounds: { min?: string; max?: string } = {}): string[] {
+export function borrowOrder(
+	tiers: ReadonlyArray<{ name: string }>,
+	tier: string,
+	order: ReadonlyArray<"up" | "down">,
+	bounds: { min?: string; max?: string } = {},
+): string[] {
 	const index = tiers.findIndex((t) => t.name === tier);
 	if (index < 0) return [];
-	const low = bounds.min ? Math.max(0, tiers.findIndex((t) => t.name === bounds.min)) : 0;
+	const low = bounds.min
+		? Math.max(
+				0,
+				tiers.findIndex((t) => t.name === bounds.min),
+			)
+		: 0;
 	const highIndex = bounds.max ? tiers.findIndex((t) => t.name === bounds.max) : tiers.length - 1;
 	const high = highIndex < 0 ? tiers.length - 1 : highIndex;
 	const up = tiers.slice(index + 1, high + 1).map((t) => t.name);
-	const down = tiers.slice(low, index).map((t) => t.name).reverse();
+	const down = tiers
+		.slice(low, index)
+		.map((t) => t.name)
+		.reverse();
 	return order.flatMap((direction) => (direction === "up" ? up : down));
 }

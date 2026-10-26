@@ -1,5 +1,5 @@
 import { evaluateCondition } from "./conditions.ts";
-import { maxTier, rankOf, type RankedTier, resolveTarget } from "./targets.ts";
+import { maxTier, type RankedTier, rankOf, resolveTarget } from "./targets.ts";
 import type { Answers, QuestionSet, Ruleset, Signals } from "./types.ts";
 
 export interface FloorOutcome {

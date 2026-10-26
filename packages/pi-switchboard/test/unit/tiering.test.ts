@@ -80,9 +80,38 @@ describe("escalation", () => {
 
 	it("fires on repeated failures of one tool or on many errors", () => {
 		assert.equal(escalationTrigger([{ tool: "bash", isError: true }], config), undefined);
-		assert.match(escalationTrigger([{ tool: "bash", isError: true }, { tool: "read", isError: false }, { tool: "bash", isError: true }], config) ?? "", /bash failed 2 times/u);
-		assert.match(escalationTrigger([{ tool: "a", isError: true }, { tool: "b", isError: true }, { tool: "c", isError: true }], config) ?? "", /3 tool errors/u);
-		assert.equal(escalationTrigger([{ tool: "a", isError: true }, { tool: "a", isError: true }], { ...config, sameToolErrors: 0 }), undefined);
+		assert.match(
+			escalationTrigger(
+				[
+					{ tool: "bash", isError: true },
+					{ tool: "read", isError: false },
+					{ tool: "bash", isError: true },
+				],
+				config,
+			) ?? "",
+			/bash failed 2 times/u,
+		);
+		assert.match(
+			escalationTrigger(
+				[
+					{ tool: "a", isError: true },
+					{ tool: "b", isError: true },
+					{ tool: "c", isError: true },
+				],
+				config,
+			) ?? "",
+			/3 tool errors/u,
+		);
+		assert.equal(
+			escalationTrigger(
+				[
+					{ tool: "a", isError: true },
+					{ tool: "a", isError: true },
+				],
+				{ ...config, sameToolErrors: 0 },
+			),
+			undefined,
+		);
 	});
 
 	it("moves up one rank, capped by a ceiling", () => {

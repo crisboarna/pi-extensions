@@ -17,10 +17,32 @@ const models = [
 
 describe("auto-tiering", () => {
 	it("ranks by price, then name hints, then context window", () => {
-		assert.deepEqual(rankModels(models.slice(0, 3)).map((m) => m.id), ["acme-mini", "acme-mid", "acme-pro"]);
-		assert.deepEqual(rankModels(models.slice(3, 5)).map((m) => m.id), ["zen-flash", "zen-large"], "unpriced models fall back to hints");
-		assert.deepEqual(rankModels([{ provider: "x", id: "a", contextWindow: 8_000 }, { provider: "x", id: "b", contextWindow: 4_000 }]).map((m) => m.id), ["b", "a"]);
-		assert.deepEqual(rankModels([{ provider: "x", id: "custom-one" }, { provider: "x", id: "custom-two" }], { large: ["one"] }).map((m) => m.id), ["custom-two", "custom-one"]);
+		assert.deepEqual(
+			rankModels(models.slice(0, 3)).map((m) => m.id),
+			["acme-mini", "acme-mid", "acme-pro"],
+		);
+		assert.deepEqual(
+			rankModels(models.slice(3, 5)).map((m) => m.id),
+			["zen-flash", "zen-large"],
+			"unpriced models fall back to hints",
+		);
+		assert.deepEqual(
+			rankModels([
+				{ provider: "x", id: "a", contextWindow: 8_000 },
+				{ provider: "x", id: "b", contextWindow: 4_000 },
+			]).map((m) => m.id),
+			["b", "a"],
+		);
+		assert.deepEqual(
+			rankModels(
+				[
+					{ provider: "x", id: "custom-one" },
+					{ provider: "x", id: "custom-two" },
+				],
+				{ large: ["one"] },
+			).map((m) => m.id),
+			["custom-two", "custom-one"],
+		);
 	});
 
 	it("proposes a profile per provider plus a mixed profile, skipping extra accounts", () => {
@@ -34,12 +56,18 @@ describe("auto-tiering", () => {
 		assert.deepEqual(Object.keys(config.profiles?.zen?.tiers ?? {}), ["light", "deep"], "two models, two tiers");
 		assert.deepEqual(Object.keys(config.profiles?.["llama-cpp"]?.tiers ?? {}), ["standard"], "one model, one tier");
 		assert.equal(config.profileSelection?.default, "zen");
-		assert.deepEqual(config.profileSelection?.rules?.map((r) => r.matchProvider), ["acme*", "llama.cpp*", "zen*"]);
+		assert.deepEqual(
+			config.profileSelection?.rules?.map((r) => r.matchProvider),
+			["acme*", "llama.cpp*", "zen*"],
+		);
 		assert.deepEqual(normalizeConfig(config).invalidProfiles, {}, "the proposal is a valid config");
 	});
 
 	it("adds profiles to an existing config without changing it", () => {
-		const merged = mergeProposal({ profiles: { acme: { tiers: { only: { rank: 1, members: ["acme/acme-mid"] } } } }, profileSelection: { default: "acme" } }, proposeConfig(models));
+		const merged = mergeProposal(
+			{ profiles: { acme: { tiers: { only: { rank: 1, members: ["acme/acme-mid"] } } } }, profileSelection: { default: "acme" } },
+			proposeConfig(models),
+		);
 		assert.deepEqual(Object.keys(merged.profiles?.acme?.tiers ?? {}), ["only"]);
 		assert.ok(merged.profiles?.zen);
 		assert.equal(merged.profileSelection?.default, "acme");

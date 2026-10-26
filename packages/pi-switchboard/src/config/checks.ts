@@ -101,20 +101,28 @@ export function runChecks(input: ChecksInput): string[] {
 		return json ? [{ file, json }] : [];
 	});
 	for (const set of plannotatorModels(layers)) {
-		warnings.push(`Plannotator sets ${set.model} for ${set.where} in ${set.file}; entering or leaving plan mode would switch the model away from ${config.virtualModel.provider}. Set that model to null.`);
+		warnings.push(
+			`Plannotator sets ${set.model} for ${set.where} in ${set.file}; entering or leaving plan mode would switch the model away from ${config.virtualModel.provider}. Set that model to null.`,
+		);
 	}
 
 	// multi-pass restricts a project to listed providers and switches away from any other.
 	const multiPassPath = join(input.cwd, ".pi", "multi-pass.json");
 	const multiPass = readJsonObject(read, multiPassPath);
-	const allowed = Array.isArray(multiPass?.allowedSubs) ? (multiPass.allowedSubs as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "") : [];
+	const allowed = Array.isArray(multiPass?.allowedSubs)
+		? (multiPass.allowedSubs as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "")
+		: [];
 	if (allowed.length > 0 && !allowed.map((v) => v.trim()).includes(config.virtualModel.provider)) {
-		warnings.push(`${multiPassPath} restricts this project with allowedSubs; pi-multi-pass will switch away from ${config.virtualModel.provider}/*. Add "${config.virtualModel.provider}" to allowedSubs.`);
+		warnings.push(
+			`${multiPassPath} restricts this project with allowedSubs; pi-multi-pass will switch away from ${config.virtualModel.provider}/*. Add "${config.virtualModel.provider}" to allowedSubs.`,
+		);
 	}
 
 	for (const entry of config.classifiers) {
 		if (!input.classifierAvailable(entry.model)) {
-			warnings.push(`classifier ${entry.model} is not registered as a classifier or has no credentials; check classifierProviders and /login. Its decisions fall back to the fallback tier.`);
+			warnings.push(
+				`classifier ${entry.model} is not registered as a classifier or has no credentials; check classifierProviders and /login. Its decisions fall back to the fallback tier.`,
+			);
 		} else if (!input.classifierIsLocal(entry.model) && !entry.allowRemote) {
 			warnings.push(`classifier ${entry.model} runs off this machine and is skipped; set "allowRemote": true to let it receive request text.`);
 		}

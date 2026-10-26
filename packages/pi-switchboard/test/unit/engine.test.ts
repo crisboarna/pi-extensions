@@ -4,9 +4,9 @@ import type { ClassifyFn } from "../../src/classifier/chain.ts";
 import type { TranscriptMessage } from "../../src/classifier/evidence.ts";
 import { normalizeConfig } from "../../src/config/normalize.ts";
 import type { RawConfig } from "../../src/config/types.ts";
+import { type EngineDeps, ExhaustedError, type RouteInput, type RouterState, SwitchboardEngine } from "../../src/router/engine.ts";
 import type { Answers } from "../../src/rules/types.ts";
 import { MemoryHealthStore } from "../../src/selection/health.ts";
-import { type EngineDeps, ExhaustedError, type RouteInput, type RouterState, SwitchboardEngine } from "../../src/router/engine.ts";
 import { seededRng } from "../../src/util/runtime.ts";
 
 const RAW: RawConfig = {
@@ -27,7 +27,14 @@ const RAW: RawConfig = {
 	subagents: { agents: { scout: { maxTier: "standard" } } },
 };
 
-const WINDOWS: Record<string, number> = { "acme/small": 32_000, "acme/mid": 128_000, "zen/mid": 128_000, "acme/big": 400_000, "zen/one": 64_000, "acme-2/mid": 128_000 };
+const WINDOWS: Record<string, number> = {
+	"acme/small": 32_000,
+	"acme/mid": 128_000,
+	"zen/mid": 128_000,
+	"acme/big": 400_000,
+	"zen/one": 64_000,
+	"acme-2/mid": 128_000,
+};
 
 function answers(work: string, workConfidence = 0.95, depth = 1, risky = 0.1): Answers {
 	return {
@@ -44,7 +51,10 @@ function engine(options: { classify?: ClassifyFn; raw?: RawConfig; now?: () => n
 		config,
 		missingConfig: false,
 		catalog: {
-			find: (provider, id) => (WINDOWS[`${provider}/${id}`] ? { contextWindow: WINDOWS[`${provider}/${id}`] } : undefined),
+			find: (provider, id) => {
+				const contextWindow = WINDOWS[`${provider}/${id}`];
+				return contextWindow ? { contextWindow } : undefined;
+			},
 			hasAuth: () => true,
 			isProvider: (name) => ["acme", "acme-2", "zen"].includes(name),
 			subscription: () => true,
@@ -109,7 +119,12 @@ describe("engine: user turns", () => {
 
 	it("skips the classifier when pinned", async () => {
 		let calls = 0;
-		const { e } = engine({ classify: async () => (calls++, { stopReason: "stop", answers: answers("plan") }) });
+		const { e } = engine({
+			classify: async () => {
+				calls++;
+				return { stopReason: "stop", answers: answers("plan") };
+			},
+		});
 		e.controls.pin = { target: "@bottom", subagents: false };
 		const out = await e.route(input());
 		assert.equal(out.decision?.kind, "pinned");
@@ -127,7 +142,12 @@ describe("engine: user turns", () => {
 
 	it("routes a tier-pinned model in a subagent without classifying, capped tiers ignored for pinned", async () => {
 		let calls = 0;
-		const { e } = engine({ classify: async () => (calls++, { stopReason: "stop", answers: answers("plan") }) });
+		const { e } = engine({
+			classify: async () => {
+				calls++;
+				return { stopReason: "stop", answers: answers("plan") };
+			},
+		});
 		const out = await e.route(input({ virtualId: "main.light", scope: "subagent", agent: "scout" }));
 		assert.equal(out.decision?.kind, "launch-tier");
 		assert.equal(out.decision?.tier.chosen, "light");
@@ -146,7 +166,16 @@ describe("engine: user turns", () => {
 describe("engine: in-flight leases", () => {
 	const limited: RawConfig = {
 		...RAW,
-		profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: [{ model: "acme/mid", maxConcurrency: 1 }, "zen/mid"], strategy: "ordered" }, deep: { rank: 3, members: ["acme/big"] } }, fallbackTier: "standard" } },
+		profiles: {
+			main: {
+				tiers: {
+					light: { rank: 1, members: ["acme/small"] },
+					standard: { rank: 2, members: [{ model: "acme/mid", maxConcurrency: 1 }, "zen/mid"], strategy: "ordered" },
+					deep: { rank: 3, members: ["acme/big"] },
+				},
+				fallbackTier: "standard",
+			},
+		},
 	};
 	const leasesOn = (store: MemoryHealthStore, key: string) => store.read().members[key]?.leases?.length ?? 0;
 
@@ -177,7 +206,18 @@ describe("engine: in-flight leases", () => {
 	});
 
 	it("selects launch-mode members with the tier's strategy and health, and leases them", async () => {
-		const raw: RawConfig = { ...RAW, profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: ["acme/mid", "zen/mid", "acme-2/mid"], strategy: { name: "round-robin", granularity: "request" } }, deep: { rank: 3, members: ["acme/big"] } } } } };
+		const raw: RawConfig = {
+			...RAW,
+			profiles: {
+				main: {
+					tiers: {
+						light: { rank: 1, members: ["acme/small"] },
+						standard: { rank: 2, members: ["acme/mid", "zen/mid", "acme-2/mid"], strategy: { name: "round-robin", granularity: "request" } },
+						deep: { rank: 3, members: ["acme/big"] },
+					},
+				},
+			},
+		};
 		const { e, deps } = engine({ raw });
 		const profile = e.config.profiles.main;
 		assert.ok(profile);
@@ -199,14 +239,26 @@ describe("engine: remote classifiers", () => {
 	it("never sends request text to a remote classifier without allowRemote, and falls back with the reason", async () => {
 		const seen: string[] = [];
 		const raw: RawConfig = { ...RAW, classifiers: [{ model: "cloud/judge", timeoutMs: 500 }] };
-		const { e, deps } = engine({ raw, classify: async (model) => (seen.push(model), { stopReason: "stop", answers: answers("plan") }) });
+		const { e, deps } = engine({
+			raw,
+			classify: async (model) => {
+				seen.push(model);
+				return { stopReason: "stop", answers: answers("plan") };
+			},
+		});
 		deps.isLocalClassifier = (model) => model.startsWith("local/");
 		const out = await e.route(input());
 		assert.equal(seen.length, 0, "the remote classifier was never called");
 		assert.equal(out.decision?.kind, "fallback");
 		assert.match(out.decision?.classifier?.attempts[0]?.error ?? "", /allowRemote/u);
 
-		const allowed = engine({ raw: { ...RAW, classifiers: [{ model: "cloud/judge", timeoutMs: 500, allowRemote: true }] }, classify: async (model) => (seen.push(model), { stopReason: "stop", answers: answers("plan") }) });
+		const allowed = engine({
+			raw: { ...RAW, classifiers: [{ model: "cloud/judge", timeoutMs: 500, allowRemote: true }] },
+			classify: async (model) => {
+				seen.push(model);
+				return { stopReason: "stop", answers: answers("plan") };
+			},
+		});
 		allowed.deps.isLocalClassifier = () => false;
 		assert.equal((await allowed.e.route(input())).decision?.kind, "classified");
 		assert.deepEqual(seen, ["cloud/judge"]);
@@ -232,20 +284,33 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		const out = await e.route(input({ reason: "continuation", state, messages, previous: { provider: "acme", id: "mid" } }));
 		assert.equal(out.decision?.kind, "escalated");
 		assert.equal(out.id, "big");
-		const again = await e.route(input({ reason: "continuation", state: out.state, messages: [...messages, toolError("bash")], previous: { provider: "acme", id: "big" } }));
+		const again = await e.route(
+			input({ reason: "continuation", state: out.state, messages: [...messages, toolError("bash")], previous: { provider: "acme", id: "big" } }),
+		);
 		assert.equal(again.decision, undefined, "no second escalation in the same task");
 	});
 
 	it("caps a subagent's escalation at its maximum tier", async () => {
 		const { e } = engine();
 		const first = await e.route(input({ virtualId: "main.standard", scope: "subagent", agent: "scout" }));
-		const out = await e.route(input({ reason: "continuation", scope: "subagent", agent: "scout", state: first.state, messages: [user("x"), toolError("a"), toolError("a")], previous: { provider: "acme", id: "mid" } }));
+		const out = await e.route(
+			input({
+				reason: "continuation",
+				scope: "subagent",
+				agent: "scout",
+				state: first.state,
+				messages: [user("x"), toolError("a"), toolError("a")],
+				previous: { provider: "acme", id: "mid" },
+			}),
+		);
 		assert.equal(out.decision, undefined, "already at scout's maximum");
 	});
 
 	it("fails over to the next member on a rate limit and keeps the tier", async () => {
 		const { e, state } = await started();
-		const out = await e.route(input({ reason: "retry", state, failed: { provider: "acme", id: "mid", errorMessage: "429 Too Many Requests. Retry-After: 30" } }));
+		const out = await e.route(
+			input({ reason: "retry", state, failed: { provider: "acme", id: "mid", errorMessage: "429 Too Many Requests. Retry-After: 30" } }),
+		);
 		assert.equal(out.decision?.kind, "failover");
 		assert.deepEqual([out.provider, out.id], ["zen", "mid"]);
 		assert.equal(out.decision?.error?.class, "rate-limit");
@@ -253,12 +318,27 @@ describe("engine: continuation, escalation, retry and direct", () => {
 	});
 
 	it("benches a rate-limited member for the tier's cooldown.defaultMs when the provider gives no time", async () => {
-		const raw: RawConfig = { ...RAW, profiles: { main: { ...RAW.profiles!.main!, tiers: { ...RAW.profiles!.main!.tiers, standard: { rank: 2, members: ["acme/mid", "zen/mid:medium"], strategy: "ordered", cooldown: { defaultMs: 90_000 } } } } } };
+		const raw: RawConfig = {
+			...RAW,
+			profiles: {
+				main: {
+					...RAW.profiles!.main!,
+					tiers: {
+						...RAW.profiles!.main!.tiers,
+						standard: { rank: 2, members: ["acme/mid", "zen/mid:medium"], strategy: "ordered", cooldown: { defaultMs: 90_000 } },
+					},
+				},
+			},
+		};
 		const { e, deps } = engine({ raw });
 		const first = await e.route(input());
-		const out = await e.route(input({ reason: "retry", state: first.state, failed: { provider: "acme", id: "mid", errorMessage: "429 Too Many Requests" } }));
+		const out = await e.route(
+			input({ reason: "retry", state: first.state, failed: { provider: "acme", id: "mid", errorMessage: "429 Too Many Requests" } }),
+		);
 		assert.equal(out.decision?.error?.benchedUntil, new Date(deps.clock.now() + 90_000).toISOString());
-		const explicit = await e.route(input({ reason: "retry", state: out.state, failed: { provider: "zen", id: "mid", errorMessage: "429 Too Many Requests. Retry-After: 20" } }));
+		const explicit = await e.route(
+			input({ reason: "retry", state: out.state, failed: { provider: "zen", id: "mid", errorMessage: "429 Too Many Requests. Retry-After: 20" } }),
+		);
 		assert.equal(explicit.decision?.error?.benchedUntil, new Date(deps.clock.now() + 20_000).toISOString(), "the provider's own time wins");
 	});
 
@@ -276,7 +356,10 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		assert.equal(second.id, "big");
 		const third = await e.route(input({ reason: "retry", state: second.state, failed: { provider: "acme", id: "big", errorMessage: "rate limit" } }));
 		assert.equal(third.id, "small", "then borrows down");
-		await assert.rejects(e.route(input({ reason: "retry", state: third.state, failed: { provider: "acme", id: "small", errorMessage: "rate limit" } })), ExhaustedError);
+		await assert.rejects(
+			e.route(input({ reason: "retry", state: third.state, failed: { provider: "acme", id: "small", errorMessage: "rate limit" } })),
+			ExhaustedError,
+		);
 	});
 
 	it("uses an account sibling first when enabled", async () => {
@@ -292,7 +375,9 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		const { e, state } = await started();
 		const prepared = e.prepareFailover({ provider: "acme", id: "mid" }, "You have hit your ChatGPT usage limit (team plan). Try again in ~30 min.");
 		assert.deepEqual(prepared, { errorClass: "quota", canFailOver: true });
-		const out = await e.route(input({ reason: "retry", state, failed: { provider: "acme", id: "mid", errorMessage: "pi-switchboard: service temporarily unavailable" } }));
+		const out = await e.route(
+			input({ reason: "retry", state, failed: { provider: "acme", id: "mid", errorMessage: "pi-switchboard: service temporarily unavailable" } }),
+		);
 		assert.equal(out.decision?.error?.class, "quota", "the original class wins over the rewritten text");
 		assert.equal(out.id, "mid");
 		assert.equal(out.provider, "zen");
@@ -302,23 +387,43 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		const { e } = engine({ classify: async () => ({ stopReason: "stop", answers: answers("mechanical", 0.95, 0.1) }) });
 		const first = await e.route(input());
 		assert.equal(first.id, "small");
-		const out = await e.route(input({ reason: "retry", state: first.state, failed: { provider: "acme", id: "small", errorMessage: "Codex error: The usage limit has been reached" } }));
+		const out = await e.route(
+			input({
+				reason: "retry",
+				state: first.state,
+				failed: { provider: "acme", id: "small", errorMessage: "Codex error: The usage limit has been reached" },
+			}),
+		);
 		assert.equal(out.decision?.kind, "borrowed");
 		assert.deepEqual([out.provider, out.id], ["zen", "mid"], "acme/mid is on the same exhausted account");
 	});
 
 	it("records a usage limit even when the engine has no current route", () => {
 		const { e, deps } = engine();
-		assert.deepEqual(e.prepareFailover({ provider: "acme", id: "mid" }, "The usage limit has been reached. Try again in ~20 min."), { errorClass: "quota", canFailOver: false });
+		assert.deepEqual(e.prepareFailover({ provider: "acme", id: "mid" }, "The usage limit has been reached. Try again in ~20 min."), {
+			errorClass: "quota",
+			canFailOver: false,
+		});
 		assert.ok((deps.store.read().members["provider:acme"]?.cooldownUntil ?? 0) > deps.clock.now());
 	});
 
 	it("does not offer a failover when every model is on the exhausted account", async () => {
-		const raw: RawConfig = { classifiers: [], profiles: { solo: { tiers: { a: { rank: 1, members: ["acme/small"] }, b: { rank: 2, members: ["acme/mid"] } } } }, profileSelection: { default: "solo" } };
+		const raw: RawConfig = {
+			classifiers: [],
+			profiles: { solo: { tiers: { a: { rank: 1, members: ["acme/small"] }, b: { rank: 2, members: ["acme/mid"] } } } },
+			profileSelection: { default: "solo" },
+		};
 		const { e } = engine({ raw });
 		await e.route(input());
-		assert.deepEqual(e.prepareFailover({ provider: "acme", id: "mid" }, "The usage limit has been reached. Try again in ~20 min."), { errorClass: "quota", canFailOver: false });
-		await assert.rejects(e.route(input()), (error: unknown) => error instanceof ExhaustedError && /every model is cooling down/u.test(error.message), "the next turn sees the account benched");
+		assert.deepEqual(e.prepareFailover({ provider: "acme", id: "mid" }, "The usage limit has been reached. Try again in ~20 min."), {
+			errorClass: "quota",
+			canFailOver: false,
+		});
+		await assert.rejects(
+			e.route(input()),
+			(error: unknown) => error instanceof ExhaustedError && /every model is cooling down/u.test(error.message),
+			"the next turn sees the account benched",
+		);
 	});
 
 	it("routes direct requests to the direct tier and moves up to fit the context", async () => {

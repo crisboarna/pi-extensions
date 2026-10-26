@@ -97,7 +97,12 @@ export async function runClassifierChain(entries: readonly ChainEntry[], request
 		if (remaining <= 0) return { ok: false, reason: "budget", attempts };
 		if (entry.remote && !entry.allowRemote) {
 			// Never send request text off this machine without the user's say-so (DESIGN.md 13).
-			attempts.push({ model: entry.model, ok: false, latencyMs: 0, error: "remote classifier skipped: set allowRemote: true on it to send request text off this machine" });
+			attempts.push({
+				model: entry.model,
+				ok: false,
+				latencyMs: 0,
+				error: "remote classifier skipped: set allowRemote: true on it to send request text off this machine",
+			});
 			continue;
 		}
 		const attemptStart = clock.now();

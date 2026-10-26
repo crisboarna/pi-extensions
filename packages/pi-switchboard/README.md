@@ -7,7 +7,7 @@ The source names no provider or model. Everything comes from your config.
 ## Install
 
 ```bash
-pi install /path/to/pi-switchboard        # or: pi install npm:pi-switchboard
+pi install npm:@crisboarna/pi-switchboard
 ```
 
 Restart pi, then:
@@ -21,7 +21,7 @@ Requires Node 22.19 or later and pi 1.4 or later.
 
 ## How it works
 
-```
+```text
 user turn ─▶ evidence (request, plan phase, tool outcomes; redacted)
           ─▶ classifier (one call: work, depth, risky)
           ─▶ ruleset (first matching tier rule, then floor rules)
@@ -169,7 +169,7 @@ Decisions are custom session entries: they never enter the model's context. pi's
 ## Uninstall
 
 ```bash
-pi remove /path/to/pi-switchboard     # or: pi remove npm:pi-switchboard
+pi remove npm:@crisboarna/pi-switchboard
 rm -rf ~/.pi/agent/pi-switchboard ~/.pi/agent/pi-switchboard.json
 ```
 
@@ -189,12 +189,15 @@ Remove the two `powerline.customItems` entries if you added them.
 
 ## Development
 
+This package lives in the [pi-extensions](https://github.com/crisboarna/pi-extensions) monorepo. Run `npm install` at the repository root, then from this folder:
+
 ```bash
-npm run link:pi      # links the installed pi release into node_modules for types and tests
-npm test             # unit tests (node --test, no dependencies)
+npm test                   # unit tests (node --test)
 npm run test:integration   # loads the extension through jiti against a fake pi host
-npm run typecheck
+npm run coverage           # unit tests with coverage thresholds
 ```
+
+Repository-wide gates (lint, types, packaging) run from the root with `npm run check`; see the root [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 `test/support/lmstudio-chat.ts` registers LM Studio's chat models as a pi provider for free local end-to-end runs:
 

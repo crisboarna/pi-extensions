@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { TranscriptMessage, PlanPhase } from "../classifier/evidence.ts";
+import type { PlanPhase, TranscriptMessage } from "../classifier/evidence.ts";
 import { textOf } from "../classifier/evidence.ts";
 import type { CatalogView, Config } from "../config/types.ts";
 import type { EngineCatalog } from "./engine.ts";
@@ -120,7 +120,7 @@ export function virtualModelIds(config: Config): Array<{ id: string; name: strin
 
 /** Extension-owned runtime state: the global manual profile and one-time warnings. */
 export interface SwitchboardState {
-	globalProfile?: string;
+	globalProfile?: string | undefined;
 	warned?: { tos?: boolean };
 }
 

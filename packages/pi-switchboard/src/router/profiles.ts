@@ -14,7 +14,7 @@ export interface ProfileInputs {
 	/** A profile named by the selected virtual model (`switchboard/<profile>`). */
 	fromModel?: string;
 	manualSession?: string;
-	manualGlobal?: string;
+	manualGlobal?: string | undefined;
 	/** The physical model selected before routing, `provider/id`. */
 	originModel?: string;
 	cwd: string;
@@ -27,7 +27,9 @@ export function profileAllowedHere(profile: Profile, cwd: string, home: string):
 	const expand = (pattern: string) => (pattern.startsWith("~/") ? `${home}${pattern.slice(1)}` : pattern);
 	return profile.projects.some((pattern) => {
 		// A trailing /** means the folder and everything under it; a plain path also covers its subfolders.
-		const base = expand(pattern).replace(/\/$/u, "").replace(/\/\*\*$/u, "");
+		const base = expand(pattern)
+			.replace(/\/$/u, "")
+			.replace(/\/\*\*$/u, "");
 		return matchGlob(base, cwd) || matchGlob(`${base}/*`, cwd);
 	});
 }
@@ -72,6 +74,7 @@ export function chooseProfile(inputs: ProfileInputs): ProfileChoice | undefined 
 export function inactiveReason(config: Config, missingConfig: boolean): string {
 	if (missingConfig) return "no config; run /tier init";
 	const invalid = Object.keys(config.invalidProfiles);
-	if (Object.keys(config.profiles).length === 0) return invalid.length ? `every profile is invalid (${invalid.join(", ")}); run /tier validate` : "no profiles configured";
+	if (Object.keys(config.profiles).length === 0)
+		return invalid.length ? `every profile is invalid (${invalid.join(", ")}); run /tier validate` : "no profiles configured";
 	return "no profile matches; set profileSelection.default";
 }

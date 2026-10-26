@@ -54,11 +54,18 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 		description: "pi-switchboard: status, profiles, pins, decisions and reports",
 		getArgumentCompletions: (prefix) => {
 			const [head = "", ...rest] = prefix.split(/\s+/u);
-			if (rest.length === 0) return SUBCOMMANDS.filter((s) => s.value.startsWith(head)).map((s) => ({ value: s.value, label: s.value, description: s.description }));
+			if (rest.length === 0)
+				return SUBCOMMANDS.filter((s) => s.value.startsWith(head)).map((s) => ({ value: s.value, label: s.value, description: s.description }));
 			const config = runtime.config;
 			const tiers = Object.values(config.profiles).flatMap((p) => p.tiers.map((t) => t.name));
 			const values =
-				head === "profile" ? ["auto", ...Object.keys(config.profiles), "--global"] : head === "pin" ? ["auto", "@top", "@middle", "@bottom", ...new Set(tiers), "--subagents"] : head === "dry-run" ? ["on", "off"] : [];
+				head === "profile"
+					? ["auto", ...Object.keys(config.profiles), "--global"]
+					: head === "pin"
+						? ["auto", "@top", "@middle", "@bottom", ...new Set(tiers), "--subagents"]
+						: head === "dry-run"
+							? ["on", "off"]
+							: [];
 			const last = rest.at(-1) ?? "";
 			return values.filter((v) => v.startsWith(last)).map((v) => ({ value: [head, ...rest.slice(0, -1), v].join(" "), label: v }));
 		},
@@ -74,7 +81,9 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 					const { choice } = engine.resolveProfile(ctx.model && runtime.isVirtual(ctx.model.provider) ? ctx.model.id : "auto");
 					const lines = [
 						`pi-switchboard ${runtime.routingSelected ? "routing" : "not selected (pick switchboard/auto in /model)"}${runtime.blocked ? ` · blocked by ${runtime.blocked}` : ""}`,
-						choice ? `profile: ${choice.profile.name} (${choice.source}) · tiers ${choice.profile.tiers.map((t) => t.name).join(" < ")}` : `inactive: ${engine.inactiveReason()}`,
+						choice
+							? `profile: ${choice.profile.name} (${choice.source}) · tiers ${choice.profile.tiers.map((t) => t.name).join(" < ")}`
+							: `inactive: ${engine.inactiveReason()}`,
 						`pin: ${engine.controls.pin ? `${engine.controls.pin.target}${engine.controls.pin.subagents ? " (with subagents)" : ""}` : "none"} · dry-run: ${engine.controls.dryRun ? "on" : "off"} · model switches: ${runtime.switches}`,
 						`subagents: ${config.subagents.enabled ? (runtime.launchModeReason ? `launch-time models (${runtime.launchModeReason})` : "routed inside children") : "off"} · routed ${runtime.routedSubagents}`,
 						`classifiers: ${config.classifiers.map((c) => `${c.model}${runtime.warmup.isWarm(c.model) ? " (warm)" : ""}`).join(", ") || "none"}`,
@@ -104,7 +113,10 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 					else engine.controls.pin = { target, subagents: rest.includes("--subagents") };
 					runtime.saveControls();
 					runtime.updateFooter(ctx);
-					ctx.ui.notify(engine.controls.pin ? `Pinned to ${target}${engine.controls.pin.subagents ? " (subagents too)" : ""}` : "Pin removed", "info");
+					ctx.ui.notify(
+						engine.controls.pin ? `Pinned to ${target}${engine.controls.pin.subagents ? " (subagents too)" : ""}` : "Pin removed",
+						"info",
+					);
 					return;
 				}
 				case "dry-run": {
@@ -134,11 +146,17 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 					for (const profile of Object.values(config.profiles)) {
 						for (const tier of profile.tiers) {
 							for (const member of tier.members) {
-								const keys = [`member:${profile.name}/${tier.name}/${member.key}`, `model:${member.provider}/${member.id}`, `provider:${member.provider}`];
+								const keys = [
+									`member:${profile.name}/${tier.name}/${member.key}`,
+									`model:${member.provider}/${member.id}`,
+									`provider:${member.provider}`,
+								];
 								const cooling = keys.map((k) => data.members[k]).filter((h) => (h?.cooldownUntil ?? 0) > now);
 								const phys = data.members[`${member.provider}/${member.id}`];
 								const inFlight = liveLeases(phys, now).length;
-								lines.push(`${profile.name}/${tier.name} ${member.key}: ${member.enabled ? (cooling.length ? `cooling down until ${new Date(Math.max(...cooling.map((c) => c?.cooldownUntil ?? 0))).toLocaleTimeString()} (${cooling[0]?.cooldownReason})` : "ok") : `disabled: ${member.disabledReason}`}${inFlight ? `, ${inFlight} in flight` : ""}${phys?.latencyEwma ? `, ~${Math.round(phys.latencyEwma)} ms` : ""}`);
+								lines.push(
+									`${profile.name}/${tier.name} ${member.key}: ${member.enabled ? (cooling.length ? `cooling down until ${new Date(Math.max(...cooling.map((c) => c?.cooldownUntil ?? 0))).toLocaleTimeString()} (${cooling[0]?.cooldownReason})` : "ok") : `disabled: ${member.disabledReason}`}${inFlight ? `, ${inFlight} in flight` : ""}${phys?.latencyEwma ? `, ~${Math.round(phys.latencyEwma)} ms` : ""}`,
+								);
 							}
 						}
 					}
@@ -159,7 +177,9 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 							row.requests++;
 							map.set(k, row);
 						}
-						return [...map.entries()].sort((a, b) => b[1].cost - a[1].cost).map(([k, v]) => `  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
+						return [...map.entries()]
+							.sort((a, b) => b[1].cost - a[1].cost)
+							.map(([k, v]) => `  ${k}: ${money(v.cost)}, ${v.tokens} tokens, ${v.requests} responses`);
 					};
 					const classified = decisions.filter((d) => d.rules);
 					const fallbacks = decisions.filter((d) => d.kind === "fallback").length;
@@ -190,7 +210,12 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 					return;
 				}
 				case "validate": {
-					const loaded = loadConfig({ agentDir: runtime.agentDir, cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike) });
+					const loaded = loadConfig({
+						agentDir: runtime.agentDir,
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike),
+					});
 					const invalid = Object.entries(loaded.config.invalidProfiles);
 					show(ctx, [
 						loaded.missing ? `No config at ${loaded.userPath}; run /tier init` : `Config: ${loaded.config.sources.join(", ")}`,

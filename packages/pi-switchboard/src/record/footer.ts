@@ -24,12 +24,15 @@ export function renderTemplate(template: string, values: FooterValues): string {
 		const value = (values as Record<string, unknown>)[key];
 		return value === undefined || value === "" ? "\u0000" : String(value);
 	});
-	return filled
-		.split(/\s*·\s*/u)
-		.filter((part) => !part.includes("\u0000") && part.trim() !== "")
-		.join(" · ")
-		.replace(/\u0000/gu, "")
-		.trim();
+	return (
+		filled
+			.split(/\s*·\s*/u)
+			.filter((part) => !part.includes("\u0000") && part.trim() !== "")
+			.join(" · ")
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: NUL marks an empty placeholder; it is removed here.
+			.replace(/\u0000/gu, "")
+			.trim()
+	);
 }
 
 /** Footer values from the latest decision. */
@@ -54,11 +57,17 @@ export function footerValues(decision: DecisionEntry | undefined, extra: Pick<Fo
 }
 
 /** The `tier` footer text, with state markers. */
-export function footerText(template: string, decision: DecisionEntry | undefined, state: { off?: boolean; inactive?: string; pinned?: string; dryRun?: boolean; switches?: number }): string | undefined {
+export function footerText(
+	template: string,
+	decision: DecisionEntry | undefined,
+	state: { off?: boolean; inactive?: string; pinned?: string; dryRun?: boolean; switches?: number },
+): string | undefined {
 	if (state.off) return "switchboard off";
 	if (state.inactive) return `switchboard inactive: ${state.inactive}`;
 	if (!decision) return undefined;
 	const base = renderTemplate(template, footerValues(decision, { ...(state.switches !== undefined ? { switches: state.switches } : {}) }));
-	const markers = [state.pinned ? `pinned ${state.pinned}` : "", state.dryRun ? "dry-run" : "", decision.kind === "fallback" ? "fallback" : ""].filter(Boolean);
+	const markers = [state.pinned ? `pinned ${state.pinned}` : "", state.dryRun ? "dry-run" : "", decision.kind === "fallback" ? "fallback" : ""].filter(
+		Boolean,
+	);
 	return markers.length ? `${base} · ${markers.join(" · ")}` : base;
 }

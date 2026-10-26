@@ -1,0 +1,321 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["**", "!**/node_modules", "!**/coverage", "!package-lock.json", "!**/test/fixtures", "!**/*.md"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 160
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"semicolons": "always",
+			"trailingCommas": "all"
+		}
+	},
+	"json": {
+		"formatter": {
+			"indentStyle": "tab"
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error",
+				"noUndeclaredDependencies": "off"
+			},
+			"style": {
+				"useNodejsImportProtocol": "error",
+				"useImportType": "error",
+				"useConst": "error",
+				"noNonNullAssertion": "error",
+				"useConsistentArrayType": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noConsole": "off"
+			},
+			"complexity": {
+				"noExcessiveCognitiveComplexity": {
+					"level": "error",
+					"options": {
+						"maxAllowedComplexity": 25
+					}
+				}
+			}
+		}
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/test/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/classifier/chain.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 35
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/cli/main.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 38
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/commands/tier.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 102
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/config/normalize.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 65
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/index.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 32
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/record/describe.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 53
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/router/engine.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 45
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/rules/conditions.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 31
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/runtime.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 30
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/selection/select.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 40
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/selection/strategies.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 36
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/subagents/launch.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 76
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/subagents/tasks.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 52
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/tiering/decide.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 26
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/timeline/parse.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 101
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-switchboard/src/tui/editor.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 77
+							}
+						}
+					}
+				}
+			}
+		}
+	]
+}

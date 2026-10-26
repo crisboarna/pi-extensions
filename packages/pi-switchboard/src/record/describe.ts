@@ -30,27 +30,56 @@ export function explain(decision: DecisionEntry): string[] {
 	const lines: string[] = [];
 	lines.push(`${decision.id} · ${decision.ts} · ${decision.scope} · ${decision.reason} · ${decision.kind}`);
 	lines.push(`profile: ${decision.profile.name || "(none)"} (${decision.profile.source})${decision.virtualModel ? ` via ${decision.virtualModel}` : ""}`);
-	if (decision.evidence) lines.push(`evidence: ${decision.evidence.tokens} tokens, digest ${decision.evidence.digest}${decision.evidence.truncated ? ", truncated" : ""}`, `  request: ${decision.evidence.excerpt.replace(/\s+/gu, " ").slice(0, 200)}`);
+	if (decision.evidence)
+		lines.push(
+			`evidence: ${decision.evidence.tokens} tokens, digest ${decision.evidence.digest}${decision.evidence.truncated ? ", truncated" : ""}`,
+			`  request: ${decision.evidence.excerpt.replace(/\s+/gu, " ").slice(0, 200)}`,
+		);
 	if (decision.classifier) {
 		const c = decision.classifier;
-		lines.push(`classifier: ${c.model ?? "none answered"} in ${c.latencyMs} ms${c.failure ? ` (${c.failure})` : ""}${c.usage ? `, ${c.usage.input} tokens` : ""}`);
+		lines.push(
+			`classifier: ${c.model ?? "none answered"} in ${c.latencyMs} ms${c.failure ? ` (${c.failure})` : ""}${c.usage ? `, ${c.usage.input} tokens` : ""}`,
+		);
 		for (const attempt of c.attempts.filter((a) => !a.ok)) lines.push(`  ✗ ${attempt.model}: ${attempt.error}${attempt.cold ? " (cold)" : ""}`);
 	}
-	if (decision.answers) lines.push(`answers: ${Object.entries(decision.answers).map(([id, answer]) => answerText(id, answer)).join(", ")}`);
+	if (decision.answers)
+		lines.push(
+			`answers: ${Object.entries(decision.answers)
+				.map(([id, answer]) => answerText(id, answer))
+				.join(", ")}`,
+		);
 	if (decision.rules) {
 		const { gate } = decision.rules;
-		lines.push(`rules: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}; gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} on [${gate.referenced.join(", ")}] ${gate.passed ? "passed" : "failed"}`);
-		for (const floor of decision.rules.floors.filter((f) => f.applied)) lines.push(`  floor ${floor.index + 1}: at least ${floor.atLeast}${floor.raised ? " (raised)" : ""}`);
+		lines.push(
+			`rules: ${decision.rules.ruleset} rule ${decision.rules.matched + 1}; gate ${gate.confidence.toFixed(2)} vs ${gate.threshold} on [${gate.referenced.join(", ")}] ${gate.passed ? "passed" : "failed"}`,
+		);
+		for (const floor of decision.rules.floors.filter((f) => f.applied))
+			lines.push(`  floor ${floor.index + 1}: at least ${floor.atLeast}${floor.raised ? " (raised)" : ""}`);
 	}
-	lines.push(`tier: ${decision.tier.candidate || "-"} → ${decision.tier.chosen || "-"}${decision.tier.previous ? ` (was ${decision.tier.previous})` : ""}: ${decision.tier.why}`);
+	lines.push(
+		`tier: ${decision.tier.candidate || "-"} → ${decision.tier.chosen || "-"}${decision.tier.previous ? ` (was ${decision.tier.previous})` : ""}: ${decision.tier.why}`,
+	);
 	if (decision.selection) {
 		const s = decision.selection;
-		lines.push(`selection: ${s.strategy}/${s.granularity}: ${s.why}${s.metricFallback ? ` [${s.metricFallback}]` : ""}${s.shared ? "" : " [health not shared]"}`);
-		for (const candidate of s.candidates) lines.push(`  ${candidate.eligible ? "✓" : "✗"} ${candidate.member}${candidate.excluded ? `: ${candidate.excluded}` : ""}${candidate.inFlight ? `, ${candidate.inFlight} in flight` : ""}`);
+		lines.push(
+			`selection: ${s.strategy}/${s.granularity}: ${s.why}${s.metricFallback ? ` [${s.metricFallback}]` : ""}${s.shared ? "" : " [health not shared]"}`,
+		);
+		for (const candidate of s.candidates)
+			lines.push(
+				`  ${candidate.eligible ? "✓" : "✗"} ${candidate.member}${candidate.excluded ? `: ${candidate.excluded}` : ""}${candidate.inFlight ? `, ${candidate.inFlight} in flight` : ""}`,
+			);
 	}
-	lines.push(`model: ${decision.model.provider}/${decision.model.id}:${decision.model.thinking}${decision.model.account ? ` on account ${decision.model.account}` : ""}${decision.switch.cacheMiss ? ` (switch from ${decision.switch.from}, cache miss)` : ""}`);
-	if (decision.error) lines.push(`error: ${decision.error.class}${decision.error.benchedUntil ? `, benched until ${decision.error.benchedUntil}` : ""}: ${decision.error.message}`);
-	if (decision.subagent) lines.push(`subagent: ${decision.subagent.agent} #${decision.subagent.taskIndex} ${decision.subagent.mode}${decision.subagent.skipped ? `: ${decision.subagent.skipped}` : ""}`);
+	lines.push(
+		`model: ${decision.model.provider}/${decision.model.id}:${decision.model.thinking}${decision.model.account ? ` on account ${decision.model.account}` : ""}${decision.switch.cacheMiss ? ` (switch from ${decision.switch.from}, cache miss)` : ""}`,
+	);
+	if (decision.error)
+		lines.push(
+			`error: ${decision.error.class}${decision.error.benchedUntil ? `, benched until ${decision.error.benchedUntil}` : ""}: ${decision.error.message}`,
+		);
+	if (decision.subagent)
+		lines.push(
+			`subagent: ${decision.subagent.agent} #${decision.subagent.taskIndex} ${decision.subagent.mode}${decision.subagent.skipped ? `: ${decision.subagent.skipped}` : ""}`,
+		);
 	if (decision.budget?.length) lines.push(`budget: ${decision.budget.map((b) => `${b.scope} ${b.metric} ${b.used.toFixed(2)}/${b.limit}`).join(", ")}`);
 	return lines;
 }

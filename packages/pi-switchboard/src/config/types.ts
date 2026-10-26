@@ -281,4 +281,3 @@ export interface CatalogView {
 	hasAuth(provider: string): boolean;
 	isProvider(name: string): boolean;
 }
-

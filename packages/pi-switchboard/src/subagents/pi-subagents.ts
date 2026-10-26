@@ -11,7 +11,9 @@ export function subagentsRoot(agentDir: string): string | undefined {
 
 async function importExport(root: string, name: string): Promise<Record<string, unknown> | undefined> {
 	try {
-		const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports?: Record<string, { default?: string; import?: string } | string> };
+		const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+			exports?: Record<string, { default?: string; import?: string } | string>;
+		};
 		const entry = pkg.exports?.[`./${name}`];
 		const file = typeof entry === "string" ? entry : (entry?.default ?? entry?.import);
 		if (!file) return undefined;
@@ -30,7 +32,11 @@ export interface RequiredRegistration {
  * pi-subagents' required child extensions (ADR-0001). Returns undefined with a
  * reason when that is not possible, so launches fall back to physical models.
  */
-export async function registerChildExtension(agentDir: string, sessionId: string, entryPath: string): Promise<{ registration?: RequiredRegistration; reason?: string }> {
+export async function registerChildExtension(
+	agentDir: string,
+	sessionId: string,
+	entryPath: string,
+): Promise<{ registration?: RequiredRegistration; reason?: string }> {
 	const root = subagentsRoot(agentDir);
 	if (!root) return { reason: "pi-subagents is not installed" };
 	const api = await importExport(root, "required-child-extensions");

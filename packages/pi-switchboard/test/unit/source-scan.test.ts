@@ -46,7 +46,10 @@ describe("source scan", () => {
 	it("finds the example ids it guards against", () => {
 		const ids = knownIds();
 		assert.ok(ids.includes("github-copilot"), "provider names are collected");
-		assert.ok(ids.some((id) => id.includes("claude-opus")), "model ids are collected");
+		assert.ok(
+			ids.some((id) => id.includes("claude-opus")),
+			"model ids are collected",
+		);
 	});
 
 	it("keeps every provider and model id out of src/", () => {

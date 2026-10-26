@@ -2,36 +2,53 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { TranscriptMessage } from "./classifier/evidence.ts";
-import { createClassifyFn, isLocalClassifier, registerClassifierProviders } from "./classifier/pi-adapter.ts";
-import { WarmupTracker } from "./classifier/warmup.ts";
-import { dataDir, loadConfig } from "./config/load.ts";
-import type { Config } from "./config/types.ts";
-import { footerText, renderTemplate } from "./record/footer.ts";
-import { CONTROL_TYPE, type ControlEntry, DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
-import { ExhaustedError, type LeaseRef, type ModelChoice, type RouterState, SwitchboardEngine } from "./router/engine.ts";
-import { agentFromMessages, catalogView, conflictingRouter, engineCatalog, estimateTokens, queryPlanPhase, type RegistryLike, StateFile, virtualModelIds } from "./router/pi-glue.ts";
-import { readMultiPassSubscriptions } from "./selection/accounts.ts";
-import { FileHealthStore, type HealthStore, MemoryHealthStore } from "./selection/health.ts";
-import { ledgerQuota, UsageLedger } from "./selection/ledger.ts";
-import { type CustomSelect, loadCustomStrategy } from "./selection/strategies.ts";
-import { routeLaunch } from "./subagents/launch.ts";
-import { createPinLookup, registerChildExtension, type RequiredRegistration } from "./subagents/pi-subagents.ts";
-import { extractTasks, isAsyncLaunch, resultLinks } from "./subagents/tasks.ts";
-import { attachBinding, matchLaunch, readBinding, type SwitchboardBinding, taskDigest } from "./subagents/binding.ts";
-import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
-import { LINK_TYPE, type LinkEntry } from "./record/types.ts";
-import { mapToAccount } from "./selection/accounts.ts";
-import { systemClock, systemRng } from "./util/runtime.ts";
-import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
-import { CHANGED_CHANNEL, quotaProviders, UsageCache } from "./selection/pi-usage.ts";
 import { AutoContinue } from "./autocontinue.ts";
 import { BudgetTracker } from "./budgets/track.ts";
-import { DebugLog } from "./record/debug-log.ts";
+import type { TranscriptMessage } from "./classifier/evidence.ts";
+import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
+import { createClassifyFn, isLocalClassifier, registerClassifierProviders } from "./classifier/pi-adapter.ts";
 import { createRedactor } from "./classifier/redact.ts";
+import { WarmupTracker } from "./classifier/warmup.ts";
+import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
+import { dataDir, loadConfig } from "./config/load.ts";
+import type { Config } from "./config/types.ts";
 import { LiveWriter, sweep } from "./live/live.ts";
-import { PROFILE_TYPE, type ProfileSnapshotEntry } from "./record/types.ts";
-import { type ThinkingLevel, THINKING_LEVELS } from "./util/model-ref.ts";
+import { DebugLog } from "./record/debug-log.ts";
+import { footerText, renderTemplate } from "./record/footer.ts";
+import {
+	CONTROL_TYPE,
+	type ControlEntry,
+	DECISION_TYPE,
+	type DecisionEntry,
+	LINK_TYPE,
+	type LinkEntry,
+	PROFILE_TYPE,
+	type ProfileSnapshotEntry,
+} from "./record/types.ts";
+import { ExhaustedError, type LeaseRef, type ModelChoice, type RouterState, SwitchboardEngine } from "./router/engine.ts";
+import {
+	agentFromMessages,
+	catalogView,
+	conflictingRouter,
+	engineCatalog,
+	estimateTokens,
+	queryPlanPhase,
+	type RegistryLike,
+	StateFile,
+	virtualModelIds,
+} from "./router/pi-glue.ts";
+import { mapToAccount, readMultiPassSubscriptions } from "./selection/accounts.ts";
+import { FileHealthStore, type HealthStore, MemoryHealthStore } from "./selection/health.ts";
+import { ledgerQuota, UsageLedger } from "./selection/ledger.ts";
+import { CHANGED_CHANNEL, quotaProviders, UsageCache } from "./selection/pi-usage.ts";
+import { type CustomSelect, loadCustomStrategy } from "./selection/strategies.ts";
+import { attachBinding, matchLaunch, readBinding, type SwitchboardBinding, taskDigest } from "./subagents/binding.ts";
+import { routeLaunch } from "./subagents/launch.ts";
+import { createPinLookup, type RequiredRegistration, registerChildExtension } from "./subagents/pi-subagents.ts";
+import { extractTasks, isAsyncLaunch, resultLinks } from "./subagents/tasks.ts";
+import { THINKING_LEVELS, type ThinkingLevel } from "./util/model-ref.ts";
+import { entryOf } from "./util/record.ts";
+import { systemClock, systemRng } from "./util/runtime.ts";
 
 export const STATUS_KEY = "tier";
 export const STATUS_SUB_KEY = "tier-sub";
@@ -71,14 +88,14 @@ export class Runtime {
 	warmup: WarmupTracker;
 	ctx?: ExtensionContext;
 	/** Why the virtual models were not registered, if they were not. */
-	blocked?: string;
+	blocked?: string | undefined;
 	routingSelected = false;
 	switches = 0;
 	routedSubagents = 0;
 	readonly registered = new Set<string>();
 	private readonly customs = new Map<string, CustomSelect>();
 	private lastRouteAt = 0;
-	private childRegistration?: RequiredRegistration;
+	private childRegistration?: RequiredRegistration | undefined;
 	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
 	launchModeReason?: string;
 	private readonly launches = new Map<string, DecisionEntry[]>();
@@ -90,14 +107,14 @@ export class Runtime {
 	readonly autoContinue: AutoContinue;
 	/** pi-usage quota, refreshed in the background for providers a quota strategy needs. */
 	readonly usage: UsageCache;
-	private stopUsageListener?: () => void;
+	private stopUsageListener?: (() => void) | undefined;
 
-	private debugLog?: DebugLog;
+	private debugLog?: DebugLog | undefined;
 	/** Set in subagent children: publishes live status and the transcript mirror. */
 	live?: LiveWriter;
 	private snapshotProfile?: string;
 	/** In a child: the parent's binding, read while extensions load (DESIGN.md 5.7). */
-	binding?: SwitchboardBinding;
+	binding?: SwitchboardBinding | undefined;
 	/** In a child: the parent's launch decision this child belongs to. */
 	launchDecisionId?: string;
 
@@ -197,14 +214,24 @@ export class Runtime {
 		this.ctx = ctx;
 		// Foreground children see the binding only until session_start ends.
 		this.binding = readBinding() ?? this.binding;
-		const loaded = loadConfig({ agentDir: this.agentDir, cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike) });
+		const loaded = loadConfig({
+			agentDir: this.agentDir,
+			cwd: ctx.cwd,
+			projectTrusted: ctx.isProjectTrusted(),
+			catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike),
+		});
 		this.config = loaded.config;
 		this.missingConfig = loaded.missing;
 		this.engine.deps.config = this.config;
 		this.engine.deps.missingConfig = this.missingConfig;
 		this.engine.deps.cwd = ctx.cwd;
 		this.debugLog = this.config.debug.log
-			? new DebugLog({ path: join(this.dir, "decisions.jsonl"), maxBytes: this.config.debug.maxBytes, maxFiles: this.config.debug.maxFiles, fullEvidence: this.config.debug.fullEvidence })
+			? new DebugLog({
+					path: join(this.dir, "decisions.jsonl"),
+					maxBytes: this.config.debug.maxBytes,
+					maxFiles: this.config.debug.maxFiles,
+					fullEvidence: this.config.debug.fullEvidence,
+				})
 			: undefined;
 		if (!this.blocked) this.registerVirtualModels();
 		await this.loadCustomStrategies();
@@ -213,7 +240,14 @@ export class Runtime {
 		this.routingSelected = this.isVirtual(model?.provider);
 		if (model && !this.routingSelected) this.engine.originModel = `${model.provider}/${model.id}`;
 		this.warmup.stop();
-		void this.warmup.start(this.config.classifiers.map((entry) => ({ model: entry.model, local: isLocalClassifier(ctx, entry.model, this.config.classifierProviders), ...(entry.warmup !== undefined ? { warmup: entry.warmup } : {}), ...(entry.keepWarmMs !== undefined ? { keepWarmMs: entry.keepWarmMs } : {}) })));
+		void this.warmup.start(
+			this.config.classifiers.map((entry) => ({
+				model: entry.model,
+				local: isLocalClassifier(ctx, entry.model, this.config.classifierProviders),
+				...(entry.warmup !== undefined ? { warmup: entry.warmup } : {}),
+				...(entry.keepWarmMs !== undefined ? { keepWarmMs: entry.keepWarmMs } : {}),
+			})),
+		);
 		this.startUsage();
 		await this.setupChildren(ctx);
 		this.setupLive(ctx);
@@ -237,7 +271,8 @@ export class Runtime {
 			delete this.launchModeReason;
 		} else {
 			this.launchModeReason = reason ?? "required child extensions unavailable";
-			if (this.config.subagents.mode === "child") ctx.ui.notify(`pi-switchboard: subagents fall back to launch-time models: ${this.launchModeReason}`, "warning");
+			if (this.config.subagents.mode === "child")
+				ctx.ui.notify(`pi-switchboard: subagents fall back to launch-time models: ${this.launchModeReason}`, "warning");
 		}
 	}
 
@@ -289,7 +324,7 @@ export class Runtime {
 		const base = provider.replace(/-\d+$/u, "");
 		const real = ctx.modelRegistry.getProvider(base) !== undefined ? base : provider;
 		this.store.update((data) => {
-			const accounts = (data.accounts[sessionKey] ??= {});
+			const accounts = entryOf(data.accounts, sessionKey, () => ({}));
 			accounts[real] = provider;
 		});
 	}
@@ -349,7 +384,13 @@ export class Runtime {
 			toolCallId,
 			links: decisions.map((decision) => {
 				const link = links.find((l) => l.index === decision.subagent?.taskIndex) ?? (decisions.length === 1 ? links[0] : undefined);
-				return { decisionId: decision.id, taskIndex: decision.subagent?.taskIndex ?? 0, ...(link?.runId ? { runId: link.runId } : {}), ...(link?.sessionFile ? { sessionFile: link.sessionFile } : {}), ...(link?.model ? { model: link.model } : {}) };
+				return {
+					decisionId: decision.id,
+					taskIndex: decision.subagent?.taskIndex ?? 0,
+					...(link?.runId ? { runId: link.runId } : {}),
+					...(link?.sessionFile ? { sessionFile: link.sessionFile } : {}),
+					...(link?.model ? { model: link.model } : {}),
+				};
 			}),
 		};
 		this.pi.appendEntry(LINK_TYPE, entry);
@@ -453,8 +494,10 @@ export class Runtime {
 		}
 		const thinking = (THINKING_LEVELS as readonly string[]).includes(request.thinkingLevel) ? (request.thinkingLevel as ThinkingLevel) : "medium";
 		const previous = choice(request.previous);
-		const failed = request.failed ? { ...choice(request.failed), ...(request.failed.message.errorMessage ? { errorMessage: request.failed.message.errorMessage } : {}) } : undefined;
-		let out;
+		const failed = request.failed
+			? { ...choice(request.failed), ...(request.failed.message.errorMessage ? { errorMessage: request.failed.message.errorMessage } : {}) }
+			: undefined;
+		let out: Awaited<ReturnType<SwitchboardEngine["route"]>>;
 		try {
 			out = await this.engine.route({
 				virtualId,
@@ -513,9 +556,18 @@ export class Runtime {
 		if (!profile) return;
 		this.snapshotProfile = name;
 		const price = (provider: string, id: string) => {
-			const model = ctx?.modelRegistry.find(provider, id) as { cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } } | undefined;
+			const model = ctx?.modelRegistry.find(provider, id) as
+				| { cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } }
+				| undefined;
 			const cost = model?.cost;
-			return cost && (cost.input || cost.output) ? { input: cost.input ?? 0, output: cost.output ?? 0, ...(cost.cacheRead ? { cacheRead: cost.cacheRead } : {}), ...(cost.cacheWrite ? { cacheWrite: cost.cacheWrite } : {}) } : undefined;
+			return cost && (cost.input || cost.output)
+				? {
+						input: cost.input ?? 0,
+						output: cost.output ?? 0,
+						...(cost.cacheRead ? { cacheRead: cost.cacheRead } : {}),
+						...(cost.cacheWrite ? { cacheWrite: cost.cacheWrite } : {}),
+					}
+				: undefined;
 		};
 		const entry: ProfileSnapshotEntry = {
 			v: 1,
@@ -539,13 +591,16 @@ export class Runtime {
 	}
 
 	/** Usage ledger, health and the usage-limit rewrite (DESIGN.md 4.4). */
-	onAssistantMessage(message: {
-		provider: string;
-		model: string;
-		stopReason?: string;
-		errorMessage?: string;
-		usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
-	}, ctx: ExtensionContext): { errorMessage: string } | undefined {
+	onAssistantMessage(
+		message: {
+			provider: string;
+			model: string;
+			stopReason?: string;
+			errorMessage?: string;
+			usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+		},
+		ctx: ExtensionContext,
+	): { errorMessage: string } | undefined {
 		this.engine.endRequest();
 		if (!this.isVirtual(ctx.model?.provider)) return undefined;
 		const model = { provider: message.provider, id: message.model };
@@ -553,11 +608,16 @@ export class Runtime {
 			const prepared = this.engine.prepareFailover(model, message.errorMessage);
 			if (!prepared.canFailOver) {
 				if (prepared.errorClass === "quota" || prepared.errorClass === "auth") {
-					ctx.ui.notify(`pi-switchboard: ${message.provider} is unavailable (${prepared.errorClass}) and no other model of this profile can take over.`, "warning");
+					ctx.ui.notify(
+						`pi-switchboard: ${message.provider} is unavailable (${prepared.errorClass}) and no other model of this profile can take over.`,
+						"warning",
+					);
 				}
 				return undefined;
 			}
-			return { errorMessage: `pi-switchboard: service temporarily unavailable on ${message.provider}/${message.model} (${prepared.errorClass}); retrying on another model. Original error: ${(message.errorMessage ?? "").slice(0, 200)}` };
+			return {
+				errorMessage: `pi-switchboard: service temporarily unavailable on ${message.provider}/${message.model} (${prepared.errorClass}); retrying on another model. Original error: ${(message.errorMessage ?? "").slice(0, 200)}`,
+			};
 		}
 		this.engine.noteSuccess(model, this.lastRouteAt ? Date.now() - this.lastRouteAt : undefined);
 		const usage = message.usage;
@@ -565,7 +625,10 @@ export class Runtime {
 		this.budgets.add((usage?.input ?? 0) + (usage?.output ?? 0) + (usage?.cacheRead ?? 0) + (usage?.cacheWrite ?? 0), usage?.cost?.total ?? 0);
 		const profile = last ? this.config.profiles[last.profile.name] : undefined;
 		for (const crossed of this.budgets.newlyCrossed(profile?.budgets ?? this.config.budgets)) {
-			ctx.ui.notify(`pi-switchboard: ${crossed.scope} ${crossed.metric === "costUsd" ? "cost" : "tokens"} budget exceeded (${crossed.metric === "costUsd" ? `$${crossed.used.toFixed(2)}` : crossed.used} of ${crossed.limit})`, "warning");
+			ctx.ui.notify(
+				`pi-switchboard: ${crossed.scope} ${crossed.metric === "costUsd" ? "cost" : "tokens"} budget exceeded (${crossed.metric === "costUsd" ? `$${crossed.used.toFixed(2)}` : crossed.used} of ${crossed.limit})`,
+				"warning",
+			);
 		}
 		this.ledger.append({
 			ts: new Date().toISOString(),
@@ -587,14 +650,15 @@ export class Runtime {
 		if (!ctx) return;
 		const last = this.engine.recent.at(-1);
 		const pin = this.engine.controls.pin?.target;
-		const text = this.routingSelected || !last
-			? footerText(this.config.ui.status, last, {
-					...(this.routingSelected && !this.engine.active ? { inactive: this.engine.inactiveReason() } : {}),
-					...(pin ? { pinned: pin } : {}),
-					dryRun: this.engine.controls.dryRun,
-					switches: this.switches,
-				})
-			: footerText(this.config.ui.status, last, { off: true });
+		const text =
+			this.routingSelected || !last
+				? footerText(this.config.ui.status, last, {
+						...(this.routingSelected && !this.engine.active ? { inactive: this.engine.inactiveReason() } : {}),
+						...(pin ? { pinned: pin } : {}),
+						dryRun: this.engine.controls.dryRun,
+						switches: this.switches,
+					})
+				: footerText(this.config.ui.status, last, { off: true });
 		ctx.ui.setStatus(STATUS_KEY, this.routingSelected || last ? text : undefined);
 		ctx.ui.setStatus(STATUS_SUB_KEY, this.routedSubagents > 0 ? renderTemplate(this.config.ui.statusSub, { routed: this.routedSubagents }) : undefined);
 	}

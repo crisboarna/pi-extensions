@@ -43,7 +43,11 @@ function createBus(): FakeBus {
 		},
 		on(channel, handler) {
 			listeners.set(channel, [...(listeners.get(channel) ?? []), handler]);
-			return () => listeners.set(channel, (listeners.get(channel) ?? []).filter((h) => h !== handler));
+			return () =>
+				listeners.set(
+					channel,
+					(listeners.get(channel) ?? []).filter((h) => h !== handler),
+				);
 		},
 	};
 }
@@ -112,7 +116,10 @@ export interface FakeSession {
 	setHeader(header: { parentSession?: string } | null): void;
 }
 
-export function createFakeSession(host: FakeHost, options: { cwd?: string; model?: { provider: string; id: string }; sessionId?: string; sessionFile?: string; scenario?: Scenario } = {}): FakeSession {
+export function createFakeSession(
+	host: FakeHost,
+	options: { cwd?: string; model?: { provider: string; id: string }; sessionId?: string; sessionFile?: string; scenario?: Scenario } = {},
+): FakeSession {
 	let scenario: Scenario = options.scenario ?? "implement";
 	let header: { parentSession?: string } | null = null;
 	const statuses = new Map<string, string | undefined>();
@@ -126,7 +133,8 @@ export function createFakeSession(host: FakeHost, options: { cwd?: string; model
 		getProvider: (name: string) => (known.has(name) || host.providers.has(name) ? {} : undefined),
 		getProviderAuthStatus: () => ({ configured: true }),
 		isUsingOAuth: () => true,
-		findOfType: (type: string, provider: string, id: string) => (type === "classifier" && provider === "local" && id === "judge" ? { type, provider, id, baseUrl: "http://127.0.0.1:1234/v1/" } : undefined),
+		findOfType: (type: string, provider: string, id: string) =>
+			type === "classifier" && provider === "local" && id === "judge" ? { type, provider, id, baseUrl: "http://127.0.0.1:1234/v1/" } : undefined,
 		classify: async (model: { provider: string; id: string }, context: { state: unknown; questions: unknown }) => {
 			classifierCalls.push({ model: `${model.provider}/${model.id}`, state: context.state, questions: context.questions });
 			if (scenario === "fail") return { stopReason: "error", errorMessage: "connection refused", answers: undefined };
@@ -155,11 +163,34 @@ export function createFakeSession(host: FakeHost, options: { cwd?: string; model
 		isProjectTrusted: () => true,
 		isIdle: () => true,
 	};
-	return { ctx, statuses, notices, classifierCalls, setScenario: (next) => void (scenario = next), setHeader: (next) => void (header = next) };
+	return {
+		ctx,
+		statuses,
+		notices,
+		classifierCalls,
+		setScenario: (next) => {
+			scenario = next;
+		},
+		setHeader: (next) => {
+			header = next;
+		},
+	};
 }
 
 /** A route request as pi builds it. */
-export function routeRequest(over: { id?: string; reason?: string; text?: string; thinkingLevel?: string; previous?: unknown; failed?: unknown; state?: unknown; extraMessages?: unknown[]; system?: string } = {}) {
+export function routeRequest(
+	over: {
+		id?: string;
+		reason?: string;
+		text?: string;
+		thinkingLevel?: string;
+		previous?: unknown;
+		failed?: unknown;
+		state?: unknown;
+		extraMessages?: unknown[];
+		system?: string;
+	} = {},
+) {
 	return {
 		model: { provider: "switchboard", id: over.id ?? "auto" },
 		thinkingLevel: over.thinkingLevel ?? "medium",

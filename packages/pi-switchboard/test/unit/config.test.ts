@@ -13,7 +13,8 @@ const example = (name: string): RawConfig => JSON.parse(readFileSync(join(EXAMPL
 /** A catalog where every model exists with credentials, except those listed. */
 function catalog(options: { missing?: string[]; noAuth?: string[]; windows?: Record<string, number>; providers?: string[] } = {}): CatalogView {
 	return {
-		find: (provider, id) => (options.missing?.includes(`${provider}/${id}`) ? undefined : { contextWindow: options.windows?.[`${provider}/${id}`] ?? 200_000 }),
+		find: (provider, id) =>
+			options.missing?.includes(`${provider}/${id}`) ? undefined : { contextWindow: options.windows?.[`${provider}/${id}`] ?? 200_000 },
 		hasAuth: (provider) => !options.noAuth?.includes(provider),
 		isProvider: (name) => (options.providers ?? ["acme", "zen"]).includes(name),
 	};
@@ -35,7 +36,10 @@ describe("examples", () => {
 		const config = normalizeConfig(example("mixed-providers.json"), { catalog: catalog() });
 		const mixed = config.profiles.mixed;
 		assert.ok(mixed);
-		assert.deepEqual(mixed.tiers.map((tier) => tier.name), ["intern", "clerk", "builder", "senior", "architect"]);
+		assert.deepEqual(
+			mixed.tiers.map((tier) => tier.name),
+			["intern", "clerk", "builder", "senior", "architect"],
+		);
 		assert.equal(mixed.fallbackTier, "builder");
 		assert.equal(mixed.baselineTier, "builder");
 		assert.equal(mixed.directTier, "clerk");
@@ -55,7 +59,13 @@ describe("examples", () => {
 	it("parses member thinking from the suffix and lets the field win", () => {
 		const config = normalizeConfig(tiny({ a: { rank: 1, members: ["acme/x:high", { model: "acme/y:low", thinking: "medium" }] } }));
 		const members = config.profiles.p?.tiers[0]?.members ?? [];
-		assert.deepEqual(members.map((m) => [m.key, m.thinking]), [["acme/x:high", "high"], ["acme/y:medium", "medium"]]);
+		assert.deepEqual(
+			members.map((m) => [m.key, m.thinking]),
+			[
+				["acme/x:high", "high"],
+				["acme/y:medium", "medium"],
+			],
+		);
 	});
 });
 
@@ -73,14 +83,21 @@ describe("validation", () => {
 	});
 
 	it("requires exactly one trailing default rule", () => {
-		const config = normalizeConfig(tiny({ a: { rank: 1, members: ["acme/x"] } }, { ruleset: { tierRules: [{ tier: "a" }, { when: { work: "plan" }, tier: "a" }] } }));
+		const config = normalizeConfig(
+			tiny({ a: { rank: 1, members: ["acme/x"] } }, { ruleset: { tierRules: [{ tier: "a" }, { when: { work: "plan" }, tier: "a" }] } }),
+		);
 		assert.match(config.invalidProfiles.p?.join("\n") ?? "", /default rule/u);
 	});
 
 	it("rejects conditions on unknown questions and labels", () => {
-		const config = normalizeConfig(tiny({ a: { rank: 1, members: ["acme/x"] } }, {
-			ruleset: { tierRules: [{ when: { mood: "happy" }, tier: "a" }, { when: { work: "dance" }, tier: "a" }, { tier: "a" }] },
-		}));
+		const config = normalizeConfig(
+			tiny(
+				{ a: { rank: 1, members: ["acme/x"] } },
+				{
+					ruleset: { tierRules: [{ when: { mood: "happy" }, tier: "a" }, { when: { work: "dance" }, tier: "a" }, { tier: "a" }] },
+				},
+			),
+		);
 		const errors = config.invalidProfiles.p?.join("\n") ?? "";
 		assert.match(errors, /unknown question "mood"/u);
 		assert.match(errors, /no label "dance"/u);
@@ -127,16 +144,23 @@ describe("project overrides", () => {
 	};
 
 	it("replaces tiers per tier, adds profiles and prepends selection rules", () => {
-		const { merged, warnings } = mergeProject(user, {
-			profile: "q",
-			profiles: { p: { tiers: { b: { rank: 2, members: ["zen/z"] } } }, q: { tiers: { only: { rank: 1, members: ["zen/z"] } } } },
-			profileSelection: { rules: [{ matchProvider: "zen*", profile: "q" }] },
-		}, "project");
+		const { merged, warnings } = mergeProject(
+			user,
+			{
+				profile: "q",
+				profiles: { p: { tiers: { b: { rank: 2, members: ["zen/z"] } } }, q: { tiers: { only: { rank: 1, members: ["zen/z"] } } } },
+				profileSelection: { rules: [{ matchProvider: "zen*", profile: "q" }] },
+			},
+			"project",
+		);
 		assert.deepEqual(warnings, []);
 		assert.deepEqual(Object.keys(merged.profiles?.p?.tiers ?? {}), ["a", "b"]);
 		assert.deepEqual(merged.profiles?.p?.tiers.b?.members, ["zen/z"]);
 		assert.equal(merged.profile, "q");
-		assert.deepEqual(merged.profileSelection?.rules?.map((r) => r.profile), ["q", "p"]);
+		assert.deepEqual(
+			merged.profileSelection?.rules?.map((r) => r.profile),
+			["q", "p"],
+		);
 	});
 
 	it("never lets a project change classifiers", () => {

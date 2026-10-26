@@ -11,7 +11,14 @@ const dir = () => mkdtempSync(join(tmpdir(), "switchboard-live-"));
 describe("live status and mirror", () => {
 	it("writes status, bounded and redacted mirror lines, and reads children by parent", () => {
 		const d = dir();
-		const writer = new LiveWriter({ dir: d, session: "child-1", parent: "/s/parent.jsonl", redact: createRedactor({ home: "/home/dev" }), limits: { toolResultBytes: 20 }, now: 1000 });
+		const writer = new LiveWriter({
+			dir: d,
+			session: "child-1",
+			parent: "/s/parent.jsonl",
+			redact: createRedactor({ home: "/home/dev" }),
+			limits: { toolResultBytes: 20 },
+			now: 1000,
+		});
 		writer.update({ agent: "scout", turn: 1, currentTool: "bash" }, 1000);
 		writer.append({ kind: "task", text: "scan /home/dev/repo" }, 1001);
 		writer.append({ kind: "tool-result", tool: "bash", text: `token=supersecretvalue ${"x".repeat(100)}` }, 1002);
@@ -25,7 +32,10 @@ describe("live status and mirror", () => {
 		assert.equal(status?.tokensPerSecond, 25);
 		assert.equal(status?.currentTool, undefined);
 		const mirror = readMirror(d, "child-1");
-		assert.deepEqual(mirror.map((m) => m.kind), ["task", "tool-result", "text"]);
+		assert.deepEqual(
+			mirror.map((m) => m.kind),
+			["task", "tool-result", "text"],
+		);
 		assert.equal(mirror[0]?.text, "scan ~/repo");
 		assert.ok(!mirror[1]?.text.includes("supersecretvalue"));
 		assert.ok(Buffer.byteLength(mirror[1]?.text ?? "") <= 24, "tool results are capped");

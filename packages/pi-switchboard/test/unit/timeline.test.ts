@@ -4,12 +4,12 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
+import { createRedactor } from "../../src/classifier/redact.ts";
 import { renderInspector } from "../../src/cli/inspector.ts";
 import { formatReplay } from "../../src/cli/main.ts";
-import { aggregate, buildTimeline, timelineFromFile } from "../../src/timeline/parse.ts";
 import { LiveWriter } from "../../src/live/live.ts";
-import { createRedactor } from "../../src/classifier/redact.ts";
 import { liveChildMirror } from "../../src/timeline/mirror.ts";
+import { aggregate, buildTimeline, timelineFromFile } from "../../src/timeline/parse.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "session-routed.jsonl");
 const BIN = join(import.meta.dirname, "..", "..", "bin", "pi-switchboard.mjs");
@@ -22,7 +22,10 @@ describe("timeline", () => {
 		const [first, second] = timeline.tasks;
 		assert.equal(first?.decisions[0]?.tier.chosen, "standard");
 		assert.equal(first?.requests.length, 2);
-		assert.deepEqual(first?.tools.map((t) => [t.name, t.isError]), [["bash", true]]);
+		assert.deepEqual(
+			first?.tools.map((t) => [t.name, t.isError]),
+			[["bash", true]],
+		);
 		assert.equal(second?.decisions[0]?.tier.chosen, "deep");
 		assert.equal(second?.requests[0]?.switched, true, "a new physical model is a cache miss");
 		assert.equal(second?.children.length, 1);
@@ -37,7 +40,10 @@ describe("timeline", () => {
 	});
 
 	it("tolerates torn lines and sessions without decisions", () => {
-		const t = buildTimeline([{ type: "message", message: { role: "user", content: "hi" } }, { type: "message", message: { role: "assistant", provider: "p", model: "m", usage: { input: 1, output: 1, cost: { total: 0 } } } }]);
+		const t = buildTimeline([
+			{ type: "message", message: { role: "user", content: "hi" } },
+			{ type: "message", message: { role: "assistant", provider: "p", model: "m", usage: { input: 1, output: 1, cost: { total: 0 } } } },
+		]);
 		assert.equal(t.tasks.length, 1);
 		assert.equal(t.totals.decisions, 0);
 	});
@@ -95,7 +101,13 @@ describe("child transcript mirrors", () => {
 		assert.ok(child?.timeline?.mirror, "the child has a mirror timeline");
 		const task = child?.timeline?.tasks[0];
 		assert.equal(task?.request, "scan the repo");
-		assert.deepEqual(task?.tools.map((t) => [t.name, t.isError]), [["grep", false], ["bash", true]]);
+		assert.deepEqual(
+			task?.tools.map((t) => [t.name, t.isError]),
+			[
+				["grep", false],
+				["bash", true],
+			],
+		);
 		assert.equal(task?.requests[0]?.model, "small");
 		assert.equal(task?.requests[0]?.durationMs, 8000);
 		assert.ok(Math.abs((task?.cost ?? 0) - 0.004) < 1e-9);

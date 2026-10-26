@@ -1,19 +1,19 @@
 {
-  "$schema": "../schema/pi-switchboard.schema.json",
-  "version": 1,
-  "classifiers": [],
-  "profiles": {
-    "pool": {
-      "description": "One tier, two subscriptions, least-recently-used",
-      "tiers": {
-        "any": {
-          "rank": 1,
-          "strategy": "least-recently-used",
-          "members": ["github-copilot/claude-sonnet-5.5:medium", "openai-codex/gpt-6-luna:medium"]
-        }
-      },
-      "fallbackTier": "any"
-    }
-  },
-  "profileSelection": { "default": "pool" }
+	"$schema": "../schema/pi-switchboard.schema.json",
+	"version": 1,
+	"classifiers": [],
+	"profiles": {
+		"pool": {
+			"description": "One tier, two subscriptions, least-recently-used",
+			"tiers": {
+				"any": {
+					"rank": 1,
+					"strategy": "least-recently-used",
+					"members": ["github-copilot/claude-sonnet-5.5:medium", "openai-codex/gpt-6-luna:medium"]
+				}
+			},
+			"fallbackTier": "any"
+		}
+	},
+	"profileSelection": { "default": "pool" }
 }

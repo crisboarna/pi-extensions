@@ -65,7 +65,11 @@ type Entry = Record<string, unknown> & { type?: string; customType?: string; dat
 function text(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.map((block) => (block && typeof block === "object" && (block as { type?: string }).type === "text" ? String((block as { text?: unknown }).text ?? "") : "")).join("\n");
+	return content
+		.map((block) =>
+			block && typeof block === "object" && (block as { type?: string }).type === "text" ? String((block as { text?: unknown }).text ?? "") : "",
+		)
+		.join("\n");
 }
 
 function num(value: unknown): number {
@@ -90,11 +94,19 @@ export function readEntries(file: string): Entry[] {
  * decisions, model requests (tokens, cost, switches), tool calls and the
  * subagent runs it launched, parsed recursively when their files exist.
  */
-export function buildTimeline(entries: readonly Entry[], options: { file?: string; depth?: number; childMirror?: (link: { decisionId: string; runId?: string; sessionFile?: string }) => Timeline | undefined } = {}): Timeline {
+export function buildTimeline(
+	entries: readonly Entry[],
+	options: { file?: string; depth?: number; childMirror?: (link: { decisionId: string; runId?: string; sessionFile?: string }) => Timeline | undefined } = {},
+): Timeline {
 	const tasks: Task[] = [];
 	const profiles: ProfileSnapshotEntry[] = [];
 	const links = new Map<string, { runId?: string; sessionFile?: string }>();
-	const timeline: Timeline = { tasks, profiles, totals: { cost: 0, tokens: 0, switches: 0, requests: 0, fallbacks: 0, decisions: 0 }, ...(options.file ? { file: options.file } : {}) };
+	const timeline: Timeline = {
+		tasks,
+		profiles,
+		totals: { cost: 0, tokens: 0, switches: 0, requests: 0, fallbacks: 0, decisions: 0 },
+		...(options.file ? { file: options.file } : {}),
+	};
 	let current: Task | undefined;
 	let lastModel: string | undefined;
 	let lastTs: number | undefined;
@@ -117,7 +129,8 @@ export function buildTimeline(entries: readonly Entry[], options: { file?: strin
 			continue;
 		}
 		if (entry.type === "custom" && entry.customType === LINK_TYPE) {
-			for (const link of (entry.data as LinkEntry).links ?? []) links.set(link.decisionId, { ...(link.runId ? { runId: link.runId } : {}), ...(link.sessionFile ? { sessionFile: link.sessionFile } : {}) });
+			for (const link of (entry.data as LinkEntry).links ?? [])
+				links.set(link.decisionId, { ...(link.runId ? { runId: link.runId } : {}), ...(link.sessionFile ? { sessionFile: link.sessionFile } : {}) });
 			continue;
 		}
 		if (entry.type === "custom" && entry.customType === PROFILE_TYPE) {
@@ -140,7 +153,17 @@ export function buildTimeline(entries: readonly Entry[], options: { file?: strin
 		const sinceLast = lastTs !== undefined && Number.isFinite(time) ? time - lastTs : undefined;
 		if (Number.isFinite(time)) lastTs = time;
 		if (role === "user") {
-			current = { index: tasks.length + 1, ts, request: text(message.content).slice(0, 2000), decisions: [...pendingDecisions], requests: [], tools: [], children: [], cost: 0, tokens: 0 };
+			current = {
+				index: tasks.length + 1,
+				ts,
+				request: text(message.content).slice(0, 2000),
+				decisions: [...pendingDecisions],
+				requests: [],
+				tools: [],
+				children: [],
+				cost: 0,
+				tokens: 0,
+			};
 			pendingDecisions.length = 0;
 			tasks.push(current);
 			continue;
@@ -176,7 +199,12 @@ export function buildTimeline(entries: readonly Entry[], options: { file?: strin
 			continue;
 		}
 		if (role === "toolResult") {
-			ensureTask(ts).tools.push({ ts, name: String(message.toolName ?? "tool"), isError: message.isError === true, preview: text(message.content).slice(0, 300) });
+			ensureTask(ts).tools.push({
+				ts,
+				name: String(message.toolName ?? "tool"),
+				isError: message.isError === true,
+				preview: text(message.content).slice(0, 300),
+			});
 		}
 	}
 	if (pendingDecisions.length && current) current.decisions.push(...pendingDecisions);
@@ -188,7 +216,11 @@ export function buildTimeline(entries: readonly Entry[], options: { file?: strin
 			if (link?.runId) child.runId = link.runId;
 			if (link?.sessionFile) child.sessionFile = link.sessionFile;
 			if (depth < 3 && link?.sessionFile && existsSync(link.sessionFile)) {
-				child.timeline = buildTimeline(readEntries(link.sessionFile), { file: link.sessionFile, depth: depth + 1, ...(options.childMirror ? { childMirror: options.childMirror } : {}) });
+				child.timeline = buildTimeline(readEntries(link.sessionFile), {
+					file: link.sessionFile,
+					depth: depth + 1,
+					...(options.childMirror ? { childMirror: options.childMirror } : {}),
+				});
 			} else if (options.childMirror) {
 				const mirrored = options.childMirror({ decisionId: child.decision.id, ...link });
 				if (mirrored) child.timeline = mirrored;
@@ -203,7 +235,10 @@ export function timelineFromFile(file: string, options: Parameters<typeof buildT
 }
 
 /** Aggregates cost and tokens across tasks and their children by a key. */
-export function aggregate(timeline: Timeline, key: (request: RequestRecord, decision: DecisionEntry | undefined) => string): Map<string, { cost: number; tokens: number; requests: number }> {
+export function aggregate(
+	timeline: Timeline,
+	key: (request: RequestRecord, decision: DecisionEntry | undefined) => string,
+): Map<string, { cost: number; tokens: number; requests: number }> {
 	const out = new Map<string, { cost: number; tokens: number; requests: number }>();
 	const visit = (t: Timeline) => {
 		for (const task of t.tasks) {

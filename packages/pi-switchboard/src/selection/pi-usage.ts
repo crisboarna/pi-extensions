@@ -77,7 +77,15 @@ export function parseResult(raw: unknown, providerId: string): UsageOutcome {
 	if (raw.status !== "ready" || !isObject(raw.report)) return { status: "protocol-error" };
 	const buckets = Array.isArray(raw.report.buckets) ? raw.report.buckets.flatMap((b) => parseBucket(b) ?? []) : [];
 	const expiresAt = finite(raw.expiresAt) ?? 0;
-	return { status: "ready", expiresAt, report: { providerId: typeof raw.report.providerId === "string" ? raw.report.providerId : providerId, capturedAt: finite(raw.report.capturedAt) ?? 0, buckets } };
+	return {
+		status: "ready",
+		expiresAt,
+		report: {
+			providerId: typeof raw.report.providerId === "string" ? raw.report.providerId : providerId,
+			capturedAt: finite(raw.report.capturedAt) ?? 0,
+			buckets,
+		},
+	};
 }
 
 /**
@@ -251,7 +259,9 @@ export class UsageCache {
 }
 
 /** Providers whose members are chosen by a quota strategy, so their usage is worth reading. */
-export function quotaProviders(profiles: ReadonlyArray<{ tiers: ReadonlyArray<{ strategy: { name: string }; members: ReadonlyArray<{ provider: string; enabled: boolean }> }> }>): string[] {
+export function quotaProviders(
+	profiles: ReadonlyArray<{ tiers: ReadonlyArray<{ strategy: { name: string }; members: ReadonlyArray<{ provider: string; enabled: boolean }> }> }>,
+): string[] {
 	const out = new Set<string>();
 	for (const profile of profiles) {
 		for (const tier of profile.tiers) {

@@ -68,7 +68,12 @@ function normalizeQuestions(raw: RawConfig, warnings: string[]): QuestionSet {
 	return custom;
 }
 
-function normalizeStrategy(input: StrategyName | StrategyConfig | undefined, inherited: StrategySpec | undefined, errors: string[], where: string): StrategySpec {
+function normalizeStrategy(
+	input: StrategyName | StrategyConfig | undefined,
+	inherited: StrategySpec | undefined,
+	errors: string[],
+	where: string,
+): StrategySpec {
 	if (input === undefined) return inherited ?? { name: "sticky", granularity: "session", fallback: "ordered" };
 	const config: StrategyConfig = typeof input === "string" ? { name: input } : input;
 	if (!STRATEGY_NAMES.includes(config.name)) {
@@ -209,7 +214,7 @@ export function validateRuleset(ruleset: Ruleset, tierNames: string[], questions
 	}
 	const defaults = ruleset.tierRules.filter((rule) => rule.when === undefined);
 	if (defaults.length !== 1 || ruleset.tierRules.at(-1)?.when !== undefined) {
-		errors.push("tierRules must end with exactly one default rule (a rule without \"when\")");
+		errors.push('tierRules must end with exactly one default rule (a rule without "when")');
 	}
 	ruleset.tierRules.forEach((rule, index) => {
 		checkTarget(rule.tier, `tier rule ${index + 1}`);
@@ -261,7 +266,12 @@ function normalizeProfile(
 		ruleset = raw.ruleset;
 		rulesetName = "inline";
 	}
-	for (const reason of validateRuleset(ruleset, tiers.map((tier) => tier.name), questions)) errors.push(`${where} ruleset "${rulesetName}": ${reason}`);
+	for (const reason of validateRuleset(
+		ruleset,
+		tiers.map((tier) => tier.name),
+		questions,
+	))
+		errors.push(`${where} ruleset "${rulesetName}": ${reason}`);
 
 	const resolve = (target: string | undefined, fallback: string, field: string): string => {
 		const resolved = resolveTarget(target ?? fallback, tiers);
@@ -327,13 +337,16 @@ export function normalizeConfig(raw: RawConfig, options: NormalizeOptions = {}):
 		return known && (rule.matchProvider || rule.matchModel);
 	});
 	const defaultProfile = raw.profileSelection?.default;
-	if (defaultProfile && !(defaultProfile in profiles) && !(defaultProfile in invalidProfiles)) warnings.push(`profileSelection.default names unknown profile "${defaultProfile}"`);
+	if (defaultProfile && !(defaultProfile in profiles) && !(defaultProfile in invalidProfiles))
+		warnings.push(`profileSelection.default names unknown profile "${defaultProfile}"`);
 
-	const classifiers = (raw.classifiers ?? []).filter((entry) => {
-		const ok = typeof entry?.model === "string" && parseModelRef(entry.model) !== undefined;
-		if (!ok) warnings.push(`classifier entry ${JSON.stringify(entry)} needs a provider/model reference`);
-		return ok;
-	}).map((entry) => ({ ...entry, timeoutMs: entry.timeoutMs ?? DEFAULTS.classifierTimeoutMs }));
+	const classifiers = (raw.classifiers ?? [])
+		.filter((entry) => {
+			const ok = typeof entry?.model === "string" && parseModelRef(entry.model) !== undefined;
+			if (!ok) warnings.push(`classifier entry ${JSON.stringify(entry)} needs a provider/model reference`);
+			return ok;
+		})
+		.map((entry) => ({ ...entry, timeoutMs: entry.timeoutMs ?? DEFAULTS.classifierTimeoutMs }));
 
 	const evidence = raw.classification?.evidence;
 	const config: Config = {
@@ -410,6 +423,7 @@ export function normalizeConfig(raw: RawConfig, options: NormalizeOptions = {}):
 	if (raw.classification?.temperature != null) config.classification.temperature = raw.classification.temperature;
 	if (raw.profile) config.projectProfile = raw.profile;
 	if (raw.budgets) config.budgets = raw.budgets;
-	if (config.subagents.profile && !(config.subagents.profile in profiles)) warnings.push(`subagents.profile names unknown or invalid profile "${config.subagents.profile}"`);
+	if (config.subagents.profile && !(config.subagents.profile in profiles))
+		warnings.push(`subagents.profile names unknown or invalid profile "${config.subagents.profile}"`);
 	return config;
 }

@@ -59,7 +59,12 @@ export function rankModels(models: readonly CatalogModel[], hints: ProposeOption
 
 /** Profile names follow the config pattern: lowercase letters, digits and dashes. */
 export function profileName(provider: string): string {
-	return provider.toLowerCase().replace(/[^a-z0-9-]+/gu, "-").replace(/^-+|-+$/gu, "") || "profile";
+	return (
+		provider
+			.toLowerCase()
+			.replace(/[^a-z0-9-]+/gu, "-")
+			.replace(/^-+|-+$/gu, "") || "profile"
+	);
 }
 
 function tiersFrom(ranked: readonly CatalogModel[]): Record<string, TierConfig> {

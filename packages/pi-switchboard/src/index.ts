@@ -1,16 +1,16 @@
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
 import { textOf } from "./classifier/evidence.ts";
+import { openFile, writeInspector } from "./commands/inspect.ts";
+import { registerTierCommand } from "./commands/tier.ts";
+import { findProjectConfig, readJson, userConfigPath } from "./config/load.ts";
 import { explain, summarize } from "./record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
-import { registerTierCommand } from "./commands/tier.ts";
-import { openFile, writeInspector } from "./commands/inspect.ts";
-import { readJson, userConfigPath, findProjectConfig } from "./config/load.ts";
-import { runTierEditor, saveWithConfirmation } from "./tui/editor.ts";
-import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
-import { openNavigator, startWidget } from "./tui/pi-tui.ts";
 import { Runtime } from "./runtime.ts";
+import { runTierEditor, saveWithConfirmation } from "./tui/editor.ts";
+import { openNavigator, startWidget } from "./tui/pi-tui.ts";
 
 /**
  * pi-switchboard: a decision classifier picks a tier for each piece of work,
@@ -26,7 +26,12 @@ export default function switchboard(pi: ExtensionAPI): void {
 		const decision = entry.data;
 		if (!decision) return undefined;
 		const head = theme.fg(decision.kind === "fallback" || decision.kind === "inactive" ? "warning" : "dim", summarize(decision));
-		const body = expanded || runtime.config.ui.entries === "expanded" ? `\n${explain(decision).map((line) => theme.fg("dim", `  ${line}`)).join("\n")}` : "";
+		const body =
+			expanded || runtime.config.ui.entries === "expanded"
+				? `\n${explain(decision)
+						.map((line) => theme.fg("dim", `  ${line}`))
+						.join("\n")}`
+				: "";
 		return new Text(head + body, 0, 0);
 	});
 
@@ -61,16 +66,28 @@ export default function switchboard(pi: ExtensionAPI): void {
 				classifierProviders: runtime.config.classifierProviders,
 				classifiers: runtime.config.classifiers,
 			});
-			if (!proposal.classifiers?.length) ctx.ui.notify("No classifier configured yet: add a local System One server under classifierProviders and classifiers (see the README).", "warning");
+			if (!proposal.classifiers?.length)
+				ctx.ui.notify(
+					"No classifier configured yet: add a local System One server under classifierProviders and classifiers (see the README).",
+					"warning",
+				);
 			const next = existing ? mergeProposal(existing, proposal) : proposal;
 			await saveWithConfirmation(ctx.ui, path, existing ?? {}, next);
 		},
 		models: async (args, ctx) => {
 			const project = findProjectConfig(ctx.cwd);
-			const target = args.includes("--project") ? (project ?? `${ctx.cwd}/.pi/pi-switchboard.json`) : args.includes("--global") ? userConfigPath(runtime.agentDir) : (await ctx.ui.select("Edit which config?", [userConfigPath(runtime.agentDir), project ?? `${ctx.cwd}/.pi/pi-switchboard.json`]));
+			const target = args.includes("--project")
+				? (project ?? `${ctx.cwd}/.pi/pi-switchboard.json`)
+				: args.includes("--global")
+					? userConfigPath(runtime.agentDir)
+					: await ctx.ui.select("Edit which config?", [userConfigPath(runtime.agentDir), project ?? `${ctx.cwd}/.pi/pi-switchboard.json`]);
 			if (!target) return;
 			const raw = readJson(target).value ?? { version: 1 };
-			const models = ctx.modelRegistry.getAvailable().filter((m) => !runtime.isVirtual(m.provider)).map((m) => `${m.provider}/${m.id}`).sort();
+			const models = ctx.modelRegistry
+				.getAvailable()
+				.filter((m) => !runtime.isVirtual(m.provider))
+				.map((m) => `${m.provider}/${m.id}`)
+				.sort();
 			await runTierEditor(ctx.ui, { path: target, raw, models });
 		},
 	});
@@ -98,11 +115,25 @@ export default function switchboard(pi: ExtensionAPI): void {
 		if (runtime.live) runtime.live.update({ turn: runtime.live.status.turn + 1 });
 	});
 	pi.on("message_end", (event, ctx) => {
-		const message = event.message as { role?: string; content?: unknown; provider?: string; model?: string; usage?: never; errorMessage?: string; stopReason?: string };
+		const message = event.message as {
+			role?: string;
+			content?: unknown;
+			provider?: string;
+			model?: string;
+			usage?: never;
+			errorMessage?: string;
+			stopReason?: string;
+		};
 		if (runtime.live) {
 			if (message.role === "user") runtime.live.append({ kind: "task", text: textOf(message.content as never) });
 			if (message.role === "assistant") {
-				runtime.live.assistant({ text: textOf(message.content as never), ...(message.provider ? { provider: message.provider } : {}), ...(message.model ? { model: message.model } : {}), ...(message.usage ? { usage: message.usage } : {}), ...(message.errorMessage ? { error: message.errorMessage } : {}) });
+				runtime.live.assistant({
+					text: textOf(message.content as never),
+					...(message.provider ? { provider: message.provider } : {}),
+					...(message.model ? { model: message.model } : {}),
+					...(message.usage ? { usage: message.usage } : {}),
+					...(message.errorMessage ? { error: message.errorMessage } : {}),
+				});
 				if (message.stopReason === "error") runtime.live.update({ status: "error" });
 			}
 		}

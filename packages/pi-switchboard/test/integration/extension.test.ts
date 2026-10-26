@@ -64,8 +64,19 @@ async function boot(options: BootOptions = {}) {
 		mkdirSync(root, { recursive: true });
 		writeFileSync(join(agentDir, "agents", "scout.md"), "---\nname: scout\ndescription: scans\n---\nbody\n");
 		writeFileSync(join(agentDir, "agents", "codex-exec.md"), "---\nname: codex-exec\nrunner:\n  type: external-cli\n  command: codex\n---\nbody\n");
-		writeFileSync(join(root, "package.json"), JSON.stringify({ name: "pi-subagents", version: "0.0.0-test", type: "module", exports: { "./required-child-extensions": { default: "./rce.js" }, "./preflight": { default: "./preflight.js" } } }));
-		writeFileSync(join(root, "rce.js"), "export function registerRequiredChildExtensions(input) { const t = (globalThis.__switchboardTest ??= {}); t.registered = input; return { dispose() { t.disposed = true; } }; }\n");
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({
+				name: "pi-subagents",
+				version: "0.0.0-test",
+				type: "module",
+				exports: { "./required-child-extensions": { default: "./rce.js" }, "./preflight": { default: "./preflight.js" } },
+			}),
+		);
+		writeFileSync(
+			join(root, "rce.js"),
+			"export function registerRequiredChildExtensions(input) { const t = (globalThis.__switchboardTest ??= {}); t.registered = input; return { dispose() { t.disposed = true; } }; }\n",
+		);
 		writeFileSync(
 			join(root, "preflight.js"),
 			`export async function resolveSubagentLaunchContract(input) { const file = input.agent === "codex-exec" ? ${JSON.stringify(join(agentDir, "agents", "codex-exec.md"))} : ${JSON.stringify(join(agentDir, "agents", "scout.md"))}; return { ok: true, contract: { tools: { effectiveAllowlist: ["read", "grep"] }, agent: { filePath: file } } }; }\n`,
@@ -121,7 +132,10 @@ describe("routing a session with recorded requests", () => {
 		assert.equal(decision.classifier.model, "local/judge");
 		assert.equal(session.classifierCalls[0]?.state.request, "design the architecture for the billing service");
 		assert.equal(session.statuses.get("tier"), "work · deep · big · 0.95");
-		assert.ok(host.entries.some((e) => e.customType === "pi-switchboard.profile"), "the profile snapshot is recorded for the inspector");
+		assert.ok(
+			host.entries.some((e) => e.customType === "pi-switchboard.profile"),
+			"the profile snapshot is recorded for the inspector",
+		);
 	});
 
 	it("keeps the model on continuation and fails over on a rate limit", async () => {
@@ -132,7 +146,9 @@ describe("routing a session with recorded requests", () => {
 		const same = await route(routeRequest({ reason: "continuation", previous, state: first.state }));
 		assert.deepEqual([same.model.provider, same.model.id], ["acme", "mid"]);
 		assert.equal(decisions().length, 1, "plain continuations write no decision");
-		const retry = await route(routeRequest({ reason: "retry", state: first.state, failed: { ...previous, message: { errorMessage: "429 Too Many Requests. Retry-After: 30" } } }));
+		const retry = await route(
+			routeRequest({ reason: "retry", state: first.state, failed: { ...previous, message: { errorMessage: "429 Too Many Requests. Retry-After: 30" } } }),
+		);
 		assert.deepEqual([retry.model.provider, retry.model.id], ["zen", "mid"]);
 		const failover = decisions().at(-1);
 		assert.deepEqual([failover.kind, failover.error.class], ["failover", "rate-limit"]);
@@ -151,14 +167,47 @@ describe("routing a session with recorded requests", () => {
 	it("rewrites a usage-limit error so pi retries it, and appends successful usage to the ledger", async () => {
 		const { host, session, route, agentDir } = await boot();
 		const first = await route(routeRequest());
-		const limited = await host.fire("message_end", { message: { role: "assistant", provider: "acme", model: "mid", stopReason: "error", errorMessage: "You have hit your ChatGPT usage limit. Try again in ~30 min." } }, session.ctx);
+		const limited = await host.fire(
+			"message_end",
+			{
+				message: {
+					role: "assistant",
+					provider: "acme",
+					model: "mid",
+					stopReason: "error",
+					errorMessage: "You have hit your ChatGPT usage limit. Try again in ~30 min.",
+				},
+			},
+			session.ctx,
+		);
 		assert.match(limited.message.errorMessage, /^pi-switchboard: .*retrying on another model.*Original error: You have hit your ChatGPT usage limit/u);
-		const retry = await route(routeRequest({ reason: "retry", state: first.state, failed: { model: { provider: "acme", id: "mid" }, message: { errorMessage: limited.message.errorMessage } } }));
+		const retry = await route(
+			routeRequest({
+				reason: "retry",
+				state: first.state,
+				failed: { model: { provider: "acme", id: "mid" }, message: { errorMessage: limited.message.errorMessage } },
+			}),
+		);
 		assert.deepEqual([retry.model.provider, retry.model.id], ["zen", "mid"], "the whole acme account is benched, so the other provider takes over");
-		await host.fire("message_end", { message: { role: "assistant", provider: "zen", model: "mid", stopReason: "stop", usage: { input: 500, output: 80, cacheRead: 0, cacheWrite: 0, cost: { total: 0.002 } } } }, session.ctx);
+		await host.fire(
+			"message_end",
+			{
+				message: {
+					role: "assistant",
+					provider: "zen",
+					model: "mid",
+					stopReason: "stop",
+					usage: { input: 500, output: 80, cacheRead: 0, cacheWrite: 0, cost: { total: 0.002 } },
+				},
+			},
+			session.ctx,
+		);
 		const ledger = join(agentDir, "pi-switchboard", "usage.jsonl");
 		assert.ok(existsSync(ledger));
-		const [entry] = readFileSync(ledger, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+		const [entry] = readFileSync(ledger, "utf8")
+			.trim()
+			.split("\n")
+			.map((l) => JSON.parse(l));
 		assert.deepEqual([entry.provider, entry.model, entry.input, entry.output, entry.cost], ["zen", "mid", 500, 80, 0.002]);
 	});
 
@@ -204,10 +253,24 @@ describe("/tier commands", () => {
 		};
 		const { session, route, tier, host } = await boot({ config: solo });
 		const first = await route(routeRequest());
-		await assert.rejects(Promise.resolve(route(routeRequest({ reason: "retry", state: first.state, failed: { model: { provider: "acme", id: "mid" }, message: { errorMessage: "429 Too Many Requests. Retry-After: 30" } } }))), /every model is cooling down/u);
+		await assert.rejects(
+			Promise.resolve(
+				route(
+					routeRequest({
+						reason: "retry",
+						state: first.state,
+						failed: { model: { provider: "acme", id: "mid" }, message: { errorMessage: "429 Too Many Requests. Retry-After: 30" } },
+					}),
+				),
+			),
+			/every model is cooling down/u,
+		);
 		await assert.rejects(Promise.resolve(route(routeRequest())), /every model is cooling down; earliest reset/u);
 		const messages = session.notices.map((n) => n.message);
-		assert.ok(messages.some((m) => m.includes('will send "continue"')), "auto-continue was scheduled");
+		assert.ok(
+			messages.some((m) => m.includes('will send "continue"')),
+			"auto-continue was scheduled",
+		);
 		await tier("resume cancel");
 		assert.match(session.notices.at(-1)?.message ?? "", /cancelled/u);
 		assert.equal(host.sentMessages.length, 0, "nothing was sent for the user");
@@ -215,12 +278,15 @@ describe("/tier commands", () => {
 });
 
 describe("subagent launches", () => {
-	const call = (host: ReturnType<typeof createFakeHost>, session: ReturnType<typeof createFakeSession>, input: Record<string, unknown>, id = "call-1") => host.fire("tool_call", { toolName: "subagent", toolCallId: id, input }, session.ctx);
-	const result = (host: ReturnType<typeof createFakeHost>, session: ReturnType<typeof createFakeSession>, details: unknown, id = "call-1") => host.fire("tool_result", { toolName: "subagent", toolCallId: id, details, content: [] }, session.ctx);
+	const call = (host: ReturnType<typeof createFakeHost>, session: ReturnType<typeof createFakeSession>, input: Record<string, unknown>, id = "call-1") =>
+		host.fire("tool_call", { toolName: "subagent", toolCallId: id, input }, session.ctx);
+	const result = (host: ReturnType<typeof createFakeHost>, session: ReturnType<typeof createFakeSession>, details: unknown, id = "call-1") =>
+		host.fire("tool_result", { toolName: "subagent", toolCallId: id, details, content: [] }, session.ctx);
 
 	it("registers pi-switchboard as a required child extension and writes a tier-pinned model plus a binding", async () => {
 		const { host, session, decisions } = await boot({ subagents: {} });
-		const registered = (globalThis as { __switchboardTest?: { registered?: { sessionId: string; extensions: Array<{ id: string; path: string }> } } }).__switchboardTest?.registered;
+		const registered = (globalThis as { __switchboardTest?: { registered?: { sessionId: string; extensions: Array<{ id: string; path: string }> } } })
+			.__switchboardTest?.registered;
 		assert.deepEqual([registered?.sessionId, registered?.extensions[0]?.id], ["session-1", "pi-switchboard"]);
 		assert.equal(registered?.extensions[0]?.path, INDEX);
 
@@ -250,7 +316,12 @@ describe("subagent launches", () => {
 		assert.equal(external.model, undefined);
 		assert.equal(named.model, "other/explicit");
 		assert.equal(external.options, undefined, "no binding for a call pi-subagents would reject it on");
-		assert.deepEqual(decisions().filter((d) => d.reason === "launch").map((d) => d.subagent.mode), ["skipped", "skipped"]);
+		assert.deepEqual(
+			decisions()
+				.filter((d) => d.reason === "launch")
+				.map((d) => d.subagent.mode),
+			["skipped", "skipped"],
+		);
 	});
 
 	it("falls back to physical members and leases them until a foreground call returns", async () => {

@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { normalizeConfig } from "../../src/config/normalize.ts";
-import type { RawConfig } from "../../src/config/types.ts";
-import type { Answers } from "../../src/rules/types.ts";
-import { type EngineDeps, SwitchboardEngine } from "../../src/router/engine.ts";
-import { MemoryHealthStore } from "../../src/selection/health.ts";
-import { type LaunchContext, routeLaunch } from "../../src/subagents/launch.ts";
-import { extractTasks, isAsyncLaunch, resultLinks } from "../../src/subagents/tasks.ts";
-import { attachBinding, BINDING_NAMESPACE, matchLaunch, readBinding, taskDigest } from "../../src/subagents/binding.ts";
-import { runnerOf } from "../../src/subagents/pi-subagents.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { describe, it } from "node:test";
+import { normalizeConfig } from "../../src/config/normalize.ts";
+import type { RawConfig } from "../../src/config/types.ts";
+import { type EngineDeps, SwitchboardEngine } from "../../src/router/engine.ts";
+import type { Answers } from "../../src/rules/types.ts";
+import { MemoryHealthStore } from "../../src/selection/health.ts";
+import { attachBinding, BINDING_NAMESPACE, matchLaunch, readBinding, taskDigest } from "../../src/subagents/binding.ts";
+import { type LaunchContext, routeLaunch } from "../../src/subagents/launch.ts";
+import { runnerOf } from "../../src/subagents/pi-subagents.ts";
+import { extractTasks, isAsyncLaunch, resultLinks } from "../../src/subagents/tasks.ts";
 import { seededRng } from "../../src/util/runtime.ts";
 
 const RAW: RawConfig = {
@@ -29,7 +29,11 @@ const RAW: RawConfig = {
 	subagents: { exclude: ["secret"], agents: { scout: { maxTier: "light" }, planner: { minTier: "deep" } } },
 };
 
-const work = (choice: string): Answers => ({ work: { type: "choice", choice, probabilities: {}, confidence: 0.95 }, depth: { type: "score", score: 1, confidence: 0.4 }, risky: { type: "bool", probability: 0.1 } });
+const work = (choice: string): Answers => ({
+	work: { type: "choice", choice, probabilities: {}, confidence: 0.95 },
+	depth: { type: "score", score: 1, confidence: 0.4 },
+	risky: { type: "bool", probability: 0.1 },
+});
 
 function setup(classifyWork: (task: string) => string = () => "plan") {
 	const deps: EngineDeps = {
@@ -68,14 +72,46 @@ describe("extractTasks", () => {
 		one?.setModel("p/m");
 		assert.equal((single as Record<string, unknown>).model, "p/m");
 
-		const parallel = { workflow: "parallel", args: { tasks: [{ agent: "a", task: "x" }, { agent: "b", task: "y", model: "p/fixed" }] } };
+		const parallel = {
+			workflow: "parallel",
+			args: {
+				tasks: [
+					{ agent: "a", task: "x" },
+					{ agent: "b", task: "y", model: "p/fixed" },
+				],
+			},
+		};
 		const tasks = extractTasks(parallel);
-		assert.deepEqual(tasks.map((t) => [t.agent, t.model, t.shape]), [["a", undefined, "parallel"], ["b", "p/fixed", "parallel"]]);
+		assert.deepEqual(
+			tasks.map((t) => [t.agent, t.model, t.shape]),
+			[
+				["a", undefined, "parallel"],
+				["b", "p/fixed", "parallel"],
+			],
+		);
 		tasks[0]?.setModel("p/routed");
 		assert.equal(parallel.args.tasks[0]?.model, "p/routed");
 
-		const chain = { task: "original", chain: [{ agent: "scout" }, { parallel: [{ agent: "r1", task: "review {previous}" }, { agent: "r2", task: "t" }] }] };
-		assert.deepEqual(extractTasks(chain).map((t) => [t.index, t.agent, t.task]), [[0, "scout", "original"], [1, "r1", "review {previous}"], [2, "r2", "t"]]);
+		const chain = {
+			task: "original",
+			chain: [
+				{ agent: "scout" },
+				{
+					parallel: [
+						{ agent: "r1", task: "review {previous}" },
+						{ agent: "r2", task: "t" },
+					],
+				},
+			],
+		};
+		assert.deepEqual(
+			extractTasks(chain).map((t) => [t.index, t.agent, t.task]),
+			[
+				[0, "scout", "original"],
+				[1, "r1", "review {previous}"],
+				[2, "r2", "t"],
+			],
+		);
 
 		assert.equal(extractTasks({ tasks: [{ agent: "a", task: "1" }] })[0]?.shape, "tasks");
 	});
@@ -113,9 +149,17 @@ describe("routeLaunch", () => {
 
 	it("applies agent limits: maximum for scouts, minimum for planners", async () => {
 		const { ctx } = setup((task) => (task.includes("rename") ? "mechanical" : "plan"));
-		const input = { tasks: [{ agent: "scout", task: "design a thing" }, { agent: "planner", task: "rename a file" }] };
+		const input = {
+			tasks: [
+				{ agent: "scout", task: "design a thing" },
+				{ agent: "planner", task: "rename a file" },
+			],
+		};
 		await routeLaunch(ctx(), extractTasks(input));
-		assert.deepEqual(input.tasks.map((t) => (t as Record<string, unknown>).model), ["switchboard/main.light:medium", "switchboard/main.deep:medium"]);
+		assert.deepEqual(
+			input.tasks.map((t) => (t as Record<string, unknown>).model),
+			["switchboard/main.light:medium", "switchboard/main.deep:medium"],
+		);
 	});
 
 	it("never overrides an explicit model, an agent pin, an excluded agent or an unknown pin state", async () => {
@@ -130,11 +174,20 @@ describe("routeLaunch", () => {
 			],
 		};
 		const pinLookup: LaunchContext["pinLookup"] = async (agent) =>
-			agent === "pinned" ? { model: "vendor/frontmatter" } : agent === "mystery" ? "unknown" : agent === "inherits-switchboard" ? { model: "switchboard/auto" } : {};
+			agent === "pinned"
+				? { model: "vendor/frontmatter" }
+				: agent === "mystery"
+					? "unknown"
+					: agent === "inherits-switchboard"
+						? { model: "switchboard/auto" }
+						: {};
 		const result = await routeLaunch(ctx({ pinLookup }), extractTasks(input));
 		const models = input.tasks.map((t) => (t as Record<string, unknown>).model);
 		assert.deepEqual(models, ["other/explicit", undefined, undefined, undefined, "switchboard/main.deep:medium"]);
-		assert.deepEqual(result.decisions.map((d) => d.subagent?.mode), ["skipped", "skipped", "skipped", "skipped", "child"]);
+		assert.deepEqual(
+			result.decisions.map((d) => d.subagent?.mode),
+			["skipped", "skipped", "skipped", "skipped", "child"],
+		);
 		assert.match(result.decisions[1]?.subagent?.skipped ?? "", /pin vendor\/frontmatter/u);
 	});
 
@@ -146,12 +199,32 @@ describe("routeLaunch", () => {
 	});
 
 	it("runs the tier's strategy in launch mode, spreads parallel tasks and holds leases", async () => {
-		const rr: RawConfig = { ...RAW, profiles: { main: { tiers: { light: { rank: 1, members: ["acme/small"] }, standard: { rank: 2, members: ["acme/mid", "zen/mid"], strategy: { name: "round-robin", granularity: "request" } }, deep: { rank: 3, members: ["acme/big"] } } } } };
+		const rr: RawConfig = {
+			...RAW,
+			profiles: {
+				main: {
+					tiers: {
+						light: { rank: 1, members: ["acme/small"] },
+						standard: { rank: 2, members: ["acme/mid", "zen/mid"], strategy: { name: "round-robin", granularity: "request" } },
+						deep: { rank: 3, members: ["acme/big"] },
+					},
+				},
+			},
+		};
 		const { engine, ctx } = setup(() => "implement");
 		engine.deps.config = normalizeConfig(rr);
-		const input = { tasks: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }, { agent: "c", task: "z" }] };
+		const input = {
+			tasks: [
+				{ agent: "a", task: "x" },
+				{ agent: "b", task: "y" },
+				{ agent: "c", task: "z" },
+			],
+		};
 		const result = await routeLaunch(ctx({ mode: "launch" }), extractTasks(input));
-		assert.deepEqual(input.tasks.map((t) => (t as Record<string, unknown>).model), ["acme/mid:medium", "zen/mid:medium", "acme/mid:medium"]);
+		assert.deepEqual(
+			input.tasks.map((t) => (t as Record<string, unknown>).model),
+			["acme/mid:medium", "zen/mid:medium", "acme/mid:medium"],
+		);
 		assert.equal(result.leases.length, 3);
 		for (const lease of result.leases) engine.releaseLease(lease);
 		assert.equal(engine.deps.store.read().members["acme/mid"]?.leases?.length, 0);
@@ -172,7 +245,10 @@ describe("routeLaunch", () => {
 	it("honours /tier pin --subagents without classifying", async () => {
 		let calls = 0;
 		const { engine, ctx } = setup();
-		engine.deps.classify = async () => (calls++, { stopReason: "stop", answers: work("plan") });
+		engine.deps.classify = async () => {
+			calls++;
+			return { stopReason: "stop", answers: work("plan") };
+		};
 		engine.controls.pin = { target: "@bottom", subagents: true };
 		const input = { agent: "worker", task: "design" };
 		const result = await routeLaunch(ctx(), extractTasks(input));
@@ -196,12 +272,20 @@ describe("external runners", () => {
 
 	it("never routes an external-runner agent and records each task's runner", async () => {
 		const { ctx } = setup();
-		const input = { tasks: [{ agent: "codex-exec", task: "x" }, { agent: "worker", task: "y" }] };
+		const input = {
+			tasks: [
+				{ agent: "codex-exec", task: "x" },
+				{ agent: "worker", task: "y" },
+			],
+		};
 		const pinLookup: LaunchContext["pinLookup"] = async (agent) => (agent === "codex-exec" ? { runner: "external" } : { runner: "native" });
 		const result = await routeLaunch(ctx({ pinLookup }), extractTasks(input));
 		assert.equal((input.tasks[0] as Record<string, unknown>).model, undefined);
 		assert.equal(result.decisions[0]?.subagent?.skipped, "the agent uses an external runner");
-		assert.deepEqual(result.decisions.map((d) => d.subagent?.runner), ["external", "native"]);
+		assert.deepEqual(
+			result.decisions.map((d) => d.subagent?.runner),
+			["external", "native"],
+		);
 	});
 });
 

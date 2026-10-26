@@ -33,7 +33,8 @@ export function taskDigest(agent: string, task: string): string {
  */
 export function attachBinding(input: Record<string, unknown>, binding: SwitchboardBinding): boolean {
 	if (binding.launches.length === 0) return false;
-	const options = (typeof input.options === "object" && input.options !== null && !Array.isArray(input.options) ? input.options : (input.options = {})) as Record<string, unknown>;
+	if (typeof input.options !== "object" || input.options === null || Array.isArray(input.options)) input.options = {};
+	const options = input.options as Record<string, unknown>;
 	const existing = options.extensionBindings ?? input.extensionBindings;
 	const bindings = typeof existing === "object" && existing !== null && !Array.isArray(existing) ? { ...(existing as Record<string, unknown>) } : {};
 	bindings[BINDING_NAMESPACE] = { parent: binding.parent, launches: binding.launches.slice(0, MAX_LAUNCHES) };
@@ -49,7 +50,10 @@ export function readBinding(env: NodeJS.ProcessEnv = process.env): SwitchboardBi
 	try {
 		const value = (JSON.parse(raw) as Record<string, unknown>)[BINDING_NAMESPACE] as SwitchboardBinding | undefined;
 		if (!value || typeof value.parent !== "string" || !Array.isArray(value.launches)) return undefined;
-		return { parent: value.parent, launches: value.launches.filter((l) => typeof l?.id === "string" && typeof l.d === "string" && typeof l.a === "string") };
+		return {
+			parent: value.parent,
+			launches: value.launches.filter((l) => typeof l?.id === "string" && typeof l.d === "string" && typeof l.a === "string"),
+		};
 	} catch {
 		return undefined;
 	}

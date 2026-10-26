@@ -47,7 +47,8 @@ export class BudgetTracker {
 			if (!limits) return;
 			const spent = this.spend[scope];
 			if (limits.tokens !== undefined && spent.tokens > limits.tokens) out.push({ scope, metric: "tokens", used: spent.tokens, limit: limits.tokens });
-			if (limits.costUsd !== undefined && spent.costUsd > limits.costUsd) out.push({ scope, metric: "costUsd", used: spent.costUsd, limit: limits.costUsd });
+			if (limits.costUsd !== undefined && spent.costUsd > limits.costUsd)
+				out.push({ scope, metric: "costUsd", used: spent.costUsd, limit: limits.costUsd });
 		};
 		check("task", budgets?.task);
 		check("session", budgets?.session);

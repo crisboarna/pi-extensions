@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -23,7 +23,17 @@ const decision: DecisionEntry = {
 	answers: { work: { type: "choice", choice: "implement", probabilities: {}, confidence: 0.91 }, depth: { type: "score", score: 1.1, confidence: 0.5 } },
 	rules: { ruleset: "builtin", matched: 4, gate: { referenced: ["work"], confidence: 0.91, threshold: 0.8, passed: true }, floors: [] },
 	tier: { candidate: "standard", chosen: "standard", rank: 2, why: "rule 5" },
-	selection: { strategy: "round-robin", granularity: "session", why: "next", kept: false, shared: true, candidates: [{ member: "acme/mid", eligible: true }, { member: "zen/mid", eligible: false, excluded: "cooling down (rate limit)" }] },
+	selection: {
+		strategy: "round-robin",
+		granularity: "session",
+		why: "next",
+		kept: false,
+		shared: true,
+		candidates: [
+			{ member: "acme/mid", eligible: true },
+			{ member: "zen/mid", eligible: false, excluded: "cooling down (rate limit)" },
+		],
+	},
 	model: { provider: "acme", id: "mid", thinking: "medium" },
 	switch: { from: "acme/small", cacheMiss: true },
 };
@@ -31,7 +41,10 @@ const decision: DecisionEntry = {
 describe("footer", () => {
 	it("fills placeholders and drops empty fields with their separator", () => {
 		assert.equal(renderTemplate("{profile} · {tier} · {member} · {confidence}", { profile: "work", tier: "deep", member: "big" }), "work · deep · big");
-		assert.equal(footerText("{profile} · {tier} · {member} · {confidence}", decision, { pinned: "@top", dryRun: true }), "work · standard · mid · 0.91 · pinned @top · dry-run");
+		assert.equal(
+			footerText("{profile} · {tier} · {member} · {confidence}", decision, { pinned: "@top", dryRun: true }),
+			"work · standard · mid · 0.91 · pinned @top · dry-run",
+		);
 		assert.equal(footerText("{tier}", undefined, { off: true }), "switchboard off");
 		assert.equal(footerText("{tier}", undefined, { inactive: "no config" }), "switchboard inactive: no config");
 	});
@@ -69,11 +82,20 @@ describe("budgets", () => {
 		const budgets = { task: { tokens: 100 }, session: { costUsd: 1 } };
 		tracker.startTask(1);
 		tracker.add(150, 0.5);
-		assert.deepEqual(tracker.newlyCrossed(budgets).map((b) => `${b.scope}:${b.metric}`), ["task:tokens"]);
+		assert.deepEqual(
+			tracker.newlyCrossed(budgets).map((b) => `${b.scope}:${b.metric}`),
+			["task:tokens"],
+		);
 		assert.deepEqual(tracker.newlyCrossed(budgets), []);
 		tracker.startTask(2);
 		tracker.add(10, 0.6);
-		assert.deepEqual(tracker.exceeded(budgets).map((b) => `${b.scope}:${b.metric}`), ["session:costUsd"]);
-		assert.deepEqual(tracker.newlyCrossed(budgets).map((b) => b.scope), ["session"]);
+		assert.deepEqual(
+			tracker.exceeded(budgets).map((b) => `${b.scope}:${b.metric}`),
+			["session:costUsd"],
+		);
+		assert.deepEqual(
+			tracker.newlyCrossed(budgets).map((b) => b.scope),
+			["session"],
+		);
 	});
 });

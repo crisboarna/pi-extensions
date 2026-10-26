@@ -40,7 +40,7 @@ export class AutoContinue {
 	private readonly timers: TimerApi;
 	private handle: unknown;
 	/** When the pending `continue` fires, epoch ms. */
-	at?: number;
+	at?: number | undefined;
 
 	constructor(options: AutoContinueOptions) {
 		this.options = options;
@@ -58,7 +58,9 @@ export class AutoContinue {
 		const wait = resetAt - this.clock.now() + GRACE_MS;
 		if (wait <= 0) return false;
 		if (wait > this.options.maxWaitMs()) {
-			this.options.notify(`the earliest reset is ${Math.round(wait / 60_000)} min away, beyond the ${Math.round(this.options.maxWaitMs() / 60_000)} min limit; not waiting`);
+			this.options.notify(
+				`the earliest reset is ${Math.round(wait / 60_000)} min away, beyond the ${Math.round(this.options.maxWaitMs() / 60_000)} min limit; not waiting`,
+			);
 			return false;
 		}
 		this.at = this.clock.now() + wait;

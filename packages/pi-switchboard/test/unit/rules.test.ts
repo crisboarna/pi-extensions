@@ -29,9 +29,18 @@ function toAnswers(c: FixtureCase): Answers {
 
 describe("tier targets", () => {
 	it("resolves keywords for one, two, three and five tiers", () => {
-		assert.deepEqual(["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, ladder("only"))), ["only", "only", "only"]);
-		assert.deepEqual(["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, ladder("a", "b"))), ["a", "b", "b"]);
-		assert.deepEqual(["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, THREE)), ["light", "standard", "deep"]);
+		assert.deepEqual(
+			["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, ladder("only"))),
+			["only", "only", "only"],
+		);
+		assert.deepEqual(
+			["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, ladder("a", "b"))),
+			["a", "b", "b"],
+		);
+		assert.deepEqual(
+			["@bottom", "@middle", "@top"].map((t) => resolveTarget(t, THREE)),
+			["light", "standard", "deep"],
+		);
 		assert.equal(resolveTarget("@middle", ladder("a", "b", "c", "d", "e")), "c");
 		assert.equal(resolveTarget("nope", THREE), undefined);
 	});
@@ -90,7 +99,10 @@ describe("evaluateRules", () => {
 		const outcome = evaluateRules(profile, BUILTIN_QUESTIONS, answers, {}, 0.8);
 		assert.equal(outcome.ruleTier, "light");
 		assert.equal(outcome.tier, "standard");
-		assert.deepEqual(outcome.floors.map((f) => [f.applied, f.raised]), [[true, true]]);
+		assert.deepEqual(
+			outcome.floors.map((f) => [f.applied, f.raised]),
+			[[true, true]],
+		);
 	});
 
 	it("uses the plan-mode signal before the classifier", () => {
@@ -118,7 +130,13 @@ describe("calibration fixture (recorded H2O-Lightning-4B answers)", () => {
 	const EXPECTED: Record<string, number> = { bottom: 0, middle: 1, top: 2, "middle+": 1 };
 	const run = (threshold: number) =>
 		fixture.cases.map((c) => {
-			const tier = evaluateRules({ ruleset: BUILTIN_RULESET, tiers: THREE, fallbackTier: "standard" }, BUILTIN_QUESTIONS, toAnswers(c), { $scope: "main" }, threshold).tier;
+			const tier = evaluateRules(
+				{ ruleset: BUILTIN_RULESET, tiers: THREE, fallbackTier: "standard" },
+				BUILTIN_QUESTIONS,
+				toAnswers(c),
+				{ $scope: "main" },
+				threshold,
+			).tier;
 			const got = RANK[tier] ?? -1;
 			const want = EXPECTED[c.expected] ?? -1;
 			return { request: c.request, ok: c.expected === "middle+" ? got >= want : got === want, under: got < want };
@@ -127,14 +145,30 @@ describe("calibration fixture (recorded H2O-Lightning-4B answers)", () => {
 	it("puts at least 21 of 24 requests on the expected tier at threshold 0.80", () => {
 		const results = run(0.8);
 		const correct = results.filter((r) => r.ok).length;
-		assert.ok(correct >= 21, `only ${correct}/24 correct: ${results.filter((r) => !r.ok).map((r) => r.request).join(" | ")}`);
+		assert.ok(
+			correct >= 21,
+			`only ${correct}/24 correct: ${results
+				.filter((r) => !r.ok)
+				.map((r) => r.request)
+				.join(" | ")}`,
+		);
 	});
 
 	it("never puts a request below its expected tier at 0.80", () => {
-		assert.deepEqual(run(0.8).filter((r) => r.under).map((r) => r.request), []);
+		assert.deepEqual(
+			run(0.8)
+				.filter((r) => r.under)
+				.map((r) => r.request),
+			[],
+		);
 	});
 
 	it("at 0.85, under-tiers only the debugging task the classifier calls review with 0.83", () => {
-		assert.deepEqual(run(0.85).filter((r) => r.under).map((r) => r.request.slice(0, 31)), ["debug this intermittent race co"]);
+		assert.deepEqual(
+			run(0.85)
+				.filter((r) => r.under)
+				.map((r) => r.request.slice(0, 31)),
+			["debug this intermittent race co"],
+		);
 	});
 });

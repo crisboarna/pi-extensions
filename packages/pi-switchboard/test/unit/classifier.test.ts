@@ -8,7 +8,12 @@ import { isLocalUrl, WarmupTracker } from "../../src/classifier/warmup.ts";
 
 const limits = { maxTokens: 4000, requestTokens: 2500, toolErrors: { max: 5, chars: 200 } };
 const user = (text: string): TranscriptMessage => ({ role: "user", content: text });
-const tool = (name: string, isError: boolean, text = ""): TranscriptMessage => ({ role: "toolResult", toolName: name, isError, content: [{ type: "text", text }] });
+const tool = (name: string, isError: boolean, text = ""): TranscriptMessage => ({
+	role: "toolResult",
+	toolName: name,
+	isError,
+	content: [{ type: "text", text }],
+});
 const assistant = (): TranscriptMessage => ({ role: "assistant", content: [{ type: "text", text: "ok" }] });
 
 describe("redaction", () => {
@@ -37,13 +42,23 @@ describe("redaction", () => {
 describe("evidence", () => {
 	it("collects the request, tool outcomes, short errors and the edit flag", () => {
 		const evidence = buildEvidence({
-			messages: [user("old"), tool("read", false), user("fix the failing build"), assistant(), tool("bash", true, "npm ERR! missing script: build"), tool("edit", false)],
+			messages: [
+				user("old"),
+				tool("read", false),
+				user("fix the failing build"),
+				assistant(),
+				tool("bash", true, "npm ERR! missing script: build"),
+				tool("edit", false),
+			],
 			scope: "main",
 			planPhase: "executing",
 			limits,
 		});
 		assert.equal(evidence.state.request, "fix the failing build");
-		assert.deepEqual(evidence.state.toolOutcomes, [{ tool: "bash", ok: false }, { tool: "edit", ok: true }]);
+		assert.deepEqual(evidence.state.toolOutcomes, [
+			{ tool: "bash", ok: false },
+			{ tool: "edit", ok: true },
+		]);
 		assert.deepEqual(evidence.state.toolErrors, [{ tool: "bash", error: "npm ERR! missing script: build" }]);
 		assert.equal(evidence.state.editsThisTask, true);
 		assert.deepEqual(evidence.state.previousTask, { edits: false, toolErrors: 0 });
@@ -52,7 +67,12 @@ describe("evidence", () => {
 
 	it("keeps the head and tail of a long request within the budget", () => {
 		const long = `START ${"x".repeat(50_000)} END`;
-		const evidence = buildEvidence({ messages: [user(long)], scope: "main", planPhase: "unknown", limits: { ...limits, maxTokens: 500, requestTokens: 400 } });
+		const evidence = buildEvidence({
+			messages: [user(long)],
+			scope: "main",
+			planPhase: "unknown",
+			limits: { ...limits, maxTokens: 500, requestTokens: 400 },
+		});
 		const request = String(evidence.state.request);
 		assert.ok(request.startsWith("START") && request.endsWith("END"));
 		assert.match(request, /tokens omitted/u);
@@ -70,7 +90,14 @@ describe("evidence", () => {
 	});
 
 	it("describes subagent tasks with their agent", () => {
-		const evidence = buildEvidence({ messages: [], request: "scan the repo", scope: "subagent", agent: { name: "scout", tools: ["read", "grep"] }, planPhase: "unknown", limits });
+		const evidence = buildEvidence({
+			messages: [],
+			request: "scan the repo",
+			scope: "subagent",
+			agent: { name: "scout", tools: ["read", "grep"] },
+			planPhase: "unknown",
+			limits,
+		});
 		assert.deepEqual(evidence.state.agent, { name: "scout", tools: ["read", "grep"] });
 		assert.equal(evidence.state.request, "scan the repo");
 	});
@@ -94,13 +121,28 @@ describe("classifier chain", () => {
 
 	it("returns the first classifier that answers and records failed attempts", async () => {
 		const classify: ClassifyFn = async (model) =>
-			model === "a/one" ? { stopReason: "error", errorMessage: "connection refused" } : { stopReason: "stop", answers, usage: { input: 10, output: 0, cost: { total: 0 } } };
-		const result = await runClassifierChain([{ model: "a/one", timeoutMs: 100 }, { model: "b/two", timeoutMs: 100, threshold: 0.8 }], request, { classify, budgetMs: 1000 });
+			model === "a/one"
+				? { stopReason: "error", errorMessage: "connection refused" }
+				: { stopReason: "stop", answers, usage: { input: 10, output: 0, cost: { total: 0 } } };
+		const result = await runClassifierChain(
+			[
+				{ model: "a/one", timeoutMs: 100 },
+				{ model: "b/two", timeoutMs: 100, threshold: 0.8 },
+			],
+			request,
+			{ classify, budgetMs: 1000 },
+		);
 		assert.equal(result.ok, true);
 		if (!result.ok) return;
 		assert.equal(result.model, "b/two");
 		assert.equal(result.threshold, 0.8);
-		assert.deepEqual(result.attempts.map((a) => [a.model, a.ok]), [["a/one", false], ["b/two", true]]);
+		assert.deepEqual(
+			result.attempts.map((a) => [a.model, a.ok]),
+			[
+				["a/one", false],
+				["b/two", true],
+			],
+		);
 		assert.deepEqual(result.usage, { input: 10, output: 0, cost: 0 });
 	});
 
@@ -116,15 +158,28 @@ describe("classifier chain", () => {
 
 	it("skips a remote classifier unless allowRemote is set, and records why", async () => {
 		const called: string[] = [];
-		const classify: ClassifyFn = async (model) => (called.push(model), { stopReason: "stop", answers });
-		const blocked = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true }, { model: "local/judge", timeoutMs: 100 }], request, { classify, budgetMs: 1000 });
+		const classify: ClassifyFn = async (model) => {
+			called.push(model);
+			return { stopReason: "stop", answers };
+		};
+		const blocked = await runClassifierChain(
+			[
+				{ model: "cloud/judge", timeoutMs: 100, remote: true },
+				{ model: "local/judge", timeoutMs: 100 },
+			],
+			request,
+			{ classify, budgetMs: 1000 },
+		);
 		assert.ok(blocked.ok && blocked.model === "local/judge");
 		assert.deepEqual(called, ["local/judge"], "the remote classifier was never called");
 		assert.match(blocked.attempts[0]?.error ?? "", /set allowRemote: true/u);
 		const only = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true }], request, { classify, budgetMs: 1000 });
 		assert.equal(only.ok, false);
 		assert.deepEqual(called, ["local/judge"]);
-		const allowed = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true, allowRemote: true }], request, { classify, budgetMs: 1000 });
+		const allowed = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true, allowRemote: true }], request, {
+			classify,
+			budgetMs: 1000,
+		});
 		assert.ok(allowed.ok && allowed.model === "cloud/judge");
 	});
 
@@ -137,7 +192,14 @@ describe("classifier chain", () => {
 			now += 150;
 			return { stopReason: "error", errorMessage: "boom" };
 		};
-		const result = await runClassifierChain([{ model: "a/x", timeoutMs: 1000 }, { model: "b/y", timeoutMs: 1000 }], request, { classify: slow, budgetMs: 100, clock });
+		const result = await runClassifierChain(
+			[
+				{ model: "a/x", timeoutMs: 1000 },
+				{ model: "b/y", timeoutMs: 1000 },
+			],
+			request,
+			{ classify: slow, budgetMs: 100, clock },
+		);
 		assert.equal(result.ok ? "" : result.reason, "budget");
 	});
 });

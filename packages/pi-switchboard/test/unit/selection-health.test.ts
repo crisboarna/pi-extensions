@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { promisify } from "node:util";
-import { FileHealthStore } from "../../src/selection/health.ts";
 import { accountLabel, accountSiblings, mapToAccount, readMultiPassSubscriptions } from "../../src/selection/accounts.ts";
+import { FileHealthStore } from "../../src/selection/health.ts";
 
 const run = promisify(execFile);
 const WORKER = join(import.meta.dirname, "..", "support", "round-robin-worker.ts");
@@ -40,7 +40,8 @@ describe("shared health file", () => {
 		const path = join(dir, "health.json");
 		const [a, b] = await Promise.all([run(process.execPath, [WORKER, path, "40"]), run(process.execPath, [WORKER, path, "40"])]);
 		const picks = [...a.stdout.trim().split("\n"), ...b.stdout.trim().split("\n")];
-		const counts = picks.reduce<Record<string, number>>((acc, key) => ({ ...acc, [key]: (acc[key] ?? 0) + 1 }), {});
+		const counts: Record<string, number> = {};
+		for (const key of picks) counts[key] = (counts[key] ?? 0) + 1;
 		assert.equal(picks.length, 80);
 		assert.deepEqual(counts, { "a/x": 40, "b/y": 40 }, "every pick advanced the shared pointer exactly once");
 		assert.ok(JSON.parse(readFileSync(path, "utf8")).pointers["p/t"] !== undefined);
@@ -54,11 +55,17 @@ describe("accounts", () => {
 		const dir = mkdtempSync(join(tmpdir(), "switchboard-mp-"));
 		writeFileSync(join(dir, "multi-pass.json"), JSON.stringify({ subscriptions: [{ provider: "acme", index: 2, label: "work" }] }));
 		const subs = readMultiPassSubscriptions(dir, { MULTI_SUB: "acme:3" });
-		assert.deepEqual(subs, [{ provider: "acme", index: 2, label: "work" }, { provider: "acme", index: 3 }]);
+		assert.deepEqual(subs, [
+			{ provider: "acme", index: 2, label: "work" },
+			{ provider: "acme", index: 3 },
+		]);
 	});
 
 	it("lists siblings, maps to a session's account and labels accounts", () => {
-		const subs = [{ provider: "acme", index: 2, label: "work" }, { provider: "acme", index: 3 }];
+		const subs = [
+			{ provider: "acme", index: 2, label: "work" },
+			{ provider: "acme", index: 3 },
+		];
 		assert.deepEqual(accountSiblings("acme-2", subs, isProvider), ["acme", "acme-3"]);
 		assert.equal(mapToAccount("acme", { acme: "acme-2" }, isProvider), "acme-2");
 		assert.equal(mapToAccount("zen", { acme: "acme-2" }, isProvider), "zen");

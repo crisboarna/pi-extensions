@@ -1,5 +1,5 @@
 import type { RuleOutcome } from "../rules/evaluate.ts";
-import { maxTier, minTier, rankOf, type RankedTier, resolveTarget, stepTier } from "../rules/targets.ts";
+import { maxTier, minTier, type RankedTier, rankOf, resolveTarget, stepTier } from "../rules/targets.ts";
 
 export type TierKind = "classified" | "fallback" | "pinned" | "dry-run" | "held" | "escalated" | "inactive";
 
@@ -59,10 +59,18 @@ export function decideUserTier(input: UserTierInput): TierDecision {
 	}
 	if (!input.outcome || input.outcome.fallback) {
 		const candidate = input.outcome?.tier ?? profile.fallbackTier;
-		const why = input.outcome ? `confidence ${input.outcome.gate.confidence.toFixed(2)} below ${input.outcome.gate.threshold}` : (input.classifierFailure ?? "no classifier answer");
+		const why = input.outcome
+			? `confidence ${input.outcome.gate.confidence.toFixed(2)} below ${input.outcome.gate.threshold}`
+			: (input.classifierFailure ?? "no classifier answer");
 		const tier = previous ? maxTier(previous, candidate, tiers) : candidate;
 		const held = previous !== undefined && tier === previous && tier !== candidate;
-		return { tier, kind: held ? "held" : "fallback", why: held ? `${why}; kept ${previous}, which is higher than the fallback` : why, candidate, downVotes: state.downVotes };
+		return {
+			tier,
+			kind: held ? "held" : "fallback",
+			why: held ? `${why}; kept ${previous}, which is higher than the fallback` : why,
+			candidate,
+			downVotes: state.downVotes,
+		};
 	}
 	const candidate = input.outcome.tier;
 	if (!previous || rankOf(candidate, tiers) >= rankOf(previous, tiers)) {
@@ -86,7 +94,12 @@ export interface AgentLimits {
  * The launch tier of a subagent task: the rules' tier, then the agent's fixed,
  * minimum and maximum tiers, then a `/tier pin --subagents`. No hysteresis.
  */
-export function decideLaunchTier(profile: TierProfile, outcomeTier: string | undefined, limits: AgentLimits | undefined, pin: string | undefined): { tier: string; why: string } {
+export function decideLaunchTier(
+	profile: TierProfile,
+	outcomeTier: string | undefined,
+	limits: AgentLimits | undefined,
+	pin: string | undefined,
+): { tier: string; why: string } {
 	const tiers = profile.tiers;
 	if (pin) {
 		const pinned = resolveTarget(pin, tiers);

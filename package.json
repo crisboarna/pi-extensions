@@ -1,0 +1,61 @@
+{
+	"name": "crisboarna-pi-extensions",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Monorepo for the @crisboarna pi extension packages.",
+	"type": "module",
+	"license": "MIT",
+	"author": "Cristian Boarna",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/crisboarna/pi-extensions.git"
+	},
+	"packageManager": "npm@11.17.0",
+	"engines": {
+		"node": ">=22.19",
+		"npm": ">=11.10"
+	},
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"check": "node scripts/check.ts",
+		"check:fast": "node scripts/check.ts --fast",
+		"lint": "biome check --error-on-warnings .",
+		"format": "biome check --write .",
+		"lint:md": "markdownlint-cli2",
+		"typecheck": "tsc -p tsconfig.json",
+		"knip": "knip --no-progress",
+		"test": "npm run test --workspaces --if-present && npm run test:repo",
+		"test:repo": "node --test --test-reporter=dot \"test/**/*.test.ts\"",
+		"test:integration": "npm run test:integration --workspaces --if-present",
+		"coverage": "npm run coverage --workspaces --if-present",
+		"smoke:pack": "node scripts/smoke-pack.ts",
+		"new-package": "node scripts/new-package.ts",
+		"changeset": "changeset",
+		"changeset:status": "changeset status --verbose",
+		"version-packages": "changeset version && npm install --package-lock-only --ignore-scripts",
+		"release": "changeset publish",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.2",
+		"@changesets/changelog-github": "1.0.1",
+		"@changesets/cli": "3.0.3",
+		"@earendil-works/pi-agent-core": "1.4.0",
+		"@earendil-works/pi-ai": "1.4.0",
+		"@earendil-works/pi-coding-agent": "1.4.0",
+		"@earendil-works/pi-tui": "1.4.0",
+		"@types/node": "22.20.5",
+		"husky": "9.1.7",
+		"jiti": "2.7.0",
+		"knip": "6.42.1",
+		"markdownlint-cli2": "0.24.0",
+		"typebox": "1.3.27",
+		"typescript": "7.0.2"
+	},
+	"allowScripts": {
+		"@google/genai": false,
+		"protobufjs": false
+	}
+}

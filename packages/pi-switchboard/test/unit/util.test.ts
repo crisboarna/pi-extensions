@@ -33,8 +33,14 @@ describe("model refs", () => {
 
 	it("splits account providers only when the base exists", () => {
 		const known = new Set(["acme"]);
-		assert.deepEqual(splitAccountProvider("acme-2", (n) => known.has(n)), { base: "acme", index: 2 });
-		assert.deepEqual(splitAccountProvider("model-9", (n) => known.has(n)), { base: "model-9" });
+		assert.deepEqual(
+			splitAccountProvider("acme-2", (n) => known.has(n)),
+			{ base: "acme", index: 2 },
+		);
+		assert.deepEqual(
+			splitAccountProvider("model-9", (n) => known.has(n)),
+			{ base: "model-9" },
+		);
 	});
 });
 
@@ -52,7 +58,10 @@ describe("runtime helpers", () => {
 		const a = seededRng(7);
 		const b = seededRng(7);
 		const xs = Array.from({ length: 5 }, () => a.next());
-		assert.deepEqual(xs, Array.from({ length: 5 }, () => b.next()));
+		assert.deepEqual(
+			xs,
+			Array.from({ length: 5 }, () => b.next()),
+		);
 		assert.ok(xs.every((x) => x >= 0 && x < 1));
 	});
 

@@ -7,15 +7,7 @@ export type ErrorClass = (typeof ERROR_CLASSES)[number];
  * patterns with `failover.errorClasses`.
  */
 export const DEFAULT_ERROR_PATTERNS: Record<Exclude<ErrorClass, "other">, string[]> = {
-	quota: [
-		"usage.?limit",
-		"insufficient_quota",
-		"quota exceeded",
-		"exceeded your current quota",
-		"usage_not_included",
-		"out of budget",
-		"billing",
-	],
+	quota: ["usage.?limit", "insufficient_quota", "quota exceeded", "exceeded your current quota", "usage_not_included", "out of budget", "billing"],
 	"context-overflow": [
 		"prompt (?:is )?too long",
 		"context.{0,20}(?:length|window|size)",
@@ -25,10 +17,28 @@ export const DEFAULT_ERROR_PATTERNS: Record<Exclude<ErrorClass, "other">, string
 		"maximum context",
 		"longer than the model'?s context",
 	],
-	auth: ["\\b401\\b", "\\b403\\b", "unauthori[sz]ed", "invalid[_ -]?api[_ -]?key", "invalid[_ -]?refresh[_ -]?token", "refresh token.*(?:invalid|expired|revoked)", "authentication"],
+	auth: [
+		"\\b401\\b",
+		"\\b403\\b",
+		"unauthori[sz]ed",
+		"invalid[_ -]?api[_ -]?key",
+		"invalid[_ -]?refresh[_ -]?token",
+		"refresh token.*(?:invalid|expired|revoked)",
+		"authentication",
+	],
 	"rate-limit": ["rate.?limit", "too many requests", "\\b429\\b", "resourceexhausted"],
 	overloaded: ["overloaded", "capacity", "\\b529\\b", "\\b503\\b", "server_busy", "servers are currently busy", "high demand", "temporarily unavailable"],
-	server: ["\\b5\\d\\d\\b", "internal.?(?:server.?)?error", "timed? ?out", "econnreset", "socket hang up", "fetch failed", "network.?error", "connection.?(?:error|refused|lost)", "stream ended"],
+	server: [
+		"\\b5\\d\\d\\b",
+		"internal.?(?:server.?)?error",
+		"timed? ?out",
+		"econnreset",
+		"socket hang up",
+		"fetch failed",
+		"network.?error",
+		"connection.?(?:error|refused|lost)",
+		"stream ended",
+	],
 };
 
 export function classifyError(message: string | undefined, overrides: Record<string, string[]> = {}): ErrorClass {
@@ -47,7 +57,23 @@ export function classifyError(message: string | undefined, overrides: Record<str
 	return "other";
 }
 
-const UNIT_MS: Record<string, number> = { ms: 1, s: 1000, sec: 1000, secs: 1000, second: 1000, seconds: 1000, m: 60_000, min: 60_000, mins: 60_000, minute: 60_000, minutes: 60_000, h: 3_600_000, hr: 3_600_000, hour: 3_600_000, hours: 3_600_000 };
+const UNIT_MS: Record<string, number> = {
+	ms: 1,
+	s: 1000,
+	sec: 1000,
+	secs: 1000,
+	second: 1000,
+	seconds: 1000,
+	m: 60_000,
+	min: 60_000,
+	mins: 60_000,
+	minute: 60_000,
+	minutes: 60_000,
+	h: 3_600_000,
+	hr: 3_600_000,
+	hour: 3_600_000,
+	hours: 3_600_000,
+};
 
 function durationMs(amount: string, unit: string | undefined): number | undefined {
 	const value = Number(amount);
@@ -62,13 +88,18 @@ function durationMs(amount: string, unit: string | undefined): number | undefine
  */
 export function parseRetryAt(message: string | undefined, now: number): number | undefined {
 	if (!message) return undefined;
-	const compound = /(?:try again|retry) in ~?\s*(\d+)\s*h(?:ours?)?\s*(\d+)\s*m|(?:try again|retry) in ~?\s*(\d+)\s*m(?:in(?:utes?)?)?\s*(\d+)\s*s/iu.exec(message);
+	const compound = /(?:try again|retry) in ~?\s*(\d+)\s*h(?:ours?)?\s*(\d+)\s*m|(?:try again|retry) in ~?\s*(\d+)\s*m(?:in(?:utes?)?)?\s*(\d+)\s*s/iu.exec(
+		message,
+	);
 	if (compound) {
 		const [, h, hm, m, ms] = compound;
 		if (h && hm) return now + Number(h) * 3_600_000 + Number(hm) * 60_000;
 		if (m && ms) return now + Number(m) * 60_000 + Number(ms) * 1000;
 	}
-	const relative = /(?:try again in|retry[- ]after|retry in|resets? in|retry-after:)\s*~?\s*(\d+(?:\.\d+)?)\s*(ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hr|h)?\b/iu.exec(message);
+	const relative =
+		/(?:try again in|retry[- ]after|retry in|resets? in|retry-after:)\s*~?\s*(\d+(?:\.\d+)?)\s*(ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hr|h)?\b/iu.exec(
+			message,
+		);
 	if (relative?.[1]) {
 		const ms = durationMs(relative[1], relative[2]);
 		if (ms !== undefined) return now + ms;
@@ -105,9 +136,4 @@ export function parseRetryHeaders(headers: Record<string, string>, now: number):
 		if (parsed !== undefined) return parsed;
 	}
 	return undefined;
-}
-
-/** Whether pi's own retry will re-run the request, so `route()` sees `reason: "retry"`. */
-export function piRetriesClass(errorClass: ErrorClass): boolean {
-	return errorClass === "rate-limit" || errorClass === "overloaded" || errorClass === "server";
 }

@@ -1,0 +1,20 @@
+{
+	// Markdown lint for every doc in the repository. Rules are on by default;
+	// each one turned off or tuned here says why.
+	"globs": ["**/*.md"],
+	"ignores": ["**/node_modules/**", "**/CHANGELOG.md", ".changeset/*.md", "**/CLAUDE.md", ".github/pull_request_template.md"],
+	"gitignore": true,
+	"config": {
+		"default": true,
+		// Prose is wrapped by the editor, not at a fixed column.
+		"MD013": false,
+		// README front matter uses a few HTML elements for images and video.
+		"MD033": { "allowed_elements": ["p", "img", "video", "picture", "source", "br", "details", "summary", "kbd", "sub", "sup", "a"] },
+		// Repeated headings are fine under different parents (per-command sections).
+		"MD024": { "siblings_only": true },
+		// Tables are aligned by content, not padded.
+		"MD060": false,
+		// Code samples in the design notes keep the source's tab indentation.
+		"MD010": { "code_blocks": false }
+	}
+}

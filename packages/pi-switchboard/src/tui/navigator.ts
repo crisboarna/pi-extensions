@@ -7,7 +7,7 @@ export interface NavRow {
 	key: string;
 	label: string;
 	status: "running" | "done" | "error" | "idle";
-	tier?: string;
+	tier?: string | undefined;
 	model?: string;
 	turn?: number;
 	tool?: string;
@@ -47,7 +47,11 @@ function clock(ms: number): string {
 }
 
 /** Builds rows from the main session's latest decision and the children's live status files. */
-export function buildRows(main: { decision?: DecisionEntry; running: boolean; tokensIn: number; tokensOut: number; cost: number }, children: readonly LiveStatus[], launches: readonly DecisionEntry[]): NavRow[] {
+export function buildRows(
+	main: { decision?: DecisionEntry; running: boolean; tokensIn: number; tokensOut: number; cost: number },
+	children: readonly LiveStatus[],
+	launches: readonly DecisionEntry[],
+): NavRow[] {
 	const rows: NavRow[] = [];
 	const d = main.decision;
 	rows.push({
@@ -70,7 +74,7 @@ export function buildRows(main: { decision?: DecisionEntry; running: boolean; to
 			key: child.session,
 			label: child.agent ?? "subagent",
 			status: child.status,
-			...(child.tier ?? decision?.tier.chosen ? { tier: child.tier ?? decision?.tier.chosen } : {}),
+			...((child.tier ?? decision?.tier.chosen) ? { tier: child.tier ?? decision?.tier.chosen } : {}),
 			...(child.model ? { model: child.model } : {}),
 			turn: child.turn,
 			...(child.currentTool ? { tool: child.currentTool } : {}),
@@ -120,7 +124,8 @@ export function renderList(model: NavModel, selected: number, style: Style = pla
 	lines.push("");
 	for (const cool of model.cooldowns.slice(0, 4)) lines.push(style("warning", `cooldown: ${cool.member} until ${clock(cool.until)} (${cool.reason})`));
 	for (const warning of model.budgetWarnings) lines.push(style("warning", warning));
-	if (model.autoContinueAt) lines.push(style("dim", `auto-continue in ${Math.max(0, Math.round((model.autoContinueAt - model.now) / 60_000))} min (/tier resume cancel)`));
+	if (model.autoContinueAt)
+		lines.push(style("dim", `auto-continue in ${Math.max(0, Math.round((model.autoContinueAt - model.now) / 60_000))} min (/tier resume cancel)`));
 	lines.push(style("dim", "↑↓ move · enter decision · t transcript · esc close"));
 	return lines;
 }
@@ -135,13 +140,26 @@ export function renderDecision(row: NavRow, style: Style = plain): string[] {
 export function renderTranscript(row: NavRow, mirror: readonly MirrorLine[], scroll: number, height: number, style: Style = plain): string[] {
 	const body: string[] = [];
 	for (const line of mirror) {
-		const tag = line.kind === "tool-call" ? `→ ${line.tool}` : line.kind === "tool-result" ? `${line.isError ? "✗" : "←"} ${line.tool}` : line.kind === "task" ? "task" : line.kind === "error" ? "error" : "reply";
+		const tag =
+			line.kind === "tool-call"
+				? `→ ${line.tool}`
+				: line.kind === "tool-result"
+					? `${line.isError ? "✗" : "←"} ${line.tool}`
+					: line.kind === "task"
+						? "task"
+						: line.kind === "error"
+							? "error"
+							: "reply";
 		const text = line.text.replace(/\s+/gu, " ").slice(0, 400);
 		body.push(`${style(line.kind === "error" || line.isError ? "warning" : "dim", tag.padEnd(14))} ${text}`);
 	}
 	const visible = Math.max(1, height - 3);
 	const start = Math.max(0, Math.min(body.length - visible, body.length - visible - scroll));
-	return [style("accent", `${row.label} · transcript (${mirror.length} entries)`), ...body.slice(start, start + visible), style("dim", "↑↓ scroll · esc back")];
+	return [
+		style("accent", `${row.label} · transcript (${mirror.length} entries)`),
+		...body.slice(start, start + visible),
+		style("dim", "↑↓ scroll · esc back"),
+	];
 }
 
 /** The one-line widget shown above the editor while children run. */
