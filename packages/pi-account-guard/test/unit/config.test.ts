@@ -50,39 +50,61 @@ describe("parseConfig", () => {
 
 	it("rejects an unknown field at every level, with its JSON path", () => {
 		assert.deepEqual(errorsOf({ colour: 1 }), ['account-guard.json: unknown field "colour"']);
-		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: ["work"], extra: 1 }] }), ['account-guard.json: accounts[0]: unknown field "extra"']);
+		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: ["work"], extra: 1 }] }), [
+			'account-guard.json: accounts[0]: unknown field "extra"',
+		]);
 		assert.deepEqual(errorsOf({ places: [{ path: "/a", zone: "work", extra: 1 }] }), ['account-guard.json: places[0]: unknown field "extra"']);
 	});
 
 	it("rejects a duplicate (provider, source) account", () => {
 		const account = { provider: "acme", source: "oauth", zones: ["work"] };
-		assert.deepEqual(errorsOf({ accounts: [account, { ...account, source: "stored-key" }, account] }), ["account-guard.json: accounts[2]: duplicate of accounts[0] (acme · oauth)"]);
+		assert.deepEqual(errorsOf({ accounts: [account, { ...account, source: "stored-key" }, account] }), [
+			"account-guard.json: accounts[2]: duplicate of accounts[0] (acme · oauth)",
+		]);
 	});
 
 	it("rejects an empty zones list on an account", () => {
-		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: [] }] }), ["account-guard.json: accounts[0].zones: must list at least one zone"]);
+		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: [] }] }), [
+			"account-guard.json: accounts[0].zones: must list at least one zone",
+		]);
 	});
 
 	it("rejects an undeclared zone in a tag, a rule and defaultZone", () => {
-		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: ["lab"] }] }), ['account-guard.json: accounts[0].zones[0]: zone "lab" is not declared in zones']);
+		assert.deepEqual(errorsOf({ accounts: [{ provider: "acme", source: "oauth", zones: ["lab"] }] }), [
+			'account-guard.json: accounts[0].zones[0]: zone "lab" is not declared in zones',
+		]);
 		assert.deepEqual(errorsOf({ places: [{ path: "/a", zone: "lab" }] }), ['account-guard.json: places[0].zone: zone "lab" is not declared in zones']);
 		assert.deepEqual(errorsOf({ defaultZone: "lab" }), ['account-guard.json: defaultZone: zone "lab" is not declared in zones']);
 	});
 
 	it("rejects the reserved zone name unknown", () => {
-		assert.deepEqual(errorsOf({ zones: ["work", "unknown"], defaultZone: "work" }), ['account-guard.json: zones[1]: "unknown" is reserved and cannot be declared']);
+		assert.deepEqual(errorsOf({ zones: ["work", "unknown"], defaultZone: "work" }), [
+			'account-guard.json: zones[1]: "unknown" is reserved and cannot be declared',
+		]);
 	});
 
 	it("accepts a place rule with a path, a remote or both", () => {
-		const result = parse({ places: [{ path: "/a", zone: "work" }, { remote: "*/Acme/*", zone: "work" }, { path: "/a", remote: "*/Acme/*", zone: "personal" }] });
-		assert.deepEqual(result.ok && result.config.places, [{ path: "/a", zone: "work" }, { remote: "*/Acme/*", zone: "work" }, { path: "/a", remote: "*/Acme/*", zone: "personal" }]);
+		const result = parse({
+			places: [
+				{ path: "/a", zone: "work" },
+				{ remote: "*/Acme/*", zone: "work" },
+				{ path: "/a", remote: "*/Acme/*", zone: "personal" },
+			],
+		});
+		assert.deepEqual(result.ok && result.config.places, [
+			{ path: "/a", zone: "work" },
+			{ remote: "*/Acme/*", zone: "work" },
+			{ path: "/a", remote: "*/Acme/*", zone: "personal" },
+		]);
 	});
 
 	it("rejects a place rule with no usable condition", () => {
 		assert.deepEqual(errorsOf({ places: [{ zone: "work" }] }), ["account-guard.json: places[0]: needs a path or a remote"]);
 		assert.deepEqual(errorsOf({ places: [{ remote: "", zone: "work" }] }), ["account-guard.json: places[0].remote: must be a non-empty string"]);
 		assert.deepEqual(errorsOf({ places: [{ path: "/a", remote: 3, zone: "work" }] }), ["account-guard.json: places[0].remote: must be a non-empty string"]);
-		assert.deepEqual(errorsOf({ places: [{ path: "relative/dir", zone: "work" }] }), ["account-guard.json: places[0].path: must be absolute or start with ~"]);
+		assert.deepEqual(errorsOf({ places: [{ path: "relative/dir", zone: "work" }] }), [
+			"account-guard.json: places[0].path: must be absolute or start with ~",
+		]);
 	});
 
 	it("reports every error, not only the first", () => {
@@ -91,7 +113,9 @@ describe("parseConfig", () => {
 
 	it("rejects wrong value types", () => {
 		assert.deepEqual(errorsOf({ zones: "work" }), ["account-guard.json: zones: must be an array of zone names"]);
-		assert.deepEqual(errorsOf({ accounts: [{ provider: 1, source: "oauth", zones: ["work"] }] }), ["account-guard.json: accounts[0].provider: must be a non-empty string"]);
+		assert.deepEqual(errorsOf({ accounts: [{ provider: 1, source: "oauth", zones: ["work"] }] }), [
+			"account-guard.json: accounts[0].provider: must be a non-empty string",
+		]);
 	});
 });
 

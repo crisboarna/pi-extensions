@@ -65,7 +65,10 @@ describe("Block select", () => {
 		const r = rig();
 		await r.input();
 		assert.deepEqual(r.entries("guard.block"), [
-			{ customType: "guard.block", data: { account: { provider: "acme", source: "stored-key" }, cause: "zone-mismatch", place: { path: "/srv/app", zone: "personal" } } },
+			{
+				customType: "guard.block",
+				data: { account: { provider: "acme", source: "stored-key" }, cause: "zone-mismatch", place: { path: "/srv/app", zone: "personal" } },
+			},
 		]);
 	});
 
@@ -136,7 +139,9 @@ describe("Allow once", () => {
 		r.dialogs.selectAnswers.push(/^Allow once/);
 		r.dialogs.confirmAnswers.push(true);
 		assert.deepEqual(await r.input(), { action: "continue" });
-		assert.deepEqual(r.dialogs.confirms, [{ title: "Allow once?", message: "Send ONE turn to acme (stored-key), zone work, from a personal place (/srv/app)." }]);
+		assert.deepEqual(r.dialogs.confirms, [
+			{ title: "Allow once?", message: "Send ONE turn to acme (stored-key), zone work, from a personal place (/srv/app)." },
+		]);
 		assert.equal(r.entries("guard.allow_once").length, 1);
 		assert.deepEqual(r.entries("guard.allow_once")[0]!.data.place, { path: "/srv/app", zone: "personal" });
 		assert.deepEqual(r.session.editorTexts, []);
@@ -164,7 +169,14 @@ describe("Allow once", () => {
 	});
 
 	it("does not cover a later switch to another non-matching account", async () => {
-		const r = rig(JSON.stringify({ accounts: [{ provider: "acme", source: "stored-key", zones: ["work"] }, { provider: "beta", source: "oauth", zones: ["work"] }] }));
+		const r = rig(
+			JSON.stringify({
+				accounts: [
+					{ provider: "acme", source: "stored-key", zones: ["work"] },
+					{ provider: "beta", source: "oauth", zones: ["work"] },
+				],
+			}),
+		);
 		r.dialogs.selectAnswers.push(/^Allow once/);
 		r.dialogs.confirmAnswers.push(true);
 		await r.input();
@@ -196,7 +208,14 @@ describe("Allow for session", () => {
 	});
 
 	it("Blocks a switch to another non-matching account", async () => {
-		const r = rig(JSON.stringify({ accounts: [{ provider: "acme", source: "stored-key", zones: ["work"] }, { provider: "beta", source: "oauth", zones: ["work"] }] }));
+		const r = rig(
+			JSON.stringify({
+				accounts: [
+					{ provider: "acme", source: "stored-key", zones: ["work"] },
+					{ provider: "beta", source: "oauth", zones: ["work"] },
+				],
+			}),
+		);
 		r.dialogs.selectAnswers.push(/^Allow for session/);
 		await r.input();
 		r.session.ctx.model = models[2];

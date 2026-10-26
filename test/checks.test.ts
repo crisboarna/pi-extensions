@@ -10,6 +10,9 @@ import { fileURLToPath } from "node:url";
 import { problems } from "../scripts/checks/commit-msg.ts";
 
 const SCRIPTS = fileURLToPath(new URL("../scripts/checks/", import.meta.url));
+// Git hooks export GIT_DIR, GIT_INDEX_FILE and friends. Run from the pre-push hook, the fixture's git init and
+// the gates it spawns would act on the repository being pushed, so drop them before any test runs git.
+for (const name of Object.keys(process.env)) if (name.startsWith("GIT_")) delete process.env[name];
 const made: string[] = [];
 after(() => {
 	for (const dir of made) rmSync(dir, { recursive: true, force: true });

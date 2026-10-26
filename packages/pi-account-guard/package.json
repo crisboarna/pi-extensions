@@ -1,28 +1,52 @@
 {
-  "name": "pi-account-guard",
-  "version": "0.1.0",
-  "description": "Stops a pi session from sending a user turn to a model account that does not belong to the zone of the directory the session works in.",
-  "type": "module",
-  "license": "MIT",
-  "author": "Cristian Boarna",
-  "keywords": ["pi-package", "pi-extension", "account-guard"],
-  "engines": { "node": ">=22.19" },
-  "pi": { "extensions": ["./src/index.ts"] },
-  "files": ["src", "schema", "examples", "README.md", "LICENSE"],
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
-  },
-  "devDependencies": {
-    "ajv": "^8.20.0",
-    "typescript": "^7.0.2"
-  },
-  "scripts": {
-    "link:pi": "node scripts/link-pi.mjs",
-    "test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
-    "test:integration": "node --test \"test/integration/**/*.test.ts\"",
-    "test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
-  }
+	"name": "@crisboarna/pi-account-guard",
+	"version": "0.0.0",
+	"description": "Stops a pi session from sending a user turn to a model account that does not belong to the zone of the directory the session works in.",
+	"type": "module",
+	"license": "MIT",
+	"author": "Cristian Boarna",
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"account-guard"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/crisboarna/pi-extensions.git",
+		"directory": "packages/pi-account-guard"
+	},
+	"homepage": "https://github.com/crisboarna/pi-extensions/tree/main/packages/pi-account-guard#readme",
+	"bugs": {
+		"url": "https://github.com/crisboarna/pi-extensions/issues"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"files": [
+		"src",
+		"schema",
+		"examples",
+		"README.md",
+		"LICENSE"
+	],
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
+		"test:integration": "node --test \"test/integration/**/*.test.ts\"",
+		"test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
+		"coverage": "ACCOUNT_GUARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\""
+	}
 }

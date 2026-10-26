@@ -19,11 +19,17 @@ describe("isPooledProvider", () => {
 describe("pooledProviderIds", () => {
 	it("lists each pooled id once, in first-seen order", () => {
 		const providers: Record<string, object> = { acme: {}, "pool-b": lifted(), "pool-a": lifted() };
-		assert.deepEqual(pooledProviderIds(["pool-b", "acme", "pool-a", "pool-b"], (id) => providers[id]), ["pool-b", "pool-a"]);
+		assert.deepEqual(
+			pooledProviderIds(["pool-b", "acme", "pool-a", "pool-b"], (id) => providers[id]),
+			["pool-b", "pool-a"],
+		);
 	});
 
 	it("lists nothing when no provider is pooled", () => {
-		assert.deepEqual(pooledProviderIds(["acme"], () => ({})), []);
+		assert.deepEqual(
+			pooledProviderIds(["acme"], () => ({})),
+			[],
+		);
 	});
 });
 

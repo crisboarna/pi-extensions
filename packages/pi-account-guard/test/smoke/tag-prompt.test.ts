@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { GUARD_EXTENSION, RpcSession, runPrint, type RpcRecord } from "../support/pi-process.ts";
+import { GUARD_EXTENSION, type RpcRecord, RpcSession, runPrint } from "../support/pi-process.ts";
 import { STUB_MODEL, STUB_PROVIDER, STUB_REPLY } from "../support/stub-provider.ts";
 
 const isUiRequest = (method: string) => (record: RpcRecord) => record.type === "extension_ui_request" && record.method === method;
@@ -73,7 +73,9 @@ describe("tag prompt over RPC (DESIGN.md section 10.1)", () => {
 			rpc.send({ type: "extension_ui_response", id: second.id, value: "work, personal" });
 			await rpc.waitFor((record) => record.type === "agent_settled");
 			assert.deepEqual(space.requests(), [STUB_MODEL]);
-			assert.deepEqual(JSON.parse(readFileSync(join(space.agentDir, "account-guard.json"), "utf8")).accounts, [{ provider: STUB_PROVIDER, source: "fallback", zones: ["work", "personal"] }]);
+			assert.deepEqual(JSON.parse(readFileSync(join(space.agentDir, "account-guard.json"), "utf8")).accounts, [
+				{ provider: STUB_PROVIDER, source: "fallback", zones: ["work", "personal"] },
+			]);
 		} finally {
 			await rpc.close();
 		}
@@ -104,7 +106,10 @@ describe("process Override (DESIGN.md section 10)", () => {
 		const result = await runPrint("hello", { env: { ...space.env, ...ALLOW }, cwd: space.place });
 		assert.equal(result.code, 0, result.stderr);
 		assert.equal(result.stdout.trim(), STUB_REPLY);
-		assert.match(result.stderr, /^guard: PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 lets turns through to accounts with no zone tag, starting with stub \(fallback\)\./);
+		assert.match(
+			result.stderr,
+			/^guard: PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 lets turns through to accounts with no zone tag, starting with stub \(fallback\)\./,
+		);
 		assert.deepEqual(space.requests(), [STUB_MODEL]);
 		assert.deepEqual(space.configFiles(), [], "the process Override writes nothing");
 	});

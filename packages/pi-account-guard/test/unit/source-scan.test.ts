@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { files, findIds, realIds, ROOT } from "../support/source-scan.ts";
+import { files, findIds, ROOT, realIds } from "../support/source-scan.ts";
 
 describe("source scan", () => {
 	it("detects a real provider id", () => {

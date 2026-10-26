@@ -2,7 +2,14 @@
 // pi can run a full turn with no network and no credentials. Load it with
 // `pi -ne -e test/support/stub-provider.ts`.
 import { appendFileSync } from "node:fs";
-import { createAssistantMessageEventStream, type Api, type AssistantMessage, type Model, type SimpleStreamOptions, type TranscriptContext } from "@earendil-works/pi-ai/compat";
+import {
+	type Api,
+	type AssistantMessage,
+	createAssistantMessageEventStream,
+	type Model,
+	type SimpleStreamOptions,
+	type TranscriptContext,
+} from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export const STUB_PROVIDER = "stub";

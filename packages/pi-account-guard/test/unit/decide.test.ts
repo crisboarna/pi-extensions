@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { decide, type DecideInput } from "../../src/core/decide.ts";
 import { DEFAULT_CONFIG, type GuardConfig } from "../../src/core/config.ts";
+import { type DecideInput, decide } from "../../src/core/decide.ts";
 
 const config = (overrides: Partial<GuardConfig> = {}): GuardConfig => ({ ...DEFAULT_CONFIG, ...overrides });
 const account = { provider: "acme", source: "oauth" };

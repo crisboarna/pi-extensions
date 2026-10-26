@@ -1,4 +1,4 @@
-import { sameAccount, type AccountKey } from "./account.ts";
+import { type AccountKey, sameAccount } from "./account.ts";
 import type { Decision, PlaceOutcome } from "./decide.ts";
 
 /** An Override covers one account; allow-once also covers one place (DESIGN.md section 10). Neither is persisted. */
@@ -39,11 +39,12 @@ export function releaseOnce({ once: _once, ...rest }: Overrides): Overrides {
 	return rest;
 }
 
-/** A Block passes when an Override covers its account (and, for allow-once, its place). Every cause that names an account can be overridden, so a broken config never locks the user out (ADR 0001). */
+/** A Block passes when an Override covers its account (and, for allow-once, its place). Every cause names an account and can be overridden, so a broken config or a bug in the guard never locks the user out (ADR 0001). */
 export function applyOverrides(decision: Decision, place: PlaceOutcome, overrides: Overrides): Verdict {
-	if (decision.verdict === "match" || decision.cause.kind === "internal-error") return decision;
+	if (decision.verdict === "match") return decision;
 	const { account } = decision.cause;
-	if (overrides.once && sameAccount(overrides.once.account, account) && overrides.once.placeId === placeId(place)) return { verdict: "override", by: "allow-once" };
+	if (overrides.once && sameAccount(overrides.once.account, account) && overrides.once.placeId === placeId(place))
+		return { verdict: "override", by: "allow-once" };
 	if (overrides.session && sameAccount(overrides.session.account, account)) return { verdict: "override", by: "allow-session" };
 	return decision;
 }

@@ -1,6 +1,6 @@
 # pi-account-guard design
 
-Status: **approved 2026-10-26**. Terms in bold are defined in [GLOSSARY.md](GLOSSARY.md). The hardest decisions have ADRs in [docs/adr/](docs/adr/). This document is the destination of the wayfinder map [Map: design spec for pi-account-guard](https://github.com/crisboarna/pi-account-guard/issues/1); every section names the ticket that decided it. No extension code exists yet.
+Status: **approved 2026-10-26**. Terms in bold are defined in [GLOSSARY.md](GLOSSARY.md). The hardest decisions have ADRs in [docs/adr/](docs/adr/). This document is the destination of the wayfinder map [Map: design spec for pi-account-guard](https://github.com/crisboarna/pi-account-guard/issues/1); every section names the ticket that decided it. Where the code adds something this document did not ask for, section 18 lists it.
 
 ## Summary
 
@@ -95,7 +95,7 @@ Reads and writes:
 Decided in [What are the place rule semantics?](https://github.com/crisboarna/pi-account-guard/issues/5).
 
 1. **Place path.** The place is the session cwd, not the git root, resolved with native `realpath` (canonical case on macOS). Only the real path is matched; a rule written against a symlink alias misses and falls to the default zone. Git is used only to read remotes, from the cwd (git finds the enclosing repository itself, worktrees included).
-2. **Path syntax.** `~` is expanded. A path with no glob characters (`~/Projects/scout`) matches that directory and everything below it. A path with glob characters uses standard globs (`*` one segment, `**` any depth, `{a,b}`). Matching is case-sensitive against the canonical real path. Rule paths are realpath'd at load when they exist; a path that does not exist yet is matched as the literal `~`-expanded path, with no warning, because rules for future directories are legitimate.
+2. **Path syntax.** `~` is expanded. A path with no glob characters (`~/Projects/scout`) matches that directory and everything below it. A path with glob characters uses standard globs (`*` one segment, `**` any depth, `?` one character, `{a,b}`). A `**` that forms a whole segment spans any number of segments, also at the start of a pattern or of a brace alternative (`**/acme-corp/*`). Globs run through a matcher that tracks every alternative at once instead of backtracking, so a hostile pattern or remote URL cannot stall `session_start`. Matching is case-sensitive against the canonical real path. Rule paths are realpath'd at load when they exist; a path that does not exist yet is matched as the literal `~`-expanded path, with no warning, because rules for future directories are legitimate.
 3. **Remote condition.** Every configured remote's fetch URL is considered; the condition holds if any remote matches. URLs are normalized to `host/path`: scheme, user and `.git` suffix stripped, `:` replaced by `/`, percent-decoded. The host is kept as written; SSH config aliases are not resolved (so `github.com-acme/billing-portal/*` or `*/billing-portal/*`). Remote matching is case-insensitive.
 4. **Rule shape.** A rule has an optional path and an optional remote; at least one is required, and when both are present both must hold. Remote-only rules are allowed (`*/acme-corp/*` catches a clone anywhere on disk).
 5. **Precedence.** The first matching rule in file order wins. The user lists specific rules first (for example a personal-remote rule under `~/Projects/acme` before the plain `~/Projects/acme` rule). No match falls to the default zone.
@@ -103,7 +103,7 @@ Decided in [What are the place rule semantics?](https://github.com/crisboarna/pi
 
 ### 5.4 Resolution timing
 
-The place zone is resolved at every pi `session_start` (startup, `/reload`, `/new`, `/resume`, `/fork`) and cached until the next one. `/reload` is how place rule and remote edits are picked up. Only the place zone is cached: account tags and the rest of the config are read live. Mid-turn model-change checks use the cached zone.
+The place zone is resolved at every pi `session_start` (startup, `/reload`, `/new`, `/resume`, `/fork`) and cached until the next one. `/reload` is how place rule and remote edits are picked up. Only the place zone is cached: account tags and the rest of the config are read live. A resolution that failed because the config was invalid is not cached, so the zone is resolved again at the next check once the file is fixed. Mid-turn model-change checks use the cached zone.
 
 Why cache at session start instead of resolving per turn: the cwd of a pi session does not change, git calls cost time on the turn's critical path, and a remote that changes mid-session is rare. The price is that a hand edit or a `git remote` change is picked up only on `/reload` or a new session. Edits made through `/guard place` and `/guard zone` re-resolve this session's place zone at once (section 11).
 
@@ -113,10 +113,10 @@ Decided in [Can an extension identify which pooled credential a request uses?](h
 
 An **Account** is the model's provider id plus its **auth source**.
 
-- Auth source is one of `oauth`, `stored-key`, `env:<VAR>`, `models-json-key`, `models-json-command`, `runtime` or `fallback`. Two environment variable names under one provider id are two accounts. The text of a `models.json` command is never stored or shown.
+- Auth source is one of `oauth`, `stored-key`, `env:<VAR>`, `models-json-key`, `models-json-command`, `runtime`, `fallback` or `unconfigured` (a provider with no credentials, which can be tagged ahead of a login). A source this version does not know, and an environment source with no variable name, become `unrecognised:<pi source>` (for example `unrecognised:environment`) instead of joining a known account, so they start in the Unknown zone. Two environment variable names under one provider id are two accounts. The text of a `models.json` command is never stored or shown.
 - The key is built fresh at every check from pi's cached auth snapshot, with public calls that return no secrets: `isUsingOAuth` and `getProviderAuthStatus().source/label`. `/login` and `/logout` inside pi refresh the snapshot; an `auth.json` edit made outside pi is seen one refresh late.
 - A source change under the same id (for example `/logout`, after which an environment key takes over) produces an untagged account, which Blocks with the tag prompt.
-- The Match compares the key built from `ctx.model` with the tags. It does no registry lookup, so an account that disappears from the registry mid-session is not undecidable. Tags for accounts the registry no longer knows are kept and listed by `/guard`.
+- The Match compares the key built from `ctx.model` with the tags. It does no registry lookup, so an account that disappears from the registry mid-session is not undecidable. Tags for accounts the registry no longer knows are kept and listed by `/guard` (the `Missing` row of the status view, section 11).
 - **claude-bridge** gets a built-in resolver, because the registry only sees `apiKey: "not-used"`. If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, the source is `env:<VAR>`. Otherwise the source is `claude-config:<resolved CLAUDE_CONFIG_DIR or ~/.claude>`, so a work and a personal Claude Code config directory are different accounts. Cloud provider (Bedrock, Vertex and the others) and `apiKeyHelper` setups map to one generic `claude-code` source.
   Claude Code's precedence was read from the Claude Code 2.1.310 binary (its embedded JavaScript) and its agent SDK 0.3.309, the versions pi-claude-bridge 0.9.3 spawns (ticket #16). The bridge passes `process.env` through to the child, so the guard sees the same variables.
   1. The provider comes first. `CLAUDE_CODE_USE_BEDROCK`, `_FOUNDRY`, `_ANTHROPIC_AWS`, `_ANTHROPIC_GOOGLE_CLOUD`, `_MANTLE` and `_VERTEX` are tested in that order (a cloud gateway before all of them); the first one set wins and every `ANTHROPIC_*` credential below is then ignored. These map to the generic `claude-code` source.
@@ -144,7 +144,7 @@ Undecidable cases fail closed (ADR 0001, decided in [How does the guard behave w
 | Config malformed or failing validation | Keep the last valid copy read in this session and warn once. With no valid copy yet, Block every turn and name the file and the error. The tag prompt is disabled and commands refuse to write until the file is fixed. |
 | Git fails while resolving the place (binary missing, corrupt repository, timeout about 2 s) | Git runs only if some place rule has a remote condition. Walk the rules in order: if a path-only rule matches before any rule with a remote condition could apply, that rule decides. Otherwise the place is undecidable and every turn Blocks until the next `session_start`. |
 | No model selected | No-op. Nothing can reach a provider and pi shows its own error. |
-| The guard's own handler throws | Every handler is wrapped. On error the guard aborts (`ctx.abort()`, or `{ action: "handled" }` from `input`), notifies and logs the error in the session. Required because pi swallows hook errors and continues (section 9). |
+| The guard's own handler throws | Every handler is wrapped. On error the guard aborts (`ctx.abort()`, or `{ action: "handled" }` from `input`), notifies and logs the error in the session; without a UI the notice goes to stderr and the exit code is 77. Required because pi swallows hook errors and continues (section 9). In the TUI the `input` Block of an internal error binds both Overrides to the current model's account (section 9.1). A `/guard` command that throws is reported the same way and aborts nothing. |
 
 ## 8. Enforcement points
 
@@ -155,7 +155,8 @@ Decided in [Which pi hooks can stop a turn or a mid-turn model change before sen
 | `session_start` | Load config, resolve and cache the place zone (section 5.4), set the footer. Fires again on `/new`, `/resume`, `/fork` and reload. |
 | `input` | The turn-start gate. Stops typed prompts, steering, follow-ups and `pi.sendUserMessage` (source `extension`) in TUI, print and RPC. The only hook whose return value can veto (`{ action: "handled" }`). Must not skip `/` text: skills and prompt templates reach it unexpanded. |
 | `before_agent_start` | Idle re-check. Catches an account switched while pi was idle (for example by pi-multi-pass) after `input` allowed, and turns started by `pi.sendMessage({ triggerTurn: true })` while idle. A `ctx.abort()` here stops the run before the first request. Skip nothing; check `event.messageType`. |
-| `model_select` | Mid-turn model change. Evaluate `ctx.model`, not `event.model` (nested emissions make the event's model stale). Abort with `ctx.abort()` only after checking `ctx.isIdle()`; when idle there is nothing to abort and the next `input` or `before_agent_start` Blocks. |
+| `model_select` | Mid-turn model change. Evaluate `ctx.model`, not `event.model` (nested emissions make the event's model stale). Abort with `ctx.abort()` only after checking `ctx.isIdle()`; an abort releases the allow-once Override; when idle there is nothing to abort and the next `input` or `before_agent_start` Blocks. |
+| `agent_settled` | Opens the select of a mid-turn Block once pi is idle (section 9.2), and releases the allow-once Override. |
 | `agent_end` | Release the allow-once Override (section 10). |
 | `ctx.ui.setStatus("guard", …)` | The footer item (section 12). |
 | `pi.registerCommand("guard")` | Tag, place, zone and status commands. |
@@ -192,7 +193,7 @@ Place ~/Projects/pi/diary -> zone personal
 ```
 
 - **Matching accounts** are accounts tagged with the place's zone whose auth is configured now, listed in `accounts` file order. The Switch model is the same model id if the target account's provider offers it, else that provider's first model. The row shows the result; the notice says when the id was not offered (`model gpt-5.5 (claude-sonnet-5-5 not offered)`).
-- **Undecidable cause** (invalid config, git failure, internal error): only the title changes, it names the cause (for example `cannot read account-guard.json` and the JSON path error), and there are no Switch rows because no zone can be matched. Both Overrides stay.
+- **Undecidable cause** (invalid config, git failure, internal error): the Overrides bind to the current model's account (an internal error carries it for this purpose), and only the title changes, it names the cause (for example `cannot read account-guard.json` and the JSON path error), and there are no Switch rows because no zone can be matched. Both Overrides stay.
 - **Unknown account:** the tag prompt (section 10.1) comes first. Cancel, or a tag that still gives no Match, falls to the select above.
 - **After the choice.**
   - Switch or an Override: the handler returns `continue` and the same prompt is sent (no resend). Switch calls `pi.setModel` first. Notice: `Switched to openai-codex-2 (oauth), sending.`
@@ -236,7 +237,7 @@ or run pi, then: /guard tag openai-codex-3 oauth personal
 or set PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 for this process.
 ```
 
-Undecidable Blocks name their cause in the same way (config error with file and JSON path, git failure, internal error).
+Undecidable Blocks name their cause in the same way (config error with file and JSON path, git failure, internal error). A guard handler that throws without a UI also writes its notice to stderr and sets exit code 77.
 
 In RPC, a handled prompt returns success with `disposition: "handled"` and `notify` arrives as an `extension_ui_request` event; the dialogs above are used when the client answers them.
 
@@ -246,9 +247,9 @@ Decided in [How does the guard behave when it cannot decide?](https://github.com
 
 | Override | Scope | Confirm | Shown |
 |---|---|---|---|
-| **Allow once** | One turn, bound to the confirmed (account, place) pair, until that turn's `agent_end`. A mid-turn switch to another non-matching account Blocks again. | Yes/no confirm naming the account and the place zone. | Session log entry. |
+| **Allow once** | One turn, bound to the confirmed (account, place) pair, until that turn's `agent_end`, or earlier when the turn never reaches it: at `agent_settled`, when `before_agent_start` or a mid-turn model change aborts, and when the user cancels a later Block. A mid-turn switch to another non-matching account Blocks again. | Yes/no confirm naming the account and the place zone. | Session log entry. |
 | **Allow for session** | The rest of the session, bound to one account (provider id plus auth source). A later switch to another non-matching account Blocks. `/new`, `/resume`, `/fork` and `/reload` start with no Override. | None; the picker row is already deliberate. | Footer `guard OVERRIDE <account> in <zone>`; session log entry. No per-turn warning. |
-| **Process Override** (`PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1`) | One headless pi process. | None. | Each turn it lets through is logged in the session, with one warning per session. |
+| **Process Override** (`PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1`) | One headless pi process. | None. | Each turn it lets through is logged in the session, with one warning per session. A turn that starts without `input` (`pi.sendMessage({ triggerTurn: true })`) is logged at `before_agent_start`. |
 
 The process Override:
 
@@ -256,7 +257,7 @@ The process Override:
 - Is honoured only in print and RPC. The TUI ignores it, so exporting it from a shell profile cannot silence the tag prompt.
 - Is never written to disk.
 
-Session log entries: `guard.block`, `guard.allow_once`, `guard.allow_session`, each with account, place and zone.
+Session log entries: `guard.block`, `guard.allow_once`, `guard.allow_session`, each with account, place and zone; the process Override adds `guard.allow_unknown` (section 18), and a failed handler adds `guard.error` with the handler name and reason.
 
 ### 10.1 Tag prompt
 
@@ -265,7 +266,7 @@ Runs inside the gate when an Unknown account is Blocked and `ctx.hasUI` is true 
 - After tagging the guard checks again. On a Match the turn proceeds with no resubmit. If the new tag still does not match, or the user cancels, the normal Block follows.
 - **TUI:** a checkbox list through `ctx.ui.custom()`, nothing pre-checked. **RPC** cannot render custom components: a `select` of single zones plus a "Several zones…" entry that opens an `input` for comma-separated names (validated, asked again on error). Submitting no zones asks again.
 - The title states the place's zone and shows the account as in section 6: "This place is personal. Which zones does openai-codex-2 · OAuth login (multi-pass: Work) belong to?". The multi-pass label is only displayed: no reordering and no prefilled `note`.
-- **Bypass nudge.** A whole-word, case-insensitive match finds a zone named in the label ("Work seat" means `work`, "Network" does not). If the chosen zones leave that zone out, the guard asks for one extra confirm.
+- **Zone nudge.** A whole-word, case-insensitive match finds a zone named in the label ("Work seat" means `work`, "Network" does not). If the chosen zones leave that zone out, the guard asks for one extra confirm.
 - Disabled while the config is malformed (section 7).
 - A pooled provider id gets the extra warning in section 6.
 
@@ -286,13 +287,14 @@ Every command takes full arguments, so it works without dialogs (RPC scripting, 
    Zones     work, personal (default: personal)
    Pooled    pi-multiprovider: openai-pool (warns only)
    Untagged  openai-codex-3 (oauth)
+   Missing   openai-old (oauth) [work]
 
   (edit: /guard tag | place | zone ...)
   ```
 
-  Untagged accounts are listed here only; there is no footer count. Headless modes print nothing on success: Blocks and the once-per-session process Override warning carry the information.
+  Untagged accounts are listed here only; there is no footer count. The `Missing` row appears only when the file tags an account the registry no longer knows (section 6), with its zones. Headless modes print nothing on success: Blocks and the once-per-session process Override warning carry the information.
 - **Accounts.** `/guard tag [provider [source] [zones]]` defaults to the current model's account. `/guard untag [provider [source]]` needs no confirm (an untagged account is Unknown, which fails closed). The pickers list the known accounts: every provider id with configured auth (at its current source), plus every entry in the file; entries not configured now are marked. Changing an account's existing zones shows old to new and asks to confirm.
-- **Place rules.** `/guard place add` first shows which rule decides the current place, then offers conditions taken from the place (this directory and below, one of its remotes picked from the list, or both) and a zone. The new rule goes at the top by default; a position is optional. `/guard place list` numbers the rules in file order and marks the one that decides this place. `/guard place remove <n>` and `/guard place move <n> <to>` confirm only when the edit changes this place's zone.
+- **Place rules.** `/guard place add` first shows which rule decides the current place, then offers conditions taken from the place (this directory and below, one of its remotes picked from the list, or both) and a zone. The new rule goes at the top by default; a position is optional. Full arguments are `path=<path|here>`, `remote=<glob>`, `zone=<zone>` and `at=<n>` (section 18). `/guard place list` numbers the rules in file order and marks the one that decides this place. `/guard place remove <n>` and `/guard place move <n> <to>` confirm only when the edit changes this place's zone.
 - **Zones.** `/guard zone add <name>`. `/guard zone remove <name>` is refused while any tag, rule or `defaultZone` references the zone, and lists those references. `/guard zone rename <old> <new>` rewrites every reference in one atomic write. `/guard zone default <zone>` confirms when the current place falls to the default and its zone would change.
 - **Re-resolution.** After any place rule or zone edit made through `/guard`, this session resolves its place zone again at once. Other sessions, and hand edits, wait for the next `session_start` or `/reload`. Tag edits take effect at once everywhere, because tags are read live.
 
@@ -309,6 +311,8 @@ Every command takes full arguments, so it works without dialogs (RPC scripting, 
 | Config invalid, last valid copy in use | `guard ! config invalid (last valid copy in use)` |
 | Config invalid, no valid copy | `guard ! config invalid, turns blocked` |
 | Place undecidable | `guard ! zone unknown (git failed)` |
+| No model selected | `guard personal ? no model` (section 18) |
+| The footer check itself failed | `guard ! check failed` (section 18) |
 
 pi-powerline-footer shows a status key only after the user adds it to `powerline.customItems` (as with the existing `subscription-status.ts`); the README must say so.
 
@@ -356,6 +360,9 @@ Why no `context` gate: the strongest gate is the `context` hook plus `ctx.abort(
 - Pooled providers: the guard only warns (section 6).
 - The real member behind a virtual model is not checked (section 13.2).
 - Everything in section 14.
+- `/guard` edits that need a confirm (a change of an existing tag, or a place rule or default zone edit that changes this place's zone) have no scripted form: without a UI they are refused, with a message that names the reason. Run `/guard untag` first for a tag, or use a UI. Accepted for v1.
+- The footer is recomputed on `session_start`, `model_select`, an Override change and an edit made through `/guard`. A hand edit of the config file shows in the footer at the next check (the next `input` or `model_select`), not at once. Accepted for v1.
+- A place that could not be resolved at `session_start` because the config was invalid is not cached; it is resolved again at the next check once the file is fixed. This is safe and slightly more eager than section 5.4 says. Accepted.
 
 ## 16. Module structure
 
@@ -366,18 +373,32 @@ Pure core plus thin pi glue. Pure modules take plain data, with the git reader, 
 ```text
 src/core/                 pure, no pi imports
   account.ts              key from provider id plus auth source
-  place.ts                rule matching, remote normalization, zone
+  claude-bridge.ts        claude-bridge auth source resolver
   config.ts               parse and validate (file plus JSON path errors)
-  decide.ts               inputs -> { verdict, cause, rows }
-  messages.ts             Block, footer and headless text
+  config-state.ts         live read with the last valid copy of the session
+  config-writer.ts        re-read, change, validate, write
+  decide.ts               inputs -> { verdict, cause }
+  overrides.ts            allow once and session Overrides; process-override.ts for the environment one
+  place.ts                rule matching and zone; glob.ts the matcher; paths.ts home and file name helpers; remote.ts URL normalisation
+  messages.ts             headless Block text and shared notice wording
+  block-dialog.ts         Block select rows and titles; mid-turn.ts the mid-turn variant and notices
+  tag-prompt.ts           Tag prompt text, zone list parsing and the zone nudge
+  status.ts, footer.ts    /guard status block and footer text
+  guard-command.ts, place-edit.ts, zone-edit.ts, known-accounts.ts, checklist.ts, pooled.ts, multi-pass.ts   command parsing, pure edits and small helpers
 src/pi/                   glue
-  hooks.ts                input, before_agent_start, model_select, session_start, agent_end
-  ui.ts                   select, confirm, tag prompt, footer
-  commands.ts             /guard
-  git.ts, fs.ts           injected readers
+  hooks.ts                registerGuard: session_start, input, model_select, agent_end, the place cache, Overrides and footer
+  model-guard.ts          model_select, agent_settled and before_agent_start
+  interactive-block.ts, mid-turn-block.ts   the Block selects at turn start and once idle
+  unknown-account.ts, tag-prompt.ts, tag-checklist.ts   process Override and Tag prompt
+  commands.ts, place-zone-commands.ts       /guard
+  handler-errors.ts, exit-code.ts           handler wrappers and the exit-code keeper
+  account-of.ts           account resolver per registration (carries the claude-bridge environment)
+  git.ts, fs.ts, pooled.ts                  injected readers
 src/index.ts              wiring
 schema/account-guard.schema.json
 ```
+
+Known structure debt (accepted, judgement calls of the review): the `cause.kind` switch recurs in the headless text, the Block title, the mid-turn notice and the Allow once confirm, so a new cause touches several files; the dependency groups (`home`, `configPath`, `writeStderr`, `setExitCode`, readers) repeat across the `*Deps` interfaces; `registerGuard` is one closure that holds the place cache, Overrides, footer, check and `input`; the auth source is a free string that `tag-prompt.ts` parses by prefix. None changes behaviour; splitting them is left for when a change needs it.
 
 Code is erasable TypeScript (no enums, no parameter properties, `.ts` import extensions) so the same files load under jiti in pi and under plain Node in tests.
 
@@ -434,6 +455,17 @@ Step 1 of the build is one smoke test per item below against real pi. A failing 
 | Testing | [What is the testing strategy for the guard?](https://github.com/crisboarna/pi-account-guard/issues/13) | |
 
 Derived in this document (not asked, flag if wrong): the order of Switch rows (`accounts` file order; the previous account first after a mid-turn abort); how Switch picks the target model when the id is not offered (first model of the target provider); the stderr text for undecidable headless Blocks; the status key name `guard`; the JSON Schema path; the `agent_end` release of allow-once.
+
+Added by the code beyond what the tickets asked for (accepted, flagged for review):
+
+- The exit code 2 of a `/guard` command that fails without a UI (section 11 only says the command fails with its usage). `keepExitCode` keeps the last code set, so a later 2 can replace an earlier 77.
+- The `?` glob character (one character), next to `*`, `**` and `{a,b}`.
+- The footer texts `guard ! check failed` and `guard <zone> ? no model` (section 12).
+- The `guard.allow_unknown` session log entry of the process Override, and `guard.error` for a failed handler.
+- The `path=here` and `at=` arguments of `/guard place add`.
+- The `unconfigured` auth source, which makes a provider with no credentials an Account that can be tagged, and the `unrecognised:<pi source>` sources (section 6).
+- The `Missing` row of the status view (section 11).
+- The zone nudge: the name of the extra confirm of the Tag prompt (section 10.1), renamed from "bypass nudge" to keep the GLOSSARY terms.
 
 ## 19. Sources
 

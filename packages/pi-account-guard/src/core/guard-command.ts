@@ -50,7 +50,7 @@ export function parseTagArguments(words: string[], declaredZones: string[]): Tag
 	const isZones = parseZoneList(restText, declaredZones).ok || (rest.length === 1 && restText.includes(","));
 	if (isZones) return { provider, zonesText: restText };
 	const [source, ...zones] = rest;
-	return { provider, source, ...(zones.length > 0 ? { zonesText: zones.join(" ") } : {}) };
+	return { provider, ...(source === undefined ? {} : { source }), ...(zones.length > 0 ? { zonesText: zones.join(" ") } : {}) };
 }
 
 /** Reads the words after `untag`: `provider`, then an optional source; extra words make the arguments invalid. */

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_CONFIG, parseConfig } from "../../src/core/config.ts";
 import { createConfigState } from "../../src/core/config-state.ts";
-import { createConfigWriter, removeAccount, serializeConfig, setAccountZones } from "../../src/core/config-writer.ts";
+import { createConfigFileWriter, createConfigWriter, removeAccount, serializeConfig, setAccountZones } from "../../src/core/config-writer.ts";
 
 const acme = { provider: "acme", source: "oauth" };
 
@@ -23,7 +23,9 @@ describe("serializeConfig", () => {
 	it("spells out the defaults with a 2-space indent and a final newline", () => {
 		assert.equal(
 			serializeConfig(DEFAULT_CONFIG),
-			['{', '  "zones": [', '    "work",', '    "personal"', '  ],', '  "defaultZone": "personal",', '  "accounts": [],', '  "places": []', '}', ''].join("\n"),
+			["{", '  "zones": [', '    "work",', '    "personal"', "  ],", '  "defaultZone": "personal",', '  "accounts": [],', '  "places": []', "}", ""].join(
+				"\n",
+			),
 		);
 	});
 
@@ -44,7 +46,13 @@ describe("setAccountZones", () => {
 	});
 
 	it("replaces the zones of a tagged account and keeps its note and position", () => {
-		const config = { ...DEFAULT_CONFIG, accounts: [{ ...acme, zones: ["work"], note: "seat" }, { provider: "beta", source: "oauth", zones: ["personal"] }] };
+		const config = {
+			...DEFAULT_CONFIG,
+			accounts: [
+				{ ...acme, zones: ["work"], note: "seat" },
+				{ provider: "beta", source: "oauth", zones: ["personal"] },
+			],
+		};
 		assert.deepEqual(setAccountZones(config, acme, ["personal", "work"]).accounts, [
 			{ ...acme, zones: ["personal", "work"], note: "seat" },
 			{ provider: "beta", source: "oauth", zones: ["personal"] },
@@ -65,7 +73,12 @@ describe("createConfigWriter", () => {
 		const outcome = writer.update((config) => setAccountZones(config, acme, ["work"]));
 		assert.deepEqual(outcome, { ok: true, config: { ...DEFAULT_CONFIG, accounts: [{ ...acme, zones: ["work"] }] } });
 		assert.equal(writes.length, 1);
-		assert.deepEqual(JSON.parse(writes[0]!), { zones: ["work", "personal"], defaultZone: "personal", accounts: [{ ...acme, zones: ["work"] }], places: [] });
+		assert.deepEqual(JSON.parse(writes[0]!), {
+			zones: ["work", "personal"],
+			defaultZone: "personal",
+			accounts: [{ ...acme, zones: ["work"] }],
+			places: [],
+		});
 	});
 
 	it("re-reads the file at every update, so a hand edit made in between is kept", () => {
@@ -104,5 +117,38 @@ describe("removeAccount", () => {
 		const config = { ...DEFAULT_CONFIG, accounts: [{ ...acme, zones: ["work"] }, other] };
 		assert.deepEqual(removeAccount(config, acme).accounts, [other]);
 		assert.deepEqual(removeAccount(config, { provider: "nope", source: "oauth" }), config);
+	});
+});
+
+describe("createConfigFileWriter", () => {
+	it("writes through the host to the config path, re-reading the file first", () => {
+		const file: { text: string | undefined } = { text: undefined };
+		const writes: Array<{ path: string; text: string }> = [];
+		const writer = createConfigFileWriter(
+			createConfigState(() => file.text),
+			"/home/me/.pi/agent/account-guard.json",
+			(path, text) => {
+				writes.push({ path, text });
+				file.text = text;
+			},
+		);
+		assert.ok(writer);
+		assert.equal(writer.update((config) => setAccountZones(config, acme, ["work"])).ok, true);
+		assert.deepEqual(
+			writes.map((write) => write.path),
+			["/home/me/.pi/agent/account-guard.json"],
+		);
+		assert.deepEqual(parseConfig(file.text), { ok: true, config: { ...DEFAULT_CONFIG, accounts: [{ ...acme, zones: ["work"] }] } });
+	});
+
+	it("is undefined when the host cannot write files", () => {
+		assert.equal(
+			createConfigFileWriter(
+				createConfigState(() => undefined),
+				"/home/me/account-guard.json",
+				undefined,
+			),
+			undefined,
+		);
 	});
 });

@@ -74,7 +74,9 @@ export interface FakeAuth {
 	status?: { configured: boolean; source?: string; label?: string };
 }
 
-export function createFakeSession(options: { cwd?: string; model?: { provider: string; id: string } | null; hasUI?: boolean; idle?: boolean; auth?: FakeAuth } = {}): FakeSession {
+export function createFakeSession(
+	options: { cwd?: string; model?: { provider: string; id: string } | null; hasUI?: boolean; idle?: boolean; auth?: FakeAuth } = {},
+): FakeSession {
 	const statuses = new Map<string, string | undefined>();
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
@@ -104,7 +106,9 @@ export function createFakeSession(options: { cwd?: string; model?: { provider: s
 				confirm: async () => false,
 			},
 			isIdle: () => options.idle ?? true,
-			abort: () => void (session.aborts += 1),
+			abort: () => {
+				session.aborts += 1;
+			},
 		},
 	};
 	return session;

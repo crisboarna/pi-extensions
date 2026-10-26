@@ -1,10 +1,10 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readGitRemoteUrls } from "./pi/git.ts";
-import { keepExitCode } from "./pi/exit-code.ts";
+import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { multiPassLabel } from "./core/multi-pass.ts";
+import { createExitCodeKeeper } from "./pi/exit-code.ts";
 import { readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
+import { readGitRemoteUrls } from "./pi/git.ts";
 import { registerGuard } from "./pi/hooks.ts";
 import { pooledProviders } from "./pi/pooled.ts";
 
@@ -26,6 +26,6 @@ export default function accountGuard(pi: ExtensionAPI): void {
 		readRemoteUrls: (cwd) => readGitRemoteUrls(cwd),
 		pooledProviders,
 		writeStderr: (text) => void process.stderr.write(text),
-		setExitCode: keepExitCode,
+		setExitCode: createExitCodeKeeper(),
 	});
 }

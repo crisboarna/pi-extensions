@@ -1,11 +1,8 @@
-import { describeAccount, sameAccount, type AccountKey } from "./account.ts";
-import { formatConfigErrors, type AccountTag } from "./config.ts";
+import { type AccountKey, describeAccount, sameAccount } from "./account.ts";
+import { type AccountTag, formatConfigErrors } from "./config.ts";
 import type { BlockCause, PlaceOutcome } from "./decide.ts";
-import { zonePhrase, type MessageContext } from "./messages.ts";
-import { displayPath } from "./place.ts";
-
-/** A Block with an account to act on; an internal error names none, so it has no dialog. */
-export type DialogCause = Exclude<BlockCause, { kind: "internal-error" }>;
+import { type MessageContext, placeWhere, zonePhrase } from "./messages.ts";
+import { displayPath, fileName } from "./paths.ts";
 
 /** The models a configured account offers now, in registry order. */
 export interface ModelOffer {
@@ -14,7 +11,14 @@ export interface ModelOffer {
 }
 
 export type DialogRow =
-	| { kind: "switch"; label: string; account: AccountKey; modelId: string; zones: string[]; /** Set when the current model id is not offered by the target account. */ notOffered?: string }
+	| {
+			kind: "switch";
+			label: string;
+			account: AccountKey;
+			modelId: string;
+			zones: string[] /** Set when the current model id is not offered by the target account. */;
+			notOffered?: string;
+	  }
 	| { kind: "allow-once"; label: string }
 	| { kind: "allow-session"; label: string }
 	| { kind: "cancel"; label: string };
@@ -25,7 +29,7 @@ export interface BlockDialog {
 }
 
 export interface BlockDialogInput {
-	cause: DialogCause;
+	cause: BlockCause;
 	place: PlaceOutcome;
 	/** Id of the model the Block happened on. */
 	currentModelId: string;
@@ -48,7 +52,7 @@ export function blockDialog({ cause, place, currentModelId, accounts, offers, co
 	};
 }
 
-function blockTitle(cause: DialogCause, context: MessageContext): string {
+function blockTitle(cause: BlockCause, context: MessageContext): string {
 	const account = describeAccount(cause.account);
 	switch (cause.kind) {
 		case "zone-mismatch":
@@ -56,11 +60,13 @@ function blockTitle(cause: DialogCause, context: MessageContext): string {
 		case "unknown-account":
 			return `BLOCKED  ${account} has no zone tag`;
 		case "config-invalid": {
-			const file = context.configPath.slice(context.configPath.lastIndexOf("/") + 1);
+			const file = fileName(context.configPath);
 			return [`BLOCKED  cannot read ${file}`, ...formatConfigErrors(cause.errors, file)].join("\n");
 		}
 		case "place-undecidable":
 			return `BLOCKED  cannot decide the zone of this place (${cause.reason})`;
+		case "internal-error":
+			return `BLOCKED  the guard failed (${cause.reason})`;
 	}
 }
 
@@ -93,20 +99,24 @@ function switchRows(placeZone: string, currentModelId: string, accounts: Account
 
 /** The notice after a Switch; it says when the current model id was not offered by the target account. */
 export function switchNotice(row: Extract<DialogRow, { kind: "switch" }>): string {
+	return `Switched to ${switchedTo(row)}, sending.`;
+}
+
+/** The account a Switch went to, with the model it fell back to when the current model id was not offered. */
+export function switchedTo(row: Extract<DialogRow, { kind: "switch" }>): string {
 	const fallback = row.notOffered === undefined ? "" : ` using model ${row.modelId} (${row.notOffered} not offered)`;
-	return `Switched to ${describeAccount(row.account)}${fallback}, sending.`;
+	return `${describeAccount(row.account)}${fallback}`;
 }
 
 /** The yes/no confirm of Allow once; it names the account and the place zone (DESIGN.md section 10). */
-export function allowOnceConfirm(cause: DialogCause, place: PlaceOutcome, context: MessageContext): { title: string; message: string } {
+export function allowOnceConfirm(cause: BlockCause, place: PlaceOutcome, context: MessageContext): { title: string; message: string } {
 	const account = describeAccount(cause.account);
 	const accountZones = cause.kind === "zone-mismatch" ? `, ${zonePhrase(cause.accountZones)}` : cause.kind === "unknown-account" ? ", no zone tag" : "";
-	const where = place.ok ? `a ${place.zone} place (${displayPath(place.path, context.home)})` : "a place whose zone is unknown";
-	return { title: "Allow once?", message: `Send ONE turn to ${account}${accountZones}, from ${where}.` };
+	return { title: "Allow once?", message: `Send ONE turn to ${account}${accountZones}, from ${placeWhere(place, context)}.` };
 }
 
 /** Data of a `guard.block`, `guard.allow_once` or `guard.allow_session` session log entry. */
-export function logData(cause: DialogCause, place: PlaceOutcome): { account: AccountKey; cause: string; place: { path?: string; zone: string } } {
+export function logData(cause: BlockCause, place: PlaceOutcome): { account: AccountKey; cause: string; place: { path?: string; zone: string } } {
 	return {
 		account: { provider: cause.account.provider, source: cause.account.source },
 		cause: cause.kind,

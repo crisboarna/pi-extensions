@@ -1,4 +1,4 @@
-import { describeAccount, sameAccount, type AccountKey } from "./account.ts";
+import { type AccountKey, describeAccount, sameAccount } from "./account.ts";
 import type { AccountTag } from "./config.ts";
 
 /** An Account the guard can list: configured in pi now, tagged in the file, or both. */
@@ -15,7 +15,9 @@ export function knownAccounts(configured: AccountKey[], tags: AccountTag[]): Kno
 	const zonesOf = (key: AccountKey) => tags.find((tag) => sameAccount(tag, key))?.zones;
 	return [
 		...configured.map((key) => ({ key, zones: zonesOf(key), configured: true })),
-		...tags.filter((tag) => !configured.some((key) => sameAccount(key, tag))).map((tag) => ({ key: { provider: tag.provider, source: tag.source }, zones: tag.zones, configured: false })),
+		...tags
+			.filter((tag) => !configured.some((key) => sameAccount(key, tag)))
+			.map((tag) => ({ key: { provider: tag.provider, source: tag.source }, zones: tag.zones, configured: false })),
 	];
 }
 

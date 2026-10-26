@@ -5,7 +5,11 @@ import { addPlaceRule, movePlaceRule, placeChangeText, placeListText, placeZoneC
 
 const config: GuardConfig = {
 	...DEFAULT_CONFIG,
-	places: [{ remote: "*/Acme/*", zone: "work" }, { path: "~/Projects", zone: "personal", note: "n" }, { path: "~/Projects/acme", remote: "*/Acme/*", zone: "work" }],
+	places: [
+		{ remote: "*/Acme/*", zone: "work" },
+		{ path: "~/Projects", zone: "personal", note: "n" },
+		{ path: "~/Projects/acme", remote: "*/Acme/*", zone: "work" },
+	],
 };
 const zonesOf = (edited: GuardConfig) => edited.places.map((rule) => rule.zone + (rule.path ?? rule.remote));
 
@@ -39,7 +43,13 @@ describe("placeListText", () => {
 		const place = { ok: true as const, path: "/home/me/Projects/x", zone: "personal", ruleIndex: 1 };
 		assert.equal(
 			placeListText(config, place),
-			["guard place rules", " 1. remote */Acme/* -> work", " 2. ~/Projects -> personal   <- decides this place", " 3. ~/Projects/acme + remote */Acme/* -> work", " default zone: personal"].join("\n"),
+			[
+				"guard place rules",
+				" 1. remote */Acme/* -> work",
+				" 2. ~/Projects -> personal   <- decides this place",
+				" 3. ~/Projects/acme + remote */Acme/* -> work",
+				" default zone: personal",
+			].join("\n"),
 		);
 	});
 
@@ -49,7 +59,10 @@ describe("placeListText", () => {
 	});
 
 	it("says so when there are no rules, and when the place cannot be decided", () => {
-		assert.equal(placeListText(DEFAULT_CONFIG, { ok: false, reason: "git failed" }), ["guard place rules", " this place cannot be decided: git failed", " no rules", " default zone: personal"].join("\n"));
+		assert.equal(
+			placeListText(DEFAULT_CONFIG, { ok: false, reason: "git failed" }),
+			["guard place rules", " this place cannot be decided: git failed", " no rules", " default zone: personal"].join("\n"),
+		);
 	});
 });
 

@@ -14,7 +14,8 @@ export function removePlaceRule(config: GuardConfig, index: number): GuardConfig
 
 /** The config with the rule at `from` taken out and put back so that it ends at `to`. */
 export function movePlaceRule(config: GuardConfig, from: number, to: number): GuardConfig {
-	const rule = config.places[from]!;
+	const rule = config.places[from];
+	if (rule === undefined) return config;
 	return addPlaceRule(removePlaceRule(config, from), rule, to);
 }
 

@@ -1,4 +1,5 @@
 import { posix } from "node:path";
+import { displayPath, expandTilde } from "./paths.ts";
 
 /** The provider id that gets the built-in resolver, because pi's auth snapshot only sees a placeholder key for it (DESIGN.md section 6). */
 export const CLAUDE_BRIDGE_PROVIDER = "claude-bridge";
@@ -35,19 +36,13 @@ export function claudeBridgeSource({ env, home, usesApiKeyHelper }: ClaudeBridge
 	if (credential) return `env:${credential}`;
 	const configDirectory = resolveConfigDirectory(env.CLAUDE_CONFIG_DIR, home);
 	if (usesApiKeyHelper(configDirectory)) return CLAUDE_CODE_SOURCE;
-	return `claude-config:${displayDirectory(configDirectory, home)}`;
+	return `claude-config:${displayPath(configDirectory, home)}`;
 }
 
 /** The absolute Claude Code config directory: `CLAUDE_CONFIG_DIR` when set, else `~/.claude`. */
 function resolveConfigDirectory(configured: string | undefined, home: string): string {
 	const path = configured === undefined || configured.trim() === "" ? "~/.claude" : configured;
-	const expanded = path === "~" ? home : path.startsWith("~/") ? `${home}${path.slice(1)}` : path;
-	return posix.resolve(home, expanded);
-}
-
-function displayDirectory(path: string, home: string): string {
-	if (path === home) return "~";
-	return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+	return posix.resolve(home, expandTilde(path, home));
 }
 
 /** Whether Claude Code settings text defines a non-empty `apiKeyHelper`. Reads nothing else from the text; malformed text counts as no helper. */

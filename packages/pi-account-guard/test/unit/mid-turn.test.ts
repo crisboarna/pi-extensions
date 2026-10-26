@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { DialogCause, ModelOffer } from "../../src/core/block-dialog.ts";
+import type { ModelOffer } from "../../src/core/block-dialog.ts";
+import type { BlockCause } from "../../src/core/decide.ts";
 import { blockedBeforeSendNotice, failoverBlockedNotice, midTurnDialog, midTurnSessionNotice, midTurnSwitchNotice } from "../../src/core/mid-turn.ts";
 
 const context = { home: "/home/me", configPath: "/home/me/.pi/agent/account-guard.json" };
 const place = { ok: true as const, path: "/home/me/diary", zone: "personal" };
 const blocked = { provider: "acme", source: "oauth" };
-const mismatch: DialogCause = { kind: "zone-mismatch", account: blocked, accountZones: ["work"], place };
+const mismatch: BlockCause = { kind: "zone-mismatch", account: blocked, accountZones: ["work"], place };
 
 const accounts = [
 	{ provider: "beta", source: "oauth", zones: ["personal"] },
@@ -29,13 +30,18 @@ describe("failoverBlockedNotice", () => {
 	});
 
 	it("names the cause for an unknown account, a bad config and an undecidable place", () => {
-		const unknown: DialogCause = { kind: "unknown-account", account: blocked, place };
-		const invalid: DialogCause = { kind: "config-invalid", account: blocked, errors: [] };
-		const undecidable: DialogCause = { kind: "place-undecidable", account: blocked, reason: "git failed" };
+		const unknown: BlockCause = { kind: "unknown-account", account: blocked, place };
+		const invalid: BlockCause = { kind: "config-invalid", account: blocked, errors: [] };
+		const undecidable: BlockCause = { kind: "place-undecidable", account: blocked, reason: "git failed" };
 		const unresolved = { ok: false as const, reason: "git failed" };
 		assert.match(failoverBlockedNotice(unknown, place, context), /acme \(oauth\) \[no zone tag\] during a turn in a personal place/);
-		assert.match(failoverBlockedNotice(invalid, unresolved, context), /\[cannot read ~\/\.pi\/agent\/account-guard\.json\] during a turn in a place whose zone is unknown/);
+		assert.match(
+			failoverBlockedNotice(invalid, unresolved, context),
+			/\[cannot read ~\/\.pi\/agent\/account-guard\.json\] during a turn in a place whose zone is unknown/,
+		);
 		assert.match(failoverBlockedNotice(undecidable, unresolved, context), /\[cannot decide the zone of the place: git failed\]/);
+		const broken: BlockCause = { kind: "internal-error", account: blocked, reason: "boom" };
+		assert.match(failoverBlockedNotice(broken, unresolved, context), /acme \(oauth\) \[the guard failed: boom\] during a turn/);
 	});
 });
 
@@ -84,7 +90,7 @@ describe("midTurnDialog", () => {
 	});
 
 	it("has no Switch row and no Allow once for an undecidable place", () => {
-		const cause: DialogCause = { kind: "place-undecidable", account: blocked, reason: "git failed" };
+		const cause: BlockCause = { kind: "place-undecidable", account: blocked, reason: "git failed" };
 		const { rows } = midTurnDialog({ ...input, cause, place: { ok: false, reason: "git failed" } }, undefined);
 		assert.deepEqual(
 			rows.map((row) => row.kind),
@@ -97,10 +103,13 @@ describe("mid-turn notices after the select", () => {
 	it("says the aborted turn is not resumed after a Switch, and when the model id was not offered", () => {
 		const [first] = midTurnDialog(input, undefined).rows;
 		assert.equal(midTurnSwitchNotice(first as never), "Switched to beta (oauth) using model small (d2 not offered). The aborted turn is not resumed.");
-		assert.equal(midTurnSwitchNotice({ kind: "switch", label: "", account: { provider: "gamma", source: "env:GAMMA_KEY" }, modelId: "g1", zones: [] }), "Switched to gamma (env:GAMMA_KEY). The aborted turn is not resumed.");
+		assert.equal(
+			midTurnSwitchNotice({ kind: "switch", label: "", account: { provider: "gamma", source: "env:GAMMA_KEY" }, modelId: "g1", zones: [] }),
+			"Switched to gamma (env:GAMMA_KEY). The aborted turn is not resumed.",
+		);
 	});
 
 	it("says the aborted turn is not resumed after Allow for session", () => {
-		assert.equal(midTurnSessionNotice(mismatch), "Allowed acme (oauth) for this session. The aborted turn is not resumed.");
+		assert.equal(midTurnSessionNotice(mismatch), "Allow for session: acme (oauth). The aborted turn is not resumed.");
 	});
 });

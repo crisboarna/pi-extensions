@@ -1,11 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sameAccount } from "../core/account.ts";
-import { allowOnceConfirm, blockDialog, logData, switchNotice, type DialogCause, type DialogRow, type ModelOffer } from "../core/block-dialog.ts";
+import { allowOnceConfirm, blockDialog, type DialogRow, logData, type ModelOffer, switchNotice } from "../core/block-dialog.ts";
 import type { GuardConfig } from "../core/config.ts";
-import type { PlaceOutcome } from "../core/decide.ts";
+import type { BlockCause, PlaceOutcome } from "../core/decide.ts";
 import type { MessageContext } from "../core/messages.ts";
-import { grantOnce, grantSession, type Overrides } from "../core/overrides.ts";
-import { accountOfModel } from "./account-of.ts";
+import { grantOnce, grantSession, type Overrides, releaseOnce } from "../core/overrides.ts";
+import type { AccountOfModel } from "./account-of.ts";
 
 /** Holds the Overrides of one session; never persisted. `replace` draws the footer again. */
 export interface OverrideStore {
@@ -16,7 +16,8 @@ export interface OverrideStore {
 export interface InteractiveBlock {
 	pi: ExtensionAPI;
 	ctx: ExtensionContext;
-	cause: DialogCause;
+	accountOfModel: AccountOfModel;
+	cause: BlockCause;
 	place: PlaceOutcome;
 	/** The tags of the live config; `undefined` when the config is invalid. */
 	config: GuardConfig | undefined;
@@ -38,10 +39,13 @@ export async function runInteractiveBlock(block: InteractiveBlock): Promise<Inpu
 		place,
 		currentModelId: model?.id ?? "",
 		accounts: block.config?.accounts ?? [],
-		offers: offersOf(ctx),
+		offers: offersOf(ctx, block.accountOfModel),
 		context: block.messages,
 	});
-	const answer = await ctx.ui.select(dialog.title, dialog.rows.map((row) => row.label));
+	const answer = await ctx.ui.select(
+		dialog.title,
+		dialog.rows.map((row) => row.label),
+	);
 	const row = dialog.rows.find((candidate) => candidate.label === answer);
 	switch (row?.kind) {
 		case "switch":
@@ -62,7 +66,9 @@ export async function runInteractiveBlock(block: InteractiveBlock): Promise<Inpu
 	}
 }
 
-function cancel({ ctx, text }: InteractiveBlock): InputOutcome {
+/** Cancel also ends a leftover Allow once, which would otherwise outlive a turn that never reached `agent_end`. */
+function cancel({ ctx, text, overrides }: InteractiveBlock): InputOutcome {
+	overrides.replace(releaseOnce(overrides.current()), ctx);
 	ctx.ui.setEditorText(text);
 	return { action: "handled" };
 }
@@ -83,7 +89,7 @@ export async function switchTo(
 }
 
 /** The models of every account with auth configured now, grouped per Account in registry order. */
-export function offersOf(ctx: ExtensionContext): ModelOffer[] {
+export function offersOf(ctx: ExtensionContext, accountOfModel: AccountOfModel): ModelOffer[] {
 	const offers: ModelOffer[] = [];
 	for (const model of ctx.modelRegistry.getAvailable()) {
 		const account = accountOfModel(ctx, model);

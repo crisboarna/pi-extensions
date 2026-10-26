@@ -15,7 +15,8 @@ export type BlockCause =
 	| { kind: "unknown-account"; account: AccountKey; place: ResolvedPlace }
 	| { kind: "config-invalid"; account: AccountKey; errors: ConfigError[] }
 	| { kind: "place-undecidable"; account: AccountKey; reason: string }
-	| { kind: "internal-error"; reason: string };
+	/** A failure of the guard's own check; `account` is the current model's, so both Overrides can still cover it (ADR 0001). */
+	| { kind: "internal-error"; account: AccountKey; reason: string };
 
 export type Decision = { verdict: "match" } | { verdict: "block"; cause: BlockCause };
 

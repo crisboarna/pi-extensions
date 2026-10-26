@@ -61,9 +61,15 @@ describe("model_select during a turn", () => {
 		await r.changeModel(acmeMid);
 		assert.equal(r.session.aborts, 1);
 		assert.deepEqual(r.session.notices, [
-			{ message: "guard: failover blocked, model changed to acme (stored-key) [work] during a turn in a personal place (/srv/app). Turn aborted.", type: "error" },
+			{
+				message: "guard: failover blocked, model changed to acme (stored-key) [work] during a turn in a personal place (/srv/app). Turn aborted.",
+				type: "error",
+			},
 		]);
-		assert.deepEqual(r.entries("guard.block").map((entry) => entry.data.cause), ["zone-mismatch"]);
+		assert.deepEqual(
+			r.entries("guard.block").map((entry) => entry.data.cause),
+			["zone-mismatch"],
+		);
 	});
 
 	it("does nothing when the new model matches the place", async () => {
@@ -167,7 +173,10 @@ describe("the select once idle", () => {
 		r.dialogs.selectAnswers.push(/^Allow for session/);
 		await r.settle();
 		assert.equal(r.session.statuses.get("guard"), "guard OVERRIDE acme in personal");
-		assert.deepEqual(r.entries("guard.allow_session").map((entry) => entry.data.account), [{ provider: "acme", source: "stored-key" }]);
+		assert.deepEqual(
+			r.entries("guard.allow_session").map((entry) => entry.data.account),
+			[{ provider: "acme", source: "stored-key" }],
+		);
 		assert.deepEqual(r.dialogs.modelChanges, []);
 	});
 
@@ -231,7 +240,8 @@ describe("the select once idle", () => {
 });
 
 describe("before_agent_start", () => {
-	const start = (r: ReturnType<typeof rig>, event: Record<string, unknown> = { type: "before_agent_start", messageType: "user", prompt: "hi" }) => r.host.fire("before_agent_start", event, r.session.ctx);
+	const start = (r: ReturnType<typeof rig>, event: Record<string, unknown> = { type: "before_agent_start", messageType: "user", prompt: "hi" }) =>
+		r.host.fire("before_agent_start", event, r.session.ctx);
 
 	it("passes a matching model", async () => {
 		const r = rig();
@@ -245,9 +255,16 @@ describe("before_agent_start", () => {
 		await start(r);
 		assert.equal(r.session.aborts, 1);
 		assert.deepEqual(r.session.notices, [
-			{ message: "guard: blocked before sending, the model is acme (stored-key) [work] in a personal place (/srv/app). Run aborted, no request was sent.", type: "error" },
+			{
+				message:
+					"guard: blocked before sending, the model is acme (stored-key) [work] in a personal place (/srv/app). Run aborted, no request was sent.",
+				type: "error",
+			},
 		]);
-		assert.deepEqual(r.entries("guard.block").map((entry) => entry.data.cause), ["zone-mismatch"]);
+		assert.deepEqual(
+			r.entries("guard.block").map((entry) => entry.data.cause),
+			["zone-mismatch"],
+		);
 		assert.deepEqual(r.dialogs.selects, [], "the select belongs to the next input");
 	});
 
@@ -286,12 +303,74 @@ describe("before_agent_start", () => {
 	});
 });
 
+describe("an Allow once grant", () => {
+	// A model on an account with no tag: it Blocks, and no Override covers it.
+	const deltaMid: FakeModel = { provider: "delta", id: "d1" };
+
+	/** Idle on `acme/mid` (Blocked); the user chose Allow once at `input` and the turn is about to start. */
+	async function grantedOnce() {
+		const r = rig();
+		r.state.idle = true;
+		r.session.ctx.model = acmeMid;
+		r.dialogs.selectAnswers.push(/^Allow once/);
+		r.dialogs.confirmAnswers.push(true);
+		assert.deepEqual(await r.host.fire("input", { text: "go", source: "interactive" }, r.session.ctx), { action: "continue" });
+		return r;
+	}
+
+	/** After the grant ended, the same account in the same place Blocks again. */
+	async function assertBlocksAgain(r: Awaited<ReturnType<typeof grantedOnce>>) {
+		r.session.ctx.model = acmeMid;
+		const before = r.dialogs.selects.length;
+		assert.deepEqual(await r.host.fire("input", { text: "again", source: "interactive" }, r.session.ctx), { action: "handled" });
+		assert.equal(r.dialogs.selects.length, before + 1, "the Block select opened");
+	}
+
+	it("ends with agent_end", async () => {
+		const r = await grantedOnce();
+		await r.host.fire("agent_end", {}, r.session.ctx);
+		await assertBlocksAgain(r);
+	});
+
+	it("ends when before_agent_start aborts the run, which never reaches agent_end", async () => {
+		const r = await grantedOnce();
+		r.session.ctx.model = deltaMid;
+		await r.host.fire("before_agent_start", { messageType: "user" }, r.session.ctx);
+		assert.equal(r.session.aborts, 1);
+		await assertBlocksAgain(r);
+	});
+
+	it("ends when the agent settles without an agent_end", async () => {
+		const r = await grantedOnce();
+		await r.settle();
+		await assertBlocksAgain(r);
+	});
+
+	it("ends when a model change aborts the turn", async () => {
+		const r = await grantedOnce();
+		r.state.idle = false;
+		await r.changeModel(deltaMid, acmeMid);
+		assert.equal(r.session.aborts, 1);
+		r.state.idle = true;
+		await assertBlocksAgain(r);
+	});
+
+	it("ends when the user cancels a later Block", async () => {
+		const r = await grantedOnce();
+		r.session.ctx.model = deltaMid;
+		assert.deepEqual(await r.host.fire("input", { text: "other", source: "interactive" }, r.session.ctx), { action: "handled" });
+		await assertBlocksAgain(r);
+	});
+});
+
 describe("headless", () => {
 	it("writes the failover notice to stderr and exits 77 on a mid-turn change", async () => {
 		const r = rig({ hasUI: false });
 		await r.changeModel(acmeMid);
 		assert.equal(r.session.aborts, 1);
-		assert.deepEqual(r.stderr, ["guard: failover blocked, model changed to acme (stored-key) [work] during a turn in a personal place (/srv/app). Turn aborted.\n"]);
+		assert.deepEqual(r.stderr, [
+			"guard: failover blocked, model changed to acme (stored-key) [work] during a turn in a personal place (/srv/app). Turn aborted.\n",
+		]);
 		assert.deepEqual(r.exitCodes, [77]);
 		await r.settle();
 		assert.deepEqual(r.dialogs.selects, []);

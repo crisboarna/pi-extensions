@@ -1,10 +1,10 @@
 // Opt-in: runs real pi (`npm run test:smoke`). One test per assumption in DESIGN.md section 17.1.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { RpcSession, runPrint, type PiOptions, type RpcRecord } from "../support/pi-process.ts";
+import { type PiOptions, type RpcRecord, RpcSession, runPrint } from "../support/pi-process.ts";
 import { STUB_MODEL, STUB_MODEL_2, STUB_PROVIDER, STUB_REPLY } from "../support/stub-provider.ts";
 
 const PROBE_EXTENSION = join(import.meta.dirname, "..", "support", "probe-extension.ts");

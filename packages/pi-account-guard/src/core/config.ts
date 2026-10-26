@@ -1,4 +1,4 @@
-import { sameAccount, type AccountKey } from "./account.ts";
+import { type AccountKey, sameAccount } from "./account.ts";
 
 export interface AccountTag {
 	provider: string;
@@ -95,7 +95,12 @@ function validate(value: unknown, errors: ConfigError[]): GuardConfig | undefine
 	}
 	if (!declared(defaultZone)) undeclared("defaultZone", defaultZone);
 
-	return { zones: zones ?? [], defaultZone, accounts: readAccounts(value.accounts, declared, undeclared, errors), places: readPlaces(value.places, declared, undeclared, errors) };
+	return {
+		zones: zones ?? [],
+		defaultZone,
+		accounts: readAccounts(value.accounts, declared, undeclared, errors),
+		places: readPlaces(value.places, declared, undeclared, errors),
+	};
 }
 
 function readZones(value: unknown, errors: ConfigError[]): string[] | undefined {
@@ -124,7 +129,10 @@ function readAccounts(value: unknown, declared: (zone: string) => boolean, undec
 	const accounts: AccountTag[] = [];
 	value.forEach((entry, index) => {
 		const path = `accounts[${index}]`;
-		if (!isObject(entry)) return void errors.push({ path, message: "must be an object" });
+		if (!isObject(entry)) {
+			errors.push({ path, message: "must be an object" });
+			return;
+		}
 		rejectUnknownFields(entry, ["provider", "source", "zones", "note"], path, errors);
 		const { provider, source } = entry;
 		if (!isName(provider)) errors.push({ path: `${path}.provider`, message: "must be a non-empty string" });
@@ -166,14 +174,18 @@ function readPlaces(value: unknown, declared: (zone: string) => boolean, undecla
 	const places: PlaceRuleEntry[] = [];
 	value.forEach((entry, index) => {
 		const path = `places[${index}]`;
-		if (!isObject(entry)) return void errors.push({ path, message: "must be an object" });
+		if (!isObject(entry)) {
+			errors.push({ path, message: "must be an object" });
+			return;
+		}
 		rejectUnknownFields(entry, ["path", "remote", "zone", "note"], path, errors);
 		const note = readNote(entry, path, errors);
 		let rulePath: string | undefined;
 		if (entry.path === undefined && entry.remote === undefined) errors.push({ path, message: "needs a path or a remote" });
 		if (entry.path !== undefined) {
 			if (!isName(entry.path)) errors.push({ path: `${path}.path`, message: "must be a non-empty string" });
-			else if (!entry.path.startsWith("/") && entry.path !== "~" && !entry.path.startsWith("~/")) errors.push({ path: `${path}.path`, message: "must be absolute or start with ~" });
+			else if (!entry.path.startsWith("/") && entry.path !== "~" && !entry.path.startsWith("~/"))
+				errors.push({ path: `${path}.path`, message: "must be absolute or start with ~" });
 			else rulePath = entry.path;
 		}
 		let remote: string | undefined;

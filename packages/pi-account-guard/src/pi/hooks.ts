@@ -1,23 +1,21 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AccountKey } from "../core/account.ts";
-import type { ConfigResult } from "../core/config.ts";
-import { createConfigState, type ConfigSnapshot } from "../core/config-state.ts";
-import { decide, type BlockCause, type Decision, type PlaceOutcome } from "../core/decide.ts";
 import { logData } from "../core/block-dialog.ts";
+import { definesApiKeyHelper } from "../core/claude-bridge.ts";
+import type { ConfigResult } from "../core/config.ts";
+import { type ConfigSnapshot, createConfigState } from "../core/config-state.ts";
+import { type BlockCause, type Decision, decide, type PlaceOutcome } from "../core/decide.ts";
 import { footerText } from "../core/footer.ts";
 import { configFallbackWarning, headlessBlockMessage } from "../core/messages.ts";
-import { definesApiKeyHelper } from "../core/claude-bridge.ts";
-import { applyOverrides, NO_OVERRIDES, releaseOnce, type Overrides } from "../core/overrides.ts";
-import { resolvePlaceZone, type RemoteUrls } from "../core/place.ts";
-import { accountOfModel, configureClaudeBridgeResolver } from "./account-of.ts";
-import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
+import { applyOverrides, NO_OVERRIDES, type Overrides, releaseOnce } from "../core/overrides.ts";
+import { type RemoteUrls, resolvePlaceZone } from "../core/place.ts";
+import { createAccountResolver } from "./account-of.ts";
 import { registerGuardCommand } from "./commands.ts";
+import { BLOCK_EXIT_CODE } from "./exit-code.ts";
+import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
 import { runInteractiveBlock } from "./interactive-block.ts";
 import { registerModelGuard } from "./model-guard.ts";
 import { createUnknownAccountGate, type UnknownAccountDeps } from "./unknown-account.ts";
-
-/** Exit code of a headless Block (ADR 0005). */
-const BLOCK_EXIT_CODE = 77;
 
 /** Everything the hooks read from or write to the outside world, so tests can inject fakes. */
 export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writeStderr"> {
@@ -35,11 +33,20 @@ export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writ
 	pooledProviders?(ctx: ExtensionContext): string[];
 }
 
+/** A decision with the place and config it was made on. */
+interface Checked {
+	decision: Decision;
+	place: PlaceOutcome;
+	config: ConfigResult;
+}
+
 export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	// Only the place zone is cached (DESIGN.md section 5.4); tags are read live at every check.
 	let cachedPlace: { cwd: string; place: PlaceOutcome } | undefined;
 	// Overrides live only in this session's memory and are never written to disk (DESIGN.md section 10).
 	let overrides: Overrides = NO_OVERRIDES;
+	// Set when `input` logged the process Override for the turn that is about to start, so `before_agent_start` does not log it again.
+	let processOverrideLoggedAtInput = false;
 	const overrideStore = {
 		current: () => overrides,
 		replace(next: Overrides, ctx: ExtensionContext) {
@@ -48,7 +55,7 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		},
 	};
 
-	configureClaudeBridgeResolver({
+	const accountOfModel = createAccountResolver({
 		env: deps.env ?? {},
 		home: deps.home,
 		// Only the presence of the helper is read; its command is never kept (DESIGN.md section 6).
@@ -108,19 +115,34 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		if (!ctx.hasUI) return;
 		try {
 			const snapshot = loadSnapshot(ctx);
-			ctx.ui.setStatus("guard", footerText({ place: currentPlace(ctx.cwd, snapshot.result), account: accountOf(ctx), config: snapshot.result, usingLastValid: snapshot.fallback !== undefined, overrides }));
+			ctx.ui.setStatus(
+				"guard",
+				footerText({
+					place: currentPlace(ctx.cwd, snapshot.result),
+					account: accountOf(ctx),
+					config: snapshot.result,
+					usingLastValid: snapshot.fallback !== undefined,
+					overrides,
+				}),
+			);
 		} catch {
 			// The hooks that check a turn report their own failure; the footer only says it cannot decide.
 			ctx.ui.setStatus("guard", "guard ! check failed");
 		}
 	}
 
-	function check(ctx: ExtensionContext): { decision: Decision; place: PlaceOutcome; config: ConfigResult } | undefined {
+	function check(ctx: ExtensionContext): Checked | undefined {
 		const account = accountOf(ctx);
 		if (!account) return undefined;
 		const config = loadConfig(ctx);
 		const place = currentPlace(ctx.cwd, config);
 		return { decision: decide({ place, account, config }), place, config };
+	}
+
+	/** Writes the text to stderr and sets the Block exit code (ADR 0005). */
+	function failHeadless(text: string): void {
+		deps.writeStderr(text);
+		deps.setExitCode(BLOCK_EXIT_CODE);
 	}
 
 	function block(cause: BlockCause, text: string, ctx: ExtensionContext): void {
@@ -130,15 +152,15 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			ctx.ui.setEditorText(text);
 			return;
 		}
-		deps.writeStderr(message);
-		deps.setExitCode(BLOCK_EXIT_CODE);
+		failHeadless(message);
 	}
 
 	pi.on(
 		"session_start",
-		abortOnError(pi, "session_start", deps.writeStderr, (_event, ctx) => {
+		abortOnError(pi, "session_start", failHeadless, (_event, ctx) => {
 			cachedPlace = undefined;
 			overrides = NO_OVERRIDES;
+			processOverrideLoggedAtInput = false;
 			configState.reset();
 			unknownAccounts.reset();
 			currentPlace(ctx.cwd, loadConfig(ctx));
@@ -146,13 +168,16 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		}),
 	);
 
-	pi.on("model_select", (_event, ctx) => refreshFooter(ctx));
+	pi.on(
+		"model_select",
+		abortOnError(pi, "model_select", failHeadless, (_event, ctx) => refreshFooter(ctx)),
+	);
 
 	registerGuardCommand(pi, {
 		home: deps.home,
 		configPath: deps.configPath,
 		configState,
-		writeConfigText: deps.writeConfigText,
+		...(deps.writeConfigText ? { writeConfigText: deps.writeConfigText } : {}),
 		loadSnapshot,
 		currentPlace: (ctx, snapshot) => currentPlace(ctx.cwd, snapshot.result),
 		placeUnder: (ctx, config) => resolvePlace(ctx.cwd, { ok: true, config }),
@@ -160,37 +185,61 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		realpath: deps.realpath,
 		readRemoteUrls: deps.readRemoteUrls,
 		overrides: overrideStore.current,
-		pooledProviders: deps.pooledProviders,
-		multiPassLabel: deps.multiPassLabel,
+		...(deps.pooledProviders ? { pooledProviders: deps.pooledProviders } : {}),
+		...(deps.multiPassLabel ? { multiPassLabel: deps.multiPassLabel } : {}),
 		refreshFooter,
 		writeStderr: deps.writeStderr,
 		setExitCode: deps.setExitCode,
+		failHeadless,
+		accountOfModel,
 	});
 
 	registerModelGuard(pi, {
-		// The process Override covers an Unknown account in every hook; the `input` hook logs and warns when it lets a turn through.
-		evaluate(ctx) {
-			const checked = check(ctx);
-			if (checked?.decision.verdict === "block" && unknownAccounts.covers(checked.decision.cause, ctx)) return { ...checked, decision: { verdict: "match" } };
-			return checked;
+		// The process Override covers an Unknown account in every hook. `input` logs and warns when it lets a turn through;
+		// a turn that starts without `input` (`sendMessage` with `triggerTurn`) is logged here, when it is about to start.
+		evaluate(ctx, startsTurn) {
+			const checked = checkOrFail(ctx);
+			const alreadyLogged = startsTurn && processOverrideLoggedAtInput;
+			if (startsTurn) processOverrideLoggedAtInput = false;
+			if (checked?.decision.verdict !== "block" || !unknownAccounts.covers(checked.decision.cause, ctx)) return checked;
+			if (startsTurn && !alreadyLogged) unknownAccounts.letThrough(checked.decision.cause, ctx);
+			return { ...checked, decision: { verdict: "match" } };
 		},
 		overrides: overrideStore,
 		messages: deps,
-		writeStderr: deps.writeStderr,
-		failHeadless(text) {
-			deps.writeStderr(text);
-			deps.setExitCode(BLOCK_EXIT_CODE);
-		},
+		failHeadless,
+		accountOfModel,
 	});
 
+	/** The account an internal error Blocks: the current model's, so both Overrides can still cover it (ADR 0001). */
+	function accountOfFailedCheck(ctx: ExtensionContext): AccountKey {
+		try {
+			const account = accountOf(ctx);
+			if (account) return account;
+		} catch {
+			// The account itself could not be read; the fallback below still gives the Overrides something to bind to.
+		}
+		return { provider: ctx.model?.provider ?? "unknown", source: "unresolved" };
+	}
+
 	/** Checks the turn; an error in the check Blocks the turn itself, because pi swallows hook errors and carries on (ADR 0001). */
-	function checkOrBlock(ctx: ExtensionContext): ReturnType<typeof check> {
+	function checkOrFail(ctx: ExtensionContext): Checked | undefined {
 		try {
 			return check(ctx);
 		} catch (error) {
-			logHandlerError(pi, "input", error);
-			return { decision: { verdict: "block", cause: { kind: "internal-error", reason: errorText(error) } }, place: { ok: false, reason: "internal error" }, config: { ok: false, errors: [] } };
+			return {
+				decision: { verdict: "block", cause: { kind: "internal-error", account: accountOfFailedCheck(ctx), reason: errorText(error) } },
+				place: { ok: false, reason: "internal error" },
+				config: { ok: false, errors: [] },
+			};
 		}
+	}
+
+	function checkOrBlock(ctx: ExtensionContext): Checked | undefined {
+		const checked = checkOrFail(ctx);
+		if (checked?.decision.verdict === "block" && checked.decision.cause.kind === "internal-error")
+			logHandlerError(pi, "input", new Error(checked.decision.cause.reason));
+		return checked;
 	}
 
 	// Every user turn passes here, `/`-prefixed text included: skills and prompt templates arrive unexpanded.
@@ -203,7 +252,10 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		if (verdict.verdict !== "block") return undefined;
 		try {
 			if (verdict.cause.kind === "unknown-account") {
-				if (unknownAccounts.letThrough(verdict.cause, ctx)) return undefined;
+				if (unknownAccounts.letThrough(verdict.cause, ctx)) {
+					processOverrideLoggedAtInput = true;
+					return undefined;
+				}
 				// A tag that gives a Match lets the turn proceed with no resubmit; any other tag falls to the Block with the new tag in its title.
 				if (await unknownAccounts.tag(verdict.cause, ctx)) {
 					refreshFooter(ctx);
@@ -215,10 +267,11 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			}
 			const { cause } = verdict;
 			if (cause.kind !== "internal-error") pi.appendEntry("guard.block", logData(cause, checked.place));
-			if (ctx.hasUI && cause.kind !== "internal-error") {
+			if (ctx.hasUI) {
 				return await runInteractiveBlock({
 					pi,
 					ctx,
+					accountOfModel,
 					cause,
 					place: checked.place,
 					config: checked.config.ok ? checked.config.config : undefined,
@@ -229,13 +282,17 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			}
 			block(cause, event.text, ctx);
 		} catch (error) {
-			reportHandlerError(pi, ctx, "input", error, deps.writeStderr);
+			reportHandlerError(pi, ctx, "input", error, failHeadless);
 		}
 		return { action: "handled" };
 	});
 
 	// Allow once covers one turn (DESIGN.md section 10).
-	pi.on("agent_end", async () => {
-		overrides = releaseOnce(overrides);
-	});
+	pi.on(
+		"agent_end",
+		abortOnError(pi, "agent_end", failHeadless, () => {
+			overrides = releaseOnce(overrides);
+			processOverrideLoggedAtInput = false;
+		}),
+	);
 }

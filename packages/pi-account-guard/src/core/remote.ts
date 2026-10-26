@@ -15,7 +15,10 @@ export function normalizeRemoteUrl(url: string): string {
 	const withoutUser = authority.slice(authority.lastIndexOf("@") + 1);
 	// An scp-like URL (`user@host:path`) has no scheme; the first `:` separates host and path.
 	const host = hasScheme || !withoutUser.includes(":") ? withoutUser : withoutUser.replace(":", "/");
-	const path = `${host.replaceAll(":", "/")}${tail}`.replace(/\/{2,}/g, "/").replace(/\/+$/, "").replace(/\.git$/i, "");
+	const path = `${host.replaceAll(":", "/")}${tail}`
+		.replace(/\/{2,}/g, "/")
+		.replace(/\/+$/, "")
+		.replace(/\.git$/i, "");
 	return percentDecode(path);
 }
 

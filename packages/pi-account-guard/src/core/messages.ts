@@ -1,7 +1,7 @@
-import { describeAccount, type AccountKey } from "./account.ts";
-import { formatConfigErrors, type ConfigError } from "./config.ts";
-import type { BlockCause } from "./decide.ts";
-import { displayPath } from "./place.ts";
+import { type AccountKey, describeAccount } from "./account.ts";
+import { type ConfigError, formatConfigErrors } from "./config.ts";
+import type { BlockCause, PlaceOutcome } from "./decide.ts";
+import { displayPath, fileName } from "./paths.ts";
 import { PROCESS_OVERRIDE_VARIABLE } from "./process-override.ts";
 
 export interface MessageContext {
@@ -54,12 +54,13 @@ function headlessLines(cause: BlockCause, context: MessageContext): string[] {
 	}
 }
 
-export function zonePhrase(zones: string[]): string {
-	return `${zones.length === 1 ? "zone" : "zones"} ${zones.join(", ")}`;
+/** Where a turn runs, in words: the place zone and path, or that the zone is unknown. */
+export function placeWhere(place: PlaceOutcome, context: MessageContext): string {
+	return place.ok ? `a ${place.zone} place (${displayPath(place.path, context.home)})` : "a place whose zone is unknown";
 }
 
-function fileName(path: string): string {
-	return path.slice(path.lastIndexOf("/") + 1);
+export function zonePhrase(zones: string[]): string {
+	return `${zones.length === 1 ? "zone" : "zones"} ${zones.join(", ")}`;
 }
 
 /** The warning shown once when a malformed config falls back to the last valid copy (DESIGN.md section 7). */

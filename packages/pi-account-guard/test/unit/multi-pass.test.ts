@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { multiPassLabel } from "../../src/core/multi-pass.ts";
 
-const text = JSON.stringify({ subscriptions: [{ provider: "acme", index: 2, label: "Work" }, { provider: "acme", index: 3 }, { provider: "beta", index: 1, label: 7 }] });
+const text = JSON.stringify({
+	subscriptions: [
+		{ provider: "acme", index: 2, label: "Work" },
+		{ provider: "acme", index: 3 },
+		{ provider: "beta", index: 1, label: 7 },
+	],
+});
 
 describe("multiPassLabel", () => {
 	it("finds the label of a provider id registered as <provider>-<index>", () => {

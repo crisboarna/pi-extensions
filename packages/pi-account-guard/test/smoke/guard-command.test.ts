@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { GUARD_EXTENSION, RpcSession, type RpcRecord } from "../support/pi-process.ts";
+import { GUARD_EXTENSION, type RpcRecord, RpcSession } from "../support/pi-process.ts";
 import { STUB_PROVIDER } from "../support/stub-provider.ts";
 
 const isUiRequest = (method: string) => (record: RpcRecord) => record.type === "extension_ui_request" && record.method === method;
@@ -47,7 +47,9 @@ describe("/guard over RPC", () => {
 			assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")).accounts, [{ provider: STUB_PROVIDER, source: "fallback", zones: ["work"] }]);
 			rpc.send({ id: "g2", type: "prompt", message: "/guard untag" });
 			await rpc.waitFor(isUntagNotice);
-			const footers = rpc.records.filter((record) => isUiRequest("setStatus")(record) && record.statusText !== undefined).map((record) => record.statusText);
+			const footers = rpc.records
+				.filter((record) => isUiRequest("setStatus")(record) && record.statusText !== undefined)
+				.map((record) => record.statusText);
 			assert.equal(footers.at(-1), "guard personal ? untagged");
 			assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")).accounts, []);
 		});
@@ -68,7 +70,9 @@ describe("/guard over RPC", () => {
 	it("confirms a default zone change that moves this place, and refuses to remove a referenced zone", async () => {
 		await withGuard({ accounts: [{ provider: STUB_PROVIDER, source: "fallback", zones: ["work"] }] }, async (rpc, configFile) => {
 			rpc.send({ id: "g1", type: "prompt", message: "/guard zone remove work" });
-			const refused = await rpc.waitFor((record) => isUiRequest("notify")(record) && String(record.message).startsWith("guard: did not remove zone work"));
+			const refused = await rpc.waitFor(
+				(record) => isUiRequest("notify")(record) && String(record.message).startsWith("guard: did not remove zone work"),
+			);
 			assert.equal(refused.message, `guard: did not remove zone work. It is still referenced by:\n  tag ${STUB_PROVIDER} (fallback)`);
 			rpc.send({ id: "g2", type: "prompt", message: "/guard zone default work" });
 			const confirm = await rpc.waitFor(isUiRequest("confirm"));

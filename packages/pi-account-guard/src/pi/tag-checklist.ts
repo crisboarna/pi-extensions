@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { createChecklist, type ChecklistKey } from "../core/checklist.ts";
+import { type ChecklistKey, createChecklist } from "../core/checklist.ts";
 
 function keyOf(data: string): ChecklistKey | undefined {
 	if (matchesKey(data, "up")) return "up";

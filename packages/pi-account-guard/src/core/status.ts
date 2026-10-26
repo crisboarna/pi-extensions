@@ -1,9 +1,9 @@
-import { describeAccount, type AccountKey } from "./account.ts";
-import { accountZones, formatConfigErrors, type ConfigError, type ConfigResult, type PlaceRuleEntry } from "./config.ts";
+import { type AccountKey, describeAccount } from "./account.ts";
+import { accountZones, type ConfigError, type ConfigResult, formatConfigErrors, type PlaceRuleEntry } from "./config.ts";
 import { decide, type PlaceOutcome } from "./decide.ts";
 import type { MessageContext } from "./messages.ts";
 import type { Overrides } from "./overrides.ts";
-import { displayPath } from "./place.ts";
+import { displayPath, fileName } from "./paths.ts";
 
 export interface StatusInput extends MessageContext {
 	/** The session cwd, shown when the place cannot be resolved. */
@@ -20,6 +20,8 @@ export interface StatusInput extends MessageContext {
 	pooledProviders: string[];
 	/** Accounts with configured auth now and no tag. */
 	untagged: AccountKey[];
+	/** Tags of accounts the registry no longer knows; they are kept in the file and listed here (DESIGN.md section 6). */
+	missing: Array<{ key: AccountKey; zones: string[] }>;
 }
 
 const NONE = "none";
@@ -35,6 +37,9 @@ export function statusText(input: StatusInput): string {
 		["Zones", input.config.ok ? `${input.config.config.zones.join(", ")} (default: ${input.config.config.defaultZone})` : "unknown (config invalid)"],
 		["Pooled", input.pooledProviders.length > 0 ? `pi-multiprovider: ${input.pooledProviders.join(", ")} (warns only)` : NONE],
 		["Untagged", input.untagged.length > 0 ? input.untagged.map(describeAccount).join(", ") : NONE],
+		...(input.missing.length > 0
+			? [["Missing", input.missing.map(({ key, zones }) => `${describeAccount(key)} [${zones.join(", ")}]`).join(", ")] as [string, string]]
+			: []),
 	];
 	const lines = rows.flatMap(([label, value]) => {
 		const [first, ...more] = value.split("\n");
@@ -79,7 +84,7 @@ function overridesValue({ session, once }: Overrides): string {
 function configValue({ config, fallbackErrors, home, configPath }: StatusInput): string {
 	const path = displayPath(configPath, home);
 	if (config.ok && !fallbackErrors) return `${path} (valid)`;
-	const file = configPath.slice(configPath.lastIndexOf("/") + 1);
+	const file = fileName(configPath);
 	const errors = fallbackErrors ?? (config.ok ? [] : config.errors);
 	return [`${path} (invalid, ${config.ok ? "last valid copy in use" : "no valid copy, turns blocked"})`, ...formatConfigErrors(errors, file)].join("\n");
 }

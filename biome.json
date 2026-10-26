@@ -316,6 +316,66 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["packages/pi-account-guard/src/core/config.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 32
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-account-guard/src/core/glob.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 31
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-account-guard/src/pi/hooks.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 32
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/pi-account-guard/src/pi/place-zone-commands.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": {
+								"maxAllowedComplexity": 40
+							}
+						}
+					}
+				}
+			}
 		}
 	],
 	"yaml": {

@@ -46,13 +46,40 @@ describe("process Override (PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1)", () => {
 			assert.equal(await r.input(), undefined);
 			assert.equal(await r.input(), undefined);
 			assert.equal(r.entries("guard.allow_unknown").length, 2);
-			assert.deepEqual(r.entries("guard.allow_unknown")[0]!.data, { account: { provider: "acme", source: "stored-key" }, cause: "unknown-account", place: { path: "/srv/app", zone: "personal" } });
+			assert.deepEqual(r.entries("guard.allow_unknown")[0]!.data, {
+				account: { provider: "acme", source: "stored-key" },
+				cause: "unknown-account",
+				place: { path: "/srv/app", zone: "personal" },
+			});
 			assert.equal(r.stderr.length, 1);
-			assert.match(r.stderr[0]!, /^guard: PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 lets turns through to accounts with no zone tag, starting with acme \(stored-key\)\./);
+			assert.match(
+				r.stderr[0]!,
+				/^guard: PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 lets turns through to accounts with no zone tag, starting with acme \(stored-key\)\./,
+			);
 			assert.deepEqual(r.exitCodes, []);
 			assert.equal(r.entries("guard.block").length, 0);
 		});
 	}
+
+	it("logs and warns for a turn that starts without input, such as sendMessage with triggerTurn", async () => {
+		const r = rig({ mode: "print" });
+		await r.host.fire("before_agent_start", { messageType: "custom" }, r.session.ctx);
+		await r.host.fire("before_agent_start", { messageType: "custom" }, r.session.ctx);
+		assert.equal(r.session.aborts, 0);
+		assert.equal(r.entries("guard.allow_unknown").length, 2);
+		assert.equal(r.stderr.length, 1);
+		assert.deepEqual(r.exitCodes, []);
+	});
+
+	it("logs a turn once when it passes input and before_agent_start, and the next input-less turn again", async () => {
+		const r = rig({ mode: "print" });
+		assert.equal(await r.input(), undefined);
+		await r.host.fire("before_agent_start", { messageType: "user" }, r.session.ctx);
+		await r.host.fire("agent_end", {}, r.session.ctx);
+		assert.equal(r.entries("guard.allow_unknown").length, 1);
+		await r.host.fire("before_agent_start", { messageType: "custom" }, r.session.ctx);
+		assert.equal(r.entries("guard.allow_unknown").length, 2);
+	});
 
 	it("lets an Unknown account through over RPC with no dialog, and warns once with a notice", async () => {
 		const r = rig({ mode: "rpc" });
@@ -61,7 +88,10 @@ describe("process Override (PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1)", () => {
 		assert.equal(r.dialogs.selects.length, 0);
 		assert.deepEqual(r.files.writes, []);
 		assert.equal(r.entries("guard.allow_unknown").length, 2);
-		assert.deepEqual(r.session.notices.map((notice) => notice.type), ["warning"]);
+		assert.deepEqual(
+			r.session.notices.map((notice) => notice.type),
+			["warning"],
+		);
 		assert.deepEqual(r.stderr, []);
 	});
 

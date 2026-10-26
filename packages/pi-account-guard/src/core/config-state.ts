@@ -1,4 +1,4 @@
-import { parseConfig, type ConfigError, type ConfigResult, type GuardConfig } from "./config.ts";
+import { type ConfigError, type ConfigResult, type GuardConfig, parseConfig } from "./config.ts";
 
 export interface ConfigSnapshot {
 	/** What the checks decide with: the live file, or the last valid copy while the file is malformed. */

@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseNumber, parsePlaceAddArguments, parseTagArguments, parseUntagArguments, sameZones, zoneChangeText, zoneNameProblem } from "../../src/core/guard-command.ts";
+import {
+	parseNumber,
+	parsePlaceAddArguments,
+	parseTagArguments,
+	parseUntagArguments,
+	sameZones,
+	zoneChangeText,
+	zoneNameProblem,
+} from "../../src/core/guard-command.ts";
 
 const declared = ["work", "personal"];
 
@@ -55,7 +63,12 @@ describe("zone lists", () => {
 describe("parsePlaceAddArguments", () => {
 	it("reads key=value words in any order", () => {
 		assert.deepEqual(parsePlaceAddArguments([]), {});
-		assert.deepEqual(parsePlaceAddArguments(["zone=work", "path=here", "remote=*/Acme/*", "at=2"]), { zone: "work", path: "here", remote: "*/Acme/*", at: "2" });
+		assert.deepEqual(parsePlaceAddArguments(["zone=work", "path=here", "remote=*/Acme/*", "at=2"]), {
+			zone: "work",
+			path: "here",
+			remote: "*/Acme/*",
+			at: "2",
+		});
 	});
 
 	it("keeps an equals sign inside a value", () => {

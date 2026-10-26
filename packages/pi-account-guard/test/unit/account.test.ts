@@ -19,7 +19,10 @@ describe("accountKey", () => {
 	});
 
 	it("names an environment variable by its name", () => {
-		assert.deepEqual(accountKey(input({ status: { configured: true, source: "environment", label: "ACME_KEY" } })), { provider: "acme", source: "env:ACME_KEY" });
+		assert.deepEqual(accountKey(input({ status: { configured: true, source: "environment", label: "ACME_KEY" } })), {
+			provider: "acme",
+			source: "env:ACME_KEY",
+		});
 	});
 
 	it("maps the model config and runtime sources", () => {
@@ -34,12 +37,41 @@ describe("accountKey", () => {
 		const key = accountKey(input());
 		const env = accountKey(input({ status: { configured: true, source: "environment", label: "ACME_KEY" } }));
 		const otherEnv = accountKey(input({ status: { configured: true, source: "environment", label: "ACME_OTHER" } }));
-		for (const [a, b] of [[login, key], [login, env], [key, env], [env, otherEnv]] as const) assert.equal(sameAccount(a, b), false);
+		for (const [a, b] of [
+			[login, key],
+			[login, env],
+			[key, env],
+			[env, otherEnv],
+		] as const)
+			assert.equal(sameAccount(a, b), false);
 		assert.equal(sameAccount(login, accountKey(input({ usingOAuth: true }))), true);
 	});
 
 	it("keeps a provider with no configured auth apart from every real source", () => {
 		assert.deepEqual(accountKey(input({ status: { configured: false } })), { provider: "acme", source: "unconfigured" });
+	});
+
+	it("keeps an unrecognised source apart from no credentials and from every other source", () => {
+		const unconfigured = accountKey(input({ status: { configured: false } }));
+		const newSource = accountKey(input({ status: { configured: true, source: "keychain" } }));
+		const otherSource = accountKey(input({ status: { configured: true, source: "vault" } }));
+		assert.deepEqual(newSource, { provider: "acme", source: "unrecognised:keychain" });
+		for (const [a, b] of [
+			[newSource, unconfigured],
+			[newSource, otherSource],
+		] as const)
+			assert.equal(sameAccount(a, b), false);
+		assert.deepEqual(accountKey(input({ status: { configured: true } })), { provider: "acme", source: "unrecognised:none" });
+	});
+
+	it("does not name an environment variable it was not told, so it never claims one", () => {
+		const unlabelled = accountKey(input({ status: { configured: true, source: "environment" } }));
+		assert.deepEqual(unlabelled, { provider: "acme", source: "unrecognised:environment" });
+		assert.equal(
+			sameAccount(unlabelled, accountKey(input({ status: { configured: true, source: "environment", label: "unknown" } }))),
+			false,
+			"a variable really called unknown is its own account",
+		);
 	});
 });
 

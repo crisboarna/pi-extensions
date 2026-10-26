@@ -27,7 +27,9 @@ function rig({ file, hasUI = true, remotes = { ok: true, urls: [] } }: RigOption
 		readConfigText: () => files.text,
 		realpath: (path) => path,
 		readRemoteUrls: () => remotes,
-		writeConfigText: (_path, text) => void (files.text = text),
+		writeConfigText: (_path, text) => {
+			files.text = text;
+		},
 		writeStderr: () => undefined,
 		setExitCode: () => undefined,
 	});

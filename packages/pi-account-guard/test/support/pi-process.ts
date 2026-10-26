@@ -1,6 +1,6 @@
 // Runs real pi for smoke tests: no network, no credentials, an isolated agent
 // directory, and the stub provider loaded with `-ne -e`.
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,11 +45,19 @@ export interface PrintResult {
 /** Runs `pi -p <prompt>` to completion. */
 export function runPrint(prompt: string, options: PiOptions = {}): Promise<PrintResult> {
 	return new Promise((resolve, reject) => {
-		const child = spawn(PI_BIN, piArgs(options, ["-p", prompt]), { cwd: options.cwd ?? ROOT, env: isolatedEnv(options.env), stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn(PI_BIN, piArgs(options, ["-p", prompt]), {
+			cwd: options.cwd ?? ROOT,
+			env: isolatedEnv(options.env),
+			stdio: ["ignore", "pipe", "pipe"],
+		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (chunk) => void (stdout += chunk));
-		child.stderr.on("data", (chunk) => void (stderr += chunk));
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk;
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk;
+		});
 		child.on("error", reject);
 		child.on("close", (code) => resolve({ stdout, stderr, code }));
 	});
@@ -65,7 +73,11 @@ export class RpcSession {
 	#waiters: Array<() => void> = [];
 
 	constructor(options: PiOptions = {}) {
-		this.#child = spawn(PI_BIN, piArgs(options, ["--mode", "rpc"]), { cwd: options.cwd ?? ROOT, env: isolatedEnv(options.env), stdio: ["pipe", "pipe", "pipe"] });
+		this.#child = spawn(PI_BIN, piArgs(options, ["--mode", "rpc"]), {
+			cwd: options.cwd ?? ROOT,
+			env: isolatedEnv(options.env),
+			stdio: ["pipe", "pipe", "pipe"],
+		});
 		this.#child.stdout.setEncoding("utf8");
 		this.#child.stdout.on("data", (chunk: string) => {
 			this.#buffer += chunk;
@@ -86,7 +98,10 @@ export class RpcSession {
 	/** Resolves with the first record matching `match`, including records already received. */
 	waitFor(match: (record: RpcRecord) => boolean, timeoutMs = 30_000): Promise<RpcRecord> {
 		return new Promise((resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error(`timed out waiting for an RPC record; saw ${this.records.map((r) => r.type).join(", ")}`)), timeoutMs);
+			const timer = setTimeout(
+				() => reject(new Error(`timed out waiting for an RPC record; saw ${this.records.map((r) => r.type).join(", ")}`)),
+				timeoutMs,
+			);
 			const check = () => {
 				const found = this.records.find(match);
 				if (!found) return void this.#waiters.push(check);

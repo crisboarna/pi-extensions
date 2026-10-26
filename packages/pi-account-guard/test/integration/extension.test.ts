@@ -12,7 +12,11 @@ const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
 async function boot() {
 	process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), "account-guard-agent-"));
 	const jiti = createJiti(import.meta.url, { moduleCache: false });
-	const factory = (await jiti.import(INDEX, { default: true })) as (pi: unknown) => unknown;
+	// pi loads extensions through jiti, so that is the default. The coverage run imports natively instead:
+	// V8 coverage cannot map code that jiti transforms back to the source files.
+	const factory = (
+		process.env.ACCOUNT_GUARD_NATIVE_IMPORT === "1" ? ((await import(INDEX)) as { default: unknown }).default : await jiti.import(INDEX, { default: true })
+	) as (pi: unknown) => unknown;
 	assert.equal(typeof factory, "function", "src/index.ts default-exports the extension factory");
 	const host = createFakeHost();
 	await factory(host.pi);
@@ -22,7 +26,10 @@ async function boot() {
 describe("extension load", () => {
 	it("loads through jiti and registers only the guard command and the session_start, input, model_select, before_agent_start, agent_settled and agent_end handlers", async () => {
 		const host = await boot();
-		assert.deepEqual(host.calls.filter((call) => call.method !== "on" && call.method !== "registerCommand"), []);
+		assert.deepEqual(
+			host.calls.filter((call) => call.method !== "on" && call.method !== "registerCommand"),
+			[],
+		);
 		assert.deepEqual([...host.commands.keys()], ["guard"]);
 		assert.deepEqual(host.handledEvents().sort(), ["agent_end", "agent_settled", "before_agent_start", "input", "model_select", "session_start"]);
 		assert.equal(host.providers.size, 0);
@@ -43,15 +50,15 @@ describe("extension load", () => {
 describe("fake pi host", () => {
 	it("runs registered handlers and keeps the last defined result", async () => {
 		const host = createFakeHost();
-		(host.pi.on as Function)("input", () => undefined);
-		(host.pi.on as Function)("input", () => ({ action: "handled" }));
+		(host.pi.on as (...args: unknown[]) => unknown)("input", () => undefined);
+		(host.pi.on as (...args: unknown[]) => unknown)("input", () => ({ action: "handled" }));
 		assert.equal(host.handlerCount("input"), 2);
 		assert.deepEqual(await host.fire("input", {}, {}), { action: "handled" });
 	});
 
 	it("records an unexpected API call", () => {
 		const host = createFakeHost();
-		(host.pi.registerShortcut as Function)("ctrl+g");
+		(host.pi.registerShortcut as (...args: unknown[]) => unknown)("ctrl+g");
 		assert.deepEqual(host.calls, [{ method: "registerShortcut", args: ["ctrl+g"] }]);
 	});
 });

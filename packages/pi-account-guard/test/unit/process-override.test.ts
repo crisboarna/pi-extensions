@@ -35,7 +35,7 @@ describe("processOverrideCovers", () => {
 			{ kind: "zone-mismatch", account, accountZones: ["work"], place },
 			{ kind: "config-invalid", account, errors: [] },
 			{ kind: "place-undecidable", account, reason: "git failed" },
-			{ kind: "internal-error", reason: "boom" },
+			{ kind: "internal-error", account, reason: "boom" },
 		];
 		for (const cause of causes) assert.equal(processOverrideCovers(cause), false, cause.kind);
 	});

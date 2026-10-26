@@ -46,7 +46,14 @@ export type ZoneListResult = { ok: true; zones: string[] } | { ok: false; messag
 
 /** Reads the comma-separated zone names typed into the RPC input; every name must be a declared zone. */
 export function parseZoneList(text: string, declared: string[]): ZoneListResult {
-	const names = [...new Set(text.split(",").map((name) => name.trim()).filter((name) => name !== ""))];
+	const names = [
+		...new Set(
+			text
+				.split(",")
+				.map((name) => name.trim())
+				.filter((name) => name !== ""),
+		),
+	];
 	if (names.length === 0) return { ok: false, message: "Name at least one zone." };
 	const undeclared = names.filter((name) => !declared.includes(name));
 	if (undeclared.length > 0) return { ok: false, message: `Not a declared zone: ${undeclared.join(", ")}. Declared zones: ${declared.join(", ")}.` };
@@ -57,10 +64,12 @@ const WORD_CHARACTER = "\\p{L}\\p{N}_";
 
 /** The declared zones a label names as a whole word, ignoring case: "Work seat" names `work`, "Network" names nothing. */
 export function zonesNamedInLabel(label: string, declared: string[]): string[] {
-	return declared.filter((zone) => new RegExp(`(?<![${WORD_CHARACTER}])${zone.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![${WORD_CHARACTER}])`, "iu").test(label));
+	return declared.filter((zone) =>
+		new RegExp(`(?<![${WORD_CHARACTER}])${zone.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![${WORD_CHARACTER}])`, "iu").test(label),
+	);
 }
 
-export interface BypassNudgeInput {
+export interface ZoneNudgeInput {
 	account: AccountKey;
 	multiPassLabel: string | undefined;
 	/** The zones the user chose. */
@@ -69,7 +78,7 @@ export interface BypassNudgeInput {
 }
 
 /** The extra confirm asked when the label names a zone the chosen zones leave out; `undefined` when no confirm is needed. */
-export function bypassNudge({ account, multiPassLabel, chosen, declared }: BypassNudgeInput): { title: string; message: string } | undefined {
+export function zoneNudge({ account, multiPassLabel, chosen, declared }: ZoneNudgeInput): { title: string; message: string } | undefined {
 	if (multiPassLabel === undefined) return undefined;
 	const leftOut = zonesNamedInLabel(multiPassLabel, declared).filter((zone) => !chosen.includes(zone));
 	if (leftOut.length === 0) return undefined;

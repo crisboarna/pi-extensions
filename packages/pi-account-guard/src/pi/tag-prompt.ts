@@ -1,8 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { describeAccount, type AccountKey } from "../core/account.ts";
+import { type AccountKey, describeAccount } from "../core/account.ts";
 import { formatConfigErrors, type GuardConfig } from "../core/config.ts";
-import { setAccountZones, type ConfigWriter } from "../core/config-writer.ts";
-import { bypassNudge, parseZoneList, SEVERAL_ZONES_OPTION, tagPromptTitle } from "../core/tag-prompt.ts";
+import { type ConfigWriter, setAccountZones } from "../core/config-writer.ts";
+import { parseZoneList, SEVERAL_ZONES_OPTION, tagPromptTitle, zoneNudge } from "../core/tag-prompt.ts";
 import { askZonesWithChecklist } from "./tag-checklist.ts";
 
 export interface TagPrompt {
@@ -28,7 +28,7 @@ export async function runTagPrompt({ ctx, account, placeZone, config, multiPassL
 	for (;;) {
 		const zones = await askZones(ctx, title, declared);
 		if (zones === undefined) return undefined;
-		const nudge = bypassNudge({ account, multiPassLabel, chosen: zones, declared });
+		const nudge = zoneNudge({ account, multiPassLabel, chosen: zones, declared });
 		if (nudge && !(await ctx.ui.confirm(nudge.title, nudge.message))) continue;
 		const outcome = writer.update((current) => setAccountZones(current, account, zones));
 		if (!outcome.ok) {

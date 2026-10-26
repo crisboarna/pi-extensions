@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { allowOnceConfirm, blockDialog, switchNotice, type DialogCause, type ModelOffer } from "../../src/core/block-dialog.ts";
+import { allowOnceConfirm, blockDialog, type ModelOffer, switchNotice } from "../../src/core/block-dialog.ts";
+import type { BlockCause } from "../../src/core/decide.ts";
 
 const context = { home: "/home/me", configPath: "/home/me/.pi/agent/account-guard.json" };
 const place = { ok: true as const, path: "/home/me/diary", zone: "personal" };
 const current = { provider: "acme", source: "oauth" };
-const mismatch: DialogCause = { kind: "zone-mismatch", account: current, accountZones: ["work"], place };
+const mismatch: BlockCause = { kind: "zone-mismatch", account: current, accountZones: ["work"], place };
 
 const accounts = [
 	{ provider: "acme", source: "oauth", zones: ["work"] },
@@ -49,7 +50,7 @@ describe("blockDialog", () => {
 	});
 
 	it("offers no Switch rows when the place cannot be decided, and keeps both Overrides", () => {
-		const cause: DialogCause = { kind: "place-undecidable", account: current, reason: "git failed" };
+		const cause: BlockCause = { kind: "place-undecidable", account: current, reason: "git failed" };
 		const { title, rows } = blockDialog({ ...input, cause, place: { ok: false, reason: "git failed" } });
 		assert.equal(title, "BLOCKED  cannot decide the zone of this place (git failed)\nPlace zone unknown");
 		assert.deepEqual(
@@ -58,8 +59,22 @@ describe("blockDialog", () => {
 		);
 	});
 
+	it("offers no Switch rows after an internal error, and keeps both Overrides", () => {
+		const cause: BlockCause = { kind: "internal-error", account: current, reason: "disk on fire" };
+		const { title, rows } = blockDialog({ ...input, cause, place: { ok: false, reason: "internal error" } });
+		assert.equal(title, "BLOCKED  the guard failed (disk on fire)\nPlace zone unknown");
+		assert.deepEqual(
+			rows.map((row) => row.label),
+			["Allow once: this turn to acme (oauth)", "Allow for session: acme (oauth)", "Cancel"],
+		);
+		assert.deepEqual(allowOnceConfirm(cause, { ok: false, reason: "internal error" }, context), {
+			title: "Allow once?",
+			message: "Send ONE turn to acme (oauth), from a place whose zone is unknown.",
+		});
+	});
+
 	it("names the file and every error when the config is invalid", () => {
-		const cause: DialogCause = { kind: "config-invalid", account: current, errors: [{ path: "accounts[2].zones", message: 'unknown zone "wrk"' }] };
+		const cause: BlockCause = { kind: "config-invalid", account: current, errors: [{ path: "accounts[2].zones", message: 'unknown zone "wrk"' }] };
 		const { title, rows } = blockDialog({ ...input, cause, place: { ok: false, reason: "the config is invalid" }, accounts: [] });
 		assert.equal(title, 'BLOCKED  cannot read account-guard.json\naccount-guard.json: accounts[2].zones: unknown zone "wrk"\nPlace zone unknown');
 		assert.deepEqual(
@@ -69,7 +84,7 @@ describe("blockDialog", () => {
 	});
 
 	it("titles an untagged account", () => {
-		const cause: DialogCause = { kind: "unknown-account", account: current, place };
+		const cause: BlockCause = { kind: "unknown-account", account: current, place };
 		assert.equal(blockDialog({ ...input, cause }).title, "BLOCKED  acme (oauth) has no zone tag\nPlace ~/diary -> zone personal");
 	});
 });

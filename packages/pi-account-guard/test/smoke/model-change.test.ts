@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { GUARD_EXTENSION, RpcSession, runPrint, type PiOptions, type PrintResult, type RpcRecord } from "../support/pi-process.ts";
+import { GUARD_EXTENSION, type PiOptions, type PrintResult, type RpcRecord, RpcSession, runPrint } from "../support/pi-process.ts";
 import { SECOND_PROVIDER } from "../support/second-provider.ts";
 import { STUB_MODEL, STUB_PROVIDER, STUB_REPLY } from "../support/stub-provider.ts";
 
@@ -19,7 +19,8 @@ const CONFIG = {
 	],
 };
 
-const ABORT_FAILOVER_NOTICE = /^guard: failover blocked, model changed to stubtwo \(fallback\) \[work\] during a turn in a personal place \(.+\)\. Turn aborted\.$/;
+const ABORT_FAILOVER_NOTICE =
+	/^guard: failover blocked, model changed to stubtwo \(fallback\) \[work\] during a turn in a personal place \(.+\)\. Turn aborted\.$/;
 
 interface Run {
 	options: PiOptions;
@@ -41,7 +42,11 @@ function run(scenario: string, extensions: string[]): Run {
 	const probeLog = join(root, "probe.jsonl");
 	const lines = (path: string) => (existsSync(path) ? readFileSync(path, "utf8").split("\n").filter(Boolean) : []);
 	return {
-		options: { extensions, cwd: place, env: { PI_CODING_AGENT_DIR: agentDir, STUB_REQUEST_LOG: requestLog, PROBE_SCENARIO: scenario, PROBE_LOG: probeLog } },
+		options: {
+			extensions,
+			cwd: place,
+			env: { PI_CODING_AGENT_DIR: agentDir, STUB_REQUEST_LOG: requestLog, PROBE_SCENARIO: scenario, PROBE_LOG: probeLog },
+		},
 		place,
 		requests: () => lines(requestLog),
 		observations: () => lines(probeLog).map((line) => JSON.parse(line)),
@@ -76,7 +81,11 @@ describe("model change mid-turn over RPC (DESIGN.md section 9.2)", () => {
 			assert.equal(notice.notifyType, "error");
 			const select = await rpc.waitFor(isUiRequest("select"));
 			assert.match(String(select.title), /^BLOCKED {2}stubtwo \(fallback\) is zone work\nPlace /);
-			assert.deepEqual(select.options, [`Switch to ${STUB_PROVIDER} (fallback) -> ${STUB_MODEL}  [personal]`, "Allow for session: stubtwo (fallback)", "Cancel"]);
+			assert.deepEqual(select.options, [
+				`Switch to ${STUB_PROVIDER} (fallback) -> ${STUB_MODEL}  [personal]`,
+				"Allow for session: stubtwo (fallback)",
+				"Cancel",
+			]);
 			assert.deepEqual(r.requests(), [], "no request reached a provider");
 		});
 	});
@@ -130,7 +139,10 @@ describe("idle-time switch (DESIGN.md section 8)", () => {
 		await withRpc(r, async (rpc) => {
 			rpc.send({ id: "p1", type: "prompt", message: "hello" });
 			const notice = await rpc.waitFor(isNotice(/blocked before sending/));
-			assert.match(String(notice.message), /^guard: blocked before sending, the model is stubtwo \(fallback\) \[work\] in a personal place \(.+\)\. Run aborted, no request was sent\.$/);
+			assert.match(
+				String(notice.message),
+				/^guard: blocked before sending, the model is stubtwo \(fallback\) \[work\] in a personal place \(.+\)\. Run aborted, no request was sent\.$/,
+			);
 			await rpc.waitFor((record) => record.type === "agent_settled");
 			assert.ok(!mentionsReply(rpc.records));
 			assert.deepEqual(r.requests(), []);

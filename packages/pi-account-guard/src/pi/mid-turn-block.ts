@@ -1,16 +1,18 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { logData, type DialogCause } from "../core/block-dialog.ts";
+import { logData } from "../core/block-dialog.ts";
 import type { GuardConfig } from "../core/config.ts";
-import type { PlaceOutcome } from "../core/decide.ts";
+import type { BlockCause, PlaceOutcome } from "../core/decide.ts";
 import type { MessageContext } from "../core/messages.ts";
 import { midTurnDialog, midTurnSessionNotice, midTurnSwitchNotice, type PreviousModel } from "../core/mid-turn.ts";
 import { grantSession } from "../core/overrides.ts";
-import { offersOf, switchTo, type OverrideStore } from "./interactive-block.ts";
+import type { AccountOfModel } from "./account-of.ts";
+import { type OverrideStore, offersOf, switchTo } from "./interactive-block.ts";
 
 export interface MidTurnBlock {
 	pi: ExtensionAPI;
 	ctx: ExtensionContext;
-	cause: DialogCause;
+	accountOfModel: AccountOfModel;
+	cause: BlockCause;
 	place: PlaceOutcome;
 	/** The tags of the live config; `undefined` when the config is invalid. */
 	config: GuardConfig | undefined;
@@ -32,12 +34,15 @@ export async function runMidTurnBlock(block: MidTurnBlock): Promise<void> {
 			place,
 			currentModelId: block.previous?.modelId ?? ctx.model?.id ?? "",
 			accounts: block.config?.accounts ?? [],
-			offers: offersOf(ctx),
+			offers: offersOf(ctx, block.accountOfModel),
 			context: block.messages,
 		},
 		block.previous?.account,
 	);
-	const answer = await ctx.ui.select(dialog.title, dialog.rows.map((row) => row.label));
+	const answer = await ctx.ui.select(
+		dialog.title,
+		dialog.rows.map((row) => row.label),
+	);
 	const row = dialog.rows.find((candidate) => candidate.label === answer);
 	switch (row?.kind) {
 		case "switch":

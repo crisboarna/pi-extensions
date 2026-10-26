@@ -1,9 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { logData } from "../core/block-dialog.ts";
-import { createConfigWriter, type ConfigWriter } from "../core/config-writer.ts";
 import type { ConfigState } from "../core/config-state.ts";
+import { type ConfigWriter, createConfigFileWriter } from "../core/config-writer.ts";
 import type { BlockCause } from "../core/decide.ts";
 import { processOverrideWarning } from "../core/messages.ts";
+import { fileName } from "../core/paths.ts";
 import { isPooledProvider } from "../core/pooled.ts";
 import { PROCESS_OVERRIDE_VARIABLE, processOverrideActive, processOverrideCovers } from "../core/process-override.ts";
 import { runTagPrompt } from "./tag-prompt.ts";
@@ -38,11 +39,12 @@ export interface UnknownAccountGate {
 /** What the guard does with an Unknown account before the Block select: the process Override and the Tag prompt (DESIGN.md section 10). */
 export function createUnknownAccountGate(pi: ExtensionAPI, deps: UnknownAccountDeps, configState: ConfigState): UnknownAccountGate {
 	const { writeConfigText } = deps;
-	const writer: ConfigWriter | undefined = writeConfigText && createConfigWriter({ readForWrite: configState.readForWrite, writeText: (text) => writeConfigText(deps.configPath, text) });
-	const configFile = deps.configPath.slice(deps.configPath.lastIndexOf("/") + 1);
+	const writer: ConfigWriter | undefined = createConfigFileWriter(configState, deps.configPath, writeConfigText);
+	const configFile = fileName(deps.configPath);
 	let warned = false;
 
-	const covers = (cause: BlockCause, ctx: ExtensionContext): cause is UnknownAccountCause => processOverrideCovers(cause) && processOverrideActive(deps.env?.[PROCESS_OVERRIDE_VARIABLE], ctx.mode);
+	const covers = (cause: BlockCause, ctx: ExtensionContext): cause is UnknownAccountCause =>
+		processOverrideCovers(cause) && processOverrideActive(deps.env?.[PROCESS_OVERRIDE_VARIABLE], ctx.mode);
 
 	return {
 		covers,

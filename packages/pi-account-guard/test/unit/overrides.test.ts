@@ -7,7 +7,10 @@ const personal = { ok: true as const, path: "/home/me/diary", zone: "personal" }
 const elsewhere = { ok: true as const, path: "/home/me/other", zone: "personal" };
 const acme = { provider: "acme", source: "oauth" };
 const beta = { provider: "beta", source: "oauth" };
-const blockOf = (account = acme, place = personal): Decision => ({ verdict: "block", cause: { kind: "zone-mismatch", account, accountZones: ["work"], place } });
+const blockOf = (account = acme, place = personal): Decision => ({
+	verdict: "block",
+	cause: { kind: "zone-mismatch", account, accountZones: ["work"], place },
+});
 
 describe("applyOverrides", () => {
 	it("passes a Match untouched and Blocks without an Override", () => {
@@ -42,9 +45,12 @@ describe("applyOverrides", () => {
 		assert.deepEqual(applyOverrides(decision, place, grantOnce(NO_OVERRIDES, acme, place)), { verdict: "override", by: "allow-once" });
 	});
 
-	it("never overrides an internal error", () => {
-		const decision: Decision = { verdict: "block", cause: { kind: "internal-error", reason: "boom" } };
-		assert.deepEqual(applyOverrides(decision, personal, grantSession(NO_OVERRIDES, acme, personal)), decision);
+	it("lets both Overrides cover an internal error of the account's check (ADR 0001)", () => {
+		const place = { ok: false as const, reason: "internal error" };
+		const decision: Decision = { verdict: "block", cause: { kind: "internal-error", account: acme, reason: "boom" } };
+		assert.deepEqual(applyOverrides(decision, place, grantSession(NO_OVERRIDES, acme, place)), { verdict: "override", by: "allow-session" });
+		assert.deepEqual(applyOverrides(decision, place, grantOnce(NO_OVERRIDES, acme, place)), { verdict: "override", by: "allow-once" });
+		assert.deepEqual(applyOverrides(decision, place, grantSession(NO_OVERRIDES, beta, place)), decision, "another account stays Blocked");
 	});
 });
 

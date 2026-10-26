@@ -8,10 +8,7 @@ import { attachTagDialogs, KEY } from "../support/tag-dialogs.ts";
 const CONFIG_PATH = "/home/me/.pi/agent/account-guard.json";
 
 const acmeMid: FakeModel = { provider: "acme", id: "mid" };
-const models: FakeModel[] = [
-	acmeMid,
-	{ provider: "beta", id: "small", auth: { usingOAuth: true, status: { configured: true, source: "stored" } } },
-];
+const models: FakeModel[] = [acmeMid, { provider: "beta", id: "small", auth: { usingOAuth: true, status: { configured: true, source: "stored" } } }];
 
 interface RigOptions {
 	/** The file text; `undefined` is a missing file. */
@@ -66,7 +63,16 @@ describe("tag prompt over RPC", () => {
 		assert.equal(r.dialogs.selects.length, 1, "no Block select");
 		assert.equal(
 			r.files.text,
-			JSON.stringify({ zones: ["work", "personal"], defaultZone: "personal", accounts: [{ provider: "acme", source: "stored-key", zones: ["personal"] }], places: [] }, null, 2) + "\n",
+			`${JSON.stringify(
+				{
+					zones: ["work", "personal"],
+					defaultZone: "personal",
+					accounts: [{ provider: "acme", source: "stored-key", zones: ["personal"] }],
+					places: [],
+				},
+				null,
+				2,
+			)}\n`,
 		);
 		assert.deepEqual(r.session.notices, [{ message: "Tagged acme (stored-key) as personal.", type: "info" }]);
 		assert.deepEqual(r.session.editorTexts, []);
@@ -74,13 +80,18 @@ describe("tag prompt over RPC", () => {
 	});
 
 	it("keeps the other entries of an existing file, and the next turn matches without a prompt", async () => {
-		const r = rig({ file: '{"zones":["work","personal"],"accounts":[{"provider":"beta","source":"oauth","zones":["personal"],"note":"n"}],"places":[{"path":"/x","zone":"work"}]}' });
+		const r = rig({
+			file: '{"zones":["work","personal"],"accounts":[{"provider":"beta","source":"oauth","zones":["personal"],"note":"n"}],"places":[{"path":"/x","zone":"work"}]}',
+		});
 		r.dialogs.selectAnswers.push(/^personal$/);
 		await r.input();
 		assert.deepEqual(written(r.files), {
 			zones: ["work", "personal"],
 			defaultZone: "personal",
-			accounts: [{ provider: "beta", source: "oauth", zones: ["personal"], note: "n" }, { provider: "acme", source: "stored-key", zones: ["personal"] }],
+			accounts: [
+				{ provider: "beta", source: "oauth", zones: ["personal"], note: "n" },
+				{ provider: "acme", source: "stored-key", zones: ["personal"] },
+			],
 			places: [{ path: "/x", zone: "work" }],
 		});
 		assert.equal(await r.input(), undefined);
@@ -164,7 +175,7 @@ describe("tag prompt over RPC", () => {
 	});
 });
 
-describe("bypass nudge", () => {
+describe("zone nudge", () => {
 	const labelled = { acme: "Work seat" };
 
 	it("asks one extra confirm when the label names a zone the chosen zones leave out; yes writes the tag", async () => {
@@ -247,7 +258,7 @@ describe("tag prompt in the TUI", () => {
 		assert.deepEqual(written(r.files).accounts, [{ provider: "acme", source: "stored-key", zones: ["work", "personal"] }]);
 	});
 
-	it("asks the bypass nudge confirm too", async () => {
+	it("asks the zone nudge confirm too", async () => {
 		const r = rig({ mode: "tui", multiPassLabels: { acme: "work" } });
 		r.tag.customKeys.push([KEY.down, KEY.space, KEY.enter]);
 		r.dialogs.confirmAnswers.push(true);

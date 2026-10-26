@@ -4,6 +4,7 @@ Extensions for the [pi](https://pi.dev) coding agent. Each package installs on i
 
 | Package | What it does | Install |
 |---|---|---|
+| [`@crisboarna/pi-account-guard`](packages/pi-account-guard) | Stops a session from sending a turn to a model account that does not belong to the zone of the directory it works in, so a work subscription is never used in a personal repository by accident. Fails closed when it cannot decide. | `pi install npm:@crisboarna/pi-account-guard` |
 | [`@crisboarna/pi-switchboard`](packages/pi-switchboard) | Picks a model for every piece of work, including pi-subagents children: a local classifier sets the tier, a strategy picks a model, failover keeps work going when a subscription runs dry, and every decision is recorded. | `pi install npm:@crisboarna/pi-switchboard` |
 
 Restart pi after installing.

@@ -14,6 +14,7 @@
 - pi's packages (`@earendil-works/*`, `typebox`) are pinned in the root `devDependencies` to the pi release the packages are tested against, and declared as `"*"` peers in each package.
 - Dependabot proposes updates weekly, after a 7-day cooldown. Review the changelog of anything that reaches users before merging.
 - Known vulnerabilities in dev-only packages that come from pi itself are fixed by updating pi, not with `overrides`, unless an advisory affects this repository's tooling directly.
+- Current exception: `overrides` pins `undici` to 8.12.3 because pi 1.4.0 pins 8.10.2, which has advisories GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c, and the runtime audit counts pi's packages. Remove the override once a pi release depends on `undici` 8.12.2 or later.
 - Never run `npm audit fix --force`.
 
 ## Licences

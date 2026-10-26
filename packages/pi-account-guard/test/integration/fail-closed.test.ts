@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { registerGuard, type GuardDeps } from "../../src/pi/hooks.ts";
+import { type GuardDeps, registerGuard } from "../../src/pi/hooks.ts";
+import { attachDialogs } from "../support/fake-dialogs.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 
 const CONFIG_PATH = "/home/me/.pi/agent/account-guard.json";
@@ -10,7 +11,12 @@ const prompt = (text = "hello") => ({ text, source: "interactive" });
 
 function rig(config?: unknown, overrides: Partial<GuardDeps> = {}) {
 	const host = createFakeHost();
-	const state = { host, stderr: [] as string[], exitCodes: [] as number[], file: { text: config === undefined ? undefined : JSON.stringify(config) as string | undefined } };
+	const state = {
+		host,
+		stderr: [] as string[],
+		exitCodes: [] as number[],
+		file: { text: config === undefined ? undefined : (JSON.stringify(config) as string | undefined) },
+	};
 	registerGuard(host.pi as never, {
 		home: "/home/me",
 		configPath: CONFIG_PATH,
@@ -104,7 +110,11 @@ describe("a missing config file", () => {
 });
 
 describe("a handler that throws", () => {
-	const failing = { realpath: () => { throw new Error("disk on fire"); } };
+	const failing = {
+		realpath: () => {
+			throw new Error("disk on fire");
+		},
+	};
 
 	it("aborts, notifies and logs when session_start throws", async () => {
 		const state = rig({ accounts: [personalAccount] }, failing);
@@ -115,25 +125,29 @@ describe("a handler that throws", () => {
 		assert.deepEqual(state.host.entries, [{ customType: "guard.error", data: { handler: "session_start", reason: "disk on fire" } }]);
 	});
 
-	it("handles the input, notifies and logs when the check throws", async () => {
+	it("handles the input, tells the user and logs when the check throws without a UI", async () => {
 		const state = rig({ accounts: [personalAccount] }, failing);
-		const s = session({ hasUI: true });
+		const s = session();
 		assert.deepEqual(await state.host.fire("input", prompt("keep me"), s.ctx), { action: "handled" });
-		assert.equal(s.notices.length, 1);
-		assert.match(s.notices[0]!.message, /^BLOCKED: the guard failed \(disk on fire\)/);
-		assert.deepEqual(s.editorTexts, ["keep me"]);
+		assert.match(state.stderr[0]!, /^BLOCKED: the guard failed \(disk on fire\)/);
 		assert.deepEqual(state.host.entries, [{ customType: "guard.error", data: { handler: "input", reason: "disk on fire" } }]);
 	});
 
-	it("still handles the input when the notice itself throws", async () => {
+	it("still handles the input when the dialog itself throws", async () => {
 		const state = rig({ accounts: [personalAccount] }, failing);
 		const s = session({ hasUI: true });
+		s.ctx.ui.select = async () => {
+			throw new Error("ui gone");
+		};
 		s.ctx.ui.notify = () => {
 			throw new Error("ui gone");
 		};
 		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "handled" });
-		// One entry for the failed check, one for the failed notice.
-		assert.deepEqual(state.host.entries.map((entry) => entry.data.handler), ["input", "input"]);
+		// One entry for the failed check, one for the failed dialog.
+		assert.deepEqual(
+			state.host.entries.map((entry) => entry.data.handler),
+			["input", "input"],
+		);
 	});
 
 	it("still aborts and notifies when the log entry cannot be written", async () => {
@@ -145,5 +159,106 @@ describe("a handler that throws", () => {
 		await state.host.fire("session_start", { reason: "startup" }, s.ctx);
 		assert.equal(s.aborts, 1, "the run is still aborted");
 		assert.equal(s.notices.length, 1, "and the user is still told");
+	});
+});
+
+describe("an internal error Block in the TUI (ADR 0001)", () => {
+	const failing = {
+		realpath: () => {
+			throw new Error("disk on fire");
+		},
+	};
+
+	function tui() {
+		const state = rig({ accounts: [personalAccount] }, failing);
+		const s = session({ hasUI: true });
+		const dialogs = attachDialogs(state.host, s, [
+			{ provider: "acme", id: "mid" },
+			{ provider: "beta", id: "small" },
+		]);
+		return { state, s, dialogs };
+	}
+
+	it("offers both Overrides and no Switch row", async () => {
+		const { state, s, dialogs } = tui();
+		assert.deepEqual(await state.host.fire("input", prompt("keep me"), s.ctx), { action: "handled" });
+		assert.equal(dialogs.selects[0]!.title, "BLOCKED  the guard failed (disk on fire)\nPlace zone unknown");
+		assert.deepEqual(dialogs.selects[0]!.options, ["Allow once: this turn to acme (stored-key)", "Allow for session: acme (stored-key)", "Cancel"]);
+		assert.deepEqual(s.editorTexts, ["keep me"]);
+		assert.deepEqual(
+			state.host.entries.map((entry) => entry.customType),
+			["guard.error"],
+		);
+	});
+
+	it("lets the turn through for the session once the user chooses Allow for session", async () => {
+		const { state, s, dialogs } = tui();
+		dialogs.selectAnswers.push(/^Allow for session/);
+		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "continue" });
+		assert.equal(await state.host.fire("input", prompt(), s.ctx), undefined, "the check still fails, and the Override still covers the account");
+		assert.equal(dialogs.selects.length, 1);
+		assert.deepEqual(
+			state.host.entries.filter((entry) => entry.customType === "guard.allow_session").map((entry) => entry.data.cause),
+			["internal-error"],
+		);
+	});
+
+	it("lets the turn through once after the confirm, and the run is not aborted by the re-check", async () => {
+		const { state, s, dialogs } = tui();
+		dialogs.selectAnswers.push(/^Allow once/);
+		dialogs.confirmAnswers.push(true);
+		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "continue" });
+		await state.host.fire("before_agent_start", { messageType: "user" }, s.ctx);
+		assert.equal(s.aborts, 0, "before_agent_start honours the Override that input granted");
+		await state.host.fire("agent_end", {}, s.ctx);
+		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "handled" }, "the grant ended with the turn");
+	});
+});
+
+describe("a handler that throws without a UI", () => {
+	const failing = {
+		realpath: () => {
+			throw new Error("disk on fire");
+		},
+	};
+
+	it("exits 77 when session_start throws", async () => {
+		const state = rig({ accounts: [personalAccount] }, failing);
+		await state.host.fire("session_start", { reason: "startup" }, session().ctx);
+		assert.match(state.stderr[0]!, /^guard: the session_start handler failed \(disk on fire\)\./);
+		assert.deepEqual(state.exitCodes, [77]);
+	});
+
+	it("exits 77 when the input handler fails after the check", async () => {
+		const state = rig({ accounts: [workAccount] });
+		(state.host.pi as { appendEntry: unknown }).appendEntry = () => {
+			throw new Error("log full");
+		};
+		assert.deepEqual(await state.host.fire("input", prompt(), session().ctx), { action: "handled" });
+		assert.match(state.stderr[0]!, /^guard: the input handler failed \(log full\)\./);
+		assert.deepEqual(state.exitCodes, [77]);
+	});
+
+	it("exits 77 when before_agent_start fails", async () => {
+		const state = rig({ accounts: [personalAccount] }, failing);
+		const s = session();
+		await state.host.fire("before_agent_start", { messageType: "user" }, s.ctx);
+		assert.equal(s.aborts, 1);
+		assert.deepEqual(state.exitCodes, [77]);
+	});
+
+	it("exits 77 when a /guard command fails, and does not throw", async () => {
+		const state = rig({ accounts: [personalAccount] }, { ...failing, writeConfigText: () => undefined });
+		await state.host.commands.get("guard")!.handler("zone default work", session().ctx);
+		assert.match(state.stderr[0]!, /^guard: the \/guard handler failed \(disk on fire\)\./);
+		assert.deepEqual(state.exitCodes, [77]);
+	});
+
+	it("tells a TUI user about a failed /guard command and sets no exit code", async () => {
+		const state = rig({ accounts: [personalAccount] }, failing);
+		const s = session({ hasUI: true });
+		await state.host.commands.get("guard")!.handler("", s.ctx);
+		assert.deepEqual(s.notices, [{ message: "guard: the /guard handler failed (disk on fire).", type: "error" }]);
+		assert.deepEqual(state.exitCodes, []);
 	});
 });

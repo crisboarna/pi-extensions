@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { GUARD_EXTENSION, RpcSession, type RpcRecord } from "../support/pi-process.ts";
+import { GUARD_EXTENSION, type RpcRecord, RpcSession } from "../support/pi-process.ts";
 import { SECOND_PROVIDER } from "../support/second-provider.ts";
 import { STUB_MODEL, STUB_PROVIDER, STUB_REPLY } from "../support/stub-provider.ts";
 
@@ -28,7 +28,11 @@ async function withBlockedPrompt(body: (rpc: RpcSession, requests: () => string[
 	mkdirSync(place);
 	writeFileSync(join(agentDir, "account-guard.json"), JSON.stringify(CONFIG));
 	const requestLog = join(root, "requests.txt");
-	const rpc = new RpcSession({ extensions: [SECOND_EXTENSION, GUARD_EXTENSION], env: { PI_CODING_AGENT_DIR: agentDir, STUB_REQUEST_LOG: requestLog }, cwd: place });
+	const rpc = new RpcSession({
+		extensions: [SECOND_EXTENSION, GUARD_EXTENSION],
+		env: { PI_CODING_AGENT_DIR: agentDir, STUB_REQUEST_LOG: requestLog },
+		cwd: place,
+	});
 	const requests = () => (existsSync(requestLog) ? readFileSync(requestLog, "utf8").split("\n").filter(Boolean) : []);
 	try {
 		rpc.send({ id: "p1", type: "prompt", message: "hello" });

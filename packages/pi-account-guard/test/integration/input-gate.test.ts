@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { registerGuard, type GuardDeps } from "../../src/pi/hooks.ts";
+import { type GuardDeps, registerGuard } from "../../src/pi/hooks.ts";
 import { createFakeHost, createFakeSession, type FakeAuth } from "../support/fake-pi.ts";
 
 const CONFIG_PATH = "/home/me/.pi/agent/account-guard.json";
@@ -152,16 +152,19 @@ describe("input gate, headless", () => {
 	});
 
 	it("blocks instead of failing open when its own code throws", async () => {
-		const state = rig({ accounts: [personalAccount] }, {
-			realpath: () => {
-				throw new Error("disk on fire");
+		const state = rig(
+			{ accounts: [personalAccount] },
+			{
+				realpath: () => {
+					throw new Error("disk on fire");
+				},
 			},
-		});
+		);
 		const s = session();
 		await state.host.fire("session_start", { reason: "startup" }, s.ctx);
 		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "handled" });
 		assert.match(state.stderr.at(-1)!, /^BLOCKED: the guard failed \(disk on fire\)/);
-		assert.deepEqual(state.exitCodes, [77]);
+		assert.deepEqual(state.exitCodes, [77, 77], "session_start failed too");
 	});
 });
 

@@ -37,7 +37,8 @@ export function attachDialogs(host: FakeHost, session: FakeSession, models: Fake
 		getProviderAuthStatus: (provider: string) => authOf(provider)?.status ?? { configured: true, source: "stored" },
 		getAvailable: () => models,
 		getAll: () => models,
-		getProvider: (provider: string) => (models.some((model) => model.provider === provider && model.pooled) ? { [Symbol.for("pi-multiprovider.lifted-base")]: {} } : {}),
+		getProvider: (provider: string) =>
+			models.some((model) => model.provider === provider && model.pooled) ? { [Symbol.for("pi-multiprovider.lifted-base")]: {} } : {},
 		find: (provider: string, id: string) => models.find((model) => model.provider === provider && model.id === id),
 	};
 	ctx.ui.select = async (title: string, options: string[]) => {

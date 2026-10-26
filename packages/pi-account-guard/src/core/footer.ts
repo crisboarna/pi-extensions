@@ -1,7 +1,7 @@
-import { sameAccount, type AccountKey } from "./account.ts";
+import { type AccountKey, sameAccount } from "./account.ts";
 import { accountZones, type ConfigResult } from "./config.ts";
 import { decide, type PlaceOutcome } from "./decide.ts";
-import { sessionOverrideFooter, type Overrides } from "./overrides.ts";
+import { type Overrides, sessionOverrideFooter } from "./overrides.ts";
 
 export interface FooterInput {
 	place: PlaceOutcome;
@@ -18,7 +18,8 @@ export interface FooterInput {
 export function footerText({ place, account, config, usingLastValid, overrides }: FooterInput): string {
 	const decision = account && decide({ place, account, config });
 	// A session Override shows only while it covers the current account; allow-once ends with its turn and is not shown.
-	if (account && decision?.verdict === "block" && overrides.session && sameAccount(overrides.session.account, account)) return sessionOverrideFooter(overrides)!;
+	const sessionFooter = sessionOverrideFooter(overrides);
+	if (account && decision?.verdict === "block" && sessionFooter && overrides.session && sameAccount(overrides.session.account, account)) return sessionFooter;
 	if (!config.ok) return "guard ! config invalid, turns blocked";
 	if (usingLastValid) return "guard ! config invalid (last valid copy in use)";
 	if (!place.ok) return `guard ! zone unknown (${place.reason})`;

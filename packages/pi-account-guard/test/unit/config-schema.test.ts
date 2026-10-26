@@ -17,8 +17,20 @@ const account = { provider: "acme", source: "oauth", zones: ["work"] };
 const valid: Record<string, unknown> = {
 	"the example config": example,
 	"an empty object (all defaults)": {},
-	"zones, default zone, accounts and places": { zones: ["work", "home"], defaultZone: "home", accounts: [{ ...account, note: "seat" }], places: [{ path: "~/Projects/co", zone: "work", note: "client" }] },
-	"a place rule with a path, a remote or both": { places: [{ path: "/a", zone: "work" }, { path: "~", zone: "work" }, { remote: "*/Acme/*", zone: "work" }, { path: "/a", remote: "*/Acme/*", zone: "personal" }] },
+	"zones, default zone, accounts and places": {
+		zones: ["work", "home"],
+		defaultZone: "home",
+		accounts: [{ ...account, note: "seat" }],
+		places: [{ path: "~/Projects/co", zone: "work", note: "client" }],
+	},
+	"a place rule with a path, a remote or both": {
+		places: [
+			{ path: "/a", zone: "work" },
+			{ path: "~", zone: "work" },
+			{ remote: "*/Acme/*", zone: "work" },
+			{ path: "/a", remote: "*/Acme/*", zone: "personal" },
+		],
+	},
 	"one account in several zones": { accounts: [{ ...account, zones: ["work", "personal"] }] },
 	"the same provider on two sources": { accounts: [account, { ...account, source: "stored-key" }] },
 };

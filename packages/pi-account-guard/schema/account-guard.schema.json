@@ -1,56 +1,60 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/crisboarna/pi-account-guard/schema/account-guard.schema.json",
-  "title": "pi-account-guard configuration",
-  "description": "The file ~/.pi/agent/account-guard.json: zones, the default zone, zone tags per account and place rules. See DESIGN.md section 4. A schema cannot check references between fields, so two rules are enforced only by the guard when it reads the file: every zone named in defaultZone, an account tag or a place rule must be declared in zones, and no two accounts may share a (provider, source) pair.",
-  "type": "object",
-  "additionalProperties": false,
-  "$defs": {
-    "declaredZoneName": {
-      "type": "string",
-      "minLength": 1,
-      "not": { "const": "unknown" },
-      "description": "A zone name. It must also appear in zones (checked by the guard). unknown is reserved for accounts with no tag and cannot be declared or referenced."
-    },
-    "note": { "type": "string", "description": "Free text for the reader. Matching ignores it." },
-    "account": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["provider", "source", "zones"],
-      "properties": {
-        "provider": { "type": "string", "minLength": 1, "description": "The provider id that pi uses." },
-        "source": { "type": "string", "minLength": 1, "description": "The auth source, for example oauth, stored-key or env:<VAR>." },
-        "zones": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/declaredZoneName" },
-          "description": "The zones this account may be used in. An account is either untagged (absent from the file) or in at least one zone."
-        },
-        "note": { "$ref": "#/$defs/note" }
-      }
-    },
-    "placeRule": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["zone"],
-      "anyOf": [{ "required": ["path"] }, { "required": ["remote"] }],
-      "properties": {
-        "path": { "type": "string", "pattern": "^(/|~$|~/)", "description": "An absolute directory or one starting with ~. The rule applies to it and everything below it." },
-        "remote": { "type": "string", "minLength": 1, "description": "A glob matched against the normalized host/path of every git remote." },
-        "zone": { "$ref": "#/$defs/declaredZoneName" },
-        "note": { "$ref": "#/$defs/note" }
-      }
-    }
-  },
-  "properties": {
-    "$schema": false,
-    "zones": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 1, "not": { "const": "unknown" } },
-      "description": "Every zone. Defaults to [\"work\", \"personal\"] when absent."
-    },
-    "defaultZone": { "$ref": "#/$defs/declaredZoneName", "description": "The zone of a place that no rule matches. Defaults to personal when absent." },
-    "accounts": { "type": "array", "items": { "$ref": "#/$defs/account" }, "description": "One entry per tagged account." },
-    "places": { "type": "array", "items": { "$ref": "#/$defs/placeRule" }, "description": "Place rules. File order is precedence: the first match wins." }
-  }
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://github.com/crisboarna/pi-account-guard/schema/account-guard.schema.json",
+	"title": "pi-account-guard configuration",
+	"description": "The file ~/.pi/agent/account-guard.json: zones, the default zone, zone tags per account and place rules. See DESIGN.md section 4. A schema cannot check references between fields, so two rules are enforced only by the guard when it reads the file: every zone named in defaultZone, an account tag or a place rule must be declared in zones, and no two accounts may share a (provider, source) pair.",
+	"type": "object",
+	"additionalProperties": false,
+	"$defs": {
+		"declaredZoneName": {
+			"type": "string",
+			"minLength": 1,
+			"not": { "const": "unknown" },
+			"description": "A zone name. It must also appear in zones (checked by the guard). unknown is reserved for accounts with no tag and cannot be declared or referenced."
+		},
+		"note": { "type": "string", "description": "Free text for the reader. Matching ignores it." },
+		"account": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["provider", "source", "zones"],
+			"properties": {
+				"provider": { "type": "string", "minLength": 1, "description": "The provider id that pi uses." },
+				"source": { "type": "string", "minLength": 1, "description": "The auth source, for example oauth, stored-key or env:<VAR>." },
+				"zones": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/declaredZoneName" },
+					"description": "The zones this account may be used in. An account is either untagged (absent from the file) or in at least one zone."
+				},
+				"note": { "$ref": "#/$defs/note" }
+			}
+		},
+		"placeRule": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["zone"],
+			"anyOf": [{ "required": ["path"] }, { "required": ["remote"] }],
+			"properties": {
+				"path": {
+					"type": "string",
+					"pattern": "^(/|~$|~/)",
+					"description": "An absolute directory or one starting with ~. The rule applies to it and everything below it."
+				},
+				"remote": { "type": "string", "minLength": 1, "description": "A glob matched against the normalized host/path of every git remote." },
+				"zone": { "$ref": "#/$defs/declaredZoneName" },
+				"note": { "$ref": "#/$defs/note" }
+			}
+		}
+	},
+	"properties": {
+		"$schema": false,
+		"zones": {
+			"type": "array",
+			"items": { "type": "string", "minLength": 1, "not": { "const": "unknown" } },
+			"description": "Every zone. Defaults to [\"work\", \"personal\"] when absent."
+		},
+		"defaultZone": { "$ref": "#/$defs/declaredZoneName", "description": "The zone of a place that no rule matches. Defaults to personal when absent." },
+		"accounts": { "type": "array", "items": { "$ref": "#/$defs/account" }, "description": "One entry per tagged account." },
+		"places": { "type": "array", "items": { "$ref": "#/$defs/placeRule" }, "description": "Place rules. File order is precedence: the first match wins." }
+	}
 }

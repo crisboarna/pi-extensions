@@ -56,8 +56,14 @@ const accounts = (files: { text: string | undefined }) => JSON.parse(files.text 
 
 describe("/guard status", () => {
 	const file = JSON.stringify({
-		accounts: [{ provider: "acme", source: "stored-key", zones: ["work"] }, { provider: "old", source: "oauth", zones: ["personal"] }],
-		places: [{ remote: "*/Acme/*", zone: "work" }, { path: "/srv/**", zone: "personal" }],
+		accounts: [
+			{ provider: "acme", source: "stored-key", zones: ["work"] },
+			{ provider: "old", source: "oauth", zones: ["personal"] },
+		],
+		places: [
+			{ remote: "*/Acme/*", zone: "work" },
+			{ path: "/srv/**", zone: "personal" },
+		],
 	});
 	const expected = [
 		"guard status",
@@ -68,6 +74,7 @@ describe("/guard status", () => {
 		" Zones     work, personal (default: personal)",
 		" Pooled    pi-multiprovider: openai-pool (warns only)",
 		" Untagged  beta (oauth), gamma (env:GAMMA_KEY)",
+		" Missing   old (oauth) [personal]",
 		"",
 		"(edit: /guard tag | place | zone ...)",
 	].join("\n");
@@ -81,6 +88,12 @@ describe("/guard status", () => {
 			texts.push(r.session.notices[0]!.message);
 		}
 		assert.equal(texts[0], texts[1]);
+	});
+
+	it("omits the Missing row when every tag belongs to a configured account", async () => {
+		const r = rig({ file: JSON.stringify({ accounts: [{ provider: "acme", source: "stored-key", zones: ["work"] }] }) });
+		await r.guard();
+		assert.doesNotMatch(r.notices()[0]!, /Missing/);
 	});
 
 	it("lists no pooled provider by default, and says none", async () => {
@@ -110,7 +123,10 @@ describe("/guard status", () => {
 		await r.host.fire("session_start", { reason: "startup" }, r.session.ctx);
 		r.files.text = "{ nope";
 		await r.guard();
-		assert.match(r.notices().at(-1)!, /^ Config {4}~\/\.pi\/agent\/account-guard\.json \(invalid, last valid copy in use\)\n {11}account-guard\.json: invalid JSON/m);
+		assert.match(
+			r.notices().at(-1)!,
+			/^ Config {4}~\/\.pi\/agent\/account-guard\.json \(invalid, last valid copy in use\)\n {11}account-guard\.json: invalid JSON/m,
+		);
 	});
 
 	it("is the same with no file: defaults, every configured account untagged", async () => {
@@ -165,7 +181,13 @@ describe("/guard tag", () => {
 		const r = rig();
 		await r.guard("tag acme stored-key lab");
 		assert.deepEqual(r.files.writes, []);
-		assert.deepEqual(r.session.notices, [{ message: "guard: did not tag acme (stored-key). Not a declared zone: lab. Declared zones: work, personal.\nUsage: /guard tag [provider [source] [zones]]", type: "error" }]);
+		assert.deepEqual(r.session.notices, [
+			{
+				message:
+					"guard: did not tag acme (stored-key). Not a declared zone: lab. Declared zones: work, personal.\nUsage: /guard tag [provider [source] [zones]]",
+				type: "error",
+			},
+		]);
 	});
 
 	it("shows old to new and asks to confirm when it changes the zones of a tagged account", async () => {
@@ -196,7 +218,10 @@ describe("/guard tag", () => {
 		await r.guard("tag acme stored-key work");
 		assert.deepEqual(r.files.writes, []);
 		assert.equal(r.files.text, "{ nope");
-		assert.match(r.notices()[0]!, /^guard: did not tag\. The file is malformed, and the guard never writes over a malformed file\.\naccount-guard\.json: invalid JSON/);
+		assert.match(
+			r.notices()[0]!,
+			/^guard: did not tag\. The file is malformed, and the guard never writes over a malformed file\.\naccount-guard\.json: invalid JSON/,
+		);
 		assert.equal(r.session.notices[0]!.type, "error");
 	});
 
@@ -208,7 +233,12 @@ describe("/guard tag", () => {
 	});
 
 	describe("pickers", () => {
-		const file = JSON.stringify({ accounts: [{ provider: "beta", source: "oauth", zones: ["work"] }, { provider: "old", source: "stored-key", zones: ["personal"] }] });
+		const file = JSON.stringify({
+			accounts: [
+				{ provider: "beta", source: "oauth", zones: ["work"] },
+				{ provider: "old", source: "stored-key", zones: ["personal"] },
+			],
+		});
 
 		it("list the configured providers at their current source and every file entry, marking the unconfigured", async () => {
 			const r = rig({ file, model: null });
@@ -231,11 +261,21 @@ describe("/guard tag", () => {
 		});
 
 		it("ask for the source when a provider has several file entries and none is configured now", async () => {
-			const r = rig({ file: JSON.stringify({ accounts: [{ provider: "delta", source: "oauth", zones: ["work"] }, { provider: "delta", source: "stored-key", zones: ["personal"] }] }) });
+			const r = rig({
+				file: JSON.stringify({
+					accounts: [
+						{ provider: "delta", source: "oauth", zones: ["work"] },
+						{ provider: "delta", source: "stored-key", zones: ["personal"] },
+					],
+				}),
+			});
 			r.dialogs.selectAnswers.push(/^delta \(oauth\)/);
 			r.dialogs.confirmAnswers.push(false);
 			await r.guard("tag delta personal");
-			assert.deepEqual(r.dialogs.selects[0]!.options, ["delta (oauth)  [work]  (not configured now)", "delta (stored-key)  [personal]  (not configured now)"]);
+			assert.deepEqual(r.dialogs.selects[0]!.options, [
+				"delta (oauth)  [work]  (not configured now)",
+				"delta (stored-key)  [personal]  (not configured now)",
+			]);
 			assert.equal(r.dialogs.confirms[0]!.message, "work -> personal");
 		});
 
@@ -263,7 +303,15 @@ describe("/guard tag", () => {
 		});
 
 		it("fails with the usage when a provider has several sources", async () => {
-			const r = rig({ mode: "print", file: JSON.stringify({ accounts: [{ provider: "delta", source: "oauth", zones: ["work"] }, { provider: "delta", source: "stored-key", zones: ["work"] }] }) });
+			const r = rig({
+				mode: "print",
+				file: JSON.stringify({
+					accounts: [
+						{ provider: "delta", source: "oauth", zones: ["work"] },
+						{ provider: "delta", source: "stored-key", zones: ["work"] },
+					],
+				}),
+			});
 			await r.guard("tag delta work");
 			assert.match(r.stderr[0]!, /^guard: name the source, one of: oauth, stored-key\.\nUsage: \/guard tag/);
 			assert.deepEqual(r.exitCodes, [2]);
@@ -287,7 +335,12 @@ describe("/guard tag", () => {
 });
 
 describe("/guard untag", () => {
-	const file = JSON.stringify({ accounts: [{ provider: "acme", source: "stored-key", zones: ["work"], note: "n" }, { provider: "beta", source: "oauth", zones: ["personal"] }] });
+	const file = JSON.stringify({
+		accounts: [
+			{ provider: "acme", source: "stored-key", zones: ["work"], note: "n" },
+			{ provider: "beta", source: "oauth", zones: ["personal"] },
+		],
+	});
 
 	it("removes the current Account's tag with no confirm", async () => {
 		const r = rig({ file });
@@ -300,7 +353,10 @@ describe("/guard untag", () => {
 	it("removes the named account", async () => {
 		const r = rig({ file });
 		await r.guard("untag beta oauth");
-		assert.deepEqual(accounts(r.files).map((account: { provider: string }) => account.provider), ["acme"]);
+		assert.deepEqual(
+			accounts(r.files).map((account: { provider: string }) => account.provider),
+			["acme"],
+		);
 	});
 
 	it("makes the account Unknown, which Blocks with the tag prompt", async () => {
@@ -323,7 +379,10 @@ describe("/guard untag", () => {
 		r.dialogs.selectAnswers.push(/^beta/);
 		await r.guard("untag");
 		assert.deepEqual(r.dialogs.selects[0]!.options, ["acme (stored-key)  [work]", "beta (oauth)  [personal]"]);
-		assert.deepEqual(accounts(r.files).map((account: { provider: string }) => account.provider), ["acme"]);
+		assert.deepEqual(
+			accounts(r.files).map((account: { provider: string }) => account.provider),
+			["acme"],
+		);
 	});
 
 	it("refuses extra words with the usage", async () => {
@@ -343,7 +402,10 @@ describe("/guard untag", () => {
 	it("untags silently with no UI", async () => {
 		const r = rig({ file, mode: "print" });
 		await r.guard("untag");
-		assert.deepEqual(accounts(r.files).map((account: { provider: string }) => account.provider), ["beta"]);
+		assert.deepEqual(
+			accounts(r.files).map((account: { provider: string }) => account.provider),
+			["beta"],
+		);
 		assert.deepEqual([r.stderr, r.exitCodes], [[], []]);
 	});
 });

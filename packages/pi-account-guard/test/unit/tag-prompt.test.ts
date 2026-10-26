@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { accountInWords, bypassNudge, parseZoneList, tagPromptTitle, zonesNamedInLabel } from "../../src/core/tag-prompt.ts";
+import { accountInWords, parseZoneList, tagPromptTitle, zoneNudge, zonesNamedInLabel } from "../../src/core/tag-prompt.ts";
 
 describe("accountInWords", () => {
 	it("shows the provider id and the auth source in words", () => {
@@ -51,7 +51,10 @@ describe("parseZoneList", () => {
 	});
 
 	it("names every zone that is not declared and lists the declared ones", () => {
-		assert.deepEqual(parseZoneList("work, wrk, Lab", declared), { ok: false, message: 'Not a declared zone: wrk, Lab. Declared zones: work, personal, lab.' });
+		assert.deepEqual(parseZoneList("work, wrk, Lab", declared), {
+			ok: false,
+			message: "Not a declared zone: wrk, Lab. Declared zones: work, personal, lab.",
+		});
 	});
 
 	it("refuses the reserved unknown zone", () => {
@@ -82,23 +85,40 @@ describe("zonesNamedInLabel", () => {
 	});
 });
 
-describe("bypassNudge", () => {
+describe("zoneNudge", () => {
 	it("is silent without a label", () => {
-		assert.equal(bypassNudge({ account: { provider: "acme", source: "oauth" }, multiPassLabel: undefined, chosen: ["personal"], declared: ["work", "personal"] }), undefined);
+		assert.equal(
+			zoneNudge({ account: { provider: "acme", source: "oauth" }, multiPassLabel: undefined, chosen: ["personal"], declared: ["work", "personal"] }),
+			undefined,
+		);
 	});
 
 	it("is silent when the chosen zones cover every zone the label names", () => {
-		assert.equal(bypassNudge({ account: { provider: "acme-2", source: "oauth" }, multiPassLabel: "Work seat", chosen: ["work", "personal"], declared: ["work", "personal"] }), undefined);
+		assert.equal(
+			zoneNudge({
+				account: { provider: "acme-2", source: "oauth" },
+				multiPassLabel: "Work seat",
+				chosen: ["work", "personal"],
+				declared: ["work", "personal"],
+			}),
+			undefined,
+		);
 	});
 
 	it("is silent when the label names no zone", () => {
-		assert.equal(bypassNudge({ account: { provider: "acme-2", source: "oauth" }, multiPassLabel: "Network", chosen: ["personal"], declared: ["work", "personal"] }), undefined);
+		assert.equal(
+			zoneNudge({ account: { provider: "acme-2", source: "oauth" }, multiPassLabel: "Network", chosen: ["personal"], declared: ["work", "personal"] }),
+			undefined,
+		);
 	});
 
 	it("asks a confirm naming the label, the zones left out and the chosen zones", () => {
-		assert.deepEqual(bypassNudge({ account: { provider: "acme-2", source: "oauth" }, multiPassLabel: "Work seat", chosen: ["personal"], declared: ["work", "personal"] }), {
-			title: "Tag as personal?",
-			message: 'The pi-multi-pass label of acme-2 · OAuth login is "Work seat", which names zone work, but you chose personal. Tag it anyway?',
-		});
+		assert.deepEqual(
+			zoneNudge({ account: { provider: "acme-2", source: "oauth" }, multiPassLabel: "Work seat", chosen: ["personal"], declared: ["work", "personal"] }),
+			{
+				title: "Tag as personal?",
+				message: 'The pi-multi-pass label of acme-2 · OAuth login is "Work seat", which names zone work, but you chose personal. Tag it anyway?',
+			},
+		);
 	});
 });

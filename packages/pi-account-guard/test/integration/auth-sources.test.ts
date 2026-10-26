@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pooledProviders } from "../../src/pi/pooled.ts";
 import { registerGuard } from "../../src/pi/hooks.ts";
+import { pooledProviders } from "../../src/pi/pooled.ts";
 import { attachDialogs, type FakeModel } from "../support/fake-dialogs.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 import { attachTagDialogs } from "../support/tag-dialogs.ts";
@@ -51,6 +51,15 @@ const taggedFile = (provider: string, source: string, zone: string) =>
 	JSON.stringify({ zones: ["work", "personal"], defaultZone: "personal", accounts: [{ provider, source, zones: [zone] }], places: [] });
 
 describe("claude-bridge account", () => {
+	it("keeps the environment of each registration, so a second guard in the same process does not change the first", async () => {
+		const file = taggedFile("claude-bridge", "claude-config:~/.claude-personal", "personal");
+		const personal = rig({ model: bridge, file, env: { CLAUDE_CONFIG_DIR: "/home/me/.claude-personal" } });
+		const work = rig({ model: bridge, file, env: { CLAUDE_CONFIG_DIR: "/home/me/.claude-work" } });
+		assert.equal(await personal.input(), undefined, "the first guard still resolves its own directory");
+		work.dialogs.selectAnswers.push(undefined, /^Cancel$/);
+		assert.deepEqual(await work.input(), { action: "handled" });
+	});
+
 	it("tags a work and a personal Claude Code config directory as different Accounts", async () => {
 		const file = taggedFile("claude-bridge", "claude-config:~/.claude-personal", "personal");
 		const personal = rig({ model: bridge, file, env: { CLAUDE_CONFIG_DIR: "/home/me/.claude-personal" } });
@@ -78,7 +87,10 @@ describe("claude-bridge account", () => {
 		const after = rig({ model: bridge, file, env: { ANTHROPIC_API_KEY: "sk-secret" } });
 		after.dialogs.selectAnswers.push(undefined, /^Cancel$/);
 		assert.deepEqual(await after.input(), { action: "handled" });
-		assert.equal(after.dialogs.selects[0]!.title, "This place is personal. Which zones does claude-bridge · environment variable ANTHROPIC_API_KEY belong to?");
+		assert.equal(
+			after.dialogs.selects[0]!.title,
+			"This place is personal. Which zones does claude-bridge · environment variable ANTHROPIC_API_KEY belong to?",
+		);
 		assert.match(after.dialogs.selects[1]!.title, /^BLOCKED {2}claude-bridge \(env:ANTHROPIC_API_KEY\) has no zone tag/);
 	});
 

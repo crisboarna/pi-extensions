@@ -5,32 +5,26 @@ import { describe, it } from "node:test";
 import { coreViolations, files, importSpecifiers, ROOT } from "../support/source-scan.ts";
 
 const CORE_FILE = join(ROOT, "src", "core", "example.ts");
+// The snippets live in test/fixtures so the repository import check does not read them as real imports.
+const snippet = (name: string): string => readFileSync(join(ROOT, "test", "fixtures", "imports", `${name}.ts.txt`), "utf8");
 
 describe("importSpecifiers", () => {
 	it("reads static, re-export, side-effect, dynamic and require forms", () => {
-		const source = [
-			'import { a } from "./a.ts";',
-			'import type { B } from "@earendil-works/pi-ai";',
-			'export * from "./c.ts";',
-			'import "./d.ts";',
-			'const e = await import("./e.ts");',
-			'const f = require("node:fs");',
-		].join("\n");
-		assert.deepEqual(importSpecifiers(source).sort(), ["./a.ts", "./c.ts", "./d.ts", "./e.ts", "@earendil-works/pi-ai", "node:fs"]);
+		assert.deepEqual(importSpecifiers(snippet("all-forms")).sort(), ["./a.ts", "./c.ts", "./d.ts", "./e.ts", "@earendil-works/pi-ai", "node:fs"]);
 	});
 });
 
 describe("core purity check", () => {
 	it("flags a pi host package import", () => {
-		assert.deepEqual(coreViolations(CORE_FILE, 'import type { X } from "@earendil-works/pi-coding-agent";'), ["@earendil-works/pi-coding-agent"]);
+		assert.deepEqual(coreViolations(CORE_FILE, snippet("pi-host")), ["@earendil-works/pi-coding-agent"]);
 	});
 
 	it("flags a relative import that leaves src/core", () => {
-		assert.deepEqual(coreViolations(CORE_FILE, 'import { hook } from "../pi/hooks.ts";'), ["../pi/hooks.ts"]);
+		assert.deepEqual(coreViolations(CORE_FILE, snippet("leaves-core")), ["../pi/hooks.ts"]);
 	});
 
 	it("allows node built-ins and imports inside src/core", () => {
-		assert.deepEqual(coreViolations(CORE_FILE, 'import { join } from "node:path";\nimport { y } from "./place.ts";'), []);
+		assert.deepEqual(coreViolations(CORE_FILE, snippet("inside-core")), []);
 	});
 });
 

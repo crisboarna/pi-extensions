@@ -34,7 +34,10 @@ describe("headlessBlockMessage", () => {
 
 	it("shows a config path outside the home directory in full", () => {
 		const cause: BlockCause = { kind: "zone-mismatch", account, accountZones: ["work"], place };
-		assert.match(headlessBlockMessage(cause, { home: "/home/me", configPath: "/tmp/agent/account-guard.json" }), /\n {4}in \/tmp\/agent\/account-guard\.json\n/);
+		assert.match(
+			headlessBlockMessage(cause, { home: "/home/me", configPath: "/tmp/agent/account-guard.json" }),
+			/\n {4}in \/tmp\/agent\/account-guard\.json\n/,
+		);
 	});
 
 	it("tells the user how to tag an unknown account", () => {
@@ -53,20 +56,36 @@ describe("headlessBlockMessage", () => {
 	});
 
 	it("names the file and the error for an invalid config", () => {
-		const cause: BlockCause = { kind: "config-invalid", account, errors: [{ path: "accounts[0]", message: "bad" }, { path: "", message: "invalid JSON: x" }] };
+		const cause: BlockCause = {
+			kind: "config-invalid",
+			account,
+			errors: [
+				{ path: "accounts[0]", message: "bad" },
+				{ path: "", message: "invalid JSON: x" },
+			],
+		};
 		assert.equal(
 			headlessBlockMessage(cause, context),
-			["BLOCKED acme (oauth): cannot read ~/.pi/agent/account-guard.json. No turn was sent.", "  account-guard.json: accounts[0]: bad", "  account-guard.json: invalid JSON: x", "Fix the file, then run pi again.", ""].join("\n"),
+			[
+				"BLOCKED acme (oauth): cannot read ~/.pi/agent/account-guard.json. No turn was sent.",
+				"  account-guard.json: accounts[0]: bad",
+				"  account-guard.json: invalid JSON: x",
+				"Fix the file, then run pi again.",
+				"",
+			].join("\n"),
 		);
 	});
 
 	it("names the cause when the place zone is undecidable", () => {
 		const cause: BlockCause = { kind: "place-undecidable", account, reason: "cannot resolve /gone" };
-		assert.equal(headlessBlockMessage(cause, context), ["BLOCKED acme (oauth): cannot decide this place's zone (cannot resolve /gone). No turn was sent.", ""].join("\n"));
+		assert.equal(
+			headlessBlockMessage(cause, context),
+			["BLOCKED acme (oauth): cannot decide this place's zone (cannot resolve /gone). No turn was sent.", ""].join("\n"),
+		);
 	});
 
 	it("names an internal error as the cause", () => {
-		const cause: BlockCause = { kind: "internal-error", reason: "boom" };
+		const cause: BlockCause = { kind: "internal-error", account, reason: "boom" };
 		assert.equal(headlessBlockMessage(cause, context), ["BLOCKED: the guard failed (boom). No turn was sent.", ""].join("\n"));
 	});
 });

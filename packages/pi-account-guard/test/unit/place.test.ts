@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolvePlaceZone, type PathReader, type PlaceRule, type RemoteReader } from "../../src/core/place.ts";
+import { type PathReader, type PlaceRule, type RemoteReader, resolvePlaceZone } from "../../src/core/place.ts";
 
 /** A reader over a fake file system: `links` maps a path to its real path, `existing` lists real directories. */
 function reader(links: Record<string, string> = {}, existing: string[] = []): PathReader {
@@ -22,7 +22,9 @@ function zoneOf(place: string, rules: PlaceRule[], paths: PathReader = reader())
 }
 
 const resolveWith = (rules: PlaceRule[], remotes: RemoteReader, place = "/srv/app") => resolvePlaceZone(place, rules, "personal", reader(), remotes);
-const remotesOf = (...urls: string[]): RemoteReader => () => ({ ok: true, urls });
+const remotesOf =
+	(...urls: string[]): RemoteReader =>
+	() => ({ ok: true, urls });
 const gitFails: RemoteReader = () => ({ ok: false, reason: "git is not installed or not on PATH" });
 
 describe("resolvePlaceZone", () => {
@@ -115,19 +117,32 @@ describe("resolvePlaceZone with remote conditions", () => {
 	it("matches a remote-only rule against any remote of the place", () => {
 		const rules = [{ remote: "*/Acme/*", zone: "work" }];
 		assert.deepEqual(resolveWith(rules, remotesOf("git@github.com:Acme/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
-		assert.deepEqual(resolveWith(rules, remotesOf("https://github.com/me/fork.git", "git@github.com:Acme/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rules, remotesOf("https://github.com/me/fork.git", "git@github.com:Acme/api.git")), {
+			ok: true,
+			zone: "work",
+			ruleIndex: 0,
+		});
 		assert.deepEqual(resolveWith(rules, remotesOf("https://github.com/me/fork.git")), { ok: true, zone: "personal" });
 	});
 
 	it("matches the ssh and https forms of one repository with the same rule", () => {
 		const rules = [{ remote: "github.com/Acme/api", zone: "work" }];
-		for (const url of ["git@github.com:Acme/api.git", "ssh://git@github.com/Acme/api.git", "https://github.com/Acme/api.git", "https://user:secret@github.com/Acme/api"]) {
+		for (const url of [
+			"git@github.com:Acme/api.git",
+			"ssh://git@github.com/Acme/api.git",
+			"https://github.com/Acme/api.git",
+			"https://user:secret@github.com/Acme/api",
+		]) {
 			assert.deepEqual(resolveWith(rules, remotesOf(url)), { ok: true, zone: "work", ruleIndex: 0 }, url);
 		}
 	});
 
 	it("matches remotes case-insensitively", () => {
-		assert.deepEqual(resolveWith([{ remote: "*/acme/*", zone: "work" }], remotesOf("git@GitHub.com:ACME/Api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith([{ remote: "*/acme/*", zone: "work" }], remotesOf("git@GitHub.com:ACME/Api.git")), {
+			ok: true,
+			zone: "work",
+			ruleIndex: 0,
+		});
 	});
 
 	it("matches * against one segment and ** against any depth", () => {
@@ -135,6 +150,37 @@ describe("resolvePlaceZone with remote conditions", () => {
 		assert.deepEqual(one, { ok: true, zone: "personal" });
 		const deep = resolveWith([{ remote: "gitlab.com/acme/**", zone: "work" }], remotesOf("https://gitlab.com/acme/team/api.git"));
 		assert.deepEqual(deep, { ok: true, zone: "work", ruleIndex: 0 });
+	});
+
+	it("matches a leading ** against any depth, including none", () => {
+		const rule = [{ remote: "**/acme-corp/*", zone: "work" }];
+		assert.deepEqual(resolveWith(rule, remotesOf("git@github.com:acme-corp/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rule, remotesOf("https://git.example.com/group/acme-corp/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rule, remotesOf("https://git.example.com/group/other/api.git")), { ok: true, zone: "personal" });
+	});
+
+	it("matches a leading ** inside a brace alternative against any depth", () => {
+		const rule = [{ remote: "{**/acme-corp/*,nowhere/*}", zone: "work" }];
+		assert.deepEqual(resolveWith(rule, remotesOf("https://git.example.com/group/acme-corp/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rule, remotesOf("https://git.example.com/group/other/api.git")), { ok: true, zone: "personal" });
+	});
+
+	it("keeps ** after other text in a segment as a single-segment wildcard", () => {
+		const rule = [{ remote: "gitlab.com/ac**/api", zone: "work" }];
+		assert.deepEqual(resolveWith(rule, remotesOf("https://gitlab.com/acme/api.git")), { ok: true, zone: "work", ruleIndex: 0 });
+		assert.deepEqual(resolveWith(rule, remotesOf("https://gitlab.com/acme/team/api.git")), { ok: true, zone: "personal" });
+	});
+
+	it("answers a pattern that would backtrack badly in linear time", () => {
+		const subject = "a".repeat(120);
+		const rules = [
+			{ remote: "*a*a*a*a*a*a*b", zone: "work" },
+			{ remote: "**/**/**/**/**/**/**/x", zone: "work" },
+			{ remote: "{a*,a*}{a*,a*}{a*,a*}*b", zone: "work" },
+		];
+		const started = Date.now();
+		assert.deepEqual(resolveWith(rules, remotesOf(subject)), { ok: true, zone: "personal" });
+		assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
 	});
 
 	it("requires both conditions of a combined rule", () => {
@@ -157,7 +203,10 @@ describe("resolvePlaceZone with remote conditions", () => {
 	});
 
 	it("does not match remote rules for a place without remotes, while path rules still apply", () => {
-		const rules = [{ remote: "*/Acme/*", zone: "work" }, { path: "/srv", zone: "other" }];
+		const rules = [
+			{ remote: "*/Acme/*", zone: "work" },
+			{ path: "/srv", zone: "other" },
+		];
 		assert.deepEqual(resolveWith(rules, remotesOf()), { ok: true, zone: "other", ruleIndex: 1 });
 		assert.deepEqual(resolveWith([rules[0]!], remotesOf()), { ok: true, zone: "personal" });
 	});
@@ -169,7 +218,10 @@ describe("resolvePlaceZone with remote conditions", () => {
 	});
 
 	it("lets a path-only rule that matches before any remote rule decide when git fails", () => {
-		const rules = [{ path: "/srv", zone: "work" }, { remote: "*/Acme/*", zone: "other" }];
+		const rules = [
+			{ path: "/srv", zone: "work" },
+			{ remote: "*/Acme/*", zone: "other" },
+		];
 		assert.deepEqual(resolveWith(rules, gitFails), { ok: true, zone: "work", ruleIndex: 0 });
 	});
 
@@ -179,14 +231,26 @@ describe("resolvePlaceZone with remote conditions", () => {
 	});
 
 	it("is undecidable when git fails before a later path-only rule could decide", () => {
-		const rules = [{ remote: "*/Acme/*", zone: "other" }, { path: "/srv", zone: "work" }];
+		const rules = [
+			{ remote: "*/Acme/*", zone: "other" },
+			{ path: "/srv", zone: "work" },
+		];
 		assert.equal(resolveWith(rules, gitFails).ok, false);
 	});
 
 	it("reads the remotes at most once per resolution", () => {
 		let reads = 0;
-		const counting: RemoteReader = () => (reads++, { ok: true, urls: ["git@github.com:me/x.git"] });
-		resolveWith([{ remote: "*/a/*", zone: "work" }, { remote: "*/b/*", zone: "work" }], counting);
+		const counting: RemoteReader = () => {
+			reads++;
+			return { ok: true, urls: ["git@github.com:me/x.git"] };
+		};
+		resolveWith(
+			[
+				{ remote: "*/a/*", zone: "work" },
+				{ remote: "*/b/*", zone: "work" },
+			],
+			counting,
+		);
 		assert.equal(reads, 1);
 	});
 });

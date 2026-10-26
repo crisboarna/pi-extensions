@@ -1,17 +1,28 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { describeAccount, type AccountKey } from "../core/account.ts";
-import { accountZones, formatConfigErrors, type ConfigError, type GuardConfig } from "../core/config.ts";
+import { type AccountKey, describeAccount } from "../core/account.ts";
+import { accountZones, type ConfigError, formatConfigErrors, type GuardConfig } from "../core/config.ts";
 import type { ConfigSnapshot, ConfigState } from "../core/config-state.ts";
-import { createConfigWriter, removeAccount, setAccountZones, type ConfigWriter } from "../core/config-writer.ts";
+import { type ConfigWriter, createConfigFileWriter, removeAccount, setAccountZones } from "../core/config-writer.ts";
 import type { PlaceOutcome } from "../core/decide.ts";
-import type { RemoteUrls } from "../core/place.ts";
-import { GUARD_USAGE, parseTagArguments, parseUntagArguments, sameZones, TAG_USAGE, UNTAG_USAGE, zoneChangeText, type AccountArguments } from "../core/guard-command.ts";
-import { knownAccountLabel, knownAccounts, type KnownAccount } from "../core/known-accounts.ts";
+import {
+	type AccountArguments,
+	GUARD_USAGE,
+	parseTagArguments,
+	parseUntagArguments,
+	sameZones,
+	TAG_USAGE,
+	UNTAG_USAGE,
+	zoneChangeText,
+} from "../core/guard-command.ts";
+import { type KnownAccount, knownAccountLabel, knownAccounts } from "../core/known-accounts.ts";
 import type { MessageContext } from "../core/messages.ts";
 import type { Overrides } from "../core/overrides.ts";
+import { fileName } from "../core/paths.ts";
+import type { RemoteUrls } from "../core/place.ts";
 import { statusText } from "../core/status.ts";
 import { accountInWords, parseZoneList } from "../core/tag-prompt.ts";
-import { accountOfModel } from "./account-of.ts";
+import type { AccountOfModel } from "./account-of.ts";
+import { type FailHeadless, reportOnError } from "./handler-errors.ts";
 import { offersOf } from "./interactive-block.ts";
 import { createPlaceZoneCommands } from "./place-zone-commands.ts";
 import { askZones } from "./tag-prompt.ts";
@@ -41,13 +52,16 @@ export interface GuardCommandDeps extends MessageContext {
 	refreshFooter(ctx: ExtensionContext): void;
 	writeStderr(text: string): void;
 	setExitCode(code: number): void;
+	/** Writes the text to stderr and sets the Block exit code; reports a handler that throws. */
+	failHeadless: FailHeadless;
+	accountOfModel: AccountOfModel;
 }
 
 /** Registers `/guard`: status, tag, untag, place and zone (DESIGN.md section 11). Every command takes full arguments; dialogs only fill in missing ones. */
 export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): void {
 	const { configState, writeConfigText } = deps;
-	const writer: ConfigWriter | undefined = writeConfigText && createConfigWriter({ readForWrite: configState.readForWrite, writeText: (text) => writeConfigText(deps.configPath, text) });
-	const configFile = deps.configPath.slice(deps.configPath.lastIndexOf("/") + 1);
+	const writer: ConfigWriter | undefined = createConfigFileWriter(configState, deps.configPath, writeConfigText);
+	const configFile = fileName(deps.configPath);
 
 	/** A failed command: the text goes to the UI, or to stderr with a non-zero exit code when there is none. */
 	function fail(ctx: ExtensionContext, text: string): void {
@@ -72,19 +86,23 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 		if (!ctx.hasUI) return;
 		const snapshot = deps.loadSnapshot(ctx);
 		const tags = snapshot.result.ok ? snapshot.result.config.accounts : [];
-		const known = knownAccounts(offersOf(ctx).map((offer) => offer.account), tags);
+		const known = knownAccounts(
+			offersOf(ctx, deps.accountOfModel).map((offer) => offer.account),
+			tags,
+		);
 		ctx.ui.notify(
 			statusText({
 				home: deps.home,
 				configPath: deps.configPath,
 				cwd: ctx.cwd,
 				place: deps.currentPlace(ctx, snapshot),
-				account: ctx.model ? accountOfModel(ctx, ctx.model) : undefined,
+				account: ctx.model ? deps.accountOfModel(ctx, ctx.model) : undefined,
 				config: snapshot.result,
 				fallbackErrors: snapshot.fallback?.errors,
 				overrides: deps.overrides(),
 				pooledProviders: deps.pooledProviders?.(ctx) ?? [],
 				untagged: known.filter((account) => account.configured && account.zones === undefined).map((account) => account.key),
+				missing: known.flatMap((account) => (!account.configured && account.zones ? [{ key: account.key, zones: account.zones }] : [])),
 			}),
 			"info",
 		);
@@ -99,14 +117,23 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 	}
 
 	function candidatesOf(ctx: ExtensionContext, config: GuardConfig): KnownAccount[] {
-		return knownAccounts(offersOf(ctx).map((offer) => offer.account), config.accounts);
+		return knownAccounts(
+			offersOf(ctx, deps.accountOfModel).map((offer) => offer.account),
+			config.accounts,
+		);
 	}
 
 	/**
 	 * The account the arguments name: the current model's account without arguments, the provider's current source without a source, a picker when that is ambiguous.
 	 * `taggedOnly` limits the pickers to accounts with a tag. `undefined` after a failure or a cancel.
 	 */
-	async function chooseAccount(ctx: ExtensionContext, { provider, source }: AccountArguments, candidates: KnownAccount[], usage: string, taggedOnly: boolean): Promise<AccountKey | undefined> {
+	async function chooseAccount(
+		ctx: ExtensionContext,
+		{ provider, source }: AccountArguments,
+		candidates: KnownAccount[],
+		usage: string,
+		taggedOnly: boolean,
+	): Promise<AccountKey | undefined> {
 		if (provider !== undefined && source !== undefined) return { provider, source };
 		const pick = async (all: KnownAccount[]): Promise<AccountKey | undefined> => {
 			const tagged = all.filter((candidate) => candidate.zones !== undefined);
@@ -120,7 +147,7 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 			return options[labels.indexOf(answer ?? "")]?.key;
 		};
 		if (provider === undefined) {
-			if (ctx.model) return accountOfModel(ctx, ctx.model);
+			if (ctx.model) return deps.accountOfModel(ctx, ctx.model);
 			if (candidates.length === 0 || !ctx.hasUI) {
 				fail(ctx, `guard: no model is selected and no account was named.\nUsage: ${usage}`);
 				return undefined;
@@ -160,7 +187,8 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 		const existing = accountZones(config.accounts, account);
 		if (existing && sameZones(existing, zones)) return say(ctx, `${name} is already tagged as ${zones.join(", ")}.`);
 		if (existing) {
-			if (!ctx.hasUI) return fail(ctx, `guard: ${name} is tagged ${existing.join(", ")}; changing it needs a confirm, so run /guard untag first or use a UI.`);
+			if (!ctx.hasUI)
+				return fail(ctx, `guard: ${name} is tagged ${existing.join(", ")}; changing it needs a confirm, so run /guard untag first or use a UI.`);
 			if (!(await ctx.ui.confirm(`Change the zones of ${name}?`, zoneChangeText(existing, zones)))) return;
 		}
 		const outcome = writer.update((current) => setAccountZones(current, account, zones));
@@ -203,7 +231,7 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 
 	pi.registerCommand("guard", {
 		description: "Show the guard status, tag and untag accounts, edit place rules and zones",
-		handler: async (args, ctx) => {
+		handler: reportOnError(pi, "/guard", deps.failHeadless, async (args: string, ctx) => {
 			const [command, ...words] = args.split(/\s+/).filter((word) => word !== "");
 			switch (command) {
 				case undefined:
@@ -219,6 +247,6 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 				default:
 					return fail(ctx, `guard: unknown command "${command}".\n${GUARD_USAGE}`);
 			}
-		},
+		}),
 	});
 }

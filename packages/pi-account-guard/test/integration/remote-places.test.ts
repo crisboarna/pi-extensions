@@ -4,11 +4,14 @@ import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
-import { readGitRemoteUrls } from "../../src/pi/git.ts";
 import { realpathIfPresent } from "../../src/pi/fs.ts";
+import { readGitRemoteUrls } from "../../src/pi/git.ts";
 import { registerGuard } from "../../src/pi/hooks.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 
+// Git hooks export GIT_DIR, GIT_INDEX_FILE and friends. Run from a hook, every git call below would act on the
+// repository being pushed instead of the temporary ones, so drop them before any test runs git.
+for (const name of Object.keys(process.env)) if (name.startsWith("GIT_")) delete process.env[name];
 // Real git in temporary directories; the guard sees a work-only account, so a place in zone personal Blocks.
 const root = realpathSync(mkdtempSync(join(tmpdir(), "account-guard-remotes-")));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -42,7 +45,9 @@ async function turn(cwd: string, places: Rule[], env: NodeJS.ProcessEnv = proces
 		readConfigText: () => JSON.stringify(config),
 		realpath: realpathIfPresent,
 		readRemoteUrls: (dir) => readGitRemoteUrls(dir, env),
-		writeStderr: (text) => void (stderr += text),
+		writeStderr: (text) => {
+			stderr += text;
+		},
 		setExitCode: () => {},
 	});
 	const session = createFakeSession({ cwd });
@@ -86,7 +91,10 @@ describe("remote place rules with real git", () => {
 
 	it("lets the first matching rule win", async () => {
 		const dir = repo("first-wins", { origin: "git@github.com:Acme/api.git" });
-		const result = await turn(dir, [{ remote: "*/Acme/*", zone: "personal" }, { path: dir, zone: "work" }]);
+		const result = await turn(dir, [
+			{ remote: "*/Acme/*", zone: "personal" },
+			{ path: dir, zone: "work" },
+		]);
 		assert.match(result.stderr, /is zone personal/);
 	});
 
@@ -108,7 +116,10 @@ describe("git failure with real git", () => {
 		const dir = repo("git-missing", { origin: "git@github.com:Acme/api.git" });
 		const result = await turn(dir, [workRemote], noGit);
 		assert.equal(result.passed, false);
-		assert.match(result.stderr, /^BLOCKED acme \(stored-key\): cannot decide this place's zone \(git is not installed or not on PATH\)\. No turn was sent\./);
+		assert.match(
+			result.stderr,
+			/^BLOCKED acme \(stored-key\): cannot decide this place's zone \(git is not installed or not on PATH\)\. No turn was sent\./,
+		);
 	});
 
 	it("keeps blocking every turn until the next session start", async () => {
@@ -122,7 +133,9 @@ describe("git failure with real git", () => {
 			readConfigText: () => JSON.stringify({ accounts: [{ provider: "acme", source: "stored-key", zones: ["work"] }], places: [workRemote] }),
 			realpath: realpathIfPresent,
 			readRemoteUrls: (cwd) => readGitRemoteUrls(cwd, env),
-			writeStderr: (text) => void (stderr += text),
+			writeStderr: (text) => {
+				stderr += text;
+			},
 			setExitCode: () => {},
 		});
 		const session = createFakeSession({ cwd: dir });
@@ -147,10 +160,27 @@ describe("git failure with real git", () => {
 
 	it("blocks when git cannot read the repository", async () => {
 		const dir = repo("corrupt-config", { origin: "git@github.com:Acme/api.git" });
-		writeFileSync(join(dir, ".git", "config"), "[remote \"origin\"\n\turl = =\n");
+		writeFileSync(join(dir, ".git", "config"), '[remote "origin"\n\turl = =\n');
 		const result = await turn(dir, [workRemote]);
 		assert.equal(result.passed, false);
 		assert.match(result.stderr, /cannot decide this place's zone \(git failed: /);
+	});
+
+	it("says the directory is missing, not that git is missing", () => {
+		const result = readGitRemoteUrls(join(root, "no-such-directory"));
+		assert.equal(result.ok, false);
+		assert.match(result.ok ? "" : result.reason, /^the directory .*no-such-directory does not exist$/);
+	});
+
+	it("scrubs credentials embedded in a URL from the git error text", async () => {
+		const bin = plainDirectory("noisy-git-bin");
+		writeFileSync(join(bin, "git"), "#!/bin/sh\necho \"fatal: unable to access 'https://deploy:hunter2@example.com/Acme/api.git/': denied\" >&2\nexit 1\n");
+		chmodSync(join(bin, "git"), 0o755);
+		const dir = repo("noisy-git", { origin: "git@github.com:Acme/api.git" });
+		const result = await turn(dir, [workRemote], { ...process.env, PATH: bin });
+		assert.equal(result.passed, false);
+		assert.match(result.stderr, /git failed: fatal: unable to access 'https:\/\/example\.com\/Acme\/api\.git\/': denied/);
+		assert.doesNotMatch(result.stderr, /hunter2|deploy/);
 	});
 
 	it("blocks when git does not answer in time", async () => {

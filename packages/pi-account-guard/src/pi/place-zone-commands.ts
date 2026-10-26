@@ -3,20 +3,21 @@ import type { ConfigError, ConfigResult, GuardConfig, PlaceRuleEntry } from "../
 import type { ConfigWriter } from "../core/config-writer.ts";
 import type { PlaceOutcome } from "../core/decide.ts";
 import {
-	parseNumber,
-	parsePlaceAddArguments,
 	PLACE_ADD_USAGE,
 	PLACE_LIST_USAGE,
 	PLACE_MOVE_USAGE,
 	PLACE_REMOVE_USAGE,
-	zoneNameProblem,
+	parseNumber,
+	parsePlaceAddArguments,
 	ZONE_ADD_USAGE,
 	ZONE_DEFAULT_USAGE,
 	ZONE_REMOVE_USAGE,
 	ZONE_RENAME_USAGE,
+	zoneNameProblem,
 } from "../core/guard-command.ts";
+import { displayPath } from "../core/paths.ts";
+import type { RemoteUrls } from "../core/place.ts";
 import { addPlaceRule, movePlaceRule, placeChangeText, placeListText, placeZoneChanges, removePlaceRule, ruleLine } from "../core/place-edit.ts";
-import { displayPath, type RemoteUrls } from "../core/place.ts";
 import { normalizeRemoteUrl } from "../core/remote.ts";
 import { placeSummary } from "../core/status.ts";
 import { addZone, removeZone, renameZone, setDefaultZone, zoneReferences } from "../core/zone-edit.ts";
@@ -67,7 +68,10 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 	/** Applies `change` and, once written, makes this session use the new place zone at once. */
 	function write(ctx: ExtensionContext, writing: ConfigWriter, change: (config: GuardConfig) => GuardConfig, action: string, done: string): void {
 		const outcome = writing.update(change);
-		if (!outcome.ok) return failWrite(ctx, action, outcome.errors);
+		if (!outcome.ok) {
+			failWrite(ctx, action, outcome.errors);
+			return;
+		}
 		kit.reresolvePlace(ctx);
 		say(ctx, done);
 	}
@@ -94,7 +98,8 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		const count = config.places.length;
 		if (text !== undefined) {
 			const number = parseNumber(text, count);
-			if (number === undefined) return void fail(ctx, `guard: ${text} is not a rule number; there ${count === 1 ? "is 1 rule" : `are ${count} rules`}.\n${usageOf(usage)}`);
+			if (number === undefined)
+				return void fail(ctx, `guard: ${text} is not a rule number; there ${count === 1 ? "is 1 rule" : `are ${count} rules`}.\n${usageOf(usage)}`);
 			return number - 1;
 		}
 		if (!ctx.hasUI) return void fail(ctx, `guard: name the rule number.\n${usageOf(usage)}`);
@@ -133,7 +138,11 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		const count = config.places.length;
 		const position = named.at === undefined ? 1 : parseNumber(named.at, count + 1);
 		if (position === undefined) return fail(ctx, `guard: ${named.at} is not a position from 1 to ${count + 1}.\n${usageOf(PLACE_ADD_USAGE)}`);
-		if (named.zone !== undefined && !config.zones.includes(named.zone)) return fail(ctx, `guard: did not add the rule. Not a declared zone: ${named.zone}. Declared zones: ${config.zones.join(", ")}.\n${usageOf(PLACE_ADD_USAGE)}`);
+		if (named.zone !== undefined && !config.zones.includes(named.zone))
+			return fail(
+				ctx,
+				`guard: did not add the rule. Not a declared zone: ${named.zone}. Declared zones: ${config.zones.join(", ")}.\n${usageOf(PLACE_ADD_USAGE)}`,
+			);
 		let { path, remote } = named;
 		if (path === "here") {
 			const real = kit.realpath(ctx.cwd);
@@ -158,10 +167,16 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 	}
 
 	function placeList(ctx: ExtensionContext, words: string[]): void {
-		if (words.length > 0) return fail(ctx, `guard: too many arguments.\n${usageOf(PLACE_LIST_USAGE)}`);
+		if (words.length > 0) {
+			fail(ctx, `guard: too many arguments.\n${usageOf(PLACE_LIST_USAGE)}`);
+			return;
+		}
 		if (!ctx.hasUI) return;
 		const config = kit.loadConfig(ctx);
-		if (!config.ok) return failWrite(ctx, "cannot list the rules.", config.errors);
+		if (!config.ok) {
+			failWrite(ctx, "cannot list the rules.", config.errors);
+			return;
+		}
 		ctx.ui.notify(placeListText(config.config, kit.currentPlace(ctx)), "info");
 	}
 
@@ -171,7 +186,8 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		if (!edit) return;
 		const index = await chooseRule(ctx, edit.config, words[0], PLACE_REMOVE_USAGE);
 		if (index === undefined) return;
-		const rule = edit.config.places[index]!;
+		const rule = edit.config.places[index];
+		if (rule === undefined) return;
 		const proposed = removePlaceRule(edit.config, index);
 		if (!(await confirmedPlaceChange(ctx, proposed, `Remove rule ${index + 1}?`, ruleLine(rule)))) return;
 		write(ctx, edit.writer, (current) => removePlaceRule(current, index), "did not remove the rule.", `Removed rule ${index + 1} (${ruleLine(rule)}).`);
@@ -192,10 +208,17 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		const to = parseNumber(toText.trim(), count);
 		if (to === undefined) return fail(ctx, `guard: ${toText} is not a position from 1 to ${count}.\n${usageOf(PLACE_MOVE_USAGE)}`);
 		if (to - 1 === from) return say(ctx, `Rule ${to} is already at position ${to}.`);
-		const rule = edit.config.places[from]!;
+		const rule = edit.config.places[from];
+		if (rule === undefined) return;
 		const proposed = movePlaceRule(edit.config, from, to - 1);
 		if (!(await confirmedPlaceChange(ctx, proposed, `Move rule ${from + 1} to position ${to}?`, ruleLine(rule)))) return;
-		write(ctx, edit.writer, (current) => movePlaceRule(current, from, to - 1), "did not move the rule.", `Moved rule ${from + 1} (${ruleLine(rule)}) to position ${to}.`);
+		write(
+			ctx,
+			edit.writer,
+			(current) => movePlaceRule(current, from, to - 1),
+			"did not move the rule.",
+			`Moved rule ${from + 1} (${ruleLine(rule)}) to position ${to}.`,
+		);
 	}
 
 	async function zoneAdd(ctx: ExtensionContext, words: string[]): Promise<void> {
@@ -215,7 +238,13 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 	}
 
 	/** The declared zone the arguments or a picker name; `undefined` after a failure or a cancel. */
-	async function chooseZone(ctx: ExtensionContext, config: GuardConfig, name: string | undefined, question: string, usage: string): Promise<string | undefined> {
+	async function chooseZone(
+		ctx: ExtensionContext,
+		config: GuardConfig,
+		name: string | undefined,
+		question: string,
+		usage: string,
+	): Promise<string | undefined> {
 		if (name !== undefined) {
 			if (config.zones.includes(name)) return name;
 			return void fail(ctx, `guard: ${name} is not a declared zone. Declared zones: ${config.zones.join(", ")}.\n${usageOf(usage)}`);
@@ -232,7 +261,8 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		const zone = await chooseZone(ctx, edit.config, words[0], "Which zone do you remove?", ZONE_REMOVE_USAGE);
 		if (zone === undefined) return;
 		const references = zoneReferences(edit.config, zone);
-		if (references.length > 0) return fail(ctx, [`guard: did not remove zone ${zone}. It is still referenced by:`, ...references.map((reference) => `  ${reference}`)].join("\n"));
+		if (references.length > 0)
+			return fail(ctx, [`guard: did not remove zone ${zone}. It is still referenced by:`, ...references.map((reference) => `  ${reference}`)].join("\n"));
 		write(ctx, edit.writer, (current) => removeZone(current, zone), `did not remove zone ${zone}.`, `Removed zone ${zone}.`);
 	}
 
@@ -251,7 +281,13 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		if (problem) return fail(ctx, `guard: did not rename zone ${oldName}. ${problem}`);
 		if (newName === oldName) return say(ctx, `Zone ${oldName} already has that name.`);
 		if (edit.config.zones.includes(newName)) return fail(ctx, `guard: did not rename zone ${oldName}. Zone ${newName} is already declared.`);
-		write(ctx, edit.writer, (current) => renameZone(current, oldName, newName), `did not rename zone ${oldName}.`, `Renamed zone ${oldName} to ${newName}.`);
+		write(
+			ctx,
+			edit.writer,
+			(current) => renameZone(current, oldName, newName),
+			`did not rename zone ${oldName}.`,
+			`Renamed zone ${oldName} to ${newName}.`,
+		);
 	}
 
 	async function zoneDefault(ctx: ExtensionContext, words: string[]): Promise<void> {
@@ -261,7 +297,15 @@ export function createPlaceZoneCommands(kit: PlaceZoneKit): PlaceZoneCommands {
 		const zone = await chooseZone(ctx, edit.config, words[0], "Which zone is the default?", ZONE_DEFAULT_USAGE);
 		if (zone === undefined) return;
 		if (zone === edit.config.defaultZone) return say(ctx, `The default zone is already ${zone}.`);
-		if (!(await confirmedPlaceChange(ctx, setDefaultZone(edit.config, zone), `Change the default zone to ${zone}?`, `It is ${edit.config.defaultZone} now.`))) return;
+		if (
+			!(await confirmedPlaceChange(
+				ctx,
+				setDefaultZone(edit.config, zone),
+				`Change the default zone to ${zone}?`,
+				`It is ${edit.config.defaultZone} now.`,
+			))
+		)
+			return;
 		write(ctx, edit.writer, (current) => setDefaultZone(current, zone), "did not change the default zone.", `The default zone is ${zone}.`);
 	}
 

@@ -10,7 +10,11 @@ const config: GuardConfig = {
 		{ provider: "acme", source: "oauth", zones: ["work", "lab"], note: "seat" },
 		{ provider: "beta", source: "stored-key", zones: ["personal"] },
 	],
-	places: [{ path: "~/a", zone: "work", note: "n" }, { remote: "*/Acme/*", zone: "lab" }, { path: "~/b", zone: "work" }],
+	places: [
+		{ path: "~/a", zone: "work", note: "n" },
+		{ remote: "*/Acme/*", zone: "lab" },
+		{ path: "~/b", zone: "work" },
+	],
 };
 
 describe("zone edits", () => {
@@ -27,7 +31,11 @@ describe("zone edits", () => {
 		const renamed = renameZone(config, "work", "job");
 		assert.deepEqual(renamed.zones, ["job", "personal", "lab"]);
 		assert.deepEqual(renamed.accounts[0], { provider: "acme", source: "oauth", zones: ["job", "lab"], note: "seat" });
-		assert.deepEqual(renamed.places, [{ path: "~/a", zone: "job", note: "n" }, { remote: "*/Acme/*", zone: "lab" }, { path: "~/b", zone: "job" }]);
+		assert.deepEqual(renamed.places, [
+			{ path: "~/a", zone: "job", note: "n" },
+			{ remote: "*/Acme/*", zone: "lab" },
+			{ path: "~/b", zone: "job" },
+		]);
 		assert.equal(renameZone(config, "personal", "home").defaultZone, "home");
 		assert.equal(renameZone(config, "work", "job").defaultZone, "personal");
 	});

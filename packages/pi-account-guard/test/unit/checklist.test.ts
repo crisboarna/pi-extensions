@@ -6,7 +6,15 @@ const make = () => createChecklist("Which zones?", ["work", "personal", "lab"]);
 
 describe("createChecklist", () => {
 	it("starts with nothing checked and the cursor on the first option", () => {
-		assert.deepEqual(make().lines(), ["Which zones?", "", "> [ ] work", "  [ ] personal", "  [ ] lab", "", "up/down move, space checks, enter confirms, esc cancels"]);
+		assert.deepEqual(make().lines(), [
+			"Which zones?",
+			"",
+			"> [ ] work",
+			"  [ ] personal",
+			"  [ ] lab",
+			"",
+			"up/down move, space checks, enter confirms, esc cancels",
+		]);
 	});
 
 	it("checks and unchecks the option under the cursor", () => {

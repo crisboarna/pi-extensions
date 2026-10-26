@@ -23,13 +23,18 @@ export function accountKey({ provider, usingOAuth, status }: AccountKeyInput): A
 	return { provider, source: authSource(usingOAuth, status) };
 }
 
+/** A source this version does not know: its own Account, so it starts Unknown and is never merged with another source (ADR 0002). */
+const UNRECOGNISED_PREFIX = "unrecognised:";
+
 function authSource(usingOAuth: boolean, status: AuthStatusView): string {
 	if (!status.configured) return "unconfigured";
 	switch (status.source) {
 		case "stored":
 			return usingOAuth ? "oauth" : "stored-key";
 		case "environment":
-			return `env:${status.label ?? "unknown"}`;
+			// Without a variable name the source is not claimed as `env:<VAR>`; it falls to the unrecognised sources.
+			if (status.label !== undefined) return `env:${status.label}`;
+			return `${UNRECOGNISED_PREFIX}environment`;
 		case "models_json_key":
 			return "models-json-key";
 		case "models_json_command":
@@ -39,7 +44,7 @@ function authSource(usingOAuth: boolean, status: AuthStatusView): string {
 		case "fallback":
 			return "fallback";
 		default:
-			return "unconfigured";
+			return `${UNRECOGNISED_PREFIX}${status.source ?? "none"}`;
 	}
 }
 

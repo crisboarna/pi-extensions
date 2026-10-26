@@ -9,10 +9,10 @@ It is a guard against slips, not a security boundary. It never reads secrets, it
 Requires Node 22.19 or later and pi.
 
 ```sh
-pi install git:github.com/crisboarna/pi-account-guard
-# or from a local checkout:
-pi install /path/to/pi-account-guard
+pi install npm:@crisboarna/pi-account-guard
 ```
+
+Restart pi.
 
 With no configuration the guard knows two zones, `work` and `personal`, uses `personal` as the default zone, and treats every account as untagged. The first time an untagged account is used, the tag prompt asks which zones it belongs to and creates the config file.
 
@@ -184,19 +184,16 @@ Also: the place zone is cached at session start (a hand edit of `places` or a re
 
 ## Development
 
-Requires Node 22.19 or later and an installed pi release.
+The package lives in the [pi-extensions](https://github.com/crisboarna/pi-extensions) monorepo. Run `npm install` and `npm run check` from the repository root; the root supplies the pi host packages and the tooling.
 
 ```sh
-npm install
-npm run link:pi          # link the host packages from the installed pi release
-npm run typecheck        # tsc --noEmit, strict
-npm test                 # unit tests on the pure core (src/core)
-npm run test:integration # fake-pi host loading src/index.ts through jiti
-npm run test:smoke       # opt-in: real pi, offline, with the stub provider
+npm test --workspace @crisboarna/pi-account-guard                  # unit tests on the pure core (src/core)
+npm run test:integration --workspace @crisboarna/pi-account-guard  # fake-pi host loading src/index.ts through jiti
+npm run test:smoke --workspace @crisboarna/pi-account-guard        # opt-in: real pi, offline, with the stub provider
 ```
 
 The smoke tests run the `pi` on `PATH` (override with `PI_BIN`) with `PI_OFFLINE=1`, an empty agent directory and credential environment variables removed. `test/support/stub-provider.ts` answers every prompt locally. The checks that need a real TUI are in [docs/manual-checklist.md](docs/manual-checklist.md).
 
 ## License
 
-MIT
+[MIT](LICENSE)

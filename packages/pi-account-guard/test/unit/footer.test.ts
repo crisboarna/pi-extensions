@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_CONFIG, type GuardConfig } from "../../src/core/config.ts";
-import { footerText, type FooterInput } from "../../src/core/footer.ts";
+import { type FooterInput, footerText } from "../../src/core/footer.ts";
 import { grantOnce, grantSession, NO_OVERRIDES } from "../../src/core/overrides.ts";
 
 const acme = { provider: "acme", source: "oauth" };

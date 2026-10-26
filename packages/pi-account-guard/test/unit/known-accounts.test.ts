@@ -8,16 +8,31 @@ const old = { provider: "old", source: "stored-key" };
 
 describe("knownAccounts", () => {
 	it("lists configured accounts in registry order with their tags, then file entries not configured now", () => {
-		assert.deepEqual(knownAccounts([beta, acme], [{ ...old, zones: ["work"] }, { ...acme, zones: ["personal"] }]), [
-			{ key: beta, zones: undefined, configured: true },
-			{ key: acme, zones: ["personal"], configured: true },
-			{ key: old, zones: ["work"], configured: false },
-		]);
+		assert.deepEqual(
+			knownAccounts(
+				[beta, acme],
+				[
+					{ ...old, zones: ["work"] },
+					{ ...acme, zones: ["personal"] },
+				],
+			),
+			[
+				{ key: beta, zones: undefined, configured: true },
+				{ key: acme, zones: ["personal"], configured: true },
+				{ key: old, zones: ["work"], configured: false },
+			],
+		);
 	});
 
 	it("tells the same provider id apart by source", () => {
 		const other = { provider: "acme", source: "stored-key" };
-		assert.deepEqual(knownAccounts([acme], [{ ...other, zones: ["work"] }]).map((known) => [known.key.source, known.configured]), [["oauth", true], ["stored-key", false]]);
+		assert.deepEqual(
+			knownAccounts([acme], [{ ...other, zones: ["work"] }]).map((known) => [known.key.source, known.configured]),
+			[
+				["oauth", true],
+				["stored-key", false],
+			],
+		);
 	});
 });
 

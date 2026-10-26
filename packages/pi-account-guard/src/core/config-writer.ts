@@ -1,5 +1,6 @@
-import { sameAccount, type AccountKey } from "./account.ts";
-import { parseConfig, type ConfigError, type ConfigResult, type GuardConfig } from "./config.ts";
+import { type AccountKey, sameAccount } from "./account.ts";
+import { type ConfigError, type ConfigResult, type GuardConfig, parseConfig } from "./config.ts";
+import type { ConfigState } from "./config-state.ts";
 
 /** The file text of a config: every default spelled out, 2-space indent, one final newline (DESIGN.md section 4). */
 export function serializeConfig(config: GuardConfig): string {
@@ -50,4 +51,13 @@ export function createConfigWriter({ readForWrite, writeText }: ConfigWriterDeps
 			return next;
 		},
 	};
+}
+
+/** The writer for the config file at `configPath`; `undefined` when the host cannot write files, so callers refuse edits. */
+export function createConfigFileWriter(
+	configState: ConfigState,
+	configPath: string,
+	writeConfigText: ((path: string, text: string) => void) | undefined,
+): ConfigWriter | undefined {
+	return writeConfigText && createConfigWriter({ readForWrite: configState.readForWrite, writeText: (text) => writeConfigText(configPath, text) });
 }

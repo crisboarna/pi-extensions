@@ -72,9 +72,21 @@ describe("/guard place add", () => {
 	});
 
 	it("takes a path, a remote or both as typed, and a position", async () => {
-		const r = rig({ file: { ...tagged, places: [{ path: "/a", zone: "work" }, { path: "/b", zone: "work" }] } });
+		const r = rig({
+			file: {
+				...tagged,
+				places: [
+					{ path: "/a", zone: "work" },
+					{ path: "/b", zone: "work" },
+				],
+			},
+		});
 		await r.guard("place add path=~/code remote=*/Acme/* zone=personal at=2");
-		assert.deepEqual(rules(r), [{ path: "/a", zone: "work" }, { path: "~/code", remote: "*/Acme/*", zone: "personal" }, { path: "/b", zone: "work" }]);
+		assert.deepEqual(rules(r), [
+			{ path: "/a", zone: "work" },
+			{ path: "~/code", remote: "*/Acme/*", zone: "personal" },
+			{ path: "/b", zone: "work" },
+		]);
 		await r.guard("place add remote=host/org/* zone=work at=4");
 		assert.deepEqual(rules(r).at(-1), { remote: "host/org/*", zone: "work" });
 	});
@@ -109,7 +121,10 @@ describe("/guard place add", () => {
 				options: ["This directory and below (~/proj)", "One of its remotes", "This directory and one of its remotes"],
 			});
 			assert.deepEqual(r.dialogs.selects[1], { title: "Which zone does the new rule give?", options: ["work", "personal"] });
-			assert.deepEqual(rules(r), [{ path: "~/proj", zone: "work" }, { path: "/home/**", zone: "personal" }]);
+			assert.deepEqual(rules(r), [
+				{ path: "~/proj", zone: "work" },
+				{ path: "/home/**", zone: "personal" },
+			]);
 		});
 
 		it("picks one remote of the place from the list, normalized", async () => {
@@ -140,7 +155,10 @@ describe("/guard place add", () => {
 			const r = rig({ file: tagged });
 			r.dialogs.selectAnswers.push(/^work$/);
 			await r.guard("place add path=/x");
-			assert.deepEqual(r.dialogs.selects.map((select) => select.title), ["Which zone does the new rule give?"]);
+			assert.deepEqual(
+				r.dialogs.selects.map((select) => select.title),
+				["Which zone does the new rule give?"],
+			);
 			const s = rig({ file: tagged });
 			s.dialogs.selectAnswers.push(/^This directory/);
 			await s.guard("place add zone=work");
@@ -162,7 +180,13 @@ describe("/guard place add", () => {
 		it("a zone that is not declared", async () => {
 			const r = rig({ file: tagged });
 			await r.guard("place add path=here zone=lab");
-			assert.deepEqual(r.session.notices, [{ message: "guard: did not add the rule. Not a declared zone: lab. Declared zones: work, personal.\nUsage: /guard place add [path=<path|here>] [remote=<glob>] [zone=<zone>] [at=<n>]", type: "error" }]);
+			assert.deepEqual(r.session.notices, [
+				{
+					message:
+						"guard: did not add the rule. Not a declared zone: lab. Declared zones: work, personal.\nUsage: /guard place add [path=<path|here>] [remote=<glob>] [zone=<zone>] [at=<n>]",
+					type: "error",
+				},
+			]);
 			assert.deepEqual(r.files.writes, []);
 		});
 
@@ -215,14 +239,27 @@ describe("/guard place add", () => {
 });
 
 describe("/guard place list", () => {
-	const file = { ...tagged, places: [{ remote: "*/Acme/*", zone: "work" }, { path: "/home/**", zone: "personal" }, { path: "/home/me", zone: "work" }] };
+	const file = {
+		...tagged,
+		places: [
+			{ remote: "*/Acme/*", zone: "work" },
+			{ path: "/home/**", zone: "personal" },
+			{ path: "/home/me", zone: "work" },
+		],
+	};
 
 	it("numbers the rules in file order and marks the one that decides this place", async () => {
 		const r = rig({ file });
 		await r.guard("place list");
 		assert.deepEqual(r.session.notices, [
 			{
-				message: ["guard place rules", " 1. remote */Acme/* -> work", " 2. /home/** -> personal   <- decides this place", " 3. /home/me -> work", " default zone: personal"].join("\n"),
+				message: [
+					"guard place rules",
+					" 1. remote */Acme/* -> work",
+					" 2. /home/** -> personal   <- decides this place",
+					" 3. /home/me -> work",
+					" default zone: personal",
+				].join("\n"),
 				type: "info",
 			},
 		]);
@@ -246,14 +283,21 @@ describe("/guard place remove and move", () => {
 	const file = {
 		...tagged,
 		defaultZone: "personal",
-		places: [{ path: "/elsewhere", zone: "work" }, { path: "/home/me/proj", zone: "work" }, { path: "/home/me", zone: "personal" }],
+		places: [
+			{ path: "/elsewhere", zone: "work" },
+			{ path: "/home/me/proj", zone: "work" },
+			{ path: "/home/me", zone: "personal" },
+		],
 	};
 
 	it("removes a rule that does not decide this place with no confirm", async () => {
 		const r = rig({ file });
 		await r.guard("place remove 1");
 		assert.equal(r.dialogs.confirms.length, 0);
-		assert.deepEqual(rules(r), [{ path: "/home/me/proj", zone: "work" }, { path: "/home/me", zone: "personal" }]);
+		assert.deepEqual(rules(r), [
+			{ path: "/home/me/proj", zone: "work" },
+			{ path: "/home/me", zone: "personal" },
+		]);
 		assert.deepEqual(r.notices(), ["Removed rule 1 (/elsewhere -> work)."]);
 	});
 
@@ -262,7 +306,9 @@ describe("/guard place remove and move", () => {
 		await r.start();
 		r.dialogs.confirmAnswers.push(true);
 		await r.guard("place remove 2");
-		assert.deepEqual(r.dialogs.confirms, [{ title: "Remove rule 2?", message: "/home/me/proj -> work\nThis place changes from zone work to zone personal." }]);
+		assert.deepEqual(r.dialogs.confirms, [
+			{ title: "Remove rule 2?", message: "/home/me/proj -> work\nThis place changes from zone work to zone personal." },
+		]);
 		assert.equal(r.footer(), "guard personal ✗ acme is work");
 		assert.equal(rules(r).length, 2);
 	});
@@ -274,7 +320,15 @@ describe("/guard place remove and move", () => {
 	});
 
 	it("asks no confirm when the deciding rule is removed but the next one gives the same zone", async () => {
-		const r = rig({ file: { ...file, places: [{ path: "/home/me/proj", zone: "work" }, { path: "/home/me", zone: "work" }] } });
+		const r = rig({
+			file: {
+				...file,
+				places: [
+					{ path: "/home/me/proj", zone: "work" },
+					{ path: "/home/me", zone: "work" },
+				],
+			},
+		});
 		await r.guard("place remove 1");
 		assert.equal(r.dialogs.confirms.length, 0);
 		assert.equal(rules(r).length, 1);
@@ -293,7 +347,10 @@ describe("/guard place remove and move", () => {
 		const r = rig({ file });
 		r.dialogs.selectAnswers.push(/^1\./);
 		await r.guard("place remove");
-		assert.deepEqual(r.dialogs.selects[0], { title: "Which rule?", options: ["1. /elsewhere -> work", "2. /home/me/proj -> work", "3. /home/me -> personal"] });
+		assert.deepEqual(r.dialogs.selects[0], {
+			title: "Which rule?",
+			options: ["1. /elsewhere -> work", "2. /home/me/proj -> work", "3. /home/me -> personal"],
+		});
 		assert.equal(rules(r).length, 2);
 	});
 
@@ -301,7 +358,10 @@ describe("/guard place remove and move", () => {
 		const r = rig({ file });
 		await r.guard("place move 1 3");
 		assert.equal(r.dialogs.confirms.length, 0);
-		assert.deepEqual(rules(r).map((rule: any) => rule.path), ["/home/me/proj", "/home/me", "/elsewhere"]);
+		assert.deepEqual(
+			rules(r).map((rule: any) => rule.path),
+			["/home/me/proj", "/home/me", "/elsewhere"],
+		);
 		assert.deepEqual(r.notices(), ["Moved rule 1 (/elsewhere -> work) to position 3."]);
 	});
 
@@ -310,8 +370,13 @@ describe("/guard place remove and move", () => {
 		await r.start();
 		r.dialogs.confirmAnswers.push(true);
 		await r.guard("place move 3 1");
-		assert.deepEqual(r.dialogs.confirms, [{ title: "Move rule 3 to position 1?", message: "/home/me -> personal\nThis place changes from zone work to zone personal." }]);
-		assert.deepEqual(rules(r).map((rule: any) => rule.path), ["/home/me", "/elsewhere", "/home/me/proj"]);
+		assert.deepEqual(r.dialogs.confirms, [
+			{ title: "Move rule 3 to position 1?", message: "/home/me -> personal\nThis place changes from zone work to zone personal." },
+		]);
+		assert.deepEqual(
+			rules(r).map((rule: any) => rule.path),
+			["/home/me", "/elsewhere", "/home/me/proj"],
+		);
 		assert.equal(r.footer(), "guard personal ✗ acme is work");
 	});
 
@@ -321,7 +386,10 @@ describe("/guard place remove and move", () => {
 		r.tagDialogs.inputAnswers.push("2");
 		await r.guard("place move");
 		assert.deepEqual(r.tagDialogs.inputs, [{ title: "Move rule 1 to which position (1 to 3)?", placeholder: "1" }]);
-		assert.deepEqual(rules(r).map((rule: any) => rule.path), ["/home/me/proj", "/elsewhere", "/home/me"]);
+		assert.deepEqual(
+			rules(r).map((rule: any) => rule.path),
+			["/home/me/proj", "/elsewhere", "/home/me"],
+		);
 	});
 
 	it("says so when the rule is already there, and refuses a bad position or half the arguments", async () => {
@@ -347,7 +415,10 @@ describe("/guard place remove and move", () => {
 		it("fails and writes nothing when the edit needs a confirm", async () => {
 			const r = rig({ file, mode: "print" });
 			await r.guard("place remove 2");
-			assert.equal(r.stderr[0], "guard: this edit changes the zone of this place. This place changes from zone work to zone personal. It needs a confirm, so use a UI.\n");
+			assert.equal(
+				r.stderr[0],
+				"guard: this edit changes the zone of this place. This place changes from zone work to zone personal. It needs a confirm, so use a UI.\n",
+			);
 			assert.deepEqual(r.exitCodes, [2]);
 			assert.deepEqual(r.files.writes, []);
 		});
@@ -396,7 +467,10 @@ describe("/guard zone add and remove", () => {
 			zones: ["work", "personal", "lab", "spare"],
 			defaultZone: "personal",
 			accounts: [{ provider: "acme", source: "stored-key", zones: ["work", "lab"] }],
-			places: [{ path: "/a", zone: "work" }, { path: "/b", zone: "lab" }],
+			places: [
+				{ path: "/a", zone: "work" },
+				{ path: "/b", zone: "lab" },
+			],
 		};
 
 		it("is refused while a tag, a rule or the default zone references the zone, and lists the references", async () => {
@@ -442,8 +516,14 @@ describe("/guard zone rename", () => {
 	const file = {
 		zones: ["work", "personal"],
 		defaultZone: "work",
-		accounts: [{ provider: "acme", source: "stored-key", zones: ["work", "personal"], note: "seat" }, { provider: "beta", source: "oauth", zones: ["work"] }],
-		places: [{ path: "/home/me/proj", zone: "work", note: "n" }, { path: "/b", zone: "personal" }],
+		accounts: [
+			{ provider: "acme", source: "stored-key", zones: ["work", "personal"], note: "seat" },
+			{ provider: "beta", source: "oauth", zones: ["work"] },
+		],
+		places: [
+			{ path: "/home/me/proj", zone: "work", note: "n" },
+			{ path: "/b", zone: "personal" },
+		],
 	};
 
 	it("rewrites the declaration, the tags, the rules and the default zone in one atomic write", async () => {
@@ -454,8 +534,14 @@ describe("/guard zone rename", () => {
 		assert.deepEqual(r.config(), {
 			zones: ["job", "personal"],
 			defaultZone: "job",
-			accounts: [{ provider: "acme", source: "stored-key", zones: ["job", "personal"], note: "seat" }, { provider: "beta", source: "oauth", zones: ["job"] }],
-			places: [{ path: "/home/me/proj", zone: "job", note: "n" }, { path: "/b", zone: "personal" }],
+			accounts: [
+				{ provider: "acme", source: "stored-key", zones: ["job", "personal"], note: "seat" },
+				{ provider: "beta", source: "oauth", zones: ["job"] },
+			],
+			places: [
+				{ path: "/home/me/proj", zone: "job", note: "n" },
+				{ path: "/b", zone: "personal" },
+			],
 		});
 		assert.deepEqual(r.notices(), ["Renamed zone work to job."]);
 	});
@@ -507,7 +593,9 @@ describe("/guard zone default", () => {
 		await r.start();
 		r.dialogs.confirmAnswers.push(true);
 		await r.guard("zone default work");
-		assert.deepEqual(r.dialogs.confirms, [{ title: "Change the default zone to work?", message: "It is personal now.\nThis place changes from zone personal to zone work." }]);
+		assert.deepEqual(r.dialogs.confirms, [
+			{ title: "Change the default zone to work?", message: "It is personal now.\nThis place changes from zone personal to zone work." },
+		]);
 		assert.equal(r.config().defaultZone, "work");
 		assert.equal(r.footer(), "guard work ✓");
 		assert.equal(await r.turnPasses(), true);
@@ -539,7 +627,10 @@ describe("/guard zone default", () => {
 	it("fails and writes nothing without a UI when the edit needs a confirm", async () => {
 		const r = rig({ file, mode: "print" });
 		await r.guard("zone default work");
-		assert.match(r.stderr[0]!, /^guard: this edit changes the zone of this place\. This place changes from zone personal to zone work\. It needs a confirm/);
+		assert.match(
+			r.stderr[0]!,
+			/^guard: this edit changes the zone of this place\. This place changes from zone personal to zone work\. It needs a confirm/,
+		);
 		assert.deepEqual(r.exitCodes, [2]);
 		assert.deepEqual(r.files.writes, []);
 	});

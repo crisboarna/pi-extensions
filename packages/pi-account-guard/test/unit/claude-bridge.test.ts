@@ -47,7 +47,14 @@ describe("claudeBridgeSource", () => {
 	});
 
 	it("maps each cloud provider switch to the generic claude-code source, ahead of every credential", () => {
-		for (const name of ["CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_FOUNDRY", "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD", "CLAUDE_CODE_USE_MANTLE", "CLAUDE_CODE_USE_VERTEX"]) {
+		for (const name of [
+			"CLAUDE_CODE_USE_BEDROCK",
+			"CLAUDE_CODE_USE_FOUNDRY",
+			"CLAUDE_CODE_USE_ANTHROPIC_AWS",
+			"CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
+			"CLAUDE_CODE_USE_MANTLE",
+			"CLAUDE_CODE_USE_VERTEX",
+		]) {
 			assert.equal(source({ [name]: "1", ANTHROPIC_API_KEY: "k" }), "claude-code", name);
 		}
 		assert.equal(source({ CLAUDE_CODE_USE_VERTEX: "true", CLAUDE_CONFIG_DIR: "/srv/claude" }), "claude-code");
@@ -60,7 +67,10 @@ describe("claudeBridgeSource", () => {
 
 	it("maps an apiKeyHelper setup to claude-code after the environment credentials", () => {
 		const asked: string[] = [];
-		const helper = (directory: string) => (asked.push(directory), true);
+		const helper = (directory: string) => {
+			asked.push(directory);
+			return true;
+		};
 		assert.equal(source({ CLAUDE_CONFIG_DIR: "/srv/claude" }, helper), "claude-code");
 		assert.deepEqual(asked, ["/srv/claude"]);
 		assert.equal(source({ ANTHROPIC_API_KEY: "k" }, helper), "env:ANTHROPIC_API_KEY");

@@ -15,13 +15,16 @@ export function logHandlerError(pi: ExtensionAPI, handler: string, error: unknow
 	}
 }
 
-/** Logs the error in the session and tells the user. Never throws. */
-export function reportHandlerError(pi: ExtensionAPI, ctx: ExtensionContext, handler: string, error: unknown, writeStderr: (text: string) => void): void {
+/** Writes the text to stderr and sets the headless Block exit code (ADR 0005). */
+export type FailHeadless = (text: string) => void;
+
+/** Logs the error in the session and tells the user; without a UI the process exits with the Block exit code. Never throws. */
+export function reportHandlerError(pi: ExtensionAPI, ctx: ExtensionContext, handler: string, error: unknown, failHeadless: FailHeadless): void {
 	logHandlerError(pi, handler, error);
 	const notice = handlerErrorNotice(handler, errorText(error));
 	try {
 		if (ctx.hasUI) ctx.ui.notify(notice, "error");
-		else writeStderr(`${notice}\n`);
+		else failHeadless(`${notice}\n`);
 	} catch {
 		// Nothing left to tell.
 	}
@@ -34,19 +37,35 @@ export function reportHandlerError(pi: ExtensionAPI, ctx: ExtensionContext, hand
 export function abortOnError<Event>(
 	pi: ExtensionAPI,
 	handler: string,
-	writeStderr: (text: string) => void,
+	failHeadless: FailHeadless,
 	run: (event: Event, ctx: ExtensionContext) => void | Promise<void>,
+): (event: Event, ctx: ExtensionContext) => Promise<void> {
+	return reportOnError(pi, handler, failHeadless, run, (ctx) => {
+		try {
+			ctx.abort();
+		} catch {
+			// Nothing to abort.
+		}
+	});
+}
+
+/**
+ * Wraps a handler that starts no turn, such as a command: when it throws, the error is reported and nothing is aborted.
+ * `afterReport` runs once the error is reported.
+ */
+export function reportOnError<Event>(
+	pi: ExtensionAPI,
+	handler: string,
+	failHeadless: FailHeadless,
+	run: (event: Event, ctx: ExtensionContext) => void | Promise<void>,
+	afterReport: (ctx: ExtensionContext) => void = () => undefined,
 ): (event: Event, ctx: ExtensionContext) => Promise<void> {
 	return async (event, ctx) => {
 		try {
 			await run(event, ctx);
 		} catch (error) {
-			reportHandlerError(pi, ctx, handler, error, writeStderr);
-			try {
-				ctx.abort();
-			} catch {
-				// Nothing to abort.
-			}
+			reportHandlerError(pi, ctx, handler, error, failHeadless);
+			afterReport(ctx);
 		}
 	};
 }
