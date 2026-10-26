@@ -259,3 +259,142 @@ th {
 		width: auto;
 	}
 }
+/* The explainers: inputs on the left, the answer on the right. */
+.explain main {
+	max-width: none;
+}
+.explainer {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+	gap: 28px;
+	margin-top: 20px;
+}
+.explainer label {
+	display: block;
+	font-family: var(--sans);
+	font-size: 15px;
+	margin-bottom: 14px;
+}
+.explainer input:not([type="range"]),
+.explainer textarea,
+.explainer select {
+	display: block;
+	width: 100%;
+	margin-top: 4px;
+	font-family: var(--mono);
+	font-size: 14px;
+	padding: 7px 9px;
+	border: 1px solid #d6c8a8;
+	border-radius: 8px;
+	background: #fffaf0;
+	color: var(--ink);
+}
+.explainer input[type="range"] {
+	display: block;
+	width: 100%;
+	accent-color: var(--accent);
+}
+.explainer .pair {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+.explainer .presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0 0 16px;
+	padding: 0;
+	border: 0;
+}
+.explainer legend {
+	font-family: var(--sans);
+	font-size: 15px;
+	margin-bottom: 6px;
+}
+.explainer button {
+	font: inherit;
+	font-size: 14px;
+	padding: 6px 12px;
+	border-radius: 999px;
+	border: 1px solid var(--accent);
+	background: #fffaf0;
+	color: var(--ink);
+	cursor: pointer;
+}
+.explainer button:hover {
+	background: var(--accent);
+	color: var(--cream);
+}
+.explainer .result {
+	background: var(--panel);
+	color: var(--cream);
+	border-radius: 14px;
+	padding: 18px 22px;
+	align-self: start;
+	position: sticky;
+	top: 24px;
+}
+.explainer .verdict {
+	font-family: var(--sans);
+	font-size: 22px;
+	font-weight: 600;
+	margin: 0 0 12px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.explainer .note {
+	font-size: 14px;
+	color: #c9bfab;
+}
+.explainer .result code {
+	background: #2f3d4d;
+	color: var(--cream);
+}
+.explainer .rules {
+	font-family: var(--mono);
+	font-size: 14px;
+	padding-left: 24px;
+}
+.explainer .rules li {
+	padding: 3px 6px;
+	border-radius: 6px;
+}
+.explainer .rules .match {
+	background: rgba(127, 191, 106, 0.25);
+}
+.explainer .rules .unsure {
+	background: rgba(224, 164, 88, 0.3);
+}
+.lamp {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: #3a4757;
+}
+.lamp.on {
+	background: var(--lamp);
+	box-shadow: 0 0 12px var(--lamp);
+}
+.lamp.red {
+	background: #d0503a;
+	box-shadow: 0 0 12px #d0503a;
+}
+.lamp.amber {
+	background: #e0a458;
+	box-shadow: 0 0 12px #e0a458;
+}
+@media (max-width: 860px) {
+	.explainer {
+		grid-template-columns: 1fr;
+	}
+}
+.explainer .result pre {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.explainer textarea {
+	tab-size: 2;
+}

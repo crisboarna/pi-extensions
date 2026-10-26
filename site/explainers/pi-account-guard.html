@@ -1,0 +1,67 @@
+<h1>Try pi-account-guard: the config tester</h1>
+<p>Change the config, a directory with its git remotes, and an account. This page runs pi-account-guard's own code on them and prints what <code>/guard check</code> would print: the rule that decides the directory, its zone, and whether a turn there would go. Nothing leaves the page.</p>
+<div class="explainer">
+	<div class="inputs">
+		<fieldset class="presets">
+			<legend>Start from an example</legend>
+			<button type="button" data-preset="remote">A repository of acme-corp</button>
+			<button type="button" data-preset="personal">A personal directory</button>
+			<button type="button" data-preset="untagged">An untagged account</button>
+		</fieldset>
+		<label>Directory <input id="directory" spellcheck="false"></label>
+		<label>Its git remotes, one per line <textarea id="remotes" rows="2" spellcheck="false"></textarea></label>
+		<div class="pair">
+			<label>Provider id <input id="provider" spellcheck="false"></label>
+			<label>Auth source <input id="source" spellcheck="false"></label>
+		</div>
+		<label>~/.pi/agent/account-guard.json <textarea id="config" rows="12" spellcheck="false">{{file:packages/pi-account-guard/examples/account-guard.json}}</textarea></label>
+	</div>
+	<div class="result" aria-live="polite">
+		<p class="verdict"><span class="lamp" id="lamp"></span><span id="verdict"></span></p>
+		<pre id="text"></pre>
+		<p class="note">The same text appears in pi after <code>/guard check &lt;directory&gt; &lt;provider&gt; &lt;source&gt;</code>. Remotes are matched as <code>host/path</code>, for example <code>github.com/acme-corp/api</code>.</p>
+	</div>
+</div>
+<script type="importmap">{ "imports": { "node:path": "../explain/tools/site/explainers/node-path.js" } }</script>
+<script type="module">
+	import { explainGuard } from "../explain/tools/site/explainers/account-guard.js";
+
+	const PRESETS = {
+		remote: { directory: "~/src/api", remotes: "git@github.com:acme-corp/api.git", provider: "openai-codex-2", source: "oauth" },
+		personal: { directory: "~/garden", remotes: "https://github.com/me/garden.git", provider: "openai-codex-2", source: "oauth" },
+		untagged: { directory: "~/garden", remotes: "", provider: "homelab", source: "env:HOMELAB_KEY" },
+	};
+	const field = (id) => document.getElementById(id);
+	const ids = ["directory", "remotes", "provider", "source", "config"];
+
+	function run() {
+		const answer = explainGuard({
+			configText: field("config").value,
+			directory: field("directory").value.trim() || "~",
+			remotes: field("remotes").value.split("\n").map((line) => line.trim()).filter(Boolean),
+			provider: field("provider").value.trim(),
+			source: field("source").value.trim(),
+			home: "/home/you",
+		});
+		const lamp = field("lamp");
+		if (!answer.ok) {
+			lamp.className = "lamp red";
+			field("verdict").textContent = "The config is invalid, so every turn would be blocked";
+			field("text").textContent = answer.errors.join("\n");
+			return;
+		}
+		const untagged = answer.text.includes("would ask for the zones");
+		lamp.className = `lamp ${answer.verdict === "match" ? "on" : untagged ? "amber" : "red"}`;
+		field("verdict").textContent = answer.verdict === "match" ? "Match: the turn goes" : untagged ? "Untagged: the tag prompt asks first" : "Blocked: nothing is sent";
+		field("text").textContent = answer.text;
+	}
+
+	for (const button of document.querySelectorAll("[data-preset]"))
+		button.addEventListener("click", () => {
+			for (const [id, value] of Object.entries(PRESETS[button.dataset.preset])) field(id).value = value;
+			run();
+		});
+	for (const id of ids) field(id).addEventListener("input", run);
+	for (const [id, value] of Object.entries(PRESETS.remote)) field(id).value = value;
+	run();
+</script>

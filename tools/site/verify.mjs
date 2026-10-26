@@ -62,6 +62,11 @@ for (const path of pages) {
 	await page.goto(`${base}/${path}`, { waitUntil: "load" });
 	const broken = await page.$$eval("img", (images) => images.filter((image) => image.complete && image.naturalWidth === 0).map((image) => image.src));
 	for (const src of broken) problems.push(`${path}: image did not decode: ${src}`);
+	if (path.endsWith("/explain.html")) {
+		const answer = await page.waitForFunction(() => document.querySelector("#verdict")?.textContent, null, { timeout: 10000 }).catch(() => undefined);
+		if (!answer) problems.push(`${path}: the explainer gave no answer`);
+		await page.screenshot({ path: join(shots, `${path.replace(/\//g, "-")}.png`), fullPage: true });
+	}
 	if (path === "index.html" || path.endsWith("/index.html")) await page.screenshot({ path: join(shots, `${path.replace(/\//g, "-")}.png`), fullPage: false });
 	if (path.endsWith("/index.html") && (await page.$("video"))) {
 		const played = await page.$eval("video", async (video) => {

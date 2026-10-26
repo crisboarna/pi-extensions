@@ -5,6 +5,7 @@
 // fails.
 //
 //   node tools/site/build.ts [out]      (default: site/dist)
+import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -179,7 +180,10 @@ function sidebar(pkg: SitePackage, page: SitePage, root: string): string {
 				const title = group === "Overview" ? "Overview" : candidate.title;
 				return `<li><a href="${root}${candidate.out}"${current}>${escapeHtml(title)}</a></li>`;
 			});
-		if (group === "Overview" && pkg.explainer) items.push(`<li><a href="${root}${pkg.folder}/explain.html">Try it in the browser</a></li>`);
+		if (group === "Overview" && pkg.explainer) {
+			const current = page.out === `${pkg.folder}/explain.html` ? ' aria-current="page"' : "";
+			items.push(`<li><a href="${root}${pkg.folder}/explain.html"${current}>Try it in the browser</a></li>`);
+		}
 		return items.length ? `<h2>${group}</h2><ul>${items.join("")}</ul>` : "";
 	});
 	return `<aside class="sidebar">${groups.join("")}</aside>`;
@@ -230,6 +234,35 @@ function write(path: string, text: string): void {
 	writeFileSync(path, text);
 }
 
+/**
+ * The explainers' code: the packages' own modules, compiled by tsc for the
+ * browser with their `.ts` imports rewritten, under `<out>/explain/` in the
+ * repository's layout.
+ */
+function compileExplainers(out: string): void {
+	execFileSync(join(ROOT, "node_modules", ".bin", "tsc"), ["-p", join(ROOT, "tools", "site", "tsconfig.explainers.json"), "--outDir", join(out, "explain")], {
+		stdio: "inherit",
+	});
+}
+
+/** An explainer page: its fragment in the site template, with `{{file:<path>}}` replaced by that repository file, escaped. */
+function explainerPage(pkg: SitePackage, packages: SitePackage[]): string {
+	const fragment = readFileSync(join(SITE, "explainers", `${pkg.folder}.html`), "utf8");
+	const content = fragment.replace(/\{\{file:([^}]+)\}\}/g, (_all, path: string) => escapeHtml(readFileSync(join(ROOT, path), "utf8")));
+	const page: SitePage = { source: "", out: `${pkg.folder}/explain.html`, title: "Try it", group: "Overview" };
+	return fill({
+		title: `Try ${pkg.folder} in the browser`,
+		description: pkg.pitch,
+		root: "../",
+		icon: `${pkg.folder}/mark.svg`,
+		kind: "package explain",
+		accent: pkg.accent,
+		packages: packageNav(packages, "../", pkg.folder),
+		sidebar: sidebar(pkg, page, "../"),
+		content,
+	});
+}
+
 /** Builds the site into `out` and returns the problems the link check found (none on success). */
 export function buildSite(out: string): string[] {
 	rmSync(out, { recursive: true, force: true });
@@ -260,7 +293,9 @@ export function buildSite(out: string): string[] {
 		}
 		const mark = join(ROOT, "packages", pkg.folder, "media", "src", "mark.svg");
 		if (existsSync(mark)) copyFileSync(mark, join(out, pkg.folder, "mark.svg"));
+		if (pkg.explainer) write(join(out, pkg.folder, "explain.html"), explainerPage(pkg, packages));
 	}
+	if (packages.some((pkg) => pkg.explainer)) compileExplainers(out);
 	write(join(out, "index.html"), landing(packages, copies));
 	write(join(out, "llms.txt"), llmsText(packages));
 	for (const source of copies) {

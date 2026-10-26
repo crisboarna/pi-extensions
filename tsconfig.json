@@ -13,6 +13,7 @@
 		"packages/*/media/terminal",
 		"tools/media/terminal-kit",
 		"tools/site/*.ts",
+		"tools/site/explainers",
 		"scripts",
 		"test"
 	]

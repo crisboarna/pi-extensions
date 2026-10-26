@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"rewriteRelativeImportExtensions": true,
+		"rootDir": "../..",
+		"declaration": false,
+		"sourceMap": false
+	},
+	"files": ["explainers/account-guard.ts", "explainers/switchboard.ts", "explainers/node-path.ts"]
+}

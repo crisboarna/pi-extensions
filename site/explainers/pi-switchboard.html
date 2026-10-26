@@ -1,0 +1,82 @@
+<h1>Try pi-switchboard: the rule playground</h1>
+<p>Set the classifier's answers by hand and see which rule fires, whether its confidence passes the gate, and which tier the request lands on. This page runs pi-switchboard's own rules and tier decision on the config below, as <code>/tier try work=… depth=… risky=…</code> does. Nothing leaves the page.</p>
+<div class="explainer">
+	<div class="inputs">
+		<label>Kind of work <select id="work"></select></label>
+		<label>Confidence in it: <output id="confidence-value"></output> <input id="confidence" type="range" min="0" max="1" step="0.01" value="0.92"></label>
+		<label>Depth (0 shallow, 2 deep): <output id="depth-value"></output> <input id="depth" type="range" min="0" max="2" step="0.1" value="1.6"></label>
+		<label>Risk (probability): <output id="risky-value"></output> <input id="risky" type="range" min="0" max="1" step="0.01" value="0.2"></label>
+		<label>Profile <select id="profile"></select></label>
+		<label>~/.pi/agent/pi-switchboard.json <textarea id="config" rows="12" spellcheck="false">{{file:packages/pi-switchboard/examples/mixed-providers.json}}</textarea></label>
+	</div>
+	<div class="result" aria-live="polite">
+		<p class="verdict"><span class="lamp on" id="lamp"></span><span id="verdict"></span></p>
+		<ol class="rules" id="rules"></ol>
+		<p id="gate"></p>
+		<p id="floors"></p>
+		<p id="members"></p>
+		<p class="note">Which member of the tier runs depends on the tier's strategy and on live account health, which this page does not have.</p>
+	</div>
+</div>
+<script type="module">
+	import { routeAnswers } from "../explain/tools/site/explainers/switchboard.js";
+
+	const field = (id) => document.getElementById(id);
+	const describe = (when) => {
+		if (!when) return "otherwise";
+		const one = (condition) => Object.entries(condition).map(([key, value]) => `${key} ${Array.isArray(value) ? value.join("|") : typeof value === "object" ? `not ${[value.not].flat().join("|")}` : value}`).join(", ");
+		return Array.isArray(when) ? when.map(one).join(" or ") : one(when);
+	};
+
+	function answers() {
+		const work = field("work").value || "implement";
+		const confidence = Number(field("confidence").value);
+		return {
+			work: { type: "choice", choice: work, probabilities: { [work]: confidence }, confidence },
+			depth: { type: "score", score: Number(field("depth").value), confidence: 1 },
+			risky: { type: "bool", probability: Number(field("risky").value) },
+		};
+	}
+
+	function run() {
+		for (const id of ["confidence", "depth", "risky"]) field(`${id}-value`).textContent = Number(field(id).value).toFixed(2);
+		const wanted = field("profile").value || undefined;
+		const answer = routeAnswers({ configText: field("config").value, ...(wanted ? { profile: wanted } : {}), answers: answers() });
+		if (!answer.ok) {
+			field("lamp").className = "lamp red";
+			field("verdict").textContent = answer.errors.join("; ");
+			for (const id of ["rules", "gate", "floors", "members"]) field(id).replaceChildren();
+			return;
+		}
+		if (field("work").options.length === 0 && answer.choices.length > 0) {
+			for (const choice of answer.choices) field("work").add(new Option(choice, choice, choice === "plan", choice === "plan"));
+			return run();
+		}
+		const profiles = [...field("profile").options].map((option) => option.value);
+		if (profiles.join() !== answer.profiles.join()) {
+			field("profile").replaceChildren(...answer.profiles.map((name) => new Option(name, name, name === answer.profile, name === answer.profile)));
+		}
+		const { outcome, decision } = answer;
+		field("lamp").className = `lamp ${outcome.fallback ? "amber" : "on"}`;
+		field("verdict").textContent = `${decision.tier} tier: ${decision.why}`;
+		field("rules").replaceChildren(
+			...answer.rules.map((rule, index) => {
+				const item = document.createElement("li");
+				item.textContent = `${describe(rule.when)} → ${rule.tier}`;
+				if (index === outcome.ruleIndex) item.className = outcome.gate.passed ? "match" : "unsure";
+				return item;
+			}),
+		);
+		const { gate } = outcome;
+		field("gate").textContent = gate.referenced.length
+			? `Gate: ${gate.referenced.join(", ")} confidence ${gate.confidence.toFixed(2)} against threshold ${gate.threshold}: ${gate.passed ? "passed" : `failed, so the fallback tier runs`}.`
+			: "Gate: the matched rule reads no classifier answer, so it always passes.";
+		const raised = outcome.floors.filter((floor) => floor.raised);
+		field("floors").textContent = raised.length ? `Floor: raised to at least ${raised.map((floor) => floor.atLeast).join(", ")}.` : "";
+		field("members").textContent = `Members of ${decision.tier}: ${answer.members.join(", ") || "none"}.`;
+	}
+
+	field("work").addEventListener("change", run);
+	for (const id of ["confidence", "depth", "risky", "profile", "config"]) field(id).addEventListener("input", run);
+	run();
+</script>
