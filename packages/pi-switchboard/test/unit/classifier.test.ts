@@ -114,6 +114,20 @@ describe("classifier chain", () => {
 		assert.match(result.attempts[0]?.error ?? "", /timed out after 20 ms/u);
 	});
 
+	it("skips a remote classifier unless allowRemote is set, and records why", async () => {
+		const called: string[] = [];
+		const classify: ClassifyFn = async (model) => (called.push(model), { stopReason: "stop", answers });
+		const blocked = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true }, { model: "local/judge", timeoutMs: 100 }], request, { classify, budgetMs: 1000 });
+		assert.ok(blocked.ok && blocked.model === "local/judge");
+		assert.deepEqual(called, ["local/judge"], "the remote classifier was never called");
+		assert.match(blocked.attempts[0]?.error ?? "", /set allowRemote: true/u);
+		const only = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true }], request, { classify, budgetMs: 1000 });
+		assert.equal(only.ok, false);
+		assert.deepEqual(called, ["local/judge"]);
+		const allowed = await runClassifierChain([{ model: "cloud/judge", timeoutMs: 100, remote: true, allowRemote: true }], request, { classify, budgetMs: 1000 });
+		assert.ok(allowed.ok && allowed.model === "cloud/judge");
+	});
+
 	it("reports a missing classifier and an exhausted budget", async () => {
 		const none = await runClassifierChain([], request, { classify: async () => ({ stopReason: "stop", answers }), budgetMs: 100 });
 		assert.equal(none.ok ? "" : none.reason, "no-classifier");

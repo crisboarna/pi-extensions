@@ -1,4 +1,4 @@
-import { type ChainResult, type ClassifyFn, runClassifierChain } from "../classifier/chain.ts";
+import { type ChainEntry, type ChainResult, type ClassifyFn, runClassifierChain } from "../classifier/chain.ts";
 import { buildEvidence, type Evidence, type PlanPhase, type TranscriptMessage, toolResultsSinceUser } from "../classifier/evidence.ts";
 import type { WarmupTracker } from "../classifier/warmup.ts";
 import type { Config, Member, Profile, Tier } from "../config/types.ts";
@@ -81,6 +81,8 @@ export interface EngineDeps {
 	catalog: EngineCatalog;
 	store: HealthStore;
 	classify: ClassifyFn;
+	/** Whether a classifier runs on this machine; when absent every classifier counts as local. */
+	isLocalClassifier?: (model: string) => boolean;
 	warmup?: WarmupTracker;
 	clock: Clock;
 	rng: Rng;
@@ -178,6 +180,17 @@ export class SwitchboardEngine {
 	/** Whether any profile can route. */
 	get active(): boolean {
 		return Object.keys(this.config.profiles).length > 0;
+	}
+
+	/** The configured classifiers as chain entries, marking remote ones that lack `allowRemote`. */
+	classifierEntries(): ChainEntry[] {
+		return this.config.classifiers.map((entry) => ({
+			model: entry.model,
+			timeoutMs: entry.timeoutMs,
+			...(entry.threshold !== undefined ? { threshold: entry.threshold } : {}),
+			...(this.deps.isLocalClassifier && !this.deps.isLocalClassifier(entry.model) ? { remote: true } : {}),
+			...(entry.allowRemote ? { allowRemote: true } : {}),
+		}));
 	}
 
 	inactiveReason(): string {
@@ -430,7 +443,7 @@ export class SwitchboardEngine {
 			...(input.agent ? { agent: { name: input.agent } } : {}),
 			...(evidenceRequest !== undefined ? { request: evidenceRequest } : {}),
 		});
-		const chain = await runClassifierChain(this.config.classifiers, { state: evidence.state, questions }, {
+		const chain = await runClassifierChain(this.classifierEntries(), { state: evidence.state, questions }, {
 			classify: this.deps.classify,
 			budgetMs: this.config.classification.decisionBudgetMs,
 			clock: this.deps.clock,

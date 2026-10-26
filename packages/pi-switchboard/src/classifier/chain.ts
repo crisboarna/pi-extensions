@@ -20,6 +20,10 @@ export interface ChainEntry {
 	model: string;
 	timeoutMs: number;
 	threshold?: number;
+	/** The classifier runs off this machine, so it receives the request text. */
+	remote?: boolean;
+	/** The user allowed a remote classifier to receive request text. */
+	allowRemote?: boolean;
 }
 
 export interface ChainAttempt {
@@ -91,6 +95,11 @@ export async function runClassifierChain(entries: readonly ChainEntry[], request
 	for (const entry of entries) {
 		const remaining = options.budgetMs - (clock.now() - started);
 		if (remaining <= 0) return { ok: false, reason: "budget", attempts };
+		if (entry.remote && !entry.allowRemote) {
+			// Never send request text off this machine without the user's say-so (DESIGN.md 13).
+			attempts.push({ model: entry.model, ok: false, latencyMs: 0, error: "remote classifier skipped: set allowRemote: true on it to send request text off this machine" });
+			continue;
+		}
 		const attemptStart = clock.now();
 		try {
 			const response = await withTimeout(

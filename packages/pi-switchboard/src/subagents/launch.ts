@@ -99,7 +99,7 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 			});
 			const needsClassifier = !limits?.fixedTier && !(engine.controls.pin?.subagents && engine.controls.pin.target);
 			const chain = needsClassifier
-				? await runClassifierChain(config.classifiers, { state: evidence.state, questions: config.classification.questions }, {
+				? await runClassifierChain(engine.classifierEntries(), { state: evidence.state, questions: config.classification.questions }, {
 						classify: engine.deps.classify,
 						budgetMs: config.classification.decisionBudgetMs,
 						clock: engine.deps.clock,

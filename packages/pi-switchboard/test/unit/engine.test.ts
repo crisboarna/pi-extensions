@@ -143,6 +143,24 @@ describe("engine: user turns", () => {
 	});
 });
 
+describe("engine: remote classifiers", () => {
+	it("never sends request text to a remote classifier without allowRemote, and falls back with the reason", async () => {
+		const seen: string[] = [];
+		const raw: RawConfig = { ...RAW, classifiers: [{ model: "cloud/judge", timeoutMs: 500 }] };
+		const { e, deps } = engine({ raw, classify: async (model) => (seen.push(model), { stopReason: "stop", answers: answers("plan") }) });
+		deps.isLocalClassifier = (model) => model.startsWith("local/");
+		const out = await e.route(input());
+		assert.equal(seen.length, 0, "the remote classifier was never called");
+		assert.equal(out.decision?.kind, "fallback");
+		assert.match(out.decision?.classifier?.attempts[0]?.error ?? "", /allowRemote/u);
+
+		const allowed = engine({ raw: { ...RAW, classifiers: [{ model: "cloud/judge", timeoutMs: 500, allowRemote: true }] }, classify: async (model) => (seen.push(model), { stopReason: "stop", answers: answers("plan") }) });
+		allowed.deps.isLocalClassifier = () => false;
+		assert.equal((await allowed.e.route(input())).decision?.kind, "classified");
+		assert.deepEqual(seen, ["cloud/judge"]);
+	});
+});
+
 describe("engine: continuation, escalation, retry and direct", () => {
 	async function started(classifyWork = "implement") {
 		const ctx = engine({ classify: async () => ({ stopReason: "stop", answers: answers(classifyWork) }) });

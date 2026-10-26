@@ -131,6 +131,7 @@ export class Runtime {
 			},
 			store: this.store,
 			classify: createClassifyFn(() => this.ctx),
+			isLocalClassifier: (model) => (this.ctx ? isLocalClassifier(this.ctx, model, this.config.classifierProviders) : false),
 			warmup: this.warmup,
 			clock: systemClock,
 			rng: systemRng,
