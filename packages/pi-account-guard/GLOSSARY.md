@@ -32,10 +32,6 @@ _Avoid_: Subscription, sub, provider (alone), login
 Where the credentials behind a provider id come from: a stored login, a stored key, an environment variable, or a key or command in pi's model configuration.
 _Avoid_: Auth type, credential (alone)
 
-**Tag prompt**:
-The one-step question shown when an account in the Unknown zone is blocked: which zones does this account belong to. Its answer becomes the account's zone tag.
-_Avoid_: Setup, wizard, onboarding
-
 **Place**:
 The directory a pi session works in, resolved to exactly one zone.
 _Avoid_: Project, repo, workspace, cwd
