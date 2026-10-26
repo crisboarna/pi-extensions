@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 4: a model change while a turn runs.
+clip(async (stage) => {
+	await stage.type("write a long plan for the beds");
+	await stage.press("Enter");
+	await stage.waitFor("Here is a long plan");
+	await stage.command("/model acme/work-model");
+	await stage.waitFor(/failover|blocked/i, { timeout: 20000, last: true });
+	await stage.still("4-aborted");
+	await stage.waitFor("BLOCKED", { timeout: 30000 });
+	await sleep(500);
+	await stage.still("4-select");
+	if (stage.find("Allow once")) throw new Error("the mid-turn select offers Allow once");
+	for (let i = 0; i < 6 && !stage.find(/→ Cancel/); i++) await stage.press("ArrowDown", { after: 150 });
+	await stage.press("Enter", { after: 800 });
+	await stage.waitFor(/\(acme\) work-model/);
+	await stage.still("4-cancel-keeps-model");
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

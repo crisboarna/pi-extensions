@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 7, personal place: the same tag lets the turn through.
+clip(async (stage) => {
+	await stage.command("/guard tag switchboard personal");
+	await sleep(1000);
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor(/Done on homelab\/home-model/, { timeout: 20000 });
+	await stage.command("/guard");
+	await stage.waitFor(/Account\s+switchboard/);
+	await stage.still("7-personal-sent");
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

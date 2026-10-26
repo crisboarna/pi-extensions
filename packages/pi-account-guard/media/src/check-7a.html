@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 7, work place: switchboard/auto tagged personal is blocked here.
+clip(async (stage) => {
+	await stage.command("/guard tag switchboard personal");
+	await stage.waitFor(/switchboard/);
+	await sleep(800);
+	await stage.still("7-tag");
+	await stage.type("summarize the server");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  switchboard");
+	await stage.still("7-work-blocked");
+}, { title: "~/work/acme-api — pi" });
+</script>
+</body>
+</html>

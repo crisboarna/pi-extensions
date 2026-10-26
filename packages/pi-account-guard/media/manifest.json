@@ -1,0 +1,88 @@
+{
+	"items": [
+		{
+			"kind": "terminal",
+			"page": "check-1-2.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "blockScene",
+			"out": "check-1-2",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-3.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "tagScene",
+			"out": "check-3",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-4.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "midTurnScene",
+			"out": "check-4",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-5a.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "footerAbsentScene",
+			"out": "check-5a",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-5b.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "footerPlacedScene",
+			"out": "check-5b",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-7a.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "switchboardWorkScene",
+			"out": "check-7a",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-7b.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "switchboardPersonalScene",
+			"out": "check-7b",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		}
+	]
+}

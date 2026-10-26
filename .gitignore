@@ -10,3 +10,5 @@ coverage/
 
 # Scene homes kept by MEDIA_KEEP when debugging terminal media
 packages/*/media/.debug/
+# Check scenes keep stills as evidence; their videos are not needed
+packages/*/media/check-*.mp4

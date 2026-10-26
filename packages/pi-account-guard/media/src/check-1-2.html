@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist items 1 and 2: the Block select, Cancel, Allow once, Allow for session.
+clip(async (stage) => {
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme (env:ACME_WORK_KEY) is zone work");
+	await stage.waitFor("Place ~/personal/garden-planner -> zone personal");
+	const rows = ["Switch to homelab", "Allow once: this turn to acme", "Allow for session: acme", "Cancel"].map((row) => stage.find(row)?.row);
+	if (rows.some((row) => row === undefined) || rows.some((row, i) => i > 0 && row <= rows[i - 1])) throw new Error(`rows out of order: ${rows}`);
+	await stage.still("1-block");
+	for (let i = 0; i < 3; i++) await stage.press("ArrowDown", { after: 150 });
+	await stage.press("Enter", { after: 800 });
+	await stage.waitFor(/summarize the garden beds\s*$/, { last: true });
+	await stage.still("1-cancel");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme");
+	await stage.press("ArrowDown", { after: 150 });
+	await stage.press("Enter", { after: 800 });
+	await stage.waitFor(/acme|personal/);
+	await stage.still("2-allow-once-confirm");
+	await stage.press("Enter", { after: 400 });
+	await stage.waitFor("Done on acme/work-model.");
+	await stage.type("and the watering schedule");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme", { last: true });
+	await stage.press("ArrowDown", { after: 150 });
+	await stage.press("ArrowDown", { after: 150 });
+	await stage.press("Enter", { after: 600 });
+	await stage.waitFor("guard OVERRIDE acme in personal", { timeout: 15000 });
+	await stage.waitFor("Done on acme/work-model.", { last: true });
+	await stage.still("2-allow-session");
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 5, default: with no customItems entry, powerline shows the guard text in its extension statuses.
+clip(async (stage) => {
+	await stage.waitFor(/AC \| guard personal ✓/);
+	await stage.still("5-default");
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

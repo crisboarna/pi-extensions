@@ -31,6 +31,7 @@
 		"@earendil-works/pi-ai",
 		"@earendil-works/pi-coding-agent",
 		"@earendil-works/pi-tui",
-		"pi-subagents"
+		"pi-subagents",
+		"pi-powerline-footer"
 	]
 }

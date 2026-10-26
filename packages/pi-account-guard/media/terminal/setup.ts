@@ -1,0 +1,114 @@
+// Prepares a pi-account-guard terminal scene for tools/media/render.mjs: a
+// throwaway home with a work and a personal repository, three demo accounts
+// on environment keys, the guard's config, and a fake model provider whose
+// replies the scene scripts. pi and the guard are the real code; nothing of
+// the user's (accounts, config, files) is ever read.
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { type LlmScript, startLlm } from "../../../../tools/media/terminal-kit/fake-llm.ts";
+import { createSceneHome, piCommand } from "../../../../tools/media/terminal-kit/home.ts";
+
+export interface GuardScene {
+	llm: LlmScript;
+	/** Which repository pi starts in. */
+	place: "work" | "personal";
+	/** The model pi starts on, as provider/id. */
+	model: string;
+	/** Other extensions to load next to the guard. */
+	with?: Array<"switchboard" | "powerline">;
+	/** The guard's config; false for none (the defaults). */
+	config?: Record<string, unknown> | false;
+	/** Extra pi settings, such as powerline's customItems. */
+	settings?: Record<string, unknown>;
+}
+
+/** Demo accounts: each provider authenticates with its own environment key, so its Account source is `env:<VAR>`. */
+export const ACCOUNTS: Record<string, { key: string; models: string[] }> = {
+	acme: { key: "ACME_WORK_KEY", models: ["work-model"] },
+	homelab: { key: "HOMELAB_KEY", models: ["home-model", "home-model-large"] },
+	spare: { key: "SPARE_KEY", models: ["spare-model"] },
+};
+
+export const CONFIG = {
+	zones: ["work", "personal"],
+	defaultZone: "personal",
+	accounts: [
+		{ provider: "acme", source: "env:ACME_WORK_KEY", zones: ["work"], note: "Acme seat" },
+		{ provider: "homelab", source: "env:HOMELAB_KEY", zones: ["personal"] },
+	],
+	places: [
+		{ remote: "*/acme-corp/*", zone: "work" },
+		{ path: "~/work", zone: "work" },
+	],
+};
+
+const providerExtension = (llmUrl: string) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
+const ACCOUNTS = ${JSON.stringify(ACCOUNTS)};
+export default function demoAccounts(pi) {
+	for (const [name, { key, models }] of Object.entries(ACCOUNTS)) {
+		pi.registerProvider(name, {
+			name, baseUrl: "${llmUrl}/" + name + "/v1", apiKey: "$" + key, api: "openai-completions",
+			models: models.map((id) => ({ type: "chat", id, name: id, reasoning: false, input: ["text"], cost: { input: 3, output: 15, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 8192 })),
+		});
+	}
+}
+`;
+
+const SWITCHBOARD = {
+	profiles: {
+		home: {
+			tiers: { light: { rank: 1, members: ["homelab/home-model"] }, deep: { rank: 2, members: ["homelab/home-model-large"] } },
+			fallbackTier: "light",
+		},
+	},
+	profileSelection: { default: "home" },
+};
+
+const REPOSITORIES = {
+	work: { path: "work/acme-api", remote: "git@github.com:acme-corp/acme-api.git", file: "src/server.ts" },
+	personal: { path: "personal/garden-planner", remote: "git@github.com:homelab-dev/garden-planner.git", file: "src/beds.ts" },
+};
+
+export default async function setup(item: { scene: string; variant?: string }) {
+	const packageDir = process.env.MEDIA_PACKAGE;
+	if (!packageDir) throw new Error("setup: MEDIA_PACKAGE is not set; run through scripts/tools/media.ts");
+	const repo = join(packageDir, "..", "..");
+	const module = (await import(pathToFileURL(join(import.meta.dirname, "scenes", `${item.scene}.ts`)).href)) as Record<string, GuardScene>;
+	const scene = module[item.variant ?? "scene"];
+	if (!scene) throw new Error(`setup: scene ${item.scene} has no export ${item.variant ?? "scene"}`);
+	const llm = await startLlm(scene.llm);
+	const home = createSceneHome(scene.settings ?? {});
+	home.write(".pi/agent/extensions/demo-accounts.js", providerExtension(llm.url));
+	if (scene.config !== false) home.write(".pi/agent/account-guard.json", `${JSON.stringify(scene.config ?? CONFIG, null, 2)}\n`);
+	if (scene.with?.includes("switchboard")) home.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(SWITCHBOARD, null, "\t")}\n`);
+	for (const { path, remote, file } of Object.values(REPOSITORIES)) {
+		const dir = join(home.home, path);
+		home.write(`${path}/${file}`, "export const ready = true;\n");
+		for (const args of [
+			["init", "-q"],
+			["remote", "add", "origin", remote],
+		])
+			spawnSync("git", args, { cwd: dir });
+	}
+	const extensions = [join(packageDir, "src", "index.ts")];
+	if (scene.with?.includes("switchboard")) extensions.push(join(repo, "packages", "pi-switchboard", "src", "index.ts"));
+	if (scene.with?.includes("powerline")) extensions.push(join(repo, "node_modules", "pi-powerline-footer", "index.ts"));
+	return {
+		spawn: {
+			...piCommand(repo, [...extensions.flatMap((path) => ["-e", path]), "--model", scene.model]),
+			cwd: join(home.home, REPOSITORIES[scene.place].path),
+			env: {
+				HOME: home.home,
+				PI_CODING_AGENT_DIR: home.agentDir,
+				PI_OFFLINE: "1",
+				...Object.fromEntries(Object.values(ACCOUNTS).map(({ key }) => [key, "demo-not-a-secret"])),
+			},
+		},
+		async close() {
+			// MEDIA_KEEP=<folder> (relative to media/) keeps the scene's home.
+			home.close(item.variant ?? item.scene, join(import.meta.dirname, ".."));
+			llm.server.close();
+		},
+	};
+}
