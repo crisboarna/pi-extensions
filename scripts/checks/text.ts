@@ -14,7 +14,7 @@ import { basename, dirname, join } from "node:path";
 import { deniedWords } from "../lib/denylist.ts";
 import { ROOT, repoFiles, reporter } from "../lib/repo.ts";
 
-const BINARY = /\.(png|jpe?g|gif|webp|mp4|mov|webm|ico|woff2?|ttf|gz|tgz|zip|pdf)$/i;
+const BINARY = /\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|ico|woff2?|ttf|gz|tgz|zip|pdf)$/i;
 const FORBIDDEN = new Map([
 	["\u200B", "zero-width space"],
 	["\u200C", "zero-width non-joiner"],

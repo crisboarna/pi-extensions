@@ -17,3 +17,6 @@ packages/*/media/check-*.mp4
 site/dist/
 site/site-shots/
 site/.snapshots/
+# Narration caches: synthesized lines, keyed by text, voice and speed
+packages/*/media/.voice/
+media/.voice/

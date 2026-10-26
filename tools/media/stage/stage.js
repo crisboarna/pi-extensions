@@ -241,6 +241,12 @@
 			this.overlay.replaceChildren();
 		}
 
+		/** Speaks a line of the page's narration file and waits until it and the pause after it are over. */
+		async say(id) {
+			if (!window.__stageSay) throw new Error(`stage.say("${id}"): this item has no narration file in its manifest entry`);
+			await sleep(await window.__stageSay(id));
+		}
+
 		/** Saves the current frame as `<out>.png`, or `<out>-<name>.png` when named, once callouts have faded in. */
 		async still(name) {
 			await sleep(450);

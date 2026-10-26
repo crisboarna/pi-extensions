@@ -26,6 +26,8 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 |---|---|---|
 | Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, unpinned runtime dependencies, an `engines.node` floor that CI does not test |
 | Licences (`scripts/checks/licenses.ts`) | C P CI | A runtime or dev dependency under a copyleft, unknown or missing licence in the MIT packages' install tree |
+| Build-time tools stay in Docker | media renders | A copyleft licence reaching the repository. The media image (`tools/docker/media.Dockerfile`) may hold GPL tools, today espeak-ng inside Kokoro's phonemizer, because they run only there to render media and are never installed in the repository or shipped; what they produce (audio) is ours. Third-party media committed to the repository, such as the music bed, must need no attribution (CC0 or public domain) and is recorded with its source, as in `tools/media/audio/README.md` |
+| Narration loudness (`tools/media/narration.mjs`) | media renders | A narrated video whose voice is too quiet or too loud: the render fails unless the voice track measures -16 ±1 LUFS |
 | Pack contents (`scripts/checks/pack.ts`) | P CI | Publishing tests, secrets or local files, or silently adding or dropping files. The file list is a committed snapshot in `scripts/pack-snapshots/` |
 | Tarball smoke (`scripts/smoke-pack.ts`) | CI R | A package that works from the repository but not once installed: TypeScript that Node will not strip under `node_modules`, files missing from `files`, undeclared imports |
 | Changeset per changed package (`changeset status`) | CI | A release that does not mention a change |
