@@ -115,7 +115,7 @@ Hero, about 60 s, captions and callouts:
 | 5/5 | `/guard`: the place, the rule that decided it, the account, its Match. |
 | End | `pi install npm:@crisboarna/pi-account-guard`. |
 
-Clips (MP4, GIF from the MP4, still): `block`, `tag`, `allow`, `mid-turn`, `guard-status`, `place-add` (`/guard place add here zone=work`), `headless` (a shell: `pi -p ...; echo $?` → 77, run with a shell as the scene's program), `with-switchboard` (`switchboard/auto` tagged as one account).
+Clips (MP4, GIF from the MP4, still): `block`, `tag`, `allow`, `mid-turn`, `guard-status`, `place-add` (`/guard place add path=here zone=work`), `headless` (a shell: `pi -p ...; echo $?` → 77, run with a shell as the scene's program), `with-switchboard` (`switchboard/auto` tagged as one account).
 
 ### 5. In-product
 

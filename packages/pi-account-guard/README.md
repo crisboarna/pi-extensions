@@ -27,7 +27,7 @@ Restart pi. Requires Node 22.19 or later; checked with pi 1.4.
 
 With no config the guard knows two zones, `work` and `personal`, and every directory is `personal`.
 
-1. In a work repository, run `/guard place add here zone=work`. This directory and everything below it are now `work`. For every repository of an organization, use its remote instead: `/guard place add remote=*/acme-corp/* zone=work`.
+1. In a work repository, run `/guard place add path=here zone=work`. This directory and everything below it are now `work`. For every repository of an organization, use its remote instead: `/guard place add remote=*/acme-corp/* zone=work`.
 2. Send a prompt. The first time an account is used, the tag prompt asks which zones it belongs to. Tick `work`, and the turn goes at once.
 3. Open a personal repository with the same account selected. The turn is blocked, and the select offers Switch rows for the accounts you tagged `personal`.
 4. Run `/guard` at any time: it shows the place and the rule that decides it, the account and whether it matches.

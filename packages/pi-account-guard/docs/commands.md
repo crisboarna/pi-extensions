@@ -1,5 +1,9 @@
 # Commands
 
+![/guard in ~/work/acme-api: the place is work by rule 1, remote */acme-corp/*; the account acme is work, a Match; spare is untagged](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/guard-status.gif)
+
+![In the client repository ~/projects/billing-portal the work account would be blocked; /guard place add path=here zone=work makes it work at once, and /guard place list marks the new rule as the one that decides this place](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/place-add.gif)
+
 Every command takes full arguments, so it works without dialogs. Dialogs only fill in what is missing.
 
 | Command | What it does |

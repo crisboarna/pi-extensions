@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// /guard place add: a client repository outside the work organization becomes work.
+clip(async (stage) => {
+	stage.caption("A client repository: no rule matches it, so it falls to the default zone, personal.", "place-add");
+	stage.callout(/guard personal ✗ acme is work/, "the work account would be blocked", { place: "right" });
+	await sleep(3000);
+	stage.clear();
+	stage.caption("<b>/guard place add path=here zone=work</b> makes this directory and everything below it work.", "place-add");
+	await stage.command("/guard place add path=here zone=work");
+	await stage.waitFor(/guard work ✓/, { timeout: 15000 });
+	await sleep(300);
+	stage.callout(/guard work ✓/, "applies at once", { place: "right" });
+	await sleep(2400);
+	stage.clear();
+	stage.caption("<b>/guard place list</b> numbers the rules and marks the one that decides this place.", "place-add");
+	await stage.command("/guard place list");
+	await stage.waitFor(/billing-portal/, { last: true });
+	await sleep(500);
+	await stage.still();
+	await sleep(3000);
+}, { title: "~/projects/billing-portal — pi" });
+</script>
+</body>
+</html>

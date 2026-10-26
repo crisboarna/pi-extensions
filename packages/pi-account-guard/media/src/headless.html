@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Headless: pi -p exits with code 77 on a Block, with the reason on stderr.
+clip(async (stage) => {
+	stage.caption("In print mode a Block sends nothing, and the reason goes to stderr.", "headless");
+	await stage.type('pi -p --model acme/work-model "summarize the garden beds"; echo "exit $?"', { delay: 25 });
+	await stage.press("Enter");
+	await stage.waitFor(/exit 77/, { timeout: 30000 });
+	await sleep(300);
+	stage.callout(/exit 77/, "<b>77</b>: a guard block, not a model error", { place: "right", last: true });
+	await stage.still();
+	await sleep(3200);
+	stage.clear();
+	stage.caption("With an account of this zone, the same command runs.", "headless");
+	await stage.type('pi -p --model homelab/home-model "summarize the garden beds"; echo "exit $?"', { delay: 25 });
+	await stage.press("Enter");
+	await stage.waitFor(/exit 0/, { timeout: 30000 });
+	await sleep(2600);
+}, { title: "~/personal/garden-planner — sh", ready: /garden-planner \$/ });
+</script>
+</body>
+</html>

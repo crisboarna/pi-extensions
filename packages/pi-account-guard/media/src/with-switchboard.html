@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// pi-switchboard: switchboard/auto is one account, tagged like any other.
+clip(async (stage) => {
+	stage.caption("With pi-switchboard, <b>switchboard/auto</b> is one account.", "with-switchboard");
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor(/Which zones does switchboard/);
+	await sleep(400);
+	stage.callout(/Which zones does switchboard/, "tag it only with zones where <b>every</b> model it can pick is allowed", { place: "above", last: true });
+	await sleep(3000);
+	stage.clear();
+	for (let i = 0; i < 4 && !stage.find(/> \[ \] personal/); i++) await stage.press("ArrowDown", { after: 300 });
+	await stage.press(" ", { after: 500 });
+	await stage.press("Enter");
+	await stage.waitFor(/bed 1 resting\./, { timeout: 15000 });
+	stage.caption("The guard checks the virtual model; switchboard picks the member behind it.", "with-switchboard");
+	await stage.command("/guard");
+	await stage.waitFor(/Account\s+switchboard \(env:virtual\) -> personal\s+✓ Match/);
+	stage.callout(/Account\s+switchboard \(env:virtual\) -> personal\s+✓ Match/, "one account, <b>Match</b>", { place: "right", last: true });
+	await stage.still();
+	await sleep(3000);
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

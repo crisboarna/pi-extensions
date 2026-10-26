@@ -38,7 +38,8 @@ export function createSceneHome(settings: Record<string, unknown> = {}): SceneHo
 				mkdirSync(keep, { recursive: true });
 				spawnSync("sh", ["-c", `tar -C "${home}" --exclude=./.pi/agent/npm -cf - . | tar -C "${keep}" -xf -`]);
 			}
-			rmSync(home, { recursive: true, force: true });
+			// A program the scene started may still be writing as it exits (a shell's history, a session file).
+			rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 		},
 	};
 }

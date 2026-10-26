@@ -12,7 +12,7 @@ import { createSceneHome, piCommand } from "../../../../tools/media/terminal-kit
 export interface GuardScene {
 	llm: LlmScript;
 	/** Which repository pi starts in. */
-	place: "work" | "personal";
+	place: keyof typeof REPOSITORIES;
 	/** The model pi starts on, as provider/id. */
 	model: string;
 	/** Other extensions to load next to the guard. */
@@ -25,6 +25,8 @@ export interface GuardScene {
 	bridge?: boolean;
 	/** Extra environment for pi; `~` is the scene home. */
 	env?: Record<string, string>;
+	/** Start a shell instead of pi, with `pi` on its PATH loading the same extensions. */
+	shell?: boolean;
 }
 
 /** Demo accounts: each provider authenticates with its own environment key, so its Account source is `env:<VAR>`. */
@@ -74,6 +76,8 @@ const SWITCHBOARD = {
 export const REPOSITORIES = {
 	work: { path: "work/acme-api", remote: "git@github.com:acme-corp/acme-api.git", file: "src/server.ts" },
 	personal: { path: "personal/garden-planner", remote: "git@github.com:homelab-dev/garden-planner.git", file: "src/beds.ts" },
+	// A client repository outside the work organization: no rule matches it until one is added.
+	client: { path: "projects/billing-portal", remote: "git@github.com:northwind-labs/billing-portal.git", file: "src/invoice.ts" },
 };
 
 export default async function setup(item: { scene: string; variant?: string }) {
@@ -100,12 +104,18 @@ export default async function setup(item: { scene: string; variant?: string }) {
 	const extensions = [join(packageDir, "src", "index.ts")];
 	if (scene.with?.includes("switchboard")) extensions.push(join(repo, "packages", "pi-switchboard", "src", "index.ts"));
 	if (scene.with?.includes("powerline")) extensions.push(join(repo, "node_modules", "pi-powerline-footer", "index.ts"));
+	const pi = piCommand(
+		repo,
+		extensions.flatMap((path) => ["-e", path]),
+	);
+	if (scene.shell) home.write("bin/pi", `#!/bin/sh\nexec ${[pi.command, ...pi.args].map((word) => `'${word}'`).join(" ")} "$@"\n`, 0o755);
 	return {
 		spawn: {
-			...piCommand(repo, [...extensions.flatMap((path) => ["-e", path]), "--model", scene.model]),
+			...(scene.shell ? { command: "bash", args: ["--noprofile", "--norc", "-i"] } : { command: pi.command, args: [...pi.args, "--model", scene.model] }),
 			cwd: join(home.home, REPOSITORIES[scene.place].path),
 			env: {
 				HOME: home.home,
+				...(scene.shell ? { PATH: `${join(home.home, "bin")}:/usr/local/bin:/usr/bin:/bin`, PS1: "\\w $ ", HISTFILE: "/dev/null" } : {}),
 				PI_CODING_AGENT_DIR: home.agentDir,
 				PI_OFFLINE: "1",
 				...Object.fromEntries(Object.values(ACCOUNTS).map(({ key }) => [key, "demo-not-a-secret"])),

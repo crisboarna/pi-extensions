@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The two Overrides: Allow once for one turn, Allow for session for the rest of the session.
+clip(async (stage) => {
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme");
+	stage.caption("<b>Allow once</b> lets this one turn through, after a confirm.", "allow");
+	await stage.press("ArrowDown", { after: 400 });
+	await stage.press("Enter", { after: 800 });
+	await stage.waitFor(/Send ONE turn/);
+	await sleep(1600);
+	await stage.press("Enter", { after: 400 });
+	await stage.waitFor(/bed 1 resting\./, { timeout: 15000 });
+	await sleep(800);
+	stage.caption("The next turn is checked again.", "allow");
+	await stage.type("and the watering schedule");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme", { last: true });
+	await sleep(1200);
+	stage.caption("<b>Allow for session</b> lets this account through until the session ends. Nothing is written to disk.", "allow");
+	await stage.press("ArrowDown", { after: 300 });
+	await stage.press("ArrowDown", { after: 300 });
+	await stage.press("Enter", { after: 600 });
+	await stage.waitFor("guard OVERRIDE acme in personal", { timeout: 15000 });
+	await sleep(300);
+	stage.callout(/guard OVERRIDE acme in personal/, "the footer says so", { place: "right" });
+	await stage.still();
+	await sleep(3000);
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

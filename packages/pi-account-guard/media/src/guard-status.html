@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// /guard in the work repository: the remote rule that decides the place, the account and its Match.
+clip(async (stage) => {
+	stage.caption("<b>/guard</b> shows what the guard sees here.", "guard-status");
+	await stage.command("/guard");
+	await stage.waitFor(/Untagged\s+spare/);
+	await sleep(300);
+	stage.callout(/Place\s+~\/work\/acme-api -> work \(rule 1: remote \*\/acme-corp\/\*\)/, "the rule that decides the place", { place: "right", last: true });
+	await sleep(2600);
+	stage.clear();
+	stage.callout(/Account\s+acme \(env:ACME_WORK_KEY\) -> work\s+✓ Match/, "the account and its <b>Match</b>", { place: "right", last: true });
+	await stage.still();
+	await sleep(2600);
+	stage.clear();
+	stage.callout(/Untagged\s+spare \(env:SPARE_KEY\)/, "accounts that will ask for a tag", { place: "right", last: true });
+	await sleep(2800);
+}, { title: "~/work/acme-api — pi" });
+</script>
+</body>
+</html>

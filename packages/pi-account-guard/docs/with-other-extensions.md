@@ -18,4 +18,6 @@ A provider id that pools several accounts gets a warning in the tag prompt: tag 
 
 such as `switchboard/auto` are tagged like any other account. Tag one only with zones in which every possible member is allowed. The member behind it is not checked.
 
+![With pi-switchboard, switchboard/auto asks for its zones like any account; tagged personal, the turn runs and /guard shows switchboard (env:virtual) as one account with a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/with-switchboard.gif)
+
 An account is a provider id plus its auth source ([ADR 0002](adr/0002-account-is-provider-id-plus-auth-source.md)); a virtual model is its own account ([ADR 0004](adr/0004-virtual-model-is-its-own-account.md)).

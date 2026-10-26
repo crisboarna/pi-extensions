@@ -1,5 +1,7 @@
 # Headless use: print, JSON and RPC mode
 
+![In a shell, pi -p with the work account in a personal repository prints the block and how to fix it on stderr and exits 77; with the personal account the same command runs and exits 0](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/headless.gif)
+
 A block in `pi -p` or JSON mode does not send the turn. The message goes to stderr (stdout stays clean for piping) and the process exits with code **77**, so a script can tell a guard block (77) from a model error (1):
 
 ```text

@@ -87,6 +87,150 @@
 		},
 		{
 			"kind": "terminal",
+			"page": "block.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "blockScene",
+			"out": "block",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "tag.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "tagScene",
+			"out": "tag",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "allow.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "blockScene",
+			"out": "allow",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "mid-turn.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "midTurnScene",
+			"out": "mid-turn",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "guard-status.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "workScene",
+			"out": "guard-status",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "place-add.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "clientScene",
+			"out": "place-add",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "headless.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "headlessScene",
+			"out": "headless",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "with-switchboard.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "switchboardScene",
+			"out": "with-switchboard",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
 			"page": "check-1-2.html",
 			"setup": "terminal/setup.ts",
 			"scene": "checks",

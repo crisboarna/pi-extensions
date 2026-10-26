@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// A Block: the work account in a personal repository; Cancel puts the prompt back.
+clip(async (stage) => {
+	stage.caption("The work account is selected in a personal repository.", "block");
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme (env:ACME_WORK_KEY) is zone work");
+	await sleep(300);
+	stage.caption("The turn is blocked before anything is sent.", "block");
+	stage.callout(/acme \(env:ACME_WORK_KEY\) is zone work/, "the account's zone", { place: "above", last: true });
+	stage.callout(/-> zone personal/, "this place's zone", { place: "right", last: true });
+	await sleep(500);
+	await stage.still();
+	await sleep(2800);
+	stage.clear();
+	stage.caption("<b>Cancel</b> puts the prompt back in the editor, ready to send elsewhere.", "block");
+	for (let i = 0; i < 6 && !stage.find(/→ Cancel/); i++) await stage.press("ArrowDown", { after: 250 });
+	await stage.press("Enter", { after: 600 });
+	await stage.waitFor(/summarize the garden beds\s*$/, { last: true });
+	await sleep(2400);
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

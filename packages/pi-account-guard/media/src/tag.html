@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The tag prompt: a new account asks once which zones it belongs to.
+clip(async (stage) => {
+	stage.caption("<b>spare</b> has never been used, so it has no zone yet.", "tag");
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor(/Which zones does spare/);
+	await sleep(400);
+	stage.callout(/Which zones does spare/, "nothing is ticked for you", { place: "above", last: true });
+	await sleep(2400);
+	stage.clear();
+	stage.caption("Tick its zones. A tag that matches this place sends the turn at once.", "tag");
+	for (let i = 0; i < 4 && !stage.find(/> \[ \] personal/); i++) await stage.press("ArrowDown", { after: 300 });
+	await stage.press(" ", { after: 500 });
+	await stage.still();
+	await stage.press("Enter");
+	await stage.waitFor(/bed 1 resting\./, { timeout: 15000 });
+	await stage.waitFor(/guard personal ✓/);
+	stage.callout(/Tagged spare \(env:SPARE_KEY\) as personal\./, "saved to account-guard.json", { place: "right", last: true });
+	await sleep(3000);
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>

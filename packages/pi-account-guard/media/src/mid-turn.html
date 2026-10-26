@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// A model change while a turn runs: the guard aborts the turn and offers the previous account first.
+clip(async (stage) => {
+	stage.caption("A turn runs on <b>homelab</b>, a personal account.", "mid-turn");
+	await stage.type("draft a planting plan for the spring");
+	await stage.press("Enter");
+	await stage.waitFor("Here is a planting plan", { timeout: 15000 });
+	await sleep(1200);
+	stage.caption("A rotator or <b>/model</b> switches to the work account mid-turn.", "mid-turn");
+	await stage.command("/model acme/work-model");
+	await stage.waitFor(/failover blocked/, { timeout: 20000, last: true });
+	stage.callout(/failover blocked/, "the turn is <b>aborted</b>", { place: "above", alert: true, last: true });
+	await stage.waitFor("BLOCKED", { timeout: 30000, last: true });
+	await sleep(1800);
+	stage.clear();
+	stage.caption("Once idle, the account it was on comes first, and there is no Allow once.", "mid-turn");
+	stage.callout(/Switch to homelab \(env:HOMELAB_KEY\) -> home-model\s+\[personal\]/, "back to <b>homelab</b>", { place: "right", last: true });
+	await stage.still();
+	await sleep(2600);
+	stage.clear();
+	await stage.press("Enter");
+	await stage.waitFor(/\(homelab\) home-model/);
+	await stage.waitFor(/guard personal ✓/);
+	await sleep(2000);
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>
