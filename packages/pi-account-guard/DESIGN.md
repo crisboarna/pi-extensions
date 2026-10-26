@@ -314,7 +314,7 @@ Every command takes full arguments, so it works without dialogs (RPC scripting, 
 | No model selected | `guard personal ? no model` (section 18) |
 | The footer check itself failed | `guard ! check failed` (section 18) |
 
-pi-powerline-footer shows a status key only after the user adds it to `powerline.customItems` (as with the existing `subscription-status.ts`); the README must say so.
+pi-powerline-footer shows every extension status in its `extension_statuses` segment; a `powerline.customItems` entry gives the `guard` key a place of its own and takes it out of that segment. The README says both (corrected after the simulated check of 2026-10-26; the earlier text said the key stayed hidden until placed).
 
 ## 13. Interaction with other extensions
 
@@ -434,7 +434,7 @@ Step 1 of the build is one smoke test per item below against real pi. A failing 
 ### 17.2 Manual checklist
 
 - The dialogs look right in a real TUI.
-- The footer item appears once placed in powerline `customItems`.
+- The footer item shows in powerline's extension statuses by default, and in its own place once listed in `customItems`.
 - Real pi-multi-pass rotation gives a Block plus a Switch.
 - `switchboard/auto` tagged as an Account blocks and allows as tagged.
 - The claude-bridge account resolves to its environment key or config directory.

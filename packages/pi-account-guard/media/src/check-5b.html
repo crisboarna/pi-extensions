@@ -13,6 +13,9 @@
 // Checklist item 5, after: the guard key placed in powerline.customItems.
 clip(async (stage) => {
 	await stage.waitFor("guard personal ✓");
+	// Promoted to its own item, the key leaves the aggregate extension statuses: it shows once.
+	const shown = stage.lines().join("\n").split("guard personal").length - 1;
+	if (shown !== 1) throw new Error(`the guard text shows ${shown} times`);
 	await stage.still("5-match");
 	await stage.command("/model acme/work-model");
 	await stage.waitFor("acme is work");

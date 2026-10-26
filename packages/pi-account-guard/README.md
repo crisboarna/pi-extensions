@@ -122,7 +122,7 @@ The footer item `guard` is always on. It shows the place zone and the Match stat
 | `guard ! config invalid, turns blocked` | The file is malformed and no valid copy exists. |
 | `guard ! zone unknown (git failed)` | A remote rule matters and git failed. |
 
-**pi-powerline-footer users:** powerline shows a status key only after you add it to `powerline.customItems`. Add the `guard` key there, or the item stays hidden.
+**pi-powerline-footer users:** powerline shows the guard text in its extension statuses segment as it is. To give it a place of its own, which also takes it out of that segment, add `{ "id": "guard", "statusKey": "guard", "position": "left" }` to `powerline.customItems`.
 
 ## Headless use (print and JSON mode)
 
