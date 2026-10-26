@@ -1,10 +1,12 @@
 // Checks a commit message: Conventional Commits, a scope that names a package
-// or a repository area, a short header, and no AI attribution trailers.
+// or a repository area, a short header, no AI attribution trailers, and no
+// denied word (scripts/lib/denylist.ts).
 //
 //   node scripts/checks/commit-msg.ts <file>   (the husky commit-msg hook)
 //   node scripts/checks/commit-msg.ts --range origin/main..HEAD   (CI)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { DENIED, deniedWords } from "../lib/denylist.ts";
 import { listPackages, ROOT } from "../lib/repo.ts";
 
 const TYPES = ["feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore", "style", "revert"];
@@ -15,7 +17,7 @@ const ATTRIBUTION =
 
 const scopes = new Set([...listPackages().map((pkg) => pkg.dir), ...AREAS]);
 
-export function problems(message: string): string[] {
+export function problems(message: string, denied: ReadonlySet<string> = DENIED): string[] {
 	const text = message
 		.split("\n")
 		.filter((line: string) => !line.startsWith("#"))
@@ -36,6 +38,7 @@ export function problems(message: string): string[] {
 	if (header.length > MAX_HEADER) out.push(`header is ${header.length} characters; keep it to ${MAX_HEADER}`);
 	if (blank !== undefined && blank.trim() !== "") out.push("leave a blank line between the header and the body");
 	if (rest.some((line) => ATTRIBUTION.test(line)) || ATTRIBUTION.test(header)) out.push("remove the AI attribution trailer or line");
+	for (const prefix of deniedWords(text, denied)) out.push(`a denied word (sha256 ${prefix}...); replace it with a fictional name`);
 	return out;
 }
 

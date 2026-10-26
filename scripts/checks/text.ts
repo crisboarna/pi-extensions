@@ -5,10 +5,13 @@
 //   belonged, and bidi controls can make code read differently from how it
 //   runs ("Trojan Source"). Biome, tsc and markdownlint accept most of them.
 // - Files use LF line endings and end with a newline.
+// - No file holds a denied word (scripts/lib/denylist.ts): names of
+//   employers, clients and their projects, kept only as hashes.
 // - AGENTS.md files are loaded into every agent session, so each has a line
 //   budget; CLAUDE.md only points at AGENTS.md so there is one source.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { deniedWords } from "../lib/denylist.ts";
 import { ROOT, repoFiles, reporter } from "../lib/repo.ts";
 
 const BINARY = /\.(png|jpe?g|gif|webp|mp4|mov|webm|ico|woff2?|ttf|gz|tgz|zip|pdf)$/i;
@@ -36,9 +39,14 @@ const report = reporter("text");
 const fix = process.argv.includes("--fix");
 
 for (const file of repoFiles()) {
-	if (BINARY.test(file) || file.includes("/test/fixtures/")) continue;
+	if (BINARY.test(file)) continue;
 	const path = join(ROOT, file);
 	let text = readFileSync(path, "utf8");
+	for (const [index, line] of text.split("\n").entries()) {
+		for (const prefix of deniedWords(line)) report.fail(`${file}:${index + 1}: a denied word (sha256 ${prefix}...); replace it with a fictional name`);
+	}
+	// Fixtures may hold forbidden bytes on purpose; only the denylist applies to them.
+	if (file.includes("/test/fixtures/")) continue;
 	if (text.includes("\uFFFD")) report.fail(`${file}: contains U+FFFD (a broken character from a bad decode)`);
 	const lines = text.split("\n");
 	for (const [index, line] of lines.entries()) {

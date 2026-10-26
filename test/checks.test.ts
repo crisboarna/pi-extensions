@@ -2,12 +2,14 @@
 // the failure it exists for, and pass a clean tree.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { problems } from "../scripts/checks/commit-msg.ts";
+import { DENIED, deniedWords } from "../scripts/lib/denylist.ts";
 
 const SCRIPTS = fileURLToPath(new URL("../scripts/checks/", import.meta.url));
 // Git hooks export GIT_DIR, GIT_INDEX_FILE and friends. Run from the pre-push hook, the fixture's git init and
@@ -206,6 +208,26 @@ describe("imports", () => {
 	test("lets tests use the root devDependencies", () => {
 		const result = run("imports", repo({ "packages/pi-demo/test/a.test.ts": 'import ts from "typescript";\nvoid ts;\n' }));
 		assert.ok(result.ok, result.output);
+	});
+});
+
+describe("denylist", () => {
+	// Made-up words stand in for the real ones, which exist here only as hashes.
+	const sha = (word: string) => createHash("sha256").update(word).digest("hex");
+	const fake = new Set([sha("zorblax"), sha("quux42")]);
+	test("finds denied words in any case, inside paths and globs, without spelling them out", () => {
+		const hits = deniedWords('{ "remote": "*/Quux42/*", "note": "Zorblax seat", "path": "~/Projects/zorblax" }', fake);
+		assert.deepEqual(hits.sort(), [sha("quux42").slice(0, 12), sha("zorblax").slice(0, 12)].sort());
+		assert.ok(hits.every((hit) => !/zorblax|quux42/i.test(hit)));
+		assert.deepEqual(deniedWords("zorblaxed quux420 acme-corp", fake), [], "only whole words count");
+	});
+	test("keeps only SHA-256 hashes in the shipped list", () => {
+		assert.ok(DENIED.size > 0);
+		for (const digest of DENIED) assert.match(digest, /^[0-9a-f]{64}$/);
+	});
+	test("rejects a commit message that holds a denied word", () => {
+		assert.match(problems("docs(repo): note the Zorblax seat\n", fake).join("\n"), /a denied word \(sha256 [0-9a-f]{12}/);
+		assert.deepEqual(problems("docs(repo): note the Acme seat\n", fake), []);
 	});
 });
 

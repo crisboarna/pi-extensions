@@ -35,6 +35,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Gate | Where | Prevents |
 |---|---|---|
 | Invisible and bidi characters (`scripts/checks/text.ts`) | C P CI | Zero-width spaces, form feeds and other bytes models sometimes emit, and "Trojan Source" bidi controls that make code read differently from how it runs |
+| Denied words (`scripts/lib/denylist.ts`, in the text and commit-msg checks) | C M P CI | Names of employers, clients and their projects in a file or a commit message. The list holds only SHA-256 hashes, so the repository never contains what it blocks, and a hit is reported by hash prefix |
 | Line endings and final newline | C P CI | CRLF files and missing final newlines |
 | Agent context budget | C P CI | `AGENTS.md` growing until it crowds out the task (150 lines at the root, 80 per package); `CLAUDE.md` drifting from `AGENTS.md` (it must contain only `@AGENTS.md`) |
 | Markdown lint (`markdownlint-cli2`) | P CI | Broken tables, unlabelled code blocks, heading mistakes |
