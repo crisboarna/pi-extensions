@@ -1,0 +1,24 @@
+{
+  "name": "pi-account-guard",
+  "version": "0.1.0",
+  "description": "Stops a pi session from sending a user turn to a model account that does not belong to the zone of the directory the session works in.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cristian Boarna",
+  "keywords": ["pi-package", "pi-extension", "account-guard"],
+  "engines": { "node": ">=22.19" },
+  "pi": { "extensions": ["./src/index.ts"] },
+  "files": ["src", "README.md", "LICENSE"],
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "scripts": {
+    "link:pi": "node scripts/link-pi.mjs",
+    "test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
+    "test:integration": "node --test \"test/integration/**/*.test.ts\"",
+    "test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
