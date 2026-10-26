@@ -9,6 +9,7 @@ Settings on GitHub and npmjs.com that the workflows rely on. They live outside t
 - **Signing key**: add `~/.ssh/id_ed25519.pub` (the key in `.github/allowed_signers`) under Settings → SSH and GPG keys as a **Signing key**, or GitHub shows the commits as Unverified.
 - **Actions → General**: allow GitHub Actions to create and approve pull requests (the version pull request needs it); default workflow permissions read-only; allow only actions pinned to a full SHA.
 - **Environments**: create `npm` with required reviewer `crisboarna` and deployment branch `main` only.
+- **Pages**: under Settings → Pages, set the source to **GitHub Actions**. The `github-pages` environment it creates must allow deployments from `main` only. On a private repository Pages needs a paid plan, so the `site` job of `main.yml` is skipped until the repository is public. The site is `https://crisboarna.github.io/pi-extensions/`.
 - **Code security**: enable Dependabot alerts and security updates, secret scanning with push protection, private vulnerability reporting, and CodeQL (the workflow uploads results).
 - **General**: disable wikis if unused; enable "Automatically delete head branches".
 

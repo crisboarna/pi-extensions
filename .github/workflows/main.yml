@@ -1,7 +1,8 @@
 # Pushes to main: full verification and a signature check of the pushed
 # commits; only when both pass, Changesets either opens the version pull
 # request or publishes to npm with provenance (trusted publishing, OIDC)
-# from the protected npm environment.
+# from the protected npm environment, and the family site is deployed to
+# GitHub Pages.
 name: Main
 
 on:
@@ -42,6 +43,17 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: node scripts/checks/github-signatures.ts --push "$BEFORE" "$AFTER"
+
+  pages:
+    name: site
+    needs: [verify, signatures]
+    # Pages on a private repository needs a paid plan; the site goes live when the repository is made public.
+    if: ${{ !github.event.repository.private }}
+    uses: ./.github/workflows/pages.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    permissions:
+      contents: read # passed to the build job
+      pages: write # passed to the deploy job
+      id-token: write # passed to the deploy job
 
   release-mode:
     name: release mode
