@@ -2,6 +2,7 @@
 // run, chosen by PROBE_SCENARIO; observations go to the JSONL file at PROBE_LOG.
 import { appendFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SECOND_ONLY_MODEL, SECOND_PROVIDER } from "./second-provider.ts";
 import { STUB_MODEL_2, STUB_PROVIDER } from "./stub-provider.ts";
 
 function record(entry: Record<string, unknown>): void {
@@ -65,6 +66,41 @@ export default function probe(pi: ExtensionAPI): void {
 				ctx.abort();
 			});
 			break;
+		// The three scenarios below switch to the second stub provider, which the guard test config tags with another zone.
+		case "switch-account-at-turn-start": {
+			let switched = false;
+			pi.on("turn_start", async (_event, ctx) => {
+				const target = ctx.modelRegistry.find(SECOND_PROVIDER, SECOND_ONLY_MODEL);
+				if (switched || !target) return;
+				switched = true;
+				record({ switched: await pi.setModel(target) });
+			});
+			break;
+		}
+		case "switch-account-after-input":
+			// Load after the guard: its `input` handler has already allowed the turn when this one switches the model.
+			pi.on("input", async (_event, ctx) => {
+				const target = ctx.modelRegistry.find(SECOND_PROVIDER, SECOND_ONLY_MODEL);
+				if (target) record({ switched: await pi.setModel(target) });
+				return { action: "continue" };
+			});
+			break;
+		case "rotate-in-agent-end": {
+			// What pi-multi-pass does: switch the model inside the awaited agent_end chain, then send the turn again.
+			let rotated = false;
+			pi.on("agent_end", async (_event, ctx) => {
+				const target = ctx.modelRegistry.find(SECOND_PROVIDER, SECOND_ONLY_MODEL);
+				if (rotated || !target) return;
+				rotated = true;
+				record({ ran: "agent_end", idle: ctx.isIdle() });
+				record({ switched: await pi.setModel(target) });
+				pi.sendUserMessage("retry");
+			});
+			pi.on("model_select", async (_event, ctx) => {
+				record({ ran: "model_select", idle: ctx.isIdle() });
+			});
+			break;
+		}
 		case "command":
 			pi.registerCommand("guard", {
 				description: "Probe command",

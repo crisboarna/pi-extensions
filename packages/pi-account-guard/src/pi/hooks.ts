@@ -10,6 +10,7 @@ import { resolvePlaceZone, type RemoteUrls } from "../core/place.ts";
 import { accountOfModel } from "./account-of.ts";
 import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
 import { runInteractiveBlock, showOverrideFooter } from "./interactive-block.ts";
+import { registerModelGuard } from "./model-guard.ts";
 
 /** Exit code of a headless Block (ADR 0005). */
 const BLOCK_EXIT_CODE = 77;
@@ -99,6 +100,17 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			currentPlace(ctx.cwd, loadConfig(ctx));
 		}),
 	);
+
+	registerModelGuard(pi, {
+		evaluate: check,
+		overrides: overrideStore,
+		messages: deps,
+		writeStderr: deps.writeStderr,
+		failHeadless(text) {
+			deps.writeStderr(text);
+			deps.setExitCode(BLOCK_EXIT_CODE);
+		},
+	});
 
 	// Every user turn passes here, `/`-prefixed text included: skills and prompt templates arrive unexpanded.
 	pi.on("input", async (event, ctx) => {

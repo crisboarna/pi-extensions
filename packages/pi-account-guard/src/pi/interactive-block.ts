@@ -73,18 +73,23 @@ function cancel({ ctx, text }: InteractiveBlock): InputOutcome {
 	return { action: "handled" };
 }
 
-async function switchTo(row: Extract<DialogRow, { kind: "switch" }>, { pi, ctx }: InteractiveBlock): Promise<boolean> {
+/** Switches the model to the row's account; the notice defaults to the one of a Block at turn start. */
+export async function switchTo(
+	row: Extract<DialogRow, { kind: "switch" }>,
+	{ pi, ctx }: Pick<InteractiveBlock, "pi" | "ctx">,
+	noticeOf: (row: Extract<DialogRow, { kind: "switch" }>) => string = switchNotice,
+): Promise<boolean> {
 	const target = ctx.modelRegistry.find(row.account.provider, row.modelId);
 	if (!target || !(await pi.setModel(target))) {
 		ctx.ui.notify(`guard: could not switch to ${row.account.provider} ${row.modelId}.`, "error");
 		return false;
 	}
-	ctx.ui.notify(switchNotice(row), "info");
+	ctx.ui.notify(noticeOf(row), "info");
 	return true;
 }
 
 /** The models of every account with auth configured now, grouped per Account in registry order. */
-function offersOf(ctx: ExtensionContext): ModelOffer[] {
+export function offersOf(ctx: ExtensionContext): ModelOffer[] {
 	const offers: ModelOffer[] = [];
 	for (const model of ctx.modelRegistry.getAvailable()) {
 		const account = accountOfModel(ctx, model);

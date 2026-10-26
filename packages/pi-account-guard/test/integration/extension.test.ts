@@ -20,10 +20,10 @@ async function boot() {
 }
 
 describe("extension load", () => {
-	it("loads through jiti and registers only the session_start, input and agent_end handlers", async () => {
+	it("loads through jiti and registers only the session_start, input, model_select, before_agent_start, agent_settled and agent_end handlers", async () => {
 		const host = await boot();
 		assert.deepEqual(host.calls.filter((call) => call.method !== "on"), []);
-		assert.deepEqual(host.handledEvents().sort(), ["agent_end", "input", "session_start"]);
+		assert.deepEqual(host.handledEvents().sort(), ["agent_end", "agent_settled", "before_agent_start", "input", "model_select", "session_start"]);
 		assert.equal(host.commands.size, 0);
 		assert.equal(host.providers.size, 0);
 	});

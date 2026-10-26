@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readGitRemoteUrls } from "./pi/git.ts";
 import { readTextIfPresent, realpathIfPresent } from "./pi/fs.ts";
+import { keepExitCode } from "./pi/exit-code.ts";
 import { registerGuard } from "./pi/hooks.ts";
 
 export default function accountGuard(pi: ExtensionAPI): void {
@@ -13,6 +14,6 @@ export default function accountGuard(pi: ExtensionAPI): void {
 		realpath: realpathIfPresent,
 		readRemoteUrls: (cwd) => readGitRemoteUrls(cwd),
 		writeStderr: (text) => void process.stderr.write(text),
-		setExitCode: (code) => void (process.exitCode = code),
+		setExitCode: keepExitCode,
 	});
 }

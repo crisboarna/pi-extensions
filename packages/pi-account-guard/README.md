@@ -4,6 +4,8 @@ A pi extension that stops a session from sending a user turn to a model account 
 
 Status: a turn whose account does not match the place zone is blocked. In headless mode the message goes to stderr and the exit code is 77. In the TUI and over RPC a Block opens one select: Switch rows for the matching accounts, Allow once, Allow for session and Cancel. Cancel puts the typed prompt back in the editor, and an Allow for session shows `guard OVERRIDE <account> in <zone>` in the footer. Overrides are never written to disk and end with the session. Configuration is read from `account-guard.json` in the pi agent directory; place rules match a path, a git remote or both (a remote such as `*/Acme/*` is matched against the normalized `host/path` of every remote, and git failing while a remote rule matters blocks the turn). The tag prompt and `/guard` commands are not built yet.
 
+A model change while a turn runs (rotation, `/model`, router fallback) aborts the turn with a notice that says a failover was blocked. Once idle, the same select opens with the previous account first and without Allow once; Cancel leaves the model as it is, and the aborted turn is never resumed. An account switched while pi was idle is caught in `before_agent_start`, before the first request. Headless runs write the message to stderr and exit with 77, also after pi print mode has reported the aborted run.
+
 ## Development
 
 Requires Node 22.19 or later and an installed pi release.
