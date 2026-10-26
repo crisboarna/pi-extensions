@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="/stage/cards.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+</head>
+<body>
+<script>
+// The hero demo: real pi and pi-account-guard in a terminal, with demo
+// accounts and scripted model replies (media/terminal/scenes/demo.ts).
+const MARK = '<img class="mark" src="mark.svg" alt="">';
+const READY = /\d+\.\d%\/\d+/;
+
+let stage;
+// pi starts before the recording does.
+window.prepare = async () => {
+	stage = await Stage.open({ title: "~/personal/garden-planner — pi" });
+	stage.card(`${MARK}<div class="name">pi-account-guard</div><div class="line">Rotate freely. <b>Never into the wrong zone.</b></div>`);
+	await stage.waitFor(READY);
+};
+
+window.play = async () => {
+	await sleep(3200);
+	stage.card(null);
+	await sleep(600);
+
+	// 1. A slip: the work account in a personal repository.
+	stage.caption("A personal repository, but pi still has the work account selected.", "1/5");
+	stage.callout(/guard personal ✗ acme is work/, "the footer already warns", { place: "above" });
+	await sleep(2600);
+	stage.clear();
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor("BLOCKED  acme (env:ACME_WORK_KEY) is zone work");
+	await sleep(400);
+	stage.caption("The guard checks the account before the turn is sent. Nothing reaches the work account.", "1/5");
+	stage.callout(/acme \(env:ACME_WORK_KEY\) is zone work/, "<b>account zone</b>: acme is tagged work", { place: "above", last: true });
+	stage.callout(/-> zone personal/, "<b>place zone</b>: this repository is personal", { place: "right", last: true });
+	await sleep(600);
+	await stage.still();
+	await sleep(4000);
+	stage.clear();
+
+	// 2. One keystroke to an account of this zone.
+	stage.caption("One keystroke switches to an account of this zone, and the same prompt runs.", "2/5");
+	stage.callout(/Switch to homelab/, "<b>Switch</b>: your personal account", { place: "right", last: true });
+	await sleep(1800);
+	stage.clear();
+	await stage.press("Enter");
+	await stage.waitFor(/clover\./, { timeout: 15000 });
+	await stage.waitFor(/guard personal ✓/);
+	await sleep(300);
+	stage.callout(/guard personal ✓/, "a <b>Match</b>", { place: "right" });
+	await sleep(3200);
+	stage.clear();
+
+	// 3. A new account tags itself on first use.
+	stage.caption("A new account asks once which zones it belongs to.", "3/5");
+	await stage.command("/model spare/spare-model");
+	await stage.waitFor(/\(spare\) spare-model/);
+	await stage.type("and the watering schedule");
+	await stage.press("Enter");
+	await stage.waitFor(/Which zones does spare/);
+	await sleep(400);
+	stage.callout(/Which zones does spare/, "<b>tag prompt</b>: nothing is ticked for you", { place: "above", last: true });
+	await sleep(2400);
+	stage.clear();
+	for (let i = 0; i < 4 && !stage.find(/> \[ \] personal/); i++) await stage.press("ArrowDown", { after: 250 });
+	await stage.press(" ", { after: 500 });
+	await stage.press("Enter");
+	await stage.waitFor(/a week\./, { timeout: 15000 });
+	stage.caption("Tagged <b>personal</b>: the turn goes at once, and the tag is saved for next time.", "3/5");
+	await sleep(3000);
+
+	// 4. A rotation into the wrong zone mid-turn.
+	stage.caption("Rotators and routers switch accounts on their own, even mid-turn.", "4/5");
+	await stage.type("draft a planting plan for the spring");
+	await stage.press("Enter");
+	await stage.waitFor("Here is a planting plan", { timeout: 15000 });
+	await sleep(1200);
+	await stage.command("/model acme/work-model");
+	await stage.waitFor(/failover blocked/, { timeout: 20000, last: true });
+	await sleep(300);
+	stage.caption("A switch into the work zone stops the turn at once.", "4/5");
+	stage.callout(/failover blocked/, "the turn is <b>aborted</b>, not finished on work", { place: "above", alert: true, last: true });
+	await stage.waitFor("BLOCKED", { timeout: 30000, last: true });
+	await sleep(2600);
+	stage.clear();
+	stage.caption("Once idle, the account it was on comes first. There is no Allow once: the turn is gone.", "4/5");
+	stage.callout(/Switch to spare \(env:SPARE_KEY\) -> spare-model\s+\[personal\]/, "back to <b>spare</b>, the account it was on", { place: "right", last: true });
+	await sleep(3400);
+	stage.clear();
+	await stage.press("Enter");
+	await stage.waitFor(/\(spare\) spare-model/);
+	await sleep(600);
+
+	// 5. The status.
+	await stage.command("/guard");
+	await stage.waitFor(/Account\s+spare \(env:SPARE_KEY\) -> personal\s+✓ Match/);
+	stage.caption("<b>/guard</b> shows the place, what decides its zone, and the account's Match.", "5/5");
+	stage.callout(/Place\s+~\/personal\/garden-planner -> personal \(default zone\)/, "no rule matches: the <b>default zone</b>", { place: "right", last: true });
+	await sleep(2600);
+	stage.clear();
+	stage.callout(/Account\s+spare \(env:SPARE_KEY\) -> personal\s+✓ Match/, "tagged personal: a <b>Match</b>", { place: "right", last: true });
+	await sleep(2800);
+	stage.clear();
+	stage.caption("", "");
+
+	stage.card(`${MARK}<div class="name">pi-account-guard</div><code>pi install npm:@crisboarna/pi-account-guard</code><div class="small">then <code>/guard</code> · <code>/guard place add here zone=work</code></div>`);
+	await sleep(4200);
+};
+</script>
+</body>
+</html>

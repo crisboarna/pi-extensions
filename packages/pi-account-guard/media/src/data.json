@@ -23,7 +23,7 @@
 				"place": {
 					"path": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				},
@@ -41,7 +41,7 @@
 				"place": {
 					"path": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				},
@@ -116,7 +116,7 @@
 				{
 					"where": "~/work/side-project",
 					"remotes": [
-						"github.com/dev/side-project"
+						"github.com/homelab-dev/side-project"
 					],
 					"zone": "work",
 					"rule": 1
@@ -124,7 +124,7 @@
 				{
 					"where": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				}
@@ -163,7 +163,7 @@
 				{
 					"where": "~/work/side-project",
 					"remotes": [
-						"github.com/dev/side-project"
+						"github.com/homelab-dev/side-project"
 					],
 					"zone": "personal",
 					"rule": 0
@@ -171,7 +171,7 @@
 				{
 					"where": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				}
@@ -192,7 +192,7 @@
 				"place": {
 					"path": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				},
@@ -211,7 +211,7 @@
 				"place": {
 					"path": "~/personal/garden-planner",
 					"remotes": [
-						"github.com/dev/garden-planner"
+						"github.com/homelab-dev/garden-planner"
 					],
 					"zone": "personal"
 				},

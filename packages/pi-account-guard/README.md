@@ -9,7 +9,9 @@
 
 Keeps each [pi](https://pi.dev) session on the accounts that belong where it runs: a work subscription never answers in a personal repository, and the other way round. Before each turn, the guard checks the account pi is about to use against the zone of the directory, and when they differ it blocks the turn and offers the fix in one keystroke. It is for anyone with work and personal subscriptions in one pi, especially with rotators and routers that change accounts on their own.
 
-![In ~/personal/garden-planner with the work account acme selected, the prompt is blocked: "BLOCKED acme (env:ACME_WORK_KEY) is zone work, Place ~/personal/garden-planner -> zone personal", with Switch to homelab, Allow once, Allow for session and Cancel](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check-1-2-1-block.png)
+[![A one-minute demo in a real pi session: in a personal repository the work account is blocked before anything is sent, one keystroke switches to the personal account, a new account tags itself, a rotation into the work zone mid-turn is aborted, and /guard shows the place and the Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/hero.png)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4)
+
+▶ [Watch the one-minute demo](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4): real pi and pi-account-guard with demo accounts; only the model replies are scripted.
 
 It is a guard against slips, not a security boundary: it never reads secrets, and when it cannot decide, it blocks.
 

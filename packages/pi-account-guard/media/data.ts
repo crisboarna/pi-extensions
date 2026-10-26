@@ -19,18 +19,18 @@ import { resolvePlaceZone } from "../src/core/place.ts";
 import { addPlaceRule, movePlaceRule } from "../src/core/place-edit.ts";
 import { normalizeRemoteUrl } from "../src/core/remote.ts";
 import { ruleText } from "../src/core/status.ts";
-import { ACCOUNTS, CONFIG } from "./terminal/setup.ts";
+import { ACCOUNTS, CONFIG, REPOSITORIES } from "./terminal/setup.ts";
 
 const HOME = "/home/dev";
 const context = { home: HOME, configPath: `${HOME}/.pi/agent/account-guard.json` };
 const paths = { home: HOME, realpath: (path: string) => path };
 
-/** The demo directories and the git remotes of each. */
+/** The demo directories and the git remotes of each: the scenes' two repositories, and two more for the place rules. */
 const PLACES: Record<string, string[]> = {
-	"~/work/acme-api": ["git@github.com:acme-corp/acme-api.git"],
+	[`~/${REPOSITORIES.work.path}`]: [REPOSITORIES.work.remote],
 	"~/work/notes": [],
-	"~/work/side-project": ["https://github.com/dev/side-project.git"],
-	"~/personal/garden-planner": ["https://github.com/dev/garden-planner.git"],
+	"~/work/side-project": ["git@github.com:homelab-dev/side-project.git"],
+	[`~/${REPOSITORIES.personal.path}`]: [REPOSITORIES.personal.remote],
 };
 
 const config = (): GuardConfig => {

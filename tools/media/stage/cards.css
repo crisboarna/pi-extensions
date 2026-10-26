@@ -1,4 +1,4 @@
-/* pi-switchboard's title and end cards for the terminal scenes. */
+/* Title and end cards for the terminal scenes of every package: the mark, the name, a line, an install command. */
 .stage-card .mark {
 	width: 120px;
 	height: 120px;

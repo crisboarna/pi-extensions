@@ -34,7 +34,8 @@
 		"extensions": [
 			"./src/index.ts"
 		],
-		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/cover.png"
+		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/cover.png",
+		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/hero.mp4"
 	},
 	"files": [
 		"src",

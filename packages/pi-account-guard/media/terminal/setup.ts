@@ -71,7 +71,7 @@ const SWITCHBOARD = {
 	profileSelection: { default: "home" },
 };
 
-const REPOSITORIES = {
+export const REPOSITORIES = {
 	work: { path: "work/acme-api", remote: "git@github.com:acme-corp/acme-api.git", file: "src/server.ts" },
 	personal: { path: "personal/garden-planner", remote: "git@github.com:homelab-dev/garden-planner.git", file: "src/beds.ts" },
 };

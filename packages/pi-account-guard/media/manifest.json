@@ -75,6 +75,18 @@
 		},
 		{
 			"kind": "terminal",
+			"page": "hero.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "hero",
+			"width": 1280,
+			"height": 720,
+			"still": true,
+			"gif": false,
+			"tailMs": 300
+		},
+		{
+			"kind": "terminal",
 			"page": "check-1-2.html",
 			"setup": "terminal/setup.ts",
 			"scene": "checks",
