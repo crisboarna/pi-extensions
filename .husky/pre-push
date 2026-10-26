@@ -1,0 +1,2 @@
+# Everything CI runs, before it leaves the machine.
+npm run check && npm run coverage && npm run test:integration && npm run test:repo

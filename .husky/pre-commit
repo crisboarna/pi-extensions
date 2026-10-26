@@ -1,0 +1,2 @@
+# Fast gates on every commit. The full suite runs on push and in CI.
+node scripts/hooks/pre-commit.ts
