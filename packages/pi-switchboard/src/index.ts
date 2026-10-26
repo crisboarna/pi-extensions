@@ -155,7 +155,8 @@ export default function switchboard(pi: ExtensionAPI): void {
 					...(message.usage ? { usage: message.usage } : {}),
 					...(message.errorMessage ? { error: message.errorMessage } : {}),
 				});
-				if (message.stopReason === "error") runtime.live.update({ status: "error" });
+				// A failed turn marks the child as failing; the next good turn (a failover) marks it running again.
+				runtime.live.update({ status: message.stopReason === "error" ? "error" : "running" });
 			}
 		}
 		if (message.role !== "assistant") return undefined;

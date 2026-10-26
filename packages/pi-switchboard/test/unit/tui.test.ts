@@ -84,6 +84,16 @@ describe("navigator", () => {
 		assert.match(lines.at(-1) ?? "", /enter decision · t transcript/u);
 	});
 
+	it("keeps the columns aligned when the status icon is coloured", () => {
+		const colour = (role: string, text: string) => (role === "success" || role === "error" ? `\u001b[32m${text}\u001b[39m` : text);
+		const lines = renderList({ rows, profile: "work", cooldowns: [], budgetWarnings: [], now: start }, 0, colour);
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: strips the colour codes the test added
+		const plain = lines.map((line) => line.replace(/\u001b\[\d+m/gu, ""));
+		const columns = plain.filter((line) => /acme\//u.test(line)).map((line) => line.indexOf("acme/"));
+		assert.ok(columns.length >= 2);
+		assert.equal(new Set(columns).size, 1, plain.join("\n"));
+	});
+
 	it("renders the decision and a scrolled transcript", () => {
 		const decision = renderDecision(rows[1]!);
 		assert.ok(decision.some((l) => l.includes("subagent: scout")));

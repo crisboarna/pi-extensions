@@ -196,7 +196,8 @@ export function routeRequest(
 		thinkingLevel: over.thinkingLevel ?? "medium",
 		reason: over.reason ?? "user",
 		messages: [
-			...(over.system ? [{ role: "system", content: over.system }] : []),
+			// pi 1.4 keeps the system prompt in named sections and leaves `content` empty.
+			...(over.system ? [{ role: "system", content: "", sections: { preamble: over.system } }] : []),
 			{ role: "user", content: over.text ?? "implement the pagination for the orders endpoint" },
 			...(over.extraMessages ?? []),
 		],

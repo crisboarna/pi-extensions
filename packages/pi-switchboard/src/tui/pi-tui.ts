@@ -17,7 +17,7 @@ export function navModel(runtime: Runtime, ctx: ExtensionContext): NavModel {
 	const children = readChildren(join(runtime.dir, "live"), parents);
 	const decisions = runtime.engine.recent;
 	const main = [...decisions].reverse().find((d) => d.scope === "main");
-	const launches = decisions.filter((d) => d.reason === "launch");
+	const launches = runtime.launchDecisions;
 	const totals = runtime.budgets.totals();
 	const data = runtime.store.read();
 	const cooldowns = Object.entries(data.members)

@@ -94,8 +94,13 @@ const ACTIVE_AGENT = /<active_agent name="([^"]+)"\s*\/>/u;
 export function agentFromMessages(messages: readonly TranscriptMessage[]): string | undefined {
 	for (const message of messages) {
 		if (message.role !== "system") continue;
-		const match = ACTIVE_AGENT.exec(textOf(message.content));
-		if (match?.[1]) return match[1];
+		// pi 1.4 keeps the system prompt in named sections and leaves `content` empty.
+		const sections = (message as { sections?: unknown }).sections;
+		const parts = [textOf(message.content), ...(typeof sections === "object" && sections !== null ? Object.values(sections) : [])];
+		for (const part of parts) {
+			const match = typeof part === "string" ? ACTIVE_AGENT.exec(part) : null;
+			if (match?.[1]) return match[1];
+		}
 	}
 	return undefined;
 }

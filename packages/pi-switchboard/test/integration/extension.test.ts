@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { type createFakeHost, type createFakeSession, fakeTheme, routeRequest } from "../support/fake-pi.ts";
@@ -212,6 +212,48 @@ describe("subagent launches", () => {
 		assert.equal((globalThis as { __switchboardTest?: { disposed?: boolean } }).__switchboardTest?.disposed, true, "the registration is released");
 	});
 
+	it("lists a running child in the navigator with the launch decision that chose its tier", async () => {
+		const { host, session, agentDir, tier, route } = await boot({ subagents: {} });
+		await route(routeRequest());
+		const footer = session.statuses.get("tier");
+		await call(host, session, { agent: "scout", task: "scan the repo" });
+		assert.equal(session.statuses.get("tier"), footer, "a launch decision does not replace the main session's footer");
+		const live = join(agentDir, "pi-switchboard", "live");
+		mkdirSync(live, { recursive: true });
+		const now = Date.now();
+		const status = {
+			v: 1,
+			session: "child-1",
+			parent: "session-1",
+			agent: "scout",
+			status: "running",
+			turn: 1,
+			tokens: { input: 10, output: 2, cacheRead: 0 },
+			cost: 0,
+			startedAt: now,
+			updatedAt: now,
+		};
+		writeFileSync(join(live, "child-1.json"), JSON.stringify(status));
+		const screens: string[][] = [];
+		Object.assign(session.ctx, { hasUI: true });
+		session.ctx.ui.custom = async (factory: (...args: unknown[]) => { render(w: number): string[]; handleInput(d: string): void; dispose(): void }) => {
+			const view = factory({ requestRender() {} }, fakeTheme, {}, () => {});
+			screens.push(view.render(120));
+			view.handleInput("\u001b[B");
+			view.handleInput("\r");
+			screens.push(view.render(120));
+			view.dispose();
+		};
+		await tier("watch");
+		assert.ok(
+			screens[0]?.some((line) => line.includes("scout") && line.includes("standard")),
+			screens[0]?.join("\n"),
+		);
+		assert.ok(screens[1]?.some((line) => line.includes("scout · decision")));
+		assert.ok(!screens[1]?.some((line) => line.includes("No routing decision")), "the launch decision is joined to the child");
+		assert.ok(screens[1]?.some((line) => line.includes("subagent: scout")));
+	});
+
 	it("never routes an external-runner agent or a call that names a model", async () => {
 		const { host, session, decisions } = await boot({ subagents: {} });
 		const external: Record<string, any> = { agent: "codex-exec", task: "x" };
@@ -264,6 +306,10 @@ describe("inside a subagent child", () => {
 		const decision = decisions()[0];
 		assert.deepEqual([decision.scope, decision.kind, decision.launchDecisionId], ["subagent", "launch-tier", "d_parent_1"]);
 		assert.equal(session.classifierCalls.length, 0, "children do not classify a launch tier again");
+		const end = (message: Record<string, unknown>) =>
+			host.fire("message_end", { message: { role: "assistant", provider: "acme", ...message } }, session.ctx);
+		await end({ model: "small", stopReason: "error", errorMessage: "You have reached your usage limit." });
+		await end({ model: "small-b", stopReason: "stop", content: [{ type: "text", text: "done after failover" }] });
 
 		// Status writes are throttled to every 250 ms; shutdown flushes the final state.
 		await host.fire("session_shutdown", { type: "session_shutdown" }, session.ctx);
@@ -271,6 +317,10 @@ describe("inside a subagent child", () => {
 		const [file] = readdirSync(live).filter((f) => f.endsWith(".json"));
 		assert.ok(file);
 		const status = JSON.parse(readFileSync(join(live, file), "utf8"));
-		assert.deepEqual([status.parent, status.launchDecisionId, status.tier, status.status], ["/sessions/parent.jsonl", "d_parent_1", "light", "done"]);
+		assert.deepEqual(
+			[status.parent, status.agent, status.launchDecisionId, status.tier, status.status],
+			["/sessions/parent.jsonl", "scout", "d_parent_1", "light", "done"],
+			"the navigator labels the child by its agent",
+		);
 	});
 });

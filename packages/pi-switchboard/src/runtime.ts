@@ -50,6 +50,8 @@ import { THINKING_LEVELS, type ThinkingLevel } from "./util/model-ref.ts";
 import { entryOf } from "./util/record.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
 
+const MAX_LAUNCH_DECISIONS = 200;
+
 export const STATUS_KEY = "tier";
 export const STATUS_SUB_KEY = "tier-sub";
 const VIRTUAL_THINKING: ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh"];
@@ -103,6 +105,8 @@ export class Runtime {
 	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
 	launchModeReason?: string;
 	private readonly launches = new Map<string, DecisionEntry[]>();
+	/** Recent launch decisions; the navigator joins running children to them. The engine's own recent list stays main-session routing. */
+	readonly launchDecisions: DecisionEntry[] = [];
 	private readonly launchLeases = new Map<string, LeaseRef[]>();
 	/** The entry file pi-subagents loads into children. */
 	entryPath = "";
@@ -344,6 +348,7 @@ export class Runtime {
 			{
 				engine: this.engine,
 				toolCallId,
+				parentTask: [...this.engine.recent].reverse().find((d) => d.scope === "main")?.task ?? 0,
 				...(routing && model ? { parentVirtualId: model.id } : {}),
 				...(!routing && model ? { parentModel: `${model.provider}/${model.id}` } : {}),
 				parentThinking: (THINKING_LEVELS as readonly string[]).includes(ctx.thinkingLevel ?? "") ? (ctx.thinkingLevel as ThinkingLevel) : "medium",
@@ -486,20 +491,26 @@ export class Runtime {
 		this.updateFooter(ctx);
 	}
 
-	async route(virtualId: string, request: RouteRequestLike, ctx: ExtensionContext) {
-		this.ctx = ctx;
-		const messages = request.messages as readonly TranscriptMessage[];
-		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
-		const scope = header?.parentSession || process.env.PI_SUBAGENT_CHILD === "1" ? "subagent" : "main";
-		const agent = scope === "subagent" ? agentFromMessages(messages) : undefined;
-		if (scope === "subagent" && this.binding && !this.launchDecisionId) {
-			const task = messageText(messages[lastUserIndex(messages)]?.content);
-			const id = matchLaunch(this.binding, agent, task);
+	/** In a child: its agent, written to the live status, and the parent's launch decision it belongs to. */
+	private identifyChild(messages: readonly TranscriptMessage[]): string | undefined {
+		const agent = agentFromMessages(messages);
+		if (agent) this.live?.update({ agent });
+		if (this.binding && !this.launchDecisionId) {
+			const id = matchLaunch(this.binding, agent, messageText(messages[lastUserIndex(messages)]?.content));
 			if (id) {
 				this.launchDecisionId = id;
 				this.live?.update({ launchDecisionId: id });
 			}
 		}
+		return agent;
+	}
+
+	async route(virtualId: string, request: RouteRequestLike, ctx: ExtensionContext) {
+		this.ctx = ctx;
+		const messages = request.messages as readonly TranscriptMessage[];
+		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
+		const scope = header?.parentSession || process.env.PI_SUBAGENT_CHILD === "1" ? "subagent" : "main";
+		const agent = scope === "subagent" ? this.identifyChild(messages) : undefined;
 		const thinking = (THINKING_LEVELS as readonly string[]).includes(request.thinkingLevel) ? (request.thinkingLevel as ThinkingLevel) : "medium";
 		const previous = choice(request.previous);
 		const failed = request.failed
@@ -545,6 +556,10 @@ export class Runtime {
 		if (decision.reason === "user" && decision.scope === "main") this.budgets.startTask(decision.task);
 		if (decision.profile.name && decision.profile.name !== this.snapshotProfile) this.snapshot(decision.profile.name, ctx ?? this.ctx);
 		if (this.live && decision.tier.chosen) this.live.update({ tier: decision.tier.chosen });
+		if (decision.reason === "launch") {
+			this.launchDecisions.push(decision);
+			if (this.launchDecisions.length > MAX_LAUNCH_DECISIONS) this.launchDecisions.shift();
+		}
 		this.pi.appendEntry(DECISION_TYPE, decision);
 		const target = ctx ?? this.ctx;
 		this.debugLog?.write(decision, { session: target?.sessionManager.getSessionId() ?? "", cwd: target?.cwd ?? "" });

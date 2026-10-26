@@ -99,6 +99,9 @@ describe("message helpers", () => {
 			]),
 			"scout",
 		);
+		const sectioned = { role: "system", content: "", sections: { tools: 3, preamble: '<active_agent name="reviewer"/>\n\nYou review.' } };
+		assert.equal(agentFromMessages([sectioned as never]), "reviewer");
+		assert.equal(agentFromMessages([{ role: "system", content: "", sections: null } as never]), undefined);
 	});
 
 	it("estimates tokens and survives values JSON cannot encode", () => {

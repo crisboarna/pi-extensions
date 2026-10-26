@@ -23,6 +23,8 @@ export type PinLookup = (agent: string, task: string) => Promise<PinInfo | "unkn
 export interface LaunchContext {
 	engine: SwitchboardEngine;
 	toolCallId: string;
+	/** The parent's task the call belongs to, so launch decisions sit under it in logs and the inspector. */
+	parentTask: number;
 	/** The parent's selected virtual model id (`auto`, a profile, ...) when routing, else undefined. */
 	parentVirtualId?: string;
 	/** The parent's current physical model, `provider/id`, when not routing. */
@@ -49,7 +51,7 @@ function skipped(ctx: LaunchContext, task: LaunchTask, profile: Profile | undefi
 		v: 1,
 		id: newId("d_", engine.deps.clock, engine.deps.rng),
 		ts: new Date(engine.deps.clock.now()).toISOString(),
-		task: 0,
+		task: ctx.parentTask,
 		scope: "subagent",
 		reason: "launch",
 		kind: "inactive",
@@ -161,7 +163,7 @@ export async function routeLaunch(ctx: LaunchContext, tasks: readonly LaunchTask
 				v: 1,
 				id: newId("d_", engine.deps.clock, engine.deps.rng),
 				ts: new Date(engine.deps.clock.now()).toISOString(),
-				task: 0,
+				task: ctx.parentTask,
 				scope: "subagent",
 				reason: "launch",
 				kind: chain && !chain.ok ? "fallback" : outcome?.fallback ? "fallback" : pin ? "pinned" : "classified",

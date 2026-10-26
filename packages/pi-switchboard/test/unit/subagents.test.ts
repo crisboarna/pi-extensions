@@ -54,6 +54,7 @@ function setup(classifyWork: (task: string) => string = () => "plan") {
 	const ctx = (extra: Partial<LaunchContext> = {}): LaunchContext => ({
 		engine,
 		toolCallId: "call-1",
+		parentTask: 3,
 		parentVirtualId: "auto",
 		parentThinking: "medium",
 		planPhase: "executing",
@@ -144,6 +145,8 @@ describe("routeLaunch", () => {
 		assert.equal(result.routed, 1);
 		assert.equal(input.args.tasks[0] && (input.args.tasks[0] as Record<string, unknown>).model, "switchboard/main.deep:medium");
 		assert.equal(result.decisions[0]?.reason, "launch");
+		assert.equal(result.decisions[0]?.task, 3, "a launch sits under the parent task that made the call");
+		assert.ok(result.decisions.every((d) => d.task === 3));
 		assert.equal(result.decisions[0]?.subagent?.launchTier, "deep");
 	});
 

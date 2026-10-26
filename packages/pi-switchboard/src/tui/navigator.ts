@@ -90,6 +90,13 @@ export function buildRows(
 	return rows;
 }
 
+/** A row's status icon, plain and coloured. */
+function statusIcon(status: NavRow["status"], style: Style): [string, string] {
+	if (status === "error") return ["✗", style("error", "✗")];
+	if (status === "done") return ["✓", style("success", "✓")];
+	return [status === "running" ? "●" : "○", status === "running" ? "●" : "○"];
+}
+
 /** Header, rows and footer of the list view, as plain lines (callers truncate to width). */
 export function renderList(model: NavModel, selected: number, style: Style = plain): string[] {
 	const running = model.rows.filter((r) => r.status === "running").length;
@@ -106,10 +113,11 @@ export function renderList(model: NavModel, selected: number, style: Style = pla
 	].filter(Boolean);
 	const lines = [style("accent", header.join(" · ")), ""];
 	model.rows.forEach((row, index) => {
-		const icon = row.status === "running" ? "●" : row.status === "error" ? style("error", "✗") : row.status === "done" ? style("success", "✓") : "○";
+		const [icon, styled] = statusIcon(row.status, style);
 		const branch = row.depth === 0 ? "" : index === model.rows.length - 1 ? "└ " : "├ ";
 		const cells = [
-			`${branch}${icon} ${row.label}`.padEnd(18),
+			// Pad before colouring: padEnd would count the colour codes as width.
+			`${branch}${icon} ${row.label}`.padEnd(18).replace(icon, styled),
 			(row.tier ?? "—").padEnd(10),
 			(row.model ?? "").padEnd(32),
 			row.turn !== undefined ? `turn ${row.turn}`.padEnd(8) : "".padEnd(8),
