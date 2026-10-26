@@ -4,6 +4,7 @@ import { createConfigWriter, type ConfigWriter } from "../core/config-writer.ts"
 import type { ConfigState } from "../core/config-state.ts";
 import type { BlockCause } from "../core/decide.ts";
 import { processOverrideWarning } from "../core/messages.ts";
+import { isPooledProvider } from "../core/pooled.ts";
 import { PROCESS_OVERRIDE_VARIABLE, processOverrideActive, processOverrideCovers } from "../core/process-override.ts";
 import { runTagPrompt } from "./tag-prompt.ts";
 
@@ -67,6 +68,7 @@ export function createUnknownAccountGate(pi: ExtensionAPI, deps: UnknownAccountD
 				placeZone: cause.place.zone,
 				config: live.config,
 				multiPassLabel: deps.multiPassLabel?.(cause.account.provider),
+				pooled: isPooledProvider(ctx.modelRegistry.getProvider(cause.account.provider)),
 				writer,
 				configFile,
 			});

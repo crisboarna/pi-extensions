@@ -26,7 +26,7 @@ export interface GuardCommandDeps extends MessageContext {
 	currentPlace(ctx: ExtensionContext, snapshot: ConfigSnapshot): PlaceOutcome;
 	overrides(): Overrides;
 	/** Provider ids that pool several accounts under one id. */
-	pooledProviders?(): string[];
+	pooledProviders?(ctx: ExtensionContext): string[];
 	multiPassLabel?(provider: string): string | undefined;
 	/** Draws the footer item again after a config change. */
 	refreshFooter(ctx: ExtensionContext): void;
@@ -74,7 +74,7 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 				config: snapshot.result,
 				fallbackErrors: snapshot.fallback?.errors,
 				overrides: deps.overrides(),
-				pooledProviders: deps.pooledProviders?.() ?? [],
+				pooledProviders: deps.pooledProviders?.(ctx) ?? [],
 				untagged: known.filter((account) => account.configured && account.zones === undefined).map((account) => account.key),
 			}),
 			"info",

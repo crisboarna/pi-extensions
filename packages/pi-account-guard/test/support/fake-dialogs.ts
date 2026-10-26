@@ -6,6 +6,8 @@ export interface FakeModel {
 	provider: string;
 	id: string;
 	/** Auth the registry reports for the provider; defaults to a stored key. */
+	/** The provider is lifted by pi-multiprovider: the registry returns it with the private pool marker. */
+	pooled?: boolean;
 	auth?: { usingOAuth?: boolean; status: { configured: boolean; source?: string; label?: string } };
 }
 
@@ -34,6 +36,8 @@ export function attachDialogs(host: FakeHost, session: FakeSession, models: Fake
 		isUsingOAuth: (model: FakeModel) => authOf(model.provider)?.usingOAuth ?? false,
 		getProviderAuthStatus: (provider: string) => authOf(provider)?.status ?? { configured: true, source: "stored" },
 		getAvailable: () => models,
+		getAll: () => models,
+		getProvider: (provider: string) => (models.some((model) => model.provider === provider && model.pooled) ? { [Symbol.for("pi-multiprovider.lifted-base")]: {} } : {}),
 		find: (provider: string, id: string) => models.find((model) => model.provider === provider && model.id === id),
 	};
 	ctx.ui.select = async (title: string, options: string[]) => {

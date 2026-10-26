@@ -6,9 +6,10 @@ import { decide, type BlockCause, type Decision, type PlaceOutcome } from "../co
 import { logData } from "../core/block-dialog.ts";
 import { footerText } from "../core/footer.ts";
 import { configFallbackWarning, headlessBlockMessage } from "../core/messages.ts";
+import { definesApiKeyHelper } from "../core/claude-bridge.ts";
 import { applyOverrides, NO_OVERRIDES, releaseOnce, type Overrides } from "../core/overrides.ts";
 import { resolvePlaceZone, type RemoteUrls } from "../core/place.ts";
-import { accountOfModel } from "./account-of.ts";
+import { accountOfModel, configureClaudeBridgeResolver } from "./account-of.ts";
 import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
 import { registerGuardCommand } from "./commands.ts";
 import { runInteractiveBlock } from "./interactive-block.ts";
@@ -31,7 +32,7 @@ export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writ
 	writeStderr(text: string): void;
 	setExitCode(code: number): void;
 	/** Provider ids that pool several accounts under one id; `/guard` lists them. Defaults to none. */
-	pooledProviders?(): string[];
+	pooledProviders?(ctx: ExtensionContext): string[];
 }
 
 export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
@@ -46,6 +47,19 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			refreshFooter(ctx);
 		},
 	};
+
+	configureClaudeBridgeResolver({
+		env: deps.env ?? {},
+		home: deps.home,
+		// Only the presence of the helper is read; its command is never kept (DESIGN.md section 6).
+		usesApiKeyHelper(configDirectory) {
+			try {
+				return definesApiKeyHelper(deps.readConfigText(`${configDirectory}/settings.json`));
+			} catch {
+				return false;
+			}
+		},
+	});
 
 	const configState = createConfigState(() => deps.readConfigText(deps.configPath));
 	const unknownAccounts = createUnknownAccountGate(pi, deps, configState);

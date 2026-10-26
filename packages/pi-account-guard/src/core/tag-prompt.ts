@@ -1,5 +1,6 @@
 import type { AccountKey } from "./account.ts";
 import { zonePhrase } from "./messages.ts";
+import { pooledWarning } from "./pooled.ts";
 
 /** The select entry of the RPC tag prompt that opens a free-text input for several zones. */
 export const SEVERAL_ZONES_OPTION = "Several zones…";
@@ -35,9 +36,10 @@ export function accountInWords(account: AccountKey, multiPassLabel?: string): st
 	return multiPassLabel === undefined ? words : `${words} (multi-pass: ${multiPassLabel})`;
 }
 
-/** The question of the Tag prompt; it states the zone of the place (DESIGN.md section 10.1). */
-export function tagPromptTitle(account: AccountKey, placeZone: string, multiPassLabel?: string): string {
-	return `This place is ${placeZone}. Which zones does ${accountInWords(account, multiPassLabel)} belong to?`;
+/** The question of the Tag prompt; it states the zone of the place (DESIGN.md section 10.1) and warns when the id is pooled (section 6). */
+export function tagPromptTitle(account: AccountKey, placeZone: string, multiPassLabel?: string, pooled = false): string {
+	const question = `This place is ${placeZone}. Which zones does ${accountInWords(account, multiPassLabel)} belong to?`;
+	return pooled ? `${question}\n${pooledWarning(account.provider)}` : question;
 }
 
 export type ZoneListResult = { ok: true; zones: string[] } | { ok: false; message: string };

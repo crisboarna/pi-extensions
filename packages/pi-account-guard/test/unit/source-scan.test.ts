@@ -17,6 +17,10 @@ describe("source scan", () => {
 		assert.deepEqual(findIds("const googleish = anthropically;", realIds()), []);
 	});
 
+	it("does not flag an id inside an environment variable name", () => {
+		assert.deepEqual(findIds("CLAUDE_CODE_USE_GOOGLE_CLOUD ANTHROPIC_API_KEY", realIds()), []);
+	});
+
 	it("keeps every real provider and model id out of src/", () => {
 		const offenders: string[] = [];
 		for (const file of files(join(ROOT, "src"), ".ts")) {

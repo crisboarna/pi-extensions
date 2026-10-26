@@ -13,16 +13,18 @@ export interface TagPrompt {
 	/** The live config; its declared zones are the choices. */
 	config: GuardConfig;
 	multiPassLabel: string | undefined;
+	/** The id pools several accounts, so the prompt warns. */
+	pooled: boolean;
 	writer: ConfigWriter;
 	/** The config file name, for error text. */
 	configFile: string;
 }
 
 /** Asks which zones the Unknown account belongs to and writes the tag. Resolves with the zones written, or `undefined` when the user cancelled or the write was refused. */
-export async function runTagPrompt({ ctx, account, placeZone, config, multiPassLabel, writer, configFile }: TagPrompt): Promise<string[] | undefined> {
+export async function runTagPrompt({ ctx, account, placeZone, config, multiPassLabel, pooled, writer, configFile }: TagPrompt): Promise<string[] | undefined> {
 	const declared = config.zones;
 	if (declared.length === 0) return undefined;
-	const title = tagPromptTitle(account, placeZone, multiPassLabel);
+	const title = tagPromptTitle(account, placeZone, multiPassLabel, pooled);
 	for (;;) {
 		const zones = await askZones(ctx, title, declared);
 		if (zones === undefined) return undefined;

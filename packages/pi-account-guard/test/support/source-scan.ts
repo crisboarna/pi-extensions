@@ -41,10 +41,10 @@ export function realIds(): string[] {
 	return [...fixture.providers, ...fixture.models];
 }
 
-/** The ids from `ids` found in `text` as whole tokens, ignoring case. */
+/** The ids from `ids` found in `text` as whole tokens, ignoring case. An environment variable name such as `ACME_API_KEY` is one token, not a provider id. */
 export function findIds(text: string, ids: string[]): string[] {
 	const lower = text.toLowerCase();
-	return ids.filter((id) => new RegExp(`(?<![a-z0-9-])${id.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9-])`).test(lower));
+	return ids.filter((id) => new RegExp(`(?<![a-z0-9_-])${id.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9_-])`).test(lower));
 }
 
 /** Specifiers in a core file that reach pi: a host package, or a relative path out of `src/core`. */

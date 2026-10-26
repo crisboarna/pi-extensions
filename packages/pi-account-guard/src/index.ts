@@ -6,6 +6,7 @@ import { keepExitCode } from "./pi/exit-code.ts";
 import { multiPassLabel } from "./core/multi-pass.ts";
 import { readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { registerGuard } from "./pi/hooks.ts";
+import { pooledProviders } from "./pi/pooled.ts";
 
 export default function accountGuard(pi: ExtensionAPI): void {
 	registerGuard(pi, {
@@ -23,6 +24,7 @@ export default function accountGuard(pi: ExtensionAPI): void {
 		},
 		realpath: realpathIfPresent,
 		readRemoteUrls: (cwd) => readGitRemoteUrls(cwd),
+		pooledProviders,
 		writeStderr: (text) => void process.stderr.write(text),
 		setExitCode: keepExitCode,
 	});

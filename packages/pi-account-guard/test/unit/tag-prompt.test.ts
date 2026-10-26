@@ -30,6 +30,15 @@ describe("tagPromptTitle", () => {
 	});
 });
 
+describe("tagPromptTitle for a pooled id", () => {
+	it("adds the pool warning on a second line", () => {
+		assert.equal(
+			tagPromptTitle({ provider: "pool-a", source: "oauth" }, "personal", undefined, true),
+			"This place is personal. Which zones does pool-a · OAuth login belong to?\npool-a pools several accounts (pi-multiprovider). Tag it only if all of them share one zone.",
+		);
+	});
+});
+
 describe("parseZoneList", () => {
 	const declared = ["work", "personal", "lab"];
 

@@ -91,6 +91,8 @@ export function createFakeSession(options: { cwd?: string; model?: { provider: s
 				isUsingOAuth: () => options.auth?.usingOAuth ?? false,
 				getProviderAuthStatus: () => options.auth?.status ?? { configured: true, source: "stored" },
 				getAvailable: () => [],
+				getAll: () => [],
+				getProvider: () => undefined,
 				find: () => undefined,
 			},
 			ui: {
