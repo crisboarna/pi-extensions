@@ -417,6 +417,7 @@ describe("/guard", () => {
 		const usage = [
 			"Usage:",
 			"  /guard",
+			"  /guard check <path|here> [provider [source]]",
 			"  /guard tag [provider [source] [zones]]",
 			"  /guard untag [provider [source]]",
 			"  /guard place add [path=<path|here>] [remote=<glob>] [zone=<zone>] [at=<n>]",

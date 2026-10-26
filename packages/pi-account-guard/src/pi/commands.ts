@@ -1,12 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type AccountKey, describeAccount } from "../core/account.ts";
+import { checkPath, checkText } from "../core/check.ts";
 import { accountZones, type ConfigError, formatConfigErrors, type GuardConfig } from "../core/config.ts";
 import type { ConfigSnapshot, ConfigState } from "../core/config-state.ts";
 import { type ConfigWriter, createConfigFileWriter, removeAccount, setAccountZones } from "../core/config-writer.ts";
 import type { PlaceOutcome } from "../core/decide.ts";
 import {
 	type AccountArguments,
+	CHECK_USAGE,
 	GUARD_USAGE,
+	parseCheckArguments,
 	parseTagArguments,
 	parseUntagArguments,
 	sameZones,
@@ -39,6 +42,8 @@ export interface GuardCommandDeps extends MessageContext {
 	currentPlace(ctx: ExtensionContext, snapshot: ConfigSnapshot): PlaceOutcome;
 	/** The place zone that `config` would give for the session cwd, resolved afresh with no cache. */
 	placeUnder(ctx: ExtensionContext, config: GuardConfig): PlaceOutcome;
+	/** The place zone that `config` gives for any existing directory, as a session started there would resolve it. */
+	placeAt(path: string, config: GuardConfig): PlaceOutcome;
 	/** Resolves the place zone again and draws the footer; called after an edit made through `/guard`. */
 	reresolvePlace(ctx: ExtensionContext): void;
 	/** The real path, `undefined` when the path does not exist. */
@@ -214,6 +219,23 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 		say(ctx, `Untagged ${name} (was ${existing.join(", ")}).`);
 	}
 
+	/** `/guard check`: which rule decides a directory, its zone, and whether an account would pass there. It never writes. */
+	async function check(ctx: ExtensionContext, words: string[]): Promise<void> {
+		const named = parseCheckArguments(words);
+		if (!named) return fail(ctx, `guard: name a directory.\nUsage: ${CHECK_USAGE}`);
+		if (!ctx.hasUI) return;
+		const result = deps.loadSnapshot(ctx).result;
+		if (!result.ok) return failWrite(ctx, `cannot check while ${configFile} is invalid.`, result.errors);
+		const path = checkPath(named.path, ctx.cwd, deps.home);
+		const real = deps.realpath(path);
+		if (real === undefined) return fail(ctx, `guard: ${path} does not exist.\nUsage: ${CHECK_USAGE}`);
+		const account =
+			named.provider === undefined && !ctx.model ? undefined : await chooseAccount(ctx, named, candidatesOf(ctx, result.config), CHECK_USAGE, false);
+		if (named.provider !== undefined && !account) return;
+		const text = checkText({ home: deps.home, configPath: deps.configPath, place: deps.placeAt(real, result.config), account, config: result.config });
+		ctx.ui.notify(text, "info");
+	}
+
 	const placeZone = createPlaceZoneCommands({
 		home: deps.home,
 		writer,
@@ -230,12 +252,14 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 	});
 
 	pi.registerCommand("guard", {
-		description: "Show the guard status, tag and untag accounts, edit place rules and zones",
+		description: "Show the guard status, check a directory, tag and untag accounts, edit place rules and zones",
 		handler: reportOnError(pi, "/guard", deps.failHeadless, async (args: string, ctx) => {
 			const [command, ...words] = args.split(/\s+/).filter((word) => word !== "");
 			switch (command) {
 				case undefined:
 					return status(ctx);
+				case "check":
+					return check(ctx, words);
 				case "tag":
 					return tag(ctx, words);
 				case "untag":

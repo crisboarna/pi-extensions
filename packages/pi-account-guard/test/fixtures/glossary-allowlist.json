@@ -25,6 +25,7 @@
 		{
 			"term": "cwd",
 			"files": [
+				"src/core/check.ts",
 				"src/core/status.ts",
 				"src/index.ts",
 				"src/pi/commands.ts",

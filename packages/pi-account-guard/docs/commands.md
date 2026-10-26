@@ -9,6 +9,7 @@ Every command takes full arguments, so it works without dialogs. Dialogs only fi
 | Command | What it does |
 |---|---|
 | `/guard` | Prints a status block: the place and the rule that decides it, the current account and its Match, overrides, the config file and whether it is valid, zones, pooled provider ids and untagged accounts. |
+| `/guard check <path\|here> [provider [source]]` | Says which rule decides that directory, its zone, and whether the current account (or the named one) would pass there: a turn would go, would be blocked and why, or the tag prompt would ask first. Nothing is written. Use it to try a place rule before you rely on it. |
 | `/guard tag [provider [source] [zones]]` | Tags an account. With no arguments it tags the current account. A provider alone means its current source. Zones are comma-separated. Changing the zones of a tagged account shows old to new and asks to confirm. |
 | `/guard untag [provider [source]]` | Removes a tag. No confirm: an untagged account fails closed. |
 | `/guard place add [path=<path\|here>] [remote=<glob>] [zone=<zone>] [at=<n>]` | Adds a place rule, at the top unless `at` says otherwise. With no `path` or `remote` it shows which rule decides this place and offers this directory, one of its remotes or both, then a zone. |

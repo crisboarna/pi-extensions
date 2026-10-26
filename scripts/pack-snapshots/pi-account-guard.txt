@@ -5,6 +5,7 @@ package.json
 schema/account-guard.schema.json
 src/core/account.ts
 src/core/block-dialog.ts
+src/core/check.ts
 src/core/checklist.ts
 src/core/claude-bridge.ts
 src/core/config-state.ts

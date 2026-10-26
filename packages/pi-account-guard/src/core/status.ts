@@ -31,7 +31,7 @@ const LABEL_WIDTH = 9;
 export function statusText(input: StatusInput): string {
 	const rows: Array<[label: string, value: string]> = [
 		["Place", placeSummary(input)],
-		["Account", accountValue(input)],
+		["Account", accountSummary(input)],
 		["Overrides", overridesValue(input.overrides)],
 		["Config", configValue(input)],
 		["Zones", input.config.ok ? `${input.config.config.zones.join(", ")} (default: ${input.config.config.defaultZone})` : "unknown (config invalid)"],
@@ -61,7 +61,8 @@ export function placeSummary({ place, config, cwd, home }: Pick<StatusInput, "pl
 	return `${displayPath(place.path, home)} -> ${place.zone} (${decidedBy})`;
 }
 
-function accountValue({ account, place, config }: StatusInput): string {
+/** The account line: its zones and whether it matches the place. */
+export function accountSummary({ account, place, config }: Pick<StatusInput, "account" | "place" | "config">): string {
 	if (!account) return "no model selected";
 	const name = describeAccount(account);
 	const zones = config.ok ? accountZones(config.config.accounts, account) : undefined;

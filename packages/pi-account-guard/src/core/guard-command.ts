@@ -1,5 +1,6 @@
 import { parseZoneList } from "./tag-prompt.ts";
 
+export const CHECK_USAGE = "/guard check <path|here> [provider [source]]";
 export const TAG_USAGE = "/guard tag [provider [source] [zones]]";
 export const UNTAG_USAGE = "/guard untag [provider [source]]";
 
@@ -16,6 +17,7 @@ export const ZONE_DEFAULT_USAGE = "/guard zone default [<zone>]";
 export const GUARD_USAGE = [
 	"Usage:",
 	"  /guard",
+	`  ${CHECK_USAGE}`,
 	`  ${TAG_USAGE}`,
 	`  ${UNTAG_USAGE}`,
 	`  ${PLACE_ADD_USAGE}`,
@@ -101,4 +103,17 @@ export function parseNumber(text: string, max: number): number | undefined {
 /** Why a zone name cannot be used, or `undefined` when it can: a comma would split it in a zone list. */
 export function zoneNameProblem(name: string): string | undefined {
 	return name.includes(",") ? `A zone name cannot contain a comma: ${name}.` : undefined;
+}
+
+export interface CheckArguments {
+	path: string;
+	provider?: string;
+	source?: string;
+}
+
+/** `<path|here> [provider [source]]`; `undefined` without a path or with extra words. */
+export function parseCheckArguments(words: string[]): CheckArguments | undefined {
+	const [path, provider, source, ...rest] = words;
+	if (path === undefined || rest.length > 0) return undefined;
+	return { path, ...(provider === undefined ? {} : { provider }), ...(source === undefined ? {} : { source }) };
 }

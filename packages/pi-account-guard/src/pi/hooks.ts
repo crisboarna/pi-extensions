@@ -181,6 +181,7 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		loadSnapshot,
 		currentPlace: (ctx, snapshot) => currentPlace(ctx.cwd, snapshot.result),
 		placeUnder: (ctx, config) => resolvePlace(ctx.cwd, { ok: true, config }),
+		placeAt: (path, config) => resolvePlace(path, { ok: true, config }),
 		reresolvePlace,
 		realpath: deps.realpath,
 		readRemoteUrls: deps.readRemoteUrls,
