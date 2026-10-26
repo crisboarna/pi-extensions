@@ -1,0 +1,19 @@
+/* The pi-extensions family palette and type: a telephone switchboard's
+   enamel panel, brass jacks, cream label stock and signal lamps, set in IBM
+   Plex. Every package's media and the site import this file; a package adds
+   its own mark and one accent, nothing else. */
+:root {
+	--panel: #233040;
+	--panel-deep: #1a2431;
+	--brass: #c9a34e;
+	--cord: #c8452f;
+	--idle: #56677a;
+	--cream: #f1e6cf;
+	--paper: #f6efe0;
+	--ink: #1d2733;
+	--muted: #6a7686;
+	--lamp: #7fbf6a;
+	--sans: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+	--text: "IBM Plex Sans", sans-serif;
+	--mono: "IBM Plex Mono", monospace;
+}

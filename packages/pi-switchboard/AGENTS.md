@@ -32,5 +32,5 @@ Classifier-driven model routing for pi's main session and pi-subagents children.
 - `test/support/lmstudio-chat.ts` registers LM Studio chat models as a pi provider for free local end-to-end runs (see the README's Development section).
 - `npm run coverage` runs unit and integration tests together (integration imports natively so V8 can map coverage) and fails below 90% lines, branches or functions; `test/unit/all-modules.test.ts` makes every source file count.
 - Live checks not yet done are listed in the README under Limitations; remove an entry only after running the check.
-- `npm run media` drives the real pi, pi-switchboard and pi-subagents in a terminal for the hero and clips (`media/terminal/`, scenes in `media/terminal/scenes/`); a new scene is also the quickest live check of the TUI. `MEDIA_KEEP=/work/.debug` keeps a scene's sessions and subagent logs.
+- `npm run media` drives the real pi, pi-switchboard and pi-subagents in a terminal for the hero and clips (`media/terminal/`, scenes in `media/terminal/scenes/`); a new scene is also the quickest live check of the TUI. `MEDIA_KEEP=.debug` keeps a scene's sessions and subagent logs.
 - From pi's packages import only the entry points pi maps for installed extensions; `npm run smoke:pack` (root) loads the tarball in a real pi to prove it.

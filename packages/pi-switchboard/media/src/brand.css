@@ -1,20 +1,5 @@
-/* pi-switchboard brand: a telephone switchboard's enamel panel, brass jacks,
-   a red patch cord and cream label stock. */
-:root {
-	--panel: #233040;
-	--panel-deep: #1a2431;
-	--brass: #c9a34e;
-	--cord: #c8452f;
-	--idle: #56677a;
-	--cream: #f1e6cf;
-	--paper: #f6efe0;
-	--ink: #1d2733;
-	--muted: #6a7686;
-	--lamp: #7fbf6a;
-	--sans: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
-	--text: "IBM Plex Sans", sans-serif;
-	--mono: "IBM Plex Mono", monospace;
-}
+/* pi-switchboard brand: the family tokens, a red patch cord as its accent. */
+@import url("/repo/tools/brand/tokens.css");
 * {
 	box-sizing: border-box;
 	margin: 0;

@@ -14,10 +14,12 @@ if (!dir || !existsSync(join(dir, "manifest.json"))) {
 	console.error("Usage: node scripts/tools/media.ts packages/<name>/media [output ...]  (the folder needs a manifest.json)");
 	process.exit(1);
 }
-// Terminal scenes start the package's own code from the read-only repository mount.
+// The media folder is mounted writable at its own path inside the read-only repository mount, so pages
+// reach the shared tools (/repo/tools/brand, /repo/tools/media) and scenes import them by relative path.
+const mediaPath = `/repo/${relative(ROOT, dir)}`;
 process.env.MEDIA_PACKAGE = `/repo/${relative(ROOT, dirname(dir))}`;
-process.exitCode = runTool({ name: "media", dockerfile: "media.Dockerfile" }, ["node", "/repo/tools/media/render.mjs", "/work", ...only], {
-	mounts: [`${dir}:/work`],
+process.exitCode = runTool({ name: "media", dockerfile: "media.Dockerfile" }, ["node", "/repo/tools/media/render.mjs", mediaPath, ...only], {
+	mounts: [`${dir}:${mediaPath}`],
 	env: ["MEDIA_PACKAGE", "MEDIA_KEEP"],
 	asHostUser: true,
 });

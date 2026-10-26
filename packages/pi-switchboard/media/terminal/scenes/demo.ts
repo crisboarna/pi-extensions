@@ -2,7 +2,7 @@
 // classifier's answers and the providers' replies are scripted; pi,
 // pi-switchboard and pi-subagents decide and run everything else live. One
 // account (provider-a) reaches its usage limit when the worker child uses it.
-import type { LlmRequest, Reply } from "../fake-llm.ts";
+import type { LlmRequest, Reply } from "../../../../../tools/media/terminal-kit/fake-llm.ts";
 import type { SceneScript } from "../setup.ts";
 
 const agentOf = (request: LlmRequest) => /<active_agent name="([\w-]+)"/u.exec(request.system)?.[1];

@@ -1,8 +1,8 @@
 // Renders a package's media manifest inside the media image (tools/docker/media.Dockerfile).
 //
-//   node /repo/tools/media/render.mjs /work
+//   node /repo/tools/media/render.mjs /repo/packages/<name>/media
 //
-// /work is the package's media folder: manifest.json lists the outputs, src/
+// The argument is the package's media folder (mounted writable): manifest.json lists the outputs, src/
 // holds the HTML pages. A "png" item is a screenshot of a page. An
 // "animation" item records the page from the moment the renderer calls
 // window.play() until it resolves, then encodes an MP4 (H.264) and a GIF.
@@ -24,7 +24,8 @@ const MODULES = process.env.MEDIA_MODULES ?? "/opt/media/node_modules";
 const require = createRequire(`${MODULES}/`);
 const { chromium } = require("playwright");
 
-const dir = process.argv[2] ?? "/work";
+const dir = process.argv[2];
+if (!dir) throw new Error("usage: render.mjs <media folder> [output ...]");
 const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
 const only = process.argv.slice(3);
 const browser = await chromium.launch();

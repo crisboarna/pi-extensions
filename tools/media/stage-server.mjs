@@ -5,6 +5,7 @@
 //   GET  /src/...        the package's media/src
 //   GET  /stage/...      tools/media/stage
 //   GET  /modules/...    the media image's node_modules (xterm.js)
+//   GET  /repo/tools/brand/...  the family tokens (tools/brand)
 //   POST /pty            starts the scene's command at { cols, rows }
 //   GET  /pty/out        the terminal's output as server-sent events (base64)
 //   POST /pty/in         bytes typed into the terminal
@@ -25,7 +26,13 @@ const TYPES = {
 
 /** Starts the server on a free local port; `spawnSpec` is { command, args, env, cwd }. */
 export async function startStage({ mediaDir, modulesDir, spawnSpec }) {
-	const roots = { "/src/": join(mediaDir, "src"), "/stage/": join(import.meta.dirname, "stage"), "/modules/": modulesDir };
+	const roots = {
+		"/src/": join(mediaDir, "src"),
+		"/stage/": join(import.meta.dirname, "stage"),
+		"/modules/": modulesDir,
+		// The same absolute path pages use under file://, so one stylesheet serves both.
+		"/repo/tools/brand/": join(import.meta.dirname, "..", "brand"),
+	};
 	let child;
 	const listeners = new Set();
 	const backlog = [];

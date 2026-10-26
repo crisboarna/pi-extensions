@@ -2,13 +2,12 @@
 // throwaway pi agent folder with demo providers, pi-subagents and a routing
 // config, a small project to work in, and the fake classifier and providers
 // the scene scripts. pi, pi-switchboard and pi-subagents are the real code.
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { type LlmScript, startLlm } from "../../../../tools/media/terminal-kit/fake-llm.ts";
+import { createSceneHome, piCommand } from "../../../../tools/media/terminal-kit/home.ts";
 import { type ScriptedAnswer, startClassifier } from "./fake-classifier.ts";
-import { type LlmScript, startLlm } from "./fake-llm.ts";
 
 export interface SceneScript {
 	answers: ScriptedAnswer[];
@@ -74,50 +73,28 @@ export default async function setup(item: { scene: string }) {
 	const classifier = await startClassifier(scene.answers);
 	const llm = await startLlm(scene.llm);
 
-	const home = mkdtempSync(join(tmpdir(), "scene-"));
-	const agentDir = join(home, ".pi", "agent");
-	mkdirSync(join(agentDir, "extensions"), { recursive: true });
-	mkdirSync(join(agentDir, "npm", "node_modules"), { recursive: true });
-	writeFileSync(join(agentDir, "extensions", "demo-providers.js"), providerExtension(llm.url));
-	// pi looks for fd and ripgrep here before downloading them; the scenes never search files.
-	mkdirSync(join(agentDir, "bin"));
-	for (const tool of ["fd", "rg"]) writeFileSync(join(agentDir, "bin", tool), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-	writeFileSync(join(agentDir, "settings.json"), `${JSON.stringify({ quietStartup: "header", defaultThinkingLevel: "medium" }, null, "\t")}\n`);
-	if (scene.config !== false) writeFileSync(join(agentDir, "pi-switchboard.json"), `${JSON.stringify(CONFIG(classifier.url), null, "\t")}\n`);
+	const sceneHome = createSceneHome();
+	const { home, agentDir } = sceneHome;
+	sceneHome.write(".pi/agent/extensions/demo-providers.js", providerExtension(llm.url));
+	if (scene.config !== false) sceneHome.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(CONFIG(classifier.url), null, "\t")}\n`);
 	// pi-switchboard looks for pi-subagents where pi installs packages.
+	mkdirSync(join(agentDir, "npm", "node_modules"), { recursive: true });
 	const subagents = join(agentDir, "npm", "node_modules", "pi-subagents");
 	symlinkSync(join(repo, "node_modules", "pi-subagents"), subagents);
 	const project = join(home, "acme-shop");
-	for (const [file, text] of Object.entries(PROJECT)) {
-		mkdirSync(join(project, file, ".."), { recursive: true });
-		writeFileSync(join(project, file), text);
-	}
+	for (const [file, text] of Object.entries(PROJECT)) sceneHome.write(`acme-shop/${file}`, text);
 
 	return {
 		spawn: {
-			command: process.execPath,
-			args: [
-				join(repo, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js"),
-				"-e",
-				join(packageDir, "src", "index.ts"),
-				"-e",
-				join(subagents, "bundle", "index.js"),
-				"--model",
-				"switchboard/auto",
-			],
+			...piCommand(repo, ["-e", join(packageDir, "src", "index.ts"), "-e", join(subagents, "bundle", "index.js"), "--model", "switchboard/auto"]),
 			cwd: project,
 			env: { HOME: home, PI_CODING_AGENT_DIR: agentDir, PI_OFFLINE: "1" },
 		},
 		async close() {
-			// MEDIA_KEEP=<folder> keeps the scene's home (sessions, subagent run logs) for debugging.
-			if (process.env.MEDIA_KEEP) {
-				const keep = join(process.env.MEDIA_KEEP, item.scene);
-				mkdirSync(keep, { recursive: true });
-				spawnSync("sh", ["-c", `tar -C "${home}" --exclude=./.pi/agent/npm -cf - . | tar -C "${keep}" -xf -`]);
-			}
+			// MEDIA_KEEP=<folder> (relative to media/) keeps the scene's home: sessions and subagent run logs.
+			sceneHome.close(item.scene, join(import.meta.dirname, ".."));
 			classifier.server.close();
 			llm.server.close();
-			rmSync(home, { recursive: true, force: true });
 		},
 	};
 }
