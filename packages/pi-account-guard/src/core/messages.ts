@@ -52,7 +52,7 @@ function headlessLines(cause: BlockCause, context: MessageContext): string[] {
 	}
 }
 
-function zonePhrase(zones: string[]): string {
+export function zonePhrase(zones: string[]): string {
 	return `${zones.length === 1 ? "zone" : "zones"} ${zones.join(", ")}`;
 }
 

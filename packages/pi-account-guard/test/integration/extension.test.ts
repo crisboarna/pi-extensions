@@ -20,10 +20,10 @@ async function boot() {
 }
 
 describe("extension load", () => {
-	it("loads through jiti and registers only the session_start and input gates", async () => {
+	it("loads through jiti and registers only the session_start, input and agent_end handlers", async () => {
 		const host = await boot();
 		assert.deepEqual(host.calls.filter((call) => call.method !== "on"), []);
-		assert.deepEqual(host.handledEvents().sort(), ["input", "session_start"]);
+		assert.deepEqual(host.handledEvents().sort(), ["agent_end", "input", "session_start"]);
 		assert.equal(host.commands.size, 0);
 		assert.equal(host.providers.size, 0);
 	});
@@ -31,9 +31,11 @@ describe("extension load", () => {
 	it("blocks an untagged account from the real wiring when the agent directory has no config", async () => {
 		const host = await boot();
 		const session = createFakeSession({ hasUI: true, cwd: tmpdir() });
+		const titles: string[] = [];
+		session.ctx.ui.select = async (title: string) => void titles.push(title);
 		assert.equal(await host.fire("session_start", { reason: "startup" }, session.ctx), undefined);
 		assert.deepEqual(await host.fire("input", { text: "hello", source: "interactive" }, session.ctx), { action: "handled" });
-		assert.match(session.notices[0]?.message ?? "", /^BLOCKED acme \(stored-key\) has no zone tag/);
+		assert.match(titles[0] ?? "", /^BLOCKED {2}acme \(stored-key\) has no zone tag/);
 	});
 });
 

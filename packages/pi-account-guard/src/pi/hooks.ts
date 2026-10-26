@@ -1,9 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { accountKey, type AccountKey } from "../core/account.ts";
+import type { AccountKey } from "../core/account.ts";
 import { parseConfig, type ConfigResult } from "../core/config.ts";
 import { decide, type BlockCause, type Decision, type PlaceOutcome } from "../core/decide.ts";
+import { logData } from "../core/block-dialog.ts";
 import { headlessBlockMessage } from "../core/messages.ts";
+import { applyOverrides, NO_OVERRIDES, releaseOnce, type Overrides } from "../core/overrides.ts";
 import { resolvePlaceZone } from "../core/place.ts";
+import { accountOfModel } from "./account-of.ts";
+import { runInteractiveBlock, showOverrideFooter } from "./interactive-block.ts";
 
 /** Exit code of a headless Block (ADR 0005). */
 const BLOCK_EXIT_CODE = 77;
@@ -25,6 +29,12 @@ const errorText = (error: unknown): string => (error instanceof Error ? error.me
 export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	// Only the place zone is cached (DESIGN.md section 5.4); tags are read live at every check.
 	let cachedPlace: { cwd: string; place: PlaceOutcome } | undefined;
+	// Overrides live only in this session's memory and are never written to disk (DESIGN.md section 10).
+	let overrides: Overrides = NO_OVERRIDES;
+	const overrideStore = {
+		current: () => overrides,
+		replace: (next: Overrides) => void (overrides = next),
+	};
 
 	function loadConfig(): ConfigResult {
 		try {
@@ -50,20 +60,15 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	}
 
 	function accountOf(ctx: ExtensionContext): AccountKey | undefined {
-		const model = ctx.model;
-		if (!model) return undefined;
-		return accountKey({
-			provider: model.provider,
-			usingOAuth: ctx.modelRegistry.isUsingOAuth(model),
-			status: ctx.modelRegistry.getProviderAuthStatus(model.provider),
-		});
+		return ctx.model ? accountOfModel(ctx, ctx.model) : undefined;
 	}
 
-	function check(ctx: ExtensionContext): Decision | undefined {
+	function check(ctx: ExtensionContext): { decision: Decision; place: PlaceOutcome; config: ConfigResult } | undefined {
 		const account = accountOf(ctx);
 		if (!account) return undefined;
 		const config = loadConfig();
-		return decide({ place: currentPlace(ctx.cwd, config), account, config });
+		const place = currentPlace(ctx.cwd, config);
+		return { decision: decide({ place, account, config }), place, config };
 	}
 
 	function block(cause: BlockCause, text: string, ctx: ExtensionContext): void {
@@ -79,6 +84,8 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 
 	pi.on("session_start", async (_event, ctx) => {
 		cachedPlace = undefined;
+		overrides = NO_OVERRIDES;
+		if (ctx.hasUI) showOverrideFooter(ctx, overrides);
 		try {
 			currentPlace(ctx.cwd, loadConfig());
 		} catch {
@@ -88,15 +95,36 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 
 	// Every user turn passes here, `/`-prefixed text included: skills and prompt templates arrive unexpanded.
 	pi.on("input", async (event, ctx) => {
-		let decision: Decision | undefined;
+		let checked: ReturnType<typeof check>;
 		try {
-			decision = check(ctx);
+			checked = check(ctx);
 		} catch (error) {
 			// pi swallows hook errors and carries on, so an error here must Block itself (ADR 0001).
-			decision = { verdict: "block", cause: { kind: "internal-error", reason: errorText(error) } };
+			checked = { decision: { verdict: "block", cause: { kind: "internal-error", reason: errorText(error) } }, place: { ok: false, reason: "internal error" }, config: loadConfig() };
 		}
-		if (decision?.verdict !== "block") return undefined;
-		block(decision.cause, event.text, ctx);
+		if (!checked) return undefined;
+		const verdict = applyOverrides(checked.decision, checked.place, overrides);
+		if (verdict.verdict !== "block") return undefined;
+		const { cause } = verdict;
+		if (cause.kind !== "internal-error") pi.appendEntry("guard.block", logData(cause, checked.place));
+		if (ctx.hasUI && cause.kind !== "internal-error") {
+			return runInteractiveBlock({
+				pi,
+				ctx,
+				cause,
+				place: checked.place,
+				config: checked.config.ok ? checked.config.config : undefined,
+				text: event.text,
+				overrides: overrideStore,
+				messages: deps,
+			});
+		}
+		block(cause, event.text, ctx);
 		return { action: "handled" };
+	});
+
+	// Allow once covers one turn (DESIGN.md section 10).
+	pi.on("agent_end", async () => {
+		overrides = releaseOnce(overrides);
 	});
 }

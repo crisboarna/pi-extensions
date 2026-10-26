@@ -165,13 +165,13 @@ describe("input gate, headless", () => {
 });
 
 describe("input gate, with a UI", () => {
-	it("notifies, refills the editor and sets no exit code", async () => {
+	it("opens the Block select, and refills the editor and sets no exit code on Cancel", async () => {
 		const state = rig({ accounts: [workAccount] });
 		const s = session({ hasUI: true });
+		const titles: string[] = [];
+		s.ctx.ui.select = async (title: string) => void titles.push(title);
 		assert.deepEqual(await state.host.fire("input", prompt("my prompt"), s.ctx), { action: "handled" });
-		assert.equal(s.notices.length, 1);
-		assert.equal(s.notices[0]!.type, "error");
-		assert.match(s.notices[0]!.message, /^BLOCKED acme \(stored-key\)/);
+		assert.match(titles[0]!, /^BLOCKED {2}acme \(stored-key\) is zone work/);
 		assert.deepEqual(s.editorTexts, ["my prompt"]);
 		assert.deepEqual(state.stderr, []);
 		assert.deepEqual(state.exitCodes, []);

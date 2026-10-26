@@ -90,11 +90,16 @@ export function createFakeSession(options: { cwd?: string; model?: { provider: s
 			modelRegistry: {
 				isUsingOAuth: () => options.auth?.usingOAuth ?? false,
 				getProviderAuthStatus: () => options.auth?.status ?? { configured: true, source: "stored" },
+				getAvailable: () => [],
+				find: () => undefined,
 			},
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
 				setStatus: (key: string, text: string | undefined) => statuses.set(key, text),
 				setEditorText: (text: string) => editorTexts.push(text),
+				// No answer, like a closed dialog; tests that answer replace these.
+				select: async () => undefined,
+				confirm: async () => false,
 			},
 			isIdle: () => options.idle ?? true,
 			abort: () => void (session.aborts += 1),

@@ -12,7 +12,7 @@ export const STUB_REPLY = "stub reply";
 
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 
-function streamStub(model: Model<Api>, _context: TranscriptContext, options?: SimpleStreamOptions) {
+export function streamStub(model: Model<Api>, _context: TranscriptContext, options?: SimpleStreamOptions) {
 	// Smoke tests set STUB_REQUEST_LOG to count the requests that reach the provider.
 	if (process.env.STUB_REQUEST_LOG) appendFileSync(process.env.STUB_REQUEST_LOG, `${model.id}\n`);
 	const stream = createAssistantMessageEventStream();

@@ -2,7 +2,7 @@
 
 A pi extension that stops a session from sending a user turn to a model account that does not belong to the zone of the directory the session works in. See `DESIGN.md` for the design, `GLOSSARY.md` for the vocabulary and `docs/adr/` for the decisions.
 
-Status: the first guard behaviour is in. A turn whose account does not match the place zone is blocked in headless mode (message on stderr, exit code 77). Configuration is read from `account-guard.json` in the pi agent directory; the TUI dialogs, remote rules and `/guard` commands are not built yet.
+Status: a turn whose account does not match the place zone is blocked. In headless mode the message goes to stderr and the exit code is 77. In the TUI and over RPC a Block opens one select: Switch rows for the matching accounts, Allow once, Allow for session and Cancel. Cancel puts the typed prompt back in the editor, and an Allow for session shows `guard OVERRIDE <account> in <zone>` in the footer. Overrides are never written to disk and end with the session. Configuration is read from `account-guard.json` in the pi agent directory; the tag prompt, remote rules and `/guard` commands are not built yet.
 
 ## Development
 
