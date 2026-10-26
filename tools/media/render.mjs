@@ -5,7 +5,9 @@
 // The argument is the package's media folder (mounted writable): manifest.json lists the outputs, src/
 // holds the HTML pages. A "png" item is a screenshot of a page. An
 // "animation" item records the page from the moment the renderer calls
-// window.play() until it resolves, then encodes an MP4 (H.264) and a GIF.
+// window.play() until it resolves, then encodes an MP4 (H.264) and a GIF; with
+// `still: true` the page saves one frame as `<out>.png` by calling
+// window.__stageStill() at the moment that shows the idea best.
 // A "terminal" item is an animation whose page drives a real program in a
 // pseudo-terminal (see stage-server.mjs and stage/stage.js): the module named
 // by `setup` prepares the program and returns how to start it, and the page
@@ -50,6 +52,10 @@ async function still(item) {
 	await context.close();
 }
 
+/** Lets the page save the frame on screen as `<out>.png`, or `<out>-<name>.png`. */
+const exposeStill = (page, item) =>
+	page.exposeFunction("__stageStill", (name) => page.screenshot({ path: join(dir, name ? `${item.out}-${name}.png` : `${item.out}.png`) }));
+
 async function terminal(item) {
 	const { default: setup } = await import(pathToFileURL(join(dir, item.setup)).href);
 	const scene = await setup(item);
@@ -58,7 +64,7 @@ async function terminal(item) {
 		await animation(item, `${stage.url}/src/${item.page}`, async (page) => {
 			await page.exposeFunction("__stageType", (text) => page.keyboard.type(text));
 			await page.exposeFunction("__stagePress", (key) => page.keyboard.press(key));
-			await page.exposeFunction("__stageStill", (name) => page.screenshot({ path: join(dir, name ? `${item.out}-${name}.png` : `${item.out}.png`) }));
+			await exposeStill(page, item);
 		});
 	} finally {
 		stage.close();
@@ -120,13 +126,11 @@ for (const item of manifest.items) {
 	if (only.length > 0 && !only.includes(item.out)) continue;
 	const started = Date.now();
 	if (item.kind === "png") await still(item);
-	else if (item.kind === "animation") await animation(item);
+	else if (item.kind === "animation") await animation(item, pageUrl(item), (page) => exposeStill(page, item));
 	else if (item.kind === "terminal") await terminal(item);
 	else throw new Error(`unknown media kind ${item.kind}`);
 	const outputs =
-		item.kind === "png"
-			? [item.out]
-			: [`${item.out}.mp4`, ...(item.gif === false ? [] : [`${item.out}.gif`]), ...(item.kind === "terminal" && item.still ? [`${item.out}.png`] : [])];
+		item.kind === "png" ? [item.out] : [`${item.out}.mp4`, ...(item.gif === false ? [] : [`${item.out}.gif`]), ...(item.still ? [`${item.out}.png`] : [])];
 	const sizes = outputs.map((out) => `${out} ${Math.round(statSync(join(dir, out)).size / 1024)} KB`).join(", ");
 	console.log(`media: ${sizes} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
 }

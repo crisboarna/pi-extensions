@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.grid { display: grid; grid-template-columns: 0.75fr 1.25fr; gap: 20px 24px; margin-top: 16px; }
+	#outcome { grid-column: 1 / 3; display: grid; grid-template-columns: 0.75fr 1.25fr; column-gap: 24px; min-height: 200px; }
+	.rules .rule:last-child { grid-column: 1 / 3; }
+	.stage { padding-top: 28px; }
+	#outcome .side { display: flex; flex-direction: column; }
+	.select { white-space: pre; }
+	.rules { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; }
+	.big { font-family: var(--mono); font-size: 22px; margin: 4px 0 12px; transition: opacity 0.3s; }
+	.small { font-family: var(--mono); font-size: 15px; color: #8c97a6; margin-bottom: 10px; min-height: 20px; }
+	.zones { min-height: 34px; }
+	.result { margin-top: 14px; font-size: 21px; min-height: 30px; }
+	.verdict { font-family: var(--sans); font-size: 30px; font-weight: 600; display: flex; align-items: center; margin-bottom: 14px; }
+	.verdict.match { color: var(--lamp); }
+	.verdict.block { color: var(--block); }
+	.footer { padding: 10px 14px; border-radius: 8px; background: #141c26; min-height: 46px; }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">How a turn is checked</div>
+	<div class="grid">
+		<div class="card reveal hidden" id="account">
+			<div class="label">the account pi is about to use</div>
+			<div class="big" id="account-name"></div>
+			<div class="label">its zones</div>
+			<div class="zones" id="account-zones"></div>
+		</div>
+		<div class="card reveal hidden" id="place">
+			<div class="label">the place</div>
+			<div class="big" id="place-path"></div>
+			<div class="small" id="place-remotes"></div>
+			<div class="label">place rules, first match wins</div>
+			<div class="rules" id="rule-rows"></div>
+			<div class="result" id="place-zone"></div>
+		</div>
+		<div class="card reveal hidden" id="outcome">
+			<div class="side">
+				<div class="label">before the turn is sent</div>
+				<div class="verdict" id="verdict"><span class="lamp" id="lamp"></span><span id="verdict-text"></span></div>
+				<div class="label">the footer</div>
+				<div class="footer" id="footer"></div>
+			</div>
+			<div class="select reveal hidden" id="select"></div>
+		</div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { rules, defaultZone, turns } = window.MEDIA.turn;
+const zoneChip = (zone) => el("span", `zone ${zone}`, zone);
+for (const [index, rule] of rules.entries()) $("#rule-rows").append(el("div", "rule", `${index + 1}. ${rule.text} → ${rule.zone}`));
+$("#rule-rows").append(el("div", "rule", `otherwise → ${defaultZone} (default zone)`));
+
+function setAccount(turn) {
+	$("#account-name").textContent = turn.account.name;
+	$("#account-zones").replaceChildren(...turn.account.zones.map(zoneChip));
+}
+
+async function resolvePlace(turn) {
+	$("#place-path").textContent = turn.place.path;
+	$("#place-remotes").textContent = turn.place.remotes.length ? `remote ${turn.place.remotes.join(", ")}` : "no git remote";
+	$("#place-zone").replaceChildren();
+	const rows = [...$("#rule-rows").children];
+	for (const row of rows) row.className = "rule";
+	const decided = turn.place.rule ?? rules.length;
+	for (let i = 0; i <= decided; i++) {
+		rows[i].classList.add("checking");
+		await sleep(600);
+		rows[i].classList.remove("checking");
+		rows[i].classList.add(i === decided ? "match" : "miss");
+	}
+	await sleep(250);
+	$("#place-zone").replaceChildren(el("span", "dim", "place zone "), zoneChip(turn.place.zone));
+}
+
+function clearOutcome() {
+	$("#lamp").className = "lamp";
+	$("#verdict").className = "verdict";
+	$("#verdict-text").textContent = "";
+	$("#select").classList.add("hidden");
+	$("#footer").textContent = "";
+}
+
+function showOutcome(turn) {
+	const match = turn.verdict === "match";
+	$("#lamp").className = `lamp ${match ? "on" : "red"}`;
+	$("#verdict").className = `verdict ${turn.verdict}`;
+	$("#verdict-text").textContent = match ? "Match: the turn goes" : "Blocked: nothing is sent";
+	$("#footer").textContent = turn.footer;
+	if (turn.block) {
+		const select = $("#select");
+		select.replaceChildren(
+			...turn.block.title.map((line) => el("div", "head", line)),
+			...turn.block.rows.map((row, index) => el("div", `row${index === 0 ? " first" : ""}`, `${index === 0 ? "→" : " "} ${row}`)),
+		);
+	}
+}
+
+window.play = async () => {
+	const [home, slip, work] = turns;
+	setAccount(home);
+	show("#account");
+	await caption("Each account is a provider plus its auth source, tagged with its zones.");
+	await sleep(1500);
+	show("#place");
+	await caption("The directory and its git remotes go through your place rules.");
+	await resolvePlace(home);
+	await sleep(500);
+	show("#outcome");
+	await caption("The place zone is one of the account's zones: a Match.");
+	showOutcome(home);
+	await sleep(2200);
+
+	clearOutcome();
+	await caption(`Same repository, but pi now uses ${slip.account.name.split(" ")[0]}.`);
+	setAccount(slip);
+	await sleep(1600);
+	await caption(`${slip.account.name.split(" ")[0]} is ${slip.account.zones.join(", ")}; the place is ${slip.place.zone}. The turn is blocked.`);
+	showOutcome(slip);
+	await sleep(700);
+	$("#select").classList.remove("hidden");
+	await sleep(1200);
+	await still();
+	await caption("The select offers an account of this zone first; Cancel puts the prompt back.");
+	await sleep(2600);
+
+	clearOutcome();
+	await caption("In the work repository, the remote rule decides.");
+	await resolvePlace(work);
+	await sleep(400);
+	showOutcome(work);
+	await caption(`Zone ${work.place.zone}, account ${work.account.zones.join(", ")}: a Match.`);
+	await sleep(2400);
+};
+</script>
+</body>
+</html>

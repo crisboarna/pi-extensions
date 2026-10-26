@@ -25,6 +25,8 @@
 		</div>
 		<img class="panel" src="panel.svg" alt="">
 	</main>
-	<div class="receipt"><span class="jack"></span><span class="decision">guard personal ✓  homelab in ~/personal/garden-planner</span></div>
+	<div class="receipt"><span class="jack"></span><span class="decision" id="decision"></span></div>
+	<script src="data.js"></script>
+	<script>document.getElementById("decision").textContent = window.MEDIA.cover;</script>
 </body>
 </html>

@@ -32,6 +32,48 @@
 			"height": 256
 		},
 		{
+			"kind": "animation",
+			"page": "check.html",
+			"out": "check",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48
+			},
+			"tailMs": 400,
+			"still": true
+		},
+		{
+			"kind": "animation",
+			"page": "places.html",
+			"out": "places",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48
+			},
+			"tailMs": 400,
+			"still": true
+		},
+		{
+			"kind": "animation",
+			"page": "rotation.html",
+			"out": "rotation",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48
+			},
+			"tailMs": 400,
+			"still": true
+		},
+		{
 			"kind": "terminal",
 			"page": "check-1-2.html",
 			"setup": "terminal/setup.ts",

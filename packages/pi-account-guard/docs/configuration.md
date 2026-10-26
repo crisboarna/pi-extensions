@@ -7,6 +7,8 @@
 - Before a turn is sent, the guard checks that the account's zones include the place zone (a **Match**). If not, or if the account has no tag, the turn is **blocked**.
 - The place is the session's working directory, resolved with `realpath` when the session starts. Git is read only for remotes.
 
+![How a turn is checked: the account acme (env:ACME_WORK_KEY) is tagged work; ~/personal/garden-planner matches no place rule, so it falls to the default zone personal; the zones differ, so the turn is blocked and the select offers homelab first; in ~/work/acme-api the remote rule decides work, a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check.gif)
+
 What is checked: user turns (`input`, plus a re-check in `before_agent_start`), and model changes (`model_select` during a turn, `session_start` for resume, fork, new and reload).
 
 ## The file
@@ -40,6 +42,8 @@ Place rules:
 - A rule has a `path`, a `remote` or both, and a `zone`. When both are given, both must hold.
 - `path` is absolute or starts with `~`. A path with no glob characters matches that directory and everything below it. Globs (`*`, `**`, `{a,b}`) are supported. Matching is case-sensitive against the real path, so a rule written against a symlink alias does not match.
 - `remote` is a glob matched, case-insensitively, against the normalized `host/path` of every git remote (scheme, user and `.git` stripped, `:` replaced by `/`). SSH config aliases are not resolved. A rule with a remote condition does not match a directory with no remote, and git failing to run while such a rule matters blocks the turn.
+
+![Four directories go through the place rules in file order: ~/work/acme-api matches the remote rule, ~/work/notes the ~/work rule, ~/work/side-project also the ~/work rule, so the personal rule added last for it never fires, and ~/personal/garden-planner falls to the default zone; after /guard place move 3 1, ~/work/side-project is personal and the other directories keep their zones](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/places.gif)
 
 Validation is strict and all-or-nothing: an unknown field, a duplicate `(provider, source)` entry, an undeclared or reserved zone, an empty zones list or a bad rule makes the whole file invalid. Every error names the file and the JSON path, for example `account-guard.json: accounts[3]: duplicate of accounts[1] (openai-codex-2 · oauth)`. While the file is invalid the guard uses the last valid copy if it has one, otherwise it blocks every turn, and it never writes over a malformed file.
 

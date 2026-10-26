@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.stage { padding-top: 28px; }
+	.grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 24px; margin-top: 16px; }
+	#rule-rows { transition: opacity 0.35s; }
+	.rule { font-size: 20px; padding: 10px 12px; margin: 8px 0; }
+	.rule.idle { opacity: 0.45; }
+	.rule.added { box-shadow: inset 0 0 0 2px var(--plug); }
+	.dir { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; padding: 14px 14px; border-radius: 10px; margin: 8px 0; transition: background 0.3s; }
+	.dir.checking { background: #31404f; }
+	.dir .path { font-family: var(--mono); font-size: 22px; }
+	.dir .remote { font-family: var(--mono); font-size: 16px; color: #8c97a6; grid-column: 1; }
+	.dir .result { grid-row: 1 / 3; grid-column: 2; text-align: right; min-width: 170px; transition: opacity 0.3s; }
+	.dir .by { display: block; font-size: 15px; color: #8c97a6; margin-top: 4px; }
+	.dir.changed { background: rgba(63, 143, 140, 0.22); }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">Place rules: the first match wins</div>
+	<div class="grid">
+		<div class="card reveal hidden" id="rules">
+			<div class="label">place rules in ~/.pi/agent/account-guard.json</div>
+			<div id="rule-rows"></div>
+		</div>
+		<div class="card reveal hidden" id="dirs">
+			<div class="label">directories and their git remotes</div>
+			<div id="dir-rows"></div>
+		</div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { defaultZone, before, after } = window.MEDIA.places;
+const added = before.rules.length - 1;
+
+function drawRules(rules, addedIndex) {
+	const rows = rules.map((rule, index) => el("div", `rule${index === addedIndex ? " added" : ""}`, `${index + 1}. ${rule.text} → ${rule.zone}`));
+	rows.push(el("div", "rule", `otherwise → ${defaultZone} (default zone)`));
+	$("#rule-rows").replaceChildren(...rows);
+}
+
+const dirRows = before.places.map((place) => {
+	const row = el("div", "dir");
+	row.append(el("div", "path", place.where), el("div", "remote", place.remotes.length ? `remote ${place.remotes.join(", ")}` : "no git remote"));
+	const result = el("div", "result");
+	row.append(result);
+	$("#dir-rows").append(row);
+	return { row, result };
+});
+
+const decidedBy = (rule) => (rule === undefined ? "the default zone" : `rule ${rule + 1}`);
+const showResult = (index, place) =>
+	dirRows[index].result.replaceChildren(el("span", `zone ${place.zone}`, place.zone), el("span", "by", decidedBy(place.rule)));
+
+async function resolve(index, place) {
+	const { row, result } = dirRows[index];
+	const rules = [...$("#rule-rows").children];
+	row.classList.add("checking");
+	result.replaceChildren();
+	const decided = place.rule ?? rules.length - 1;
+	for (let i = 0; i <= decided; i++) {
+		rules[i].classList.add("checking");
+		await sleep(380);
+		rules[i].classList.remove("checking");
+	}
+	rules[decided].classList.add("match");
+	showResult(index, place);
+	await sleep(500);
+	rules[decided].classList.remove("match");
+	row.classList.remove("checking");
+}
+
+window.play = async () => {
+	drawRules(before.rules, added);
+	show("#rules");
+	await caption("Place rules map directories and git remotes to a zone.");
+	await sleep(1200);
+	show("#dirs");
+	await caption("For each directory, the rules are tried in file order. The first match decides.");
+	for (const [index, place] of before.places.entries()) await resolve(index, place);
+	await sleep(600);
+
+	const side = before.places.findIndex((place) => place.where === before.rules[added].text);
+	const shadowedBy = before.places[side].rule;
+	$("#rule-rows").children[added].classList.add("idle");
+	dirRows[side].row.classList.add("checking");
+	await caption(`Rule ${added + 1} never decides anything: rule ${shadowedBy + 1} matches ${before.rules[added].text} first.`);
+	await sleep(2600);
+	dirRows[side].row.classList.remove("checking");
+
+	await caption(`/guard place move ${added + 1} 1 puts the specific rule first.`);
+	$("#rule-rows").style.opacity = "0";
+	await sleep(400);
+	drawRules(after.rules, 0);
+	// The other directories keep their zones; only the number of the rule that decides them moves.
+	for (const [index, place] of after.places.entries()) if (index !== side) showResult(index, place);
+	$("#rule-rows").style.opacity = "1";
+	await sleep(1200);
+	const moved = after.places[side];
+	if (after.places.some((place, index) => index !== side && place.zone !== before.places[index].zone)) throw new Error("the move changed another directory's zone");
+	await resolve(side, moved);
+	dirRows[side].row.classList.add("changed");
+	await caption(`Now ${moved.where} is ${moved.zone}; every other directory keeps its zone.`);
+	await sleep(400);
+	await still();
+	await sleep(2800);
+};
+</script>
+</body>
+</html>

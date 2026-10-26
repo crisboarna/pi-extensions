@@ -53,6 +53,6 @@
 		"test:integration": "node --test \"test/integration/**/*.test.ts\"",
 		"test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
 		"coverage": "ACCOUNT_GUARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\"",
-		"media": "node ../../scripts/tools/media.ts packages/pi-account-guard/media"
+		"media": "node media/data.ts && node ../../scripts/tools/media.ts packages/pi-account-guard/media"
 	}
 }

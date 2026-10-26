@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.stage { padding-top: 28px; }
+	.where { font-family: var(--mono); font-size: 20px; margin-top: 10px; color: #d9cfbb; }
+	.steps { margin-top: 16px; display: grid; gap: 12px; }
+	.step { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 0 12px; padding: 12px 18px; }
+	.step .what { font-size: 21px; }
+	.step .what .mono { font-size: 19px; }
+	.step .footer { font-size: 17px; padding: 6px 12px; border-radius: 8px; background: #141c26; }
+	.dots::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+	@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+	.event { border-left: 5px solid #e0a458; }
+	.notice { font-family: "JetBrains Mono", var(--mono); font-size: 16px; line-height: 1.5; color: #e9b4a6; background: #141c26; border-radius: 8px; padding: 12px 16px; }
+	.select { white-space: pre; }
+	.select .row.first { outline: 2px solid var(--plug); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">The safety net under rotators</div>
+	<div class="where reveal hidden" id="where"></div>
+	<div class="steps">
+		<div class="card step reveal hidden" id="running"><span class="lamp on"></span><span class="what" id="running-text"></span><span class="footer" id="running-footer"></span></div>
+		<div class="card step event reveal hidden" id="rotate"><span></span><span class="what" id="rotate-text"></span><span></span></div>
+		<div class="card step reveal hidden" id="checked"><span class="lamp red"></span><span class="what" id="checked-text"></span><span class="footer" id="checked-footer"></span></div>
+		<div class="notice reveal hidden" id="notice"></div>
+		<div class="select reveal hidden" id="select"></div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { steps, notice, select } = window.MEDIA.rotation;
+const [home, work] = steps;
+const name = (step) => step.account.name.split(" ")[0];
+const mono = (text) => el("span", "mono", text);
+
+$("#where").textContent = `a turn in ${home.place.path}, place zone ${home.place.zone}`;
+$("#running-text").append("running on ", mono(home.account.name), el("span", "dots"));
+$("#running-footer").textContent = home.footer;
+$("#rotate-text").append("a rotator moves the running turn to ", mono(work.account.name));
+$("#checked-text").append(`${name(work)} is ${work.account.zones.join(", ")}, the place is ${work.place.zone}: the turn is aborted`);
+$("#checked-footer").textContent = work.footer;
+$("#notice").textContent = notice;
+$("#select").replaceChildren(
+	...select.title.map((line) => el("div", "head", line)),
+	...select.rows.map((row, index) => el("div", `row${index === 0 ? " first" : ""}`, `${index === 0 ? "→" : " "} ${row}`)),
+);
+if (select.rows.some((row) => row.startsWith("Allow once"))) throw new Error("the mid-turn select offers Allow once");
+
+window.play = async () => {
+	show("#where");
+	show("#running");
+	await caption(`A turn runs on ${name(home)}, an account of this zone.`);
+	await sleep(2200);
+	show("#rotate");
+	await caption("A rotator (pi-multi-pass, /model, a router's fallback) switches accounts mid-turn.");
+	await sleep(2400);
+	$("#running-text .dots").remove();
+	show("#checked");
+	await caption("The guard checks every model change while a turn runs.");
+	await sleep(1800);
+	show("#notice");
+	await caption("The turn stops at once and the notice says a failover was blocked.");
+	await sleep(2600);
+	show("#select");
+	await caption(`Once idle, the select offers ${name(home)} first, and no Allow once.`);
+	await sleep(600);
+	await still();
+	await sleep(2400);
+	await caption("Switching back does not resume the aborted turn; send it again when ready.");
+	await sleep(2400);
+};
+</script>
+</body>
+</html>

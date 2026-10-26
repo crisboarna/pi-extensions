@@ -27,6 +27,8 @@ An account with no tag is in the Unknown zone, and the **tag prompt** opens firs
 
 ## A model change during a turn
 
+![A turn in ~/personal/garden-planner runs on homelab; a rotator moves it to acme, which is work, so the guard aborts the turn with "guard: failover blocked"; once idle, the select offers homelab first and no Allow once](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/rotation.gif)
+
 A model change while a turn runs (rotation by pi-multi-pass, `/model`, a router fallback) aborts the turn with a notice that says a failover was blocked. Once idle, the same select opens with the previous account first and without Allow once. Cancel leaves the model as it is. The aborted turn is never resumed.
 
 Why an undecidable case blocks instead of passing: [ADR 0001](adr/0001-fail-closed-when-undecidable.md).

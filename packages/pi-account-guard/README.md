@@ -32,6 +32,8 @@ With no config the guard knows two zones, `work` and `personal`, and every direc
 
 The footer shows the result as you work: `guard personal ✓`, or `guard personal ✗ acme is work` before a turn would be blocked.
 
+![How a turn is checked: the account acme (env:ACME_WORK_KEY) is tagged work; ~/personal/garden-planner matches no place rule, so it falls to the default zone personal; the zones differ, so the turn is blocked and the select offers homelab first; in ~/work/acme-api the remote rule decides work, a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check.gif)
+
 ## What you get
 
 - **Fails closed.** An untagged account, a broken config or a git failure blocks the turn and says why, instead of letting it through.
