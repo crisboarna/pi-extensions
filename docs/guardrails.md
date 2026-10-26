@@ -39,7 +39,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Line endings and final newline | C P CI | CRLF files and missing final newlines |
 | Agent context budget | C P CI | `AGENTS.md` growing until it crowds out the task (150 lines at the root, 80 per package); `CLAUDE.md` drifting from `AGENTS.md` (it must contain only `@AGENTS.md`) |
 | Markdown lint (`markdownlint-cli2`) | P CI | Broken tables, unlabelled code blocks, heading mistakes |
-| Relative links and anchors (`scripts/checks/links.ts`) | C P CI | Links broken by moving or renaming a doc |
+| Relative links and anchors (`scripts/checks/links.ts`), in the Markdown and in the family site it builds (`tools/site/build.ts`) | C P CI | Links broken by moving or renaming a doc, and site pages that point at nothing |
 
 ## Commits and pull requests
 

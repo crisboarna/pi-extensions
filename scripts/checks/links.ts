@@ -1,8 +1,11 @@
 // Checks that relative links in Markdown files point at files that exist, and
 // that `#anchor` links point at a heading in the target. Moving or renaming a
-// doc is the commonest way to break them, and nothing else notices.
-import { existsSync, readFileSync, statSync } from "node:fs";
+// doc is the commonest way to break them, and nothing else notices. It also
+// builds the family site and checks the links of every page.
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
+import { buildSite } from "../../tools/site/build.ts";
 import { ROOT, repoFiles, reporter } from "../lib/repo.ts";
 
 const report = reporter("links");
@@ -57,4 +60,16 @@ for (const file of markdown) {
 	}
 }
 
-report.finish("fix the path or anchor; links are relative to the file that contains them.");
+// The site is built from the same Markdown into a scratch folder, so its pages are checked too.
+if (existsSync(join(ROOT, "site", "templates", "page.html"))) {
+	const scratch = mkdtempSync(join(tmpdir(), "site-links-"));
+	try {
+		for (const problem of buildSite(scratch)) report.fail(`site: ${problem}`);
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+}
+
+report.finish(
+	"fix the path or anchor; links are relative to the file that contains them. Site links come from the same Markdown, built by tools/site/build.ts.",
+);

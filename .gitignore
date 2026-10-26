@@ -12,3 +12,7 @@ coverage/
 packages/*/media/.debug/
 # Check scenes keep stills as evidence; their videos are not needed
 packages/*/media/check-*.mp4
+
+# The built site and its verify screenshots
+site/dist/
+site/site-shots/

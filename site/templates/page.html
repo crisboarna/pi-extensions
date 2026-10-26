@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<link rel="icon" href="{{root}}{{icon}}">
+<link rel="stylesheet" href="{{root}}assets/tokens.css">
+<link rel="stylesheet" href="{{root}}assets/site.css">
+{{head}}
+</head>
+<body class="{{kind}}" style="--accent: {{accent}}">
+<header class="top">
+	<a class="family" href="{{root}}index.html">pi-extensions</a>
+	<nav class="packages">{{packages}}</nav>
+</header>
+<div class="layout">
+	{{sidebar}}
+	<main>
+{{content}}
+	</main>
+</div>
+<footer class="bottom">
+	MIT licensed · <a href="https://github.com/crisboarna/pi-extensions">source on GitHub</a> · <a href="{{root}}llms.txt">llms.txt</a> for agents
+</footer>
+</body>
+</html>

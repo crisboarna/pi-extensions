@@ -18,8 +18,8 @@
 	"ignoreExportsUsedInFile": true,
 	"workspaces": {
 		".": {
-			"entry": ["scripts/checks/*.ts", "scripts/hooks/*.ts", "scripts/tools/*.ts", "test/**/*.test.ts"],
-			"project": ["scripts/**/*.ts", "test/**/*.ts"]
+			"entry": ["scripts/checks/*.ts", "scripts/hooks/*.ts", "scripts/tools/*.ts", "test/**/*.test.ts", "tools/site/build.ts"],
+			"project": ["scripts/**/*.ts", "test/**/*.ts", "tools/site/**/*.ts"]
 		},
 		"packages/*": {
 			"entry": ["src/index.ts", "bin/*.mjs", "test/**/*.test.ts"],
