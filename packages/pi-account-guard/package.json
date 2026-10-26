@@ -8,11 +8,15 @@
   "keywords": ["pi-package", "pi-extension", "account-guard"],
   "engines": { "node": ">=22.19" },
   "pi": { "extensions": ["./src/index.ts"] },
-  "files": ["src", "README.md", "LICENSE"],
+  "files": ["src", "schema", "examples", "README.md", "LICENSE"],
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "link:pi": "node scripts/link-pi.mjs",

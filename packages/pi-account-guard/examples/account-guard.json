@@ -1,0 +1,11 @@
+{
+  "zones": ["work", "personal"],
+  "defaultZone": "personal",
+  "accounts": [
+    { "provider": "openai-codex-2", "source": "oauth", "zones": ["work"], "note": "Acme seat" }
+  ],
+  "places": [
+    { "remote": "*/acme-corp/*", "zone": "work" },
+    { "path": "~/Projects/acme", "zone": "work" }
+  ]
+}
