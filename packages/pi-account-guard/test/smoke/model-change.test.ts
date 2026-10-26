@@ -118,7 +118,7 @@ describe("model change mid-turn over RPC (DESIGN.md section 9.2)", () => {
 			rpc.send({ id: "p1", type: "prompt", message: "hello" });
 			const select = await rpc.waitFor(isUiRequest("select"));
 			rpc.send({ type: "extension_ui_response", id: select.id, value: "Allow for session: stubtwo (fallback)" });
-			const status = await rpc.waitFor((record) => isUiRequest("setStatus")(record) && record.statusText !== undefined);
+			const status = await rpc.waitFor((record) => isUiRequest("setStatus")(record) && String(record.statusText).startsWith("guard OVERRIDE"));
 			assert.equal(status.statusText, "guard OVERRIDE stubtwo in personal");
 		});
 	});

@@ -4,13 +4,13 @@ import { allowOnceConfirm, blockDialog, logData, switchNotice, type DialogCause,
 import type { GuardConfig } from "../core/config.ts";
 import type { PlaceOutcome } from "../core/decide.ts";
 import type { MessageContext } from "../core/messages.ts";
-import { grantOnce, grantSession, sessionOverrideFooter, type Overrides } from "../core/overrides.ts";
+import { grantOnce, grantSession, type Overrides } from "../core/overrides.ts";
 import { accountOfModel } from "./account-of.ts";
 
-/** Holds the Overrides of one session; never persisted. */
+/** Holds the Overrides of one session; never persisted. `replace` draws the footer again. */
 export interface OverrideStore {
 	current(): Overrides;
-	replace(next: Overrides): void;
+	replace(next: Overrides, ctx: ExtensionContext): void;
 }
 
 export interface InteractiveBlock {
@@ -49,23 +49,17 @@ export async function runInteractiveBlock(block: InteractiveBlock): Promise<Inpu
 		case "allow-once": {
 			const { title, message } = allowOnceConfirm(cause, place, block.messages);
 			if (!(await ctx.ui.confirm(title, message))) return cancel(block);
-			block.overrides.replace(grantOnce(block.overrides.current(), cause.account, place));
+			block.overrides.replace(grantOnce(block.overrides.current(), cause.account, place), ctx);
 			pi.appendEntry("guard.allow_once", logData(cause, place));
 			return { action: "continue" };
 		}
 		case "allow-session":
-			block.overrides.replace(grantSession(block.overrides.current(), cause.account, place));
-			showOverrideFooter(ctx, block.overrides.current());
+			block.overrides.replace(grantSession(block.overrides.current(), cause.account, place), ctx);
 			pi.appendEntry("guard.allow_session", logData(cause, place));
 			return { action: "continue" };
 		default:
 			return cancel(block);
 	}
-}
-
-/** Updates the footer item for the session Override; `undefined` text clears it. */
-export function showOverrideFooter(ctx: ExtensionContext, overrides: Overrides): void {
-	ctx.ui.setStatus("guard", sessionOverrideFooter(overrides));
 }
 
 function cancel({ ctx, text }: InteractiveBlock): InputOutcome {

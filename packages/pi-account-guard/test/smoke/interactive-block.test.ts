@@ -93,7 +93,7 @@ describe("interactive block over RPC (DESIGN.md section 9.1)", () => {
 			answer(rpc, select, optionStarting(select, "Allow for session")!);
 			await rpc.waitFor((record) => record.type === "agent_settled");
 			assert.deepEqual(requests(), [STUB_MODEL]);
-			const status = await rpc.waitFor((record) => isUiRequest("setStatus")(record) && record.statusText !== undefined);
+			const status = await rpc.waitFor((record) => isUiRequest("setStatus")(record) && String(record.statusText).startsWith("guard OVERRIDE"));
 			assert.equal(status.statusKey, "guard");
 			assert.match(String(status.statusText), /^guard OVERRIDE stub in personal$/);
 		});

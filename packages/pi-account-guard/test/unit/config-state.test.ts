@@ -43,6 +43,8 @@ describe("createConfigState", () => {
 		const second = state.load();
 		assert.deepEqual(second.result, { ok: true, config: validConfig });
 		assert.equal(second.warning, undefined);
+		assert.deepEqual(second.fallback, first.fallback, "every read that falls back reports the errors, the warning only the first");
+		assert.deepEqual(first.fallback, { errors: [{ path: "", message: 'unknown field "colour"' }] });
 	});
 
 	it("falls back when the file cannot be read", () => {

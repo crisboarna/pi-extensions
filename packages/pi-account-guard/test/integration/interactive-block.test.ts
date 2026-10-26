@@ -210,7 +210,7 @@ describe("Allow for session", () => {
 		await r.input();
 		for (const reason of ["new", "resume", "fork", "reload"]) {
 			await r.host.fire("session_start", { reason }, r.session.ctx);
-			assert.equal(r.session.statuses.get("guard"), undefined, reason);
+			assert.equal(r.session.statuses.get("guard"), "guard personal ✗ acme is work", reason);
 			r.dialogs.selectAnswers.push(/^Allow for session/);
 			await r.input();
 			assert.equal(r.session.statuses.get("guard"), "guard OVERRIDE acme in personal", `${reason}: the Override was asked for again`);

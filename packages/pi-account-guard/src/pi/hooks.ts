@@ -1,15 +1,17 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AccountKey } from "../core/account.ts";
 import type { ConfigResult } from "../core/config.ts";
-import { createConfigState } from "../core/config-state.ts";
+import { createConfigState, type ConfigSnapshot } from "../core/config-state.ts";
 import { decide, type BlockCause, type Decision, type PlaceOutcome } from "../core/decide.ts";
 import { logData } from "../core/block-dialog.ts";
+import { footerText } from "../core/footer.ts";
 import { configFallbackWarning, headlessBlockMessage } from "../core/messages.ts";
 import { applyOverrides, NO_OVERRIDES, releaseOnce, type Overrides } from "../core/overrides.ts";
 import { resolvePlaceZone, type RemoteUrls } from "../core/place.ts";
 import { accountOfModel } from "./account-of.ts";
 import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
-import { runInteractiveBlock, showOverrideFooter } from "./interactive-block.ts";
+import { registerGuardCommand } from "./commands.ts";
+import { runInteractiveBlock } from "./interactive-block.ts";
 import { registerModelGuard } from "./model-guard.ts";
 import { createUnknownAccountGate, type UnknownAccountDeps } from "./unknown-account.ts";
 
@@ -28,6 +30,8 @@ export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writ
 	readRemoteUrls(cwd: string): RemoteUrls;
 	writeStderr(text: string): void;
 	setExitCode(code: number): void;
+	/** Provider ids that pool several accounts under one id; `/guard` lists them. Defaults to none. */
+	pooledProviders?(): string[];
 }
 
 export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
@@ -37,21 +41,26 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	let overrides: Overrides = NO_OVERRIDES;
 	const overrideStore = {
 		current: () => overrides,
-		replace: (next: Overrides) => void (overrides = next),
+		replace(next: Overrides, ctx: ExtensionContext) {
+			overrides = next;
+			refreshFooter(ctx);
+		},
 	};
 
 	const configState = createConfigState(() => deps.readConfigText(deps.configPath));
 	const unknownAccounts = createUnknownAccountGate(pi, deps, configState);
 
-	function loadConfig(ctx: ExtensionContext): ConfigResult {
-		const { result, warning } = configState.load();
-		if (warning) {
-			const text = configFallbackWarning(warning.errors, deps);
+	function loadSnapshot(ctx: ExtensionContext): ConfigSnapshot {
+		const snapshot = configState.load();
+		if (snapshot.warning) {
+			const text = configFallbackWarning(snapshot.warning.errors, deps);
 			if (ctx.hasUI) ctx.ui.notify(text, "warning");
 			else deps.writeStderr(`${text}\n`);
 		}
-		return result;
+		return snapshot;
 	}
+
+	const loadConfig = (ctx: ExtensionContext): ConfigResult => loadSnapshot(ctx).result;
 
 	function resolvePlace(cwd: string, config: ConfigResult): PlaceOutcome {
 		if (!config.ok) return { ok: false, reason: "the config is invalid" };
@@ -71,6 +80,18 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 
 	function accountOf(ctx: ExtensionContext): AccountKey | undefined {
 		return ctx.model ? accountOfModel(ctx, ctx.model) : undefined;
+	}
+
+	/** Draws the footer item again (DESIGN.md section 12). A failure shows in the footer and never aborts the caller. */
+	function refreshFooter(ctx: ExtensionContext): void {
+		if (!ctx.hasUI) return;
+		try {
+			const snapshot = loadSnapshot(ctx);
+			ctx.ui.setStatus("guard", footerText({ place: currentPlace(ctx.cwd, snapshot.result), account: accountOf(ctx), config: snapshot.result, usingLastValid: snapshot.fallback !== undefined, overrides }));
+		} catch {
+			// The hooks that check a turn report their own failure; the footer only says it cannot decide.
+			ctx.ui.setStatus("guard", "guard ! check failed");
+		}
 	}
 
 	function check(ctx: ExtensionContext): { decision: Decision; place: PlaceOutcome; config: ConfigResult } | undefined {
@@ -99,10 +120,27 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			overrides = NO_OVERRIDES;
 			configState.reset();
 			unknownAccounts.reset();
-			if (ctx.hasUI) showOverrideFooter(ctx, overrides);
 			currentPlace(ctx.cwd, loadConfig(ctx));
+			refreshFooter(ctx);
 		}),
 	);
+
+	pi.on("model_select", (_event, ctx) => refreshFooter(ctx));
+
+	registerGuardCommand(pi, {
+		home: deps.home,
+		configPath: deps.configPath,
+		configState,
+		writeConfigText: deps.writeConfigText,
+		loadSnapshot,
+		currentPlace: (ctx, snapshot) => currentPlace(ctx.cwd, snapshot.result),
+		overrides: overrideStore.current,
+		pooledProviders: deps.pooledProviders,
+		multiPassLabel: deps.multiPassLabel,
+		refreshFooter,
+		writeStderr: deps.writeStderr,
+		setExitCode: deps.setExitCode,
+	});
 
 	registerModelGuard(pi, {
 		// The process Override covers an Unknown account in every hook; the `input` hook logs and warns when it lets a turn through.
@@ -133,6 +171,8 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	// Every user turn passes here, `/`-prefixed text included: skills and prompt templates arrive unexpanded.
 	pi.on("input", async (event, ctx) => {
 		let checked = checkOrBlock(ctx);
+		// Picks up a hand edit of the file; skipped when the check itself failed, which is reported already.
+		if (checked?.decision.verdict !== "block" || checked.decision.cause.kind !== "internal-error") refreshFooter(ctx);
 		if (!checked) return undefined;
 		let verdict = applyOverrides(checked.decision, checked.place, overrides);
 		if (verdict.verdict !== "block") return undefined;
@@ -141,6 +181,7 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 				if (unknownAccounts.letThrough(verdict.cause, ctx)) return undefined;
 				// A tag that gives a Match lets the turn proceed with no resubmit; any other tag falls to the Block with the new tag in its title.
 				if (await unknownAccounts.tag(verdict.cause, ctx)) {
+					refreshFooter(ctx);
 					checked = checkOrBlock(ctx);
 					if (!checked) return undefined;
 					verdict = applyOverrides(checked.decision, checked.place, overrides);

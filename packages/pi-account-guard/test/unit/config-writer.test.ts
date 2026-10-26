@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_CONFIG, parseConfig } from "../../src/core/config.ts";
 import { createConfigState } from "../../src/core/config-state.ts";
-import { createConfigWriter, serializeConfig, setAccountZones } from "../../src/core/config-writer.ts";
+import { createConfigWriter, removeAccount, serializeConfig, setAccountZones } from "../../src/core/config-writer.ts";
 
 const acme = { provider: "acme", source: "oauth" };
 
@@ -95,5 +95,14 @@ describe("createConfigWriter", () => {
 		assert.equal(outcome.ok, false);
 		assert.ok(!outcome.ok && outcome.errors.some((error) => /not declared in zones/.test(error.message)));
 		assert.deepEqual(writes, []);
+	});
+});
+
+describe("removeAccount", () => {
+	it("drops the entry of one account and keeps the rest", () => {
+		const other = { provider: "acme", source: "stored-key", zones: ["personal"] };
+		const config = { ...DEFAULT_CONFIG, accounts: [{ ...acme, zones: ["work"] }, other] };
+		assert.deepEqual(removeAccount(config, acme).accounts, [other]);
+		assert.deepEqual(removeAccount(config, { provider: "nope", source: "oauth" }), config);
 	});
 });

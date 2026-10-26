@@ -5,7 +5,7 @@ import type { PlaceOutcome } from "../core/decide.ts";
 import type { MessageContext } from "../core/messages.ts";
 import { midTurnDialog, midTurnSessionNotice, midTurnSwitchNotice, type PreviousModel } from "../core/mid-turn.ts";
 import { grantSession } from "../core/overrides.ts";
-import { offersOf, showOverrideFooter, switchTo, type OverrideStore } from "./interactive-block.ts";
+import { offersOf, switchTo, type OverrideStore } from "./interactive-block.ts";
 
 export interface MidTurnBlock {
 	pi: ExtensionAPI;
@@ -44,8 +44,7 @@ export async function runMidTurnBlock(block: MidTurnBlock): Promise<void> {
 			await switchTo(row, block, midTurnSwitchNotice);
 			return;
 		case "allow-session":
-			block.overrides.replace(grantSession(block.overrides.current(), cause.account, place));
-			showOverrideFooter(ctx, block.overrides.current());
+			block.overrides.replace(grantSession(block.overrides.current(), cause.account, place), ctx);
 			pi.appendEntry("guard.allow_session", logData(cause, place));
 			ctx.ui.notify(midTurnSessionNotice(cause), "info");
 			return;

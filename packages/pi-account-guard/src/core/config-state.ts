@@ -5,6 +5,8 @@ export interface ConfigSnapshot {
 	result: ConfigResult;
 	/** Set once per session, on the first read that falls back to the last valid copy. */
 	warning?: { errors: ConfigError[] };
+	/** Set on every read that falls back to the last valid copy; holds the errors of the live file. */
+	fallback?: { errors: ConfigError[] };
 }
 
 export interface ConfigState {
@@ -42,7 +44,7 @@ export function createConfigState(readText: () => string | undefined): ConfigSta
 				return { result: live };
 			}
 			if (lastValid === undefined) return { result: live };
-			const snapshot: ConfigSnapshot = { result: { ok: true, config: lastValid } };
+			const snapshot: ConfigSnapshot = { result: { ok: true, config: lastValid }, fallback: { errors: live.errors } };
 			if (!warned) {
 				warned = true;
 				snapshot.warning = { errors: live.errors };

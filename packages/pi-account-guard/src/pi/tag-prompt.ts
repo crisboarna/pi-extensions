@@ -39,7 +39,7 @@ export async function runTagPrompt({ ctx, account, placeZone, config, multiPassL
 }
 
 /** The TUI draws a checkbox list; RPC cannot render custom components, so it gets a select of single zones and an input for several. */
-async function askZones(ctx: ExtensionContext, title: string, declared: string[]): Promise<string[] | undefined> {
+export async function askZones(ctx: ExtensionContext, title: string, declared: string[]): Promise<string[] | undefined> {
 	if (ctx.mode === "tui") return askZonesWithChecklist(ctx, title, declared);
 	const choice = await ctx.ui.select(title, [...declared, SEVERAL_ZONES_OPTION]);
 	if (choice === undefined) return undefined;

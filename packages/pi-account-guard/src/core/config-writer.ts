@@ -15,6 +15,11 @@ export function setAccountZones(config: GuardConfig, key: AccountKey, zones: str
 	return { ...config, accounts };
 }
 
+/** The config without the tag of one account; the account becomes Unknown. */
+export function removeAccount(config: GuardConfig, key: AccountKey): GuardConfig {
+	return { ...config, accounts: config.accounts.filter((account) => !sameAccount(account, key)) };
+}
+
 export type WriteOutcome = { ok: true; config: GuardConfig } | { ok: false; errors: ConfigError[] };
 
 export interface ConfigWriter {
