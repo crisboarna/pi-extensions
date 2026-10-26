@@ -194,7 +194,7 @@ This package lives in the [pi-extensions](https://github.com/crisboarna/pi-exten
 ```bash
 npm test                   # unit tests (node --test)
 npm run test:integration   # loads the extension through jiti against a fake pi host
-npm run coverage           # unit tests with coverage thresholds
+npm run coverage           # unit and integration tests, 90% line, branch and function thresholds
 ```
 
 Repository-wide gates (lint, types, packaging) run from the root with `npm run check`; see the root [CONTRIBUTING.md](../../CONTRIBUTING.md).

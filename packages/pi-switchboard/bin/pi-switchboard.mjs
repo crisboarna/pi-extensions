@@ -1,11 +1,19 @@
 #!/usr/bin/env node
-// Loads the TypeScript CLI through jiti, the loader pi uses for extensions.
-// Node's own type stripping refuses files under node_modules, so a plain
-// import of ../src/cli/main.ts fails once the package is installed from npm.
-import { createJiti } from "jiti";
+// Runs the TypeScript CLI. From a checkout, Node strips the types itself.
+// Node refuses to strip types under node_modules, so once installed from npm
+// the CLI loads through jiti, the loader pi uses for extensions.
+/** @typedef {{ main(argv: string[]): Promise<number> }} Cli */
 
-const jiti = createJiti(import.meta.url);
-/** @type {{ main(argv: string[]): Promise<number> }} */
-const cli = await jiti.import("../src/cli/main.ts");
+/** @returns {Promise<Cli>} */
+async function load() {
+	try {
+		return await import("../src/cli/main.ts");
+	} catch (error) {
+		if (/** @type {{ code?: string }} */ (error)?.code !== "ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING") throw error;
+		const { createJiti } = await import("jiti");
+		return createJiti(import.meta.url).import("../src/cli/main.ts");
+	}
+}
 
+const cli = await load();
 process.exitCode = await cli.main(process.argv.slice(2));

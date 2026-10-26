@@ -30,4 +30,5 @@ Classifier-driven model routing for pi's main session and pi-subagents children.
 - Unit tests (`test/unit/`) cover pure modules with injected clocks, random sources and stores instead of waiting on real time.
 - Integration tests (`test/integration/`) load the extension through jiti against the fake host in `test/support/fake-pi.ts`, with `PI_CODING_AGENT_DIR` in a temporary directory.
 - `test/support/lmstudio-chat.ts` registers LM Studio chat models as a pi provider for free local end-to-end runs (see the README's Development section).
+- `npm run coverage` runs unit and integration tests together (integration imports natively so V8 can map coverage) and fails below 90% lines, branches or functions; `test/unit/all-modules.test.ts` makes every source file count.
 - Live checks not yet done are listed in the README under Known limitations; remove an entry only after running the check.
