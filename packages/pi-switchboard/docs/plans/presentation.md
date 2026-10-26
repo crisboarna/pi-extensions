@@ -1,6 +1,6 @@
 # Presentation plan: making pi-switchboard easy to understand and want
 
-Status: draft, 2026-10-26. Nothing in this plan is implemented yet.
+Status: phases 1, 3 and 4 done on 2026-10-26; phases 0, 2 and 5 open. See "Progress" at the end.
 
 ## 1. What the popular pi packages do beyond the code
 
@@ -207,9 +207,22 @@ Optional later: a GitHub Pages site holding the docs, the playground (4.7) and t
 | 4. In-product | First-run notice, `/tier try`, `/tier doctor`, bundled skill, then `/tier tour`. | Unit tests for each; tour writes nothing (test asserts no file changes under the agent directory). |
 | 5. Optional site | GitHub Pages with docs and the playground. | Playground runs the bundled ruleset and gives the same tier as the extension for every sample. |
 
-## 8. Open questions
+## 8. Decisions
 
-- When to make crisboarna/pi-extensions public (blocks every hosted asset).
-- Whether `/tier try` should call the classifier (needs a running classifier) or also accept typed answers.
-- Whether to show competitor names in the comparison table or describe approaches ("session-level routing", "single model per tier").
-- Branding: keep the `⇄` mark from the footer as the logo, or design a new one.
+- The comparison describes approaches (decide once per session, decide every turn with one model per tier, rotate accounts) instead of naming packages.
+- A new mark: an enamel switchboard panel, brass jacks and a red patch cord routing a request to one tier, set in IBM Plex.
+- `/tier try` calls the classifier and accepts typed answers (`work=plan depth=1.8 risky=no`) when none answers.
+
+## 9. Progress
+
+Done:
+
+- **Phase 1, front door**: README rewritten to the standard in `docs/conventions/readme.md`; reference moved to ten pages under `docs/`; banner (light and dark), cover and mark; `pi.image` (cover) and `pi.video` (decision animation) in `package.json`.
+- **Phase 3, concept animations**: decision, failover and subagent animations (MP4 and GIF), driven by data the real engine produces (`media/data.ts`), rendered in a pinned Docker image (`npm run media`).
+- **Phase 4, in-product**: first-run notice, `/tier try`, `/tier doctor`, `/tier tour` and the bundled `pi-switchboard` skill, with unit and integration tests; `/tier try`, `/tier doctor` and the tour were also run in a real pi (RPC mode) against LM Studio's H2O-Lightning-4B.
+
+Open:
+
+- **Phase 0**: make the repository public (the README images and the gallery fields point at `raw.githubusercontent.com`), and verify the navigator, tier editor and a real pi-subagents child live.
+- **Phase 2, terminal recordings**: the hero video and the VHS clips need the interactive TUI checks first.
+- **Phase 5, site and playground**: optional.

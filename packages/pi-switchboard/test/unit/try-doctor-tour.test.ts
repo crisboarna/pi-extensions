@@ -159,6 +159,12 @@ describe("/tier doctor", () => {
 		assert.ok(!text.includes("local/unprobed"));
 	});
 
+	it("treats a missing pi-subagents as information, not a warning", () => {
+		const lines = doctorLines({ ...healthy, subagents: { enabled: true, launchModeReason: "pi-subagents is not installed" } });
+		assert.equal(lines[0], "pi-switchboard doctor: everything looks right");
+		assert.ok(lines.includes("✓ pi-subagents is not installed; subagents are routed once it is"));
+	});
+
 	it("covers no classifiers, subagents off and no quota strategies", () => {
 		const text = doctorLines({ ...healthy, classifiers: [], subagents: { enabled: false }, quotaProviders: [] }).join("\n");
 		assert.match(text, /✗ no classifier configured/);

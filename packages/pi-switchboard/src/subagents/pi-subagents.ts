@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PinInfo, PinLookup } from "./launch.ts";
 
+/** Why subagents are not routed when pi-subagents is absent; `/tier doctor` tells it apart from real problems. */
+export const PI_SUBAGENTS_MISSING = "pi-subagents is not installed";
+
 /** pi-subagents' package root under pi's npm directory, if installed. */
 export function subagentsRoot(agentDir: string): string | undefined {
 	const root = join(agentDir, "npm", "node_modules", "pi-subagents");
@@ -38,7 +41,7 @@ export async function registerChildExtension(
 	entryPath: string,
 ): Promise<{ registration?: RequiredRegistration; reason?: string }> {
 	const root = subagentsRoot(agentDir);
-	if (!root) return { reason: "pi-subagents is not installed" };
+	if (!root) return { reason: PI_SUBAGENTS_MISSING };
 	const api = await importExport(root, "required-child-extensions");
 	const register = api?.registerRequiredChildExtensions;
 	if (typeof register !== "function") return { reason: "this pi-subagents version has no required child extensions" };

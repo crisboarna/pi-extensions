@@ -5,6 +5,7 @@ import { isLocalClassifier } from "../classifier/pi-adapter.ts";
 import { WARMUP_REQUEST } from "../classifier/warmup.ts";
 import type { Runtime } from "../runtime.ts";
 import { quotaProviders } from "../selection/pi-usage.ts";
+import { PI_SUBAGENTS_MISSING } from "../subagents/pi-subagents.ts";
 
 /** What `/tier doctor` checks, gathered from the runtime; formatted by `doctorLines`. */
 export interface DoctorFacts {
@@ -56,6 +57,7 @@ function sessionLines(facts: DoctorFacts, out: Lines): void {
 	if (facts.routingSelected) out.ok.push("✓ a switchboard model is selected");
 	else out.warn.push("! not routing: pick switchboard/auto (or switchboard/<profile>) in /model");
 	if (!facts.subagents.enabled) out.ok.push("✓ subagent routing is off (subagents.enabled is false)");
+	else if (facts.subagents.launchModeReason === PI_SUBAGENTS_MISSING) out.ok.push("✓ pi-subagents is not installed; subagents are routed once it is");
 	else if (facts.subagents.launchModeReason) out.warn.push(`! subagents use launch-time models: ${facts.subagents.launchModeReason}`);
 	else out.ok.push("✓ subagents are routed inside their children");
 	if (facts.footer) out.ok.push("✓ the footer shows the tier");
