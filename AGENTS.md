@@ -6,6 +6,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - Publishable packages live in `packages/<name>/`, published as `@crisboarna/<name>`, with source in `src/`, tests in `test/`, and their own `README.md`, `LICENSE`, `AGENTS.md` and `CHANGELOG.md`.
 - Repository tooling lives in `scripts/` (TypeScript run directly by Node), its tests in `test/`, and conventions in `docs/conventions/`.
+- Tools that run in Docker have their images in `tools/docker/`; package media (banner, cover, animations) is rendered from `packages/<name>/media/` by `npm run media` in that package, never edited by hand.
 - Read the package's own `AGENTS.md` before changing a package; it overrides nothing here, it adds to it.
 - Create a new package with `npm run new-package -- <name> "<description>"`, never by copying another package.
 

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.grid { display: grid; grid-template-columns: 1.05fr 1fr 0.95fr; gap: 26px; margin-top: 22px; }
+	.request { font-size: 24px; line-height: 1.35; }
+	.label { font-size: 17px; color: #8c97a6; margin-bottom: 10px; }
+	.answer { display: grid; grid-template-columns: 74px 1fr 64px; align-items: center; gap: 12px; margin: 14px 0; font-size: 20px; }
+	.bar { height: 12px; border-radius: 6px; background: #31404f; overflow: hidden; }
+	.bar span { display: block; height: 100%; width: 0; background: var(--brass); transition: width 0.8s ease; }
+	.rule { font-family: var(--mono); font-size: 16px; padding: 7px 10px; border-radius: 8px; margin: 5px 0; color: #8c97a6; transition: background 0.3s, color 0.3s; }
+	.rule.checking { background: #31404f; color: var(--cream); }
+	.rule.match { background: rgba(200, 69, 47, 0.22); color: var(--cream); }
+	.gate { margin-top: 18px; }
+	.gatebar { position: relative; height: 18px; border-radius: 9px; background: #31404f; margin-top: 10px; }
+	.gatebar .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 9px; background: var(--lamp); transition: width 0.9s ease; }
+	.gatebar .mark { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--cream); }
+	.tier { font-family: var(--sans); font-size: 24px; padding: 10px 14px; border-radius: 10px; margin: 8px 0; background: #2a3747; color: #8c97a6; transition: all 0.35s; }
+	.tier.active { background: var(--cord); color: var(--cream); }
+	.member { font-family: var(--mono); font-size: 16px; padding: 9px 12px; border-radius: 8px; margin: 8px 0; background: #2a3747; transition: all 0.35s; }
+	.member .why { display: block; font-size: 14px; margin-top: 3px; }
+	.receipt { position: absolute; left: 44px; right: 44px; bottom: 76px; font-family: var(--mono); font-size: 20px; background: var(--panel); border-left: 6px solid var(--cord); padding: 14px 18px; border-radius: 10px; }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">How one decision is made</div>
+	<div class="grid">
+		<div>
+			<div class="card reveal hidden" id="request"><div class="label">the request</div><div class="request" id="request-text"></div></div>
+			<div class="card reveal hidden" id="answers" style="margin-top: 18px"><div class="label">the local classifier answers</div><div id="answer-rows"></div></div>
+		</div>
+		<div>
+			<div class="card reveal hidden" id="rules"><div class="label">the first matching rule picks the tier</div><div id="rule-rows"></div></div>
+			<div class="card reveal hidden gate" id="gate"><div class="label" id="gate-label"></div><div class="gatebar"><div class="fill" id="gate-fill"></div><div class="mark" id="gate-mark"></div></div></div>
+		</div>
+		<div>
+			<div class="card reveal hidden" id="tiers"><div class="label">tier</div><div id="tier-rows"></div></div>
+			<div class="card reveal hidden" id="members" style="margin-top: 18px"><div class="label" id="member-label"></div><div id="member-rows"></div></div>
+		</div>
+	</div>
+	<div class="receipt reveal hidden" id="receipt"></div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { request, confident: d, unsure, rules } = window.MEDIA.decision;
+const describe = (when) => (when ? Object.entries(when).map(([k, v]) => `${k} ${Array.isArray(v) ? v.join("|") : v}`).join(", ") : "otherwise");
+
+$("#request-text").textContent = `"${request}"`;
+const answerRows = $("#answer-rows");
+const answerList = [
+	["work", d.answers.work.choice, d.answers.work.confidence, d.answers.work.confidence.toFixed(2)],
+	["depth", d.answers.depth.score.toFixed(1), d.answers.depth.score / 2, "of 2"],
+	["risky", d.answers.risky.probability >= 0.5 ? "yes" : "no", d.answers.risky.probability, d.answers.risky.probability.toFixed(2)],
+];
+for (const [name, value, fraction, note] of answerList) {
+	const row = el("div", "answer reveal hidden");
+	row.append(el("span", "dim", name), Object.assign(el("div", "bar"), { innerHTML: `<span data-w="${Math.round(fraction * 100)}"></span>` }), el("span", "mono", note));
+	const v = el("div", "mono", `= ${value}`);
+	v.style.gridColumn = "2 / 4";
+	v.style.marginTop = "-6px";
+	v.style.fontSize = "18px";
+	row.append(v);
+	answerRows.append(row);
+}
+for (const [index, rule] of rules.entries()) $("#rule-rows").append(el("div", "rule", `${index + 1}. ${describe(rule.when)} → ${rule.tier}`));
+for (const name of ["deep", "standard", "light"]) {
+	const row = el("div", "tier", name);
+	row.dataset.tier = name;
+	$("#tier-rows").append(row);
+}
+$("#gate-label").textContent = `confidence ${d.rules.gate.confidence.toFixed(2)} vs threshold ${d.rules.gate.threshold}`;
+$("#gate-mark").style.left = `${d.rules.gate.threshold * 100}%`;
+$("#member-label").textContent = `${d.tier.chosen} members, strategy ${d.selection.strategy}`;
+for (const c of d.selection.candidates) {
+	const row = el("div", "member");
+	row.dataset.member = c.member;
+	row.append(el("span", "", c.member));
+	if (!c.eligible) row.append(el("span", "why warn", `${c.excluded} until ${time(c.cooldownUntil)}`));
+	$("#member-rows").append(row);
+}
+$("#receipt").textContent = `⇄ task ${d.task} · work=${d.answers.work.choice} (${d.answers.work.confidence.toFixed(2)}) · ${d.tier.chosen} → ${d.model.id}:${d.model.thinking} (${d.selection.strategy})`;
+
+window.play = async () => {
+	show("#request");
+	await caption("A new request arrives.");
+	await sleep(1400);
+	show("#answers");
+	await caption("A small model on your machine answers three questions about it.");
+	for (const row of answerRows.children) {
+		row.classList.remove("hidden");
+		const bar = row.querySelector(".bar span");
+		await sleep(150);
+		bar.style.width = `${bar.dataset.w}%`;
+		await sleep(700);
+	}
+	await sleep(500);
+	show("#rules");
+	await caption("Your rules are checked in order; the first match wins.");
+	const rows = [...$("#rule-rows").children];
+	for (let i = 0; i <= d.rules.matched; i++) {
+		rows[i].classList.add("checking");
+		await sleep(650);
+		rows[i].classList.remove("checking");
+		if (i === d.rules.matched) rows[i].classList.add("match");
+	}
+	await sleep(400);
+	show("#gate");
+	await caption("The rule fires only if the answers it uses are confident enough.");
+	await sleep(300);
+	$("#gate-fill").style.width = `${d.rules.gate.confidence * 100}%`;
+	await sleep(1400);
+	show("#tiers");
+	await caption(`Rule ${d.rules.matched + 1} sends it to the ${d.tier.chosen} tier.`);
+	await sleep(300);
+	document.querySelector(`[data-tier="${d.tier.chosen}"]`).classList.add("active");
+	await sleep(1200);
+	show("#members");
+	await caption("A member that is cooling down sits out; the strategy picks another.");
+	await sleep(900);
+	document.querySelector(`[data-member="${d.selection.candidates.find((c) => c.eligible).member}"]`).classList.add("chosen");
+	await sleep(1300);
+	show("#receipt");
+	await caption("The request runs, and the decision is recorded with every reason.");
+	await sleep(2200);
+	await caption(`Had the classifier been unsure (${unsure.rules.gate.confidence.toFixed(2)} < ${unsure.rules.gate.threshold}), the ${unsure.tier.chosen} tier would run instead.`);
+	await sleep(2600);
+};
+</script>
+</body>
+</html>

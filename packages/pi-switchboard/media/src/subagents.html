@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.tree { position: relative; height: 470px; margin-top: 18px; }
+	.tree svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+	.node { position: absolute; width: 330px; }
+	.parent { left: 0; top: 170px; }
+	.children { position: absolute; left: 450px; right: 0; top: 0; display: flex; flex-direction: column; gap: 14px; }
+	.child { padding: 12px 18px; }
+	.child .row { display: flex; align-items: baseline; gap: 14px; }
+	.agent { font-family: var(--sans); font-size: 25px; font-weight: 600; }
+	.task { font-size: 18px; color: #c9bfab; margin-top: 4px; }
+	.badge { display: inline-block; margin-top: 10px; font-family: var(--sans); font-size: 19px; padding: 4px 12px; border-radius: 8px; background: #2a3747; color: #8c97a6; transition: all 0.4s; }
+	.badge.light { background: #3d6e5a; color: var(--cream); }
+	.badge.standard { background: #9a7a32; color: var(--cream); }
+	.badge.deep { background: var(--cord); color: var(--cream); }
+	.child .badge { margin-top: 6px; }
+	.model { font-family: var(--mono); font-size: 15px; color: #8c97a6; margin-top: 6px; }
+	.event { font-family: var(--mono); font-size: 15px; margin-top: 8px; min-height: 18px; }
+	path.cord { fill: none; stroke: #3a4757; stroke-width: 5; stroke-linecap: round; transition: stroke 0.4s; }
+	path.cord.on { stroke: var(--cord); }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">Every subagent gets its own tier</div>
+	<div class="tree">
+		<svg id="cords" viewBox="0 0 1192 470" preserveAspectRatio="none" aria-hidden="true"></svg>
+		<div class="children" id="children"></div>
+		<div class="card node parent reveal hidden" id="parent"><div class="agent">main session</div><div class="task">"fix the flaky upload retries, then get it reviewed"</div><div class="model">calls subagent with three tasks</div></div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { launches, escalation } = window.MEDIA.subagents;
+const cords = $("#cords");
+launches.forEach((launch, index) => {
+	const node = el("div", "card child reveal hidden");
+	node.id = `child-${index}`;
+	node.innerHTML = `<div class="row"><span class="agent">${launch.agent}</span><span class="task">"${launch.task}"</span></div><span class="badge">classifying…</span><span class="model"></span><div class="event"></div>`;
+	$("#children").append(node);
+});
+const tree = $(".tree").getBoundingClientRect();
+const from = $("#parent").getBoundingClientRect();
+launches.forEach((_launch, index) => {
+	const box = $(`#child-${index}`).getBoundingClientRect();
+	const y0 = from.top - tree.top + from.height / 2;
+	const y1 = box.top - tree.top + box.height / 2;
+	const x0 = from.right - tree.left;
+	const x1 = box.left - tree.left;
+	const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+	path.setAttribute("d", `M${x0} ${y0} C ${x0 + 60} ${y0}, ${x1 - 60} ${y1}, ${x1} ${y1}`);
+	path.setAttribute("class", "cord");
+	path.id = `cord-${index}`;
+	cords.append(path);
+});
+cords.setAttribute("viewBox", `0 0 ${tree.width} ${tree.height}`);
+
+window.play = async () => {
+	show("#parent");
+	await caption("The model delegates three tasks in one parallel call.");
+	await sleep(1800);
+	for (const [index] of launches.entries()) {
+		show(`#child-${index}`);
+		$(`#cord-${index}`).classList.add("on");
+		await sleep(350);
+	}
+	await caption("pi-switchboard classifies each task at launch, within the agent's limits.");
+	await sleep(1200);
+	for (const [index, launch] of launches.entries()) {
+		const node = $(`#child-${index}`);
+		const badge = node.querySelector(".badge");
+		badge.textContent = launch.tier;
+		badge.classList.add(launch.tier);
+		node.querySelector(".model").textContent = `  ${launch.model}, ${launch.why}`;
+		await sleep(900);
+	}
+	await caption("Each child runs on its tier's models, and keeps routing inside itself.");
+	await sleep(2200);
+	const index = launches.findIndex((launch) => launch.agent === escalation.agent);
+	const node = $(`#child-${index}`);
+	node.querySelector(".event").textContent = `✗ ${escalation.trigger}`;
+	node.querySelector(".event").className = "event warn";
+	await caption(`Inside the ${escalation.agent}, ${escalation.trigger}: it escalates one tier.`);
+	await sleep(1500);
+	const badge = node.querySelector(".badge");
+	badge.classList.remove(escalation.from);
+	badge.classList.add(escalation.to);
+	badge.textContent = `${escalation.from} → ${escalation.to}`;
+	node.querySelector(".model").textContent = "  escalated for the rest of this task";
+	node.classList.add("chosen");
+	await sleep(2000);
+	await caption("Explicit models, agent frontmatter and external runners are never overridden.");
+	await sleep(2800);
+};
+</script>
+</body>
+</html>

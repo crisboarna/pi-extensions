@@ -6,7 +6,7 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/node_modules", "!**/coverage", "!package-lock.json", "!**/test/fixtures", "!**/*.md"]
+		"includes": ["**", "!**/node_modules", "!**/coverage", "!package-lock.json", "!**/test/fixtures", "!**/*.md", "!**/media/src/data.*"]
 	},
 	"formatter": {
 		"enabled": true,

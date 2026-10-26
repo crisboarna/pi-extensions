@@ -39,7 +39,9 @@
 		],
 		"skills": [
 			"./skills"
-		]
+		],
+		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/cover.png",
+		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.mp4"
 	},
 	"files": [
 		"src",
@@ -61,6 +63,7 @@
 	"scripts": {
 		"test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
 		"test:integration": "node --test \"test/integration/**/*.test.ts\"",
-		"coverage": "SWITCHBOARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\""
+		"coverage": "SWITCHBOARD_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\"",
+		"media": "node media/data.ts && node ../../scripts/tools/media.ts packages/pi-switchboard/media"
 	}
 }

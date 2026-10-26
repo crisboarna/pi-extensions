@@ -1,0 +1,87 @@
+/* Shared look of the README animations: the switchboard panel, cream text, brass and the red patch cord. */
+body {
+	background: var(--panel-deep);
+	color: var(--cream);
+	font-family: var(--text);
+}
+.stage {
+	position: absolute;
+	inset: 0;
+	padding: 36px 44px;
+}
+.title {
+	font-family: var(--sans);
+	font-weight: 600;
+	font-size: 30px;
+	color: var(--cream);
+}
+.caption {
+	position: absolute;
+	left: 44px;
+	right: 44px;
+	bottom: 30px;
+	font-size: 24px;
+	color: #d9cfbb;
+	min-height: 32px;
+	transition: opacity 0.4s;
+}
+.card {
+	background: var(--panel);
+	border-radius: 14px;
+	padding: 16px 20px;
+}
+.mono {
+	font-family: var(--mono);
+}
+.dim {
+	color: #8c97a6;
+}
+.hidden {
+	opacity: 0;
+	transform: translateY(8px);
+}
+.reveal {
+	transition:
+		opacity 0.45s ease,
+		transform 0.45s ease;
+}
+.lit {
+	color: var(--cream);
+}
+.ok {
+	color: var(--lamp);
+}
+.warn {
+	color: #e0a458;
+}
+.chosen {
+	outline: 3px solid var(--cord);
+	outline-offset: 2px;
+}
+.lamp {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #3a4757;
+	margin-right: 10px;
+	vertical-align: middle;
+	transition: background 0.3s;
+}
+.lamp.on {
+	background: var(--lamp);
+	box-shadow: 0 0 10px var(--lamp);
+}
+.lamp.red {
+	background: var(--cord);
+	box-shadow: 0 0 10px var(--cord);
+}
+.lamp.amber {
+	background: #e0a458;
+	box-shadow: 0 0 10px #e0a458;
+}
+@media (prefers-reduced-motion: reduce) {
+	.reveal {
+		transition: none;
+	}
+}

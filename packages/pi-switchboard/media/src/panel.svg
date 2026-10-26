@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" width="420" height="300" aria-hidden="true">
+  <defs>
+    <radialGradient id="brass" cx="35%" cy="35%" r="70%"><stop offset="0" stop-color="#e3c47a"/><stop offset="1" stop-color="#a8823a"/></radialGradient>
+  </defs>
+  <rect x="20" y="24" width="380" height="252" rx="18" fill="#233040"/>
+  <g font-family="IBM Plex Sans Condensed" font-size="17" fill="#f1e6cf" opacity="0.8">
+    <text x="94" y="196" text-anchor="middle">request</text>
+    <text x="328" y="76">deep</text>
+    <text x="328" y="146">standard</text>
+    <text x="328" y="216">light</text>
+  </g>
+  <path d="M94 150 C 180 150, 190 70, 282 70" fill="none" stroke="#56677a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M94 150 C 180 150, 190 210, 282 210" fill="none" stroke="#56677a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M94 150 Q 197 196, 300 140" fill="none" stroke="#c8452f" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="94" cy="150" r="22" fill="url(#brass)"/><circle cx="94" cy="150" r="9" fill="#1a2431"/>
+  <circle cx="300" cy="70" r="16" fill="#233040" stroke="url(#brass)" stroke-width="7"/>
+  <circle cx="300" cy="140" r="20" fill="url(#brass)"/><circle cx="300" cy="140" r="8" fill="#c8452f"/>
+  <circle cx="300" cy="210" r="16" fill="#233040" stroke="url(#brass)" stroke-width="7"/>
+</svg>

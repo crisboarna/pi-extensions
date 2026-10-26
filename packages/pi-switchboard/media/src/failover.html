@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 22px; }
+	.label { font-size: 17px; color: #8c97a6; margin-bottom: 10px; }
+	.member { font-family: var(--mono); font-size: 19px; padding: 12px 14px; border-radius: 10px; margin: 10px 0; background: #2a3747; transition: all 0.35s; }
+	.member .state { display: block; font-size: 15px; margin-top: 4px; color: #8c97a6; min-height: 19px; }
+	.member.benched > span:nth-child(2) { color: #7b8796; text-decoration: line-through; text-decoration-color: rgba(200, 69, 47, 0.7); }
+	.log { margin-top: 22px; font-family: var(--mono); font-size: 17px; line-height: 1.6; min-height: 120px; }
+	.log div { color: #c9bfab; }
+	.legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; font-size: 18px; }
+	.legend b { display: block; font-family: var(--sans); font-size: 21px; color: var(--cream); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">When a subscription runs dry</div>
+	<div class="grid">
+		<div class="card"><div class="label">standard tier, strategy ordered</div><div id="standard"></div></div>
+		<div class="card"><div class="label">deep tier, the one above</div><div id="deep"></div></div>
+	</div>
+	<div class="card log" id="log"></div>
+	<div class="legend reveal hidden" id="legend" style="margin-top: 18px">
+		<div><b>usage limit</b>the whole account sits out until its reset</div>
+		<div><b>rate limit</b>that model sits out for the retry time</div>
+		<div><b>tier empty</b>the request borrows from the tier above</div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const steps = window.MEDIA.failover;
+const tiers = { standard: ["provider-a/mid-model", "provider-b/mid-model", "provider-c/mid-model"], deep: ["provider-a/big-model", "provider-b/big-model"] };
+const rows = new Map();
+for (const [tier, members] of Object.entries(tiers)) {
+	for (const member of members) {
+		const row = el("div", "member");
+		const lamp = el("span", "lamp");
+		row.append(lamp, el("span", "", member), el("span", "state", ""));
+		$(`#${tier}`).append(row);
+		rows.set(member, row);
+	}
+}
+const state = (member, text, cls, lampCls) => {
+	const row = rows.get(member);
+	row.querySelector(".state").textContent = text;
+	row.querySelector(".state").className = `state ${cls ?? ""}`;
+	row.querySelector(".lamp").className = `lamp ${lampCls ?? ""}`;
+};
+const choose = (member) => {
+	for (const row of rows.values()) row.classList.remove("chosen");
+	rows.get(member).classList.add("chosen");
+	state(member, "serving the request", "ok", "on");
+};
+const log = (text) => {
+	$("#log").append(el("div", "", text));
+};
+const provider = (model) => model.slice(0, model.indexOf("/"));
+const errorName = (cls) => ({ quota: "usage limit", "rate-limit": "rate limit" })[cls] ?? cls;
+
+window.play = async () => {
+	const [first, ...failures] = steps;
+	await caption("A request runs on the first healthy member of its tier.");
+	choose(first.model);
+	log(`${time(first.decision.ts)}  ${first.decision.tier.chosen} → ${first.model}`);
+	await sleep(2200);
+	for (const step of failures) {
+		const error = step.decision.error;
+		const failed = step.decision.switch.from;
+		if (error.class === "quota") {
+			await caption(`${provider(failed)} hits its usage limit: the whole account sits out until ${time(error.benchedUntil)}.`);
+			for (const member of rows.keys()) if (provider(member) === provider(failed)) {
+				state(member, `account benched until ${time(error.benchedUntil)}`, "warn", "red");
+				rows.get(member).classList.add("benched");
+			}
+		} else {
+			await caption(`${failed} is rate limited: that model sits out until ${time(error.benchedUntil)}.`);
+			state(failed, `rate limited until ${time(error.benchedUntil)}`, "warn", "amber");
+			rows.get(failed).classList.add("benched");
+		}
+		await sleep(1500);
+		choose(step.model);
+		const borrowed = step.decision.tier.borrowedFrom;
+		log(`${time(step.decision.ts)}  ${errorName(error.class)} on ${failed} → ${step.model}${borrowed ? ` (${borrowed} empty, borrowed from ${step.decision.tier.chosen})` : ""}`);
+		if (borrowed) await caption(`Every ${borrowed} member is out, so the request borrows from the tier above.`);
+		else await caption(`The same request continues on ${step.model}.`);
+		await sleep(2300);
+	}
+	show("#legend");
+	await caption("No retry by hand, and every switch is in the decision record.");
+	await sleep(3200);
+};
+</script>
+</body>
+</html>

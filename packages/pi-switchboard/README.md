@@ -9,7 +9,7 @@
 
 Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs to small models, design and review to the strongest, and each subagent to its own tier. A local classifier answers three questions about the request, your rules turn the answers into a tier, and a strategy picks one of the tier's models, moving to another account when a subscription runs dry. Every choice is recorded, so you can see why each model ran and what it cost.
 
-![A request is classified as work=implement, depth 1.1, not risky; the second rule matches with confidence above the threshold; the middle tier is chosen; two of its models are cooling down and the strategy picks the third; the decision is recorded](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.gif)
+![A request to review a diff is classified as work=review (0.93), depth 1.6, not risky; rule 2 matches and its confidence 0.93 clears the 0.85 threshold; the deep tier is chosen; its first model is cooling down after a rate limit, so the strategy picks the second; the decision is recorded. At 0.62 confidence the standard tier would have run instead](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.gif)
 
 ## Install
 
@@ -56,13 +56,13 @@ More: [rules and confidence](docs/rules-and-confidence.md), [strategies and fail
 
 ## When a subscription runs dry
 
-![Three accounts serve requests; the first hits its usage limit and is benched until its reset; its requests move to the second; the second is rate limited and one request borrows from the tier above](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/failover.gif)
+![A request runs on account a in the standard tier; account a hits its usage limit, so every model on that account sits out until 14:00 and the request moves to account b; account b is rate limited, so account c takes over; when account c is rate limited too, the request borrows account b's model from the deep tier](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/failover.gif)
 
 pi does not retry a usage-limit error itself, so pi-switchboard moves the request to another member when one can take over, and keeps the original error in the record. When every tier is out, the turn ends with the earliest reset, and opt-in auto-continue resumes then.
 
 ## Subagents
 
-![A parent task launches three subagents; the scout gets the light tier, the worker the standard tier and the reviewer the deep tier; the worker escalates one tier after its tests fail twice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/subagents.gif)
+![A parent task launches three subagents; the scout gets the light tier, the worker the standard tier and the reviewer the deep tier; the worker escalates one tier after bash fails twice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/subagents.gif)
 
 Each task of a `subagent` call is classified at launch and given a tier-pinned model such as `switchboard/work.deep`, within the agent's own limits. Explicit models, agent frontmatter and external runners are never overridden. [How it works](docs/subagents.md).
 

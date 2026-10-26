@@ -66,6 +66,8 @@ export interface RunOptions {
 	env?: string[];
 	/** Allow network access (default: none). */
 	network?: boolean;
+	/** Run as the host user, so files written to mounts are not owned by root. */
+	asHostUser?: boolean;
 }
 
 /** Runs a tool with the repository mounted read-only at /repo; returns its exit code. */
@@ -74,6 +76,10 @@ export function runTool(tool: DockerTool, args: string[], options: RunOptions = 
 	const volumes = [`${ROOT}:/repo:ro`, ...(options.mounts ?? [])].flatMap((volume) => ["--volume", volume]);
 	const env = (options.env ?? []).filter((name) => process.env[name]).flatMap((name) => ["--env", name]);
 	const network = options.network ? [] : ["--network", "none"];
-	const run = spawnSync("docker", ["run", "--rm", ...network, "--workdir", "/repo", ...volumes, ...env, reference, ...args], { cwd: ROOT, stdio: "inherit" });
+	const user = options.asHostUser && process.getuid && process.getgid ? ["--user", `${process.getuid()}:${process.getgid()}`, "--env", "HOME=/tmp"] : [];
+	const run = spawnSync("docker", ["run", "--rm", ...network, ...user, "--workdir", "/repo", ...volumes, ...env, reference, ...args], {
+		cwd: ROOT,
+		stdio: "inherit",
+	});
 	return run.status ?? 1;
 }

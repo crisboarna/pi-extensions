@@ -1,0 +1,39 @@
+/* pi-switchboard brand: a telephone switchboard's enamel panel, brass jacks,
+   a red patch cord and cream label stock. */
+:root {
+	--panel: #233040;
+	--panel-deep: #1a2431;
+	--brass: #c9a34e;
+	--cord: #c8452f;
+	--idle: #56677a;
+	--cream: #f1e6cf;
+	--paper: #f6efe0;
+	--ink: #1d2733;
+	--muted: #6a7686;
+	--lamp: #7fbf6a;
+	--sans: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+	--text: "IBM Plex Sans", sans-serif;
+	--mono: "IBM Plex Mono", monospace;
+}
+* {
+	box-sizing: border-box;
+	margin: 0;
+}
+html,
+body {
+	width: 100%;
+	height: 100%;
+}
+body {
+	font-family: var(--text);
+	-webkit-font-smoothing: antialiased;
+	overflow: hidden;
+}
+body.dark {
+	background: var(--panel-deep);
+	color: var(--cream);
+}
+body.light {
+	background: var(--paper);
+	color: var(--ink);
+}

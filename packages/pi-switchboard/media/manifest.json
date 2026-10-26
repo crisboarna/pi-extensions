@@ -1,0 +1,71 @@
+{
+	"items": [
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=dark",
+			"out": "banner-dark.png",
+			"width": 1100,
+			"height": 330
+		},
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=light",
+			"out": "banner-light.png",
+			"width": 1100,
+			"height": 330
+		},
+		{
+			"kind": "png",
+			"page": "cover.html",
+			"out": "cover.png",
+			"width": 1200,
+			"height": 630,
+			"scale": 1
+		},
+		{
+			"kind": "png",
+			"page": "mark.svg",
+			"out": "mark.png",
+			"width": 256,
+			"height": 256
+		},
+		{
+			"kind": "animation",
+			"page": "decision.html",
+			"out": "decision",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 12
+			},
+			"tailMs": 400
+		},
+		{
+			"kind": "animation",
+			"page": "failover.html",
+			"out": "failover",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 12
+			},
+			"tailMs": 400
+		},
+		{
+			"kind": "animation",
+			"page": "subagents.html",
+			"out": "subagents",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 12
+			},
+			"tailMs": 400
+		}
+	]
+}
