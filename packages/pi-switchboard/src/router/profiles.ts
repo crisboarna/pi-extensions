@@ -26,8 +26,9 @@ export function profileAllowedHere(profile: Profile, cwd: string, home: string):
 	if (profile.projects.length === 0) return true;
 	const expand = (pattern: string) => (pattern.startsWith("~/") ? `${home}${pattern.slice(1)}` : pattern);
 	return profile.projects.some((pattern) => {
-		const expanded = expand(pattern).replace(/\/$/u, "");
-		return matchGlob(expanded, cwd) || matchGlob(`${expanded}/*`, cwd) || matchGlob(expanded.endsWith("**") ? expanded.replace(/\*\*$/u, "*") : expanded, cwd);
+		// A trailing /** means the folder and everything under it; a plain path also covers its subfolders.
+		const base = expand(pattern).replace(/\/$/u, "").replace(/\/\*\*$/u, "");
+		return matchGlob(base, cwd) || matchGlob(`${base}/*`, cwd);
 	});
 }
 

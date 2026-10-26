@@ -25,6 +25,7 @@ import { mapToAccount } from "./selection/accounts.ts";
 import { systemClock, systemRng } from "./util/runtime.ts";
 import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
 import { CHANGED_CHANNEL, quotaProviders, UsageCache } from "./selection/pi-usage.ts";
+import { AutoContinue } from "./autocontinue.ts";
 import { BudgetTracker } from "./budgets/track.ts";
 import { DebugLog } from "./record/debug-log.ts";
 import { createRedactor } from "./classifier/redact.ts";
@@ -86,12 +87,11 @@ export class Runtime {
 	entryPath = "";
 	readonly listeners = new Set<(decision: DecisionEntry) => void>();
 	readonly budgets = new BudgetTracker();
-	private autoContinueTimer?: ReturnType<typeof setTimeout>;
+	readonly autoContinue: AutoContinue;
 	/** pi-usage quota, refreshed in the background for providers a quota strategy needs. */
 	readonly usage: UsageCache;
 	private stopUsageListener?: () => void;
-	/** When a pending auto-continue fires, epoch ms. */
-	autoContinueAt?: number;
+
 	private debugLog?: DebugLog;
 	/** Set in subagent children: publishes live status and the transcript mirror. */
 	live?: LiveWriter;
@@ -109,6 +109,12 @@ export class Runtime {
 		this.ledger = new UsageLedger(join(this.dir, "usage.jsonl"));
 		this.store = new MemoryHealthStore();
 		this.warmup = new WarmupTracker(createClassifyFn(() => this.ctx));
+		this.autoContinue = new AutoContinue({
+			enabled: () => this.config.exhaustion.autoContinue,
+			maxWaitMs: () => this.config.exhaustion.maxWaitMs,
+			send: () => this.pi.sendUserMessage("continue", { deliverAs: "followUp" }),
+			notify: (message) => this.ctx?.ui.notify(`pi-switchboard: ${message}`, "info"),
+		});
 		this.usage = new UsageCache({
 			events: this.pi.events,
 			session: () => (this.ctx ? { sessionManager: this.ctx.sessionManager, sessionId: this.ctx.sessionManager.getSessionId() } : undefined),
@@ -466,7 +472,7 @@ export class Runtime {
 		} catch (error) {
 			if (error instanceof ExhaustedError) {
 				ctx.ui.notify(error.message, "warning");
-				if (error.earliest && request.reason === "user") this.scheduleAutoContinue(error.earliest.at, ctx);
+				if (error.earliest && request.reason === "user") this.autoContinue.schedule(error.earliest.at);
 			}
 			throw error;
 		}
@@ -593,26 +599,12 @@ export class Runtime {
 		ctx.ui.setStatus(STATUS_SUB_KEY, this.routedSubagents > 0 ? renderTemplate(this.config.ui.statusSub, { routed: this.routedSubagents }) : undefined);
 	}
 
-	/** Opt-in: sends `continue` once at the earliest reset (DESIGN.md 9.6). */
-	scheduleAutoContinue(at: number, ctx: ExtensionContext): void {
-		if (!this.config.exhaustion.autoContinue || this.autoContinueTimer) return;
-		const wait = at - Date.now() + 5_000;
-		if (wait <= 0 || wait > this.config.exhaustion.maxWaitMs) return;
-		this.autoContinueAt = Date.now() + wait;
-		ctx.ui.notify(`pi-switchboard: will send "continue" at ${new Date(this.autoContinueAt).toLocaleTimeString()}; /tier resume cancel stops it`, "info");
-		this.autoContinueTimer = setTimeout(() => {
-			this.autoContinueTimer = undefined;
-			this.autoContinueAt = undefined;
-			this.pi.sendUserMessage("continue", { deliverAs: "followUp" });
-		}, wait);
-		this.autoContinueTimer.unref?.();
+	/** When a pending auto-continue fires, epoch ms. */
+	get autoContinueAt(): number | undefined {
+		return this.autoContinue.at;
 	}
 
-	cancelAutoContinue = (): void => {
-		if (this.autoContinueTimer) clearTimeout(this.autoContinueTimer);
-		this.autoContinueTimer = undefined;
-		this.autoContinueAt = undefined;
-	};
+	cancelAutoContinue = (): void => this.autoContinue.cancel();
 
 	shutdown(): void {
 		this.stopUsageListener?.();

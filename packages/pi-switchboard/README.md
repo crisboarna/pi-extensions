@@ -108,7 +108,15 @@ Measured on an M5 Max: about 9 s on the first call while LM Studio loads the mod
 
 **If LM Studio also serves your chat models**, turn off its just-in-time option that keeps only the last loaded model, or load models explicitly with `lms load`. Otherwise the classifier and the chat model evict each other mid-request ("Model is unloaded").
 
-Remote classifiers (Jev, Clef) need `"allowRemote": true` on the classifier entry, because they receive your request text.
+Remote classifiers (Jev, Clef) need `"allowRemote": true` on the classifier entry, because they receive your request text. Without it they are skipped, and the decision record says so. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers count as remote.
+
+### Quota-aware strategies
+
+`quota-headroom` and `soonest-reset` choose by how much allowance a model's account has left. They read it from [pi-usage](https://www.npmjs.com/package/@narumitw/pi-usage) when it is installed (its `usage:query:v1` protocol; refreshed in the background, only for providers that these strategies use), else from a member's own `budget` measured against the local usage ledger. With neither, the strategy's fallback chooses. A ChatGPT Business account reports no allowance windows, so it always takes the fallback.
+
+### Checks at session start
+
+pi-switchboard warns (and `/tier validate` repeats) when: Plannotator sets a model for a phase, a project's `.pi/multi-pass.json` restricts providers without listing `switchboard`, or a configured classifier is not registered. The note about pooling several accounts of one provider is shown once and remembered in `state.json`.
 
 ## Footer
 
@@ -135,6 +143,7 @@ Shows, for example, `copilot · deep · claude-opus-5.5 · 0.92`. Change it with
 | `/tier log [n]`, `/tier explain [id]` | Decisions and their full reasoning |
 | `/tier health` | Cooldowns, in-flight requests, latency |
 | `/tier report`, `/tier budget` | Cost by tier, model and task; spend against budgets |
+| `/tier inspect [--open] [-o file]` | Write the offline HTML inspector for this session, with subagent transcripts |
 | `/tier validate` | Check the config |
 | `/tier resume cancel` | Cancel a pending auto-continue |
 
@@ -175,13 +184,15 @@ Remove the two `powerline.customItems` entries if you added them.
 - **Usage-limit failover rewrites the error text** of the failed message so pi retries it; the original error stays in the decision record.
 - **`--reclassify` outside pi** only reaches local System One classifiers; remote ones need pi's credentials.
 - **`/tier` commands print through pi's notifications**, which print mode (`pi -p`) does not show.
-- **Not yet verified end to end**: a real pi-subagents child launched by a model on a tier-pinned model. The parts are unit-tested and the main session is verified live; see DESIGN.md section 19.
+- **Not yet verified end to end**: a real pi-subagents child launched by a model on a tier-pinned model, and the interactive TUI (navigator, widget, tier editor). The integration tests drive the same code paths against a fake host; the main session is verified live. See DESIGN.md section 19.
+- **Quota data is best effort**: the first decision after start-up may run before pi-usage has answered, and then the quota strategy's fallback chooses.
 
 ## Development
 
 ```bash
 npm run link:pi      # links the installed pi release into node_modules for types and tests
 npm test             # unit tests (node --test, no dependencies)
+npm run test:integration   # loads the extension through jiti against a fake pi host
 npm run typecheck
 ```
 

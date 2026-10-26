@@ -704,7 +704,9 @@ pi has no typed rate-limit error, so `failed.message.errorMessage` is classified
 
 ### 9.5 Usage ledger and quota metrics
 
-Every assistant message routed by pi-switchboard appends `{ ts, session, task, provider, model, input, output, cacheRead, cacheWrite, cost }` to `~/.pi/agent/pi-switchboard/usage.jsonl` (rotated by `retainDays`). It feeds `/tier report`, the report CLI, and the quota strategies when pi-usage is absent: remaining headroom is `budget - used in window`, and the reset is the end of the current window. pi-usage is not installed on this machine; when present, its `usage:query:v1` event bus answer takes precedence.
+Every assistant message routed by pi-switchboard appends `{ ts, session, task, provider, model, input, output, cacheRead, cacheWrite, cost }` to `~/.pi/agent/pi-switchboard/usage.jsonl` (rotated by `retainDays`). It feeds `/tier report`, the report CLI, and the quota strategies when pi-usage is absent: remaining headroom is `budget - used in window`, and the reset is the end of the current window. When pi-usage is installed, its answer takes precedence (below). It is not installed on this machine, so only the ledger path has run against real data.
+
+**pi-usage** (`src/selection/pi-usage.ts`). The client follows pi-usage's `docs/api/usage-v1.md`: emit `usage:query:v1` with `{ session, sessionId, providerId, refresh, signal, respond }`; the service offers a value or promise through `respond()` before its handler first awaits, no offer means no service, and the request is aborted at the deadline. `refresh: true` is required, because cache-only reads currently return `cache-miss`. A report's buckets give `remaining` or `used` against a `limit` (percent buckets default to 100), `modelKeys` and `resetsAt` in milliseconds; for a model the tightest applying bucket is its quota, and buckets with unknown measurements are skipped, so a report with no usable buckets (a ChatGPT Business account) is no quota. Selection reads a synchronous cache that is refreshed in the background, at session start, on each user turn when stale, and after `usage:changed:v1`, and only for providers used by a `quota-headroom` or `soonest-reset` tier. Reports are trusted for five minutes or until the service's own `expiresAt`; a missing service backs off for ten minutes and a failed read for two.
 
 ### 9.6 Tier exhaustion
 
@@ -1010,6 +1012,9 @@ Done means: all tests pass, typecheck is clean, `pi -na` loads the extension wit
 | 62 | DESIGN.md approved as the build specification (2026-10-25) |
 | 63 | Use `extensionBindings` for exact linking only; tier-pinned models stay the routing channel (works on every pi-subagents version and for parallel tasks) |
 | 64 | Agents with an external runner are never routed (found while adding bindings: they would have received a model they cannot use) |
+| 65 | Launch mode runs the tier's strategy over healthy members, with leases (it took the first member before) |
+| 66 | pi-usage is read in the background, only for providers that a quota strategy uses, and wins over the local ledger |
+| 67 | The terms-of-service notice for pooled accounts is shown once and remembered in `state.json` |
 
 Derived in this document (not asked, flag if wrong): unconfident decisions never lower the tier (4.1 step 5); `$planMode: planning` is a built-in top-tier rule (7.2); escalation climbs one rank, not to `@top` (4.2); the virtual model lives under its own provider id (4); when pi-subagents' preflight cannot tell whether an agent's model is pinned, the task is treated as pinned and left alone (5.3); hysteresis does not apply to subagent launches (5.3); `/tier init` is the only way auto-tiered profiles appear, never implicitly at runtime (7.7); the all-exhausted case throws from `route()` instead of sending a request that would fail (9.6); the navigator shortcut defaults to `ctrl+alt+w` (11.5).
 
@@ -1064,3 +1069,28 @@ LM Studio's just-in-time loading keeps only the last loaded model by default. Wh
 - Exact child linking through `extensionBindings` (5.7, decision 63); verified against pi-subagents' own binding validator at the 48-launch maximum (3.2 KB).
 - Fixed: agents with an external runner were routable and would have received a `switchboard/...` model (decision 64).
 - 173 unit tests, typecheck clean.
+
+### Update 2026-10-26: follow-up work
+
+Eight gaps found after the first build were closed, plus three bugs found while closing them. Tests: 215 unit and 13 integration, typecheck clean.
+
+| # | Gap | Now |
+|---|---|---|
+| 1 | `allowRemote` was not enforced | A remote classifier (judged by its server's address) is skipped with a recorded reason unless the entry sets `allowRemote`. |
+| 2 | `/tier inspect` had no handler | Writes the HTML inspector from the session's entries (so ephemeral sessions work), `--open` launches it, `-o` picks the path. |
+| 3 | In-flight counts were always 0 | Requests hold a lease while they stream; launch-mode children hold one from launch until a foreground call returns (a background child's lease expires on its own after 15 minutes). |
+| 4 | Missing validation | Session start and `/tier validate` warn about Plannotator phase models (all three config layers), a project `multi-pass.json` `allowedSubs` that omits `switchboard`, and classifiers that are unregistered or remote without `allowRemote`. The terms-of-service notice is shown once (`state.json`). |
+| 5 | pi-usage not read | Implemented (9.5). |
+| 6 | `cooldown.defaultMs` ignored | A rate-limited member sits out for the tier's `cooldown.defaultMs` when the provider gives no time (default 5 minutes). |
+| 7 | Inspector lacked in-memory children | A child with no session file is rebuilt from its transcript mirror, joined to its launch decision by the id its binding carried. |
+| 8 | No integration test | `test/integration/extension.test.ts` loads the extension through jiti against `test/support/fake-pi.ts` (registry, classifier, Plannotator and a stand-in pi-subagents, in a temp agent directory). Auto-continue now has its own class and fake-timer tests, and `projects`-restricted profiles are tested. |
+
+Bugs found and fixed on the way:
+
+- **Launch mode ignored the strategy.** It took the first enabled member of the tier, skipping the tier's strategy, cooldowns and health. It now selects like the main session does, borrowing within the agent's tier limits, and skips the task when the whole neighbourhood is cooling down.
+- **A usage limit was not recorded when the engine had no current route** (for example right after `/reload`), so the next turn hit the exhausted account again.
+- **A project pattern `~/work/**` did not match `~/work` itself.**
+
+Decisions 65 to 67: launch mode runs the tier's strategy; pi-usage is read in the background only for providers that quota strategies use; the terms-of-service notice is shown once.
+
+Still not verified: a model-launched pi-subagents child on a tier-pinned model (waiting for subscription quota and the pi-subagents release after 0.82.1), and the interactive TUI.
