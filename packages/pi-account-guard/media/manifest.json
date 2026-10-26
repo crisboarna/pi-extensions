@@ -53,7 +53,7 @@
 			"height": 720,
 			"gif": {
 				"width": 800,
-				"fps": 8,
+				"fps": 6,
 				"colors": 48
 			},
 			"tailMs": 400,

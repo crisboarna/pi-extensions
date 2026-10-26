@@ -43,6 +43,13 @@ function watch(page, item) {
 	});
 }
 
+/**
+ * How much slower than written the pages hold their frames and type: every sleep() in a page and
+ * stage.type() stretch by it, waits for a program do not. One setting for every animation and clip;
+ * an item may override it with `pace`.
+ */
+const PACE = 1.6;
+
 const pageUrl = (item) => `${pathToFileURL(join(dir, "src", item.page)).href}${item.query ? `?${item.query}` : ""}`;
 
 async function still(item) {
@@ -84,6 +91,9 @@ async function animation(item, url = pageUrl(item), prepare = async () => {}) {
 	const context = await browser.newContext({ viewport: size, recordVideo: { dir: videos, size } });
 	const started = Date.now();
 	const page = await context.newPage();
+	await page.addInitScript((pace) => {
+		window.MEDIA_PACE = pace;
+	}, item.pace ?? PACE);
 	watch(page, item);
 	if (narration) {
 		// stage.say(id): marks when the line starts and tells the page how long to wait.

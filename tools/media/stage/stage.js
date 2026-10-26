@@ -9,7 +9,11 @@
 // Keys go through Playwright's keyboard into xterm.js, so pi receives exactly
 // what a real terminal sends, in whatever keyboard protocol pi negotiated.
 (() => {
-	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	/** The media pace (render.mjs sets window.MEDIA_PACE): holds and typing slow down by it; waits for pi do not. */
+	const pace = () => window.MEDIA_PACE ?? 1;
+	/** A hold the viewer reads through: the page's sleep(), stretched by the pace. */
+	const sleep = (ms) => wait(ms * pace());
 	const THEME = {
 		background: "#10161e",
 		foreground: "#e6dcc6",
@@ -113,7 +117,7 @@
 				const found = this.find(pattern, { last });
 				if (found) return found;
 				if (Date.now() - started > timeout) throw new Error(`stage: timed out waiting for ${pattern}\n${this.lines().join("\n")}`);
-				await sleep(60);
+				await wait(60);
 			}
 		}
 
@@ -121,7 +125,7 @@
 			const started = Date.now();
 			while (this.find(pattern)) {
 				if (Date.now() - started > timeout) throw new Error(`stage: ${pattern} did not go away`);
-				await sleep(60);
+				await wait(60);
 			}
 		}
 
@@ -129,20 +133,20 @@
 		async type(text, { delay = 42 } = {}) {
 			for (const char of text) {
 				await window.__stageType(char);
-				await sleep(delay + Math.round(Math.sin(char.charCodeAt(0)) * delay * 0.4));
+				await wait((delay + Math.round(Math.sin(char.charCodeAt(0)) * delay * 0.4)) * pace());
 			}
 		}
 
 		/** A Playwright key name such as "Enter", "Escape", "ArrowDown" or "Control+Alt+w". */
 		async press(key, { after = 120 } = {}) {
 			await window.__stagePress(key);
-			await sleep(after);
+			await wait(after);
 		}
 
 		/** Types a slash command and runs it; the first Enter may only accept pi's autocomplete. */
 		async command(text, options) {
 			await this.type(text, options);
-			await sleep(250);
+			await wait(250);
 			await this.press("Enter", { after: 400 });
 			if (this.find(text, { last: true })?.row >= this.term.rows - 8) await this.press("Enter", { after: 300 });
 		}
@@ -244,12 +248,12 @@
 		/** Speaks a line of the page's narration file and waits until it and the pause after it are over. */
 		async say(id) {
 			if (!window.__stageSay) throw new Error(`stage.say("${id}"): this item has no narration file in its manifest entry`);
-			await sleep(await window.__stageSay(id));
+			await wait(await window.__stageSay(id));
 		}
 
 		/** Saves the current frame as `<out>.png`, or `<out>-<name>.png` when named, once callouts have faded in. */
 		async still(name) {
-			await sleep(450);
+			await wait(450);
 			await window.__stageStill?.(name);
 		}
 

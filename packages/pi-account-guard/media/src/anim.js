@@ -1,6 +1,7 @@
 // A tiny timeline for the README animations. Each page defines its scenes and
 // exposes window.play(), which the media renderer records until it resolves.
-window.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Holds stretch by the media pace (render.mjs sets window.MEDIA_PACE), so every animation slows down together.
+window.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms * (window.MEDIA_PACE ?? 1)));
 window.$ = (selector) => document.querySelector(selector);
 window.show = (selector) => {
 	for (const node of document.querySelectorAll(selector)) node.classList.remove("hidden");
