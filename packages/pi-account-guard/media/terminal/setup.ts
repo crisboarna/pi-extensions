@@ -49,7 +49,7 @@ export const CONFIG = {
 	],
 };
 
-const providerExtension = (llmUrl: string, bridge: boolean) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
+export const providerExtension = (llmUrl: string, bridge: boolean) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
 const ACCOUNTS = ${JSON.stringify(ACCOUNTS)};
 export default function demoAccounts(pi) {
 	// The guard keys claude-bridge handling on the provider id; this stand-in has only that id, not the bridge.

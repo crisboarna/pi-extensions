@@ -1,0 +1,36 @@
+<h1>Try pi-account-guard live</h1>
+<p>Real pi and pi-account-guard run here, in your browser, in a <a href="https://webcontainers.io">WebContainer</a>: a shell in a home with a work repository (<code>~/work/acme-api</code>) and a personal one (<code>~/personal/garden-planner</code>), and three demo accounts: <code>acme</code> (work), <code>homelab</code> (personal) and <code>spare</code> (untagged). Their replies are scripted; nothing leaves the page. git does not run in the browser, so this config decides places by path only.</p>
+<div class="try-live">
+	<div class="steps">
+		<button type="button" id="start" class="primary">Start the demo (about 10 MB to download)</button>
+		<p id="status" class="status" aria-live="polite"></p>
+		<ol>
+			<li><button type="button" data-type="cd ~/personal/garden-planner && pi --model acme/work-model\r" disabled>Open pi in the personal repository on the work account</button></li>
+			<li><button type="button" data-type="summarize the garden beds\r" disabled>Send a prompt: it is blocked</button> Then press Enter to switch to <code>homelab</code>.</li>
+			<li><button type="button" data-type="/model spare/spare-model\r" disabled>Switch to the untagged account</button> and send another prompt: the tag prompt asks for its zones.</li>
+			<li><button type="button" data-type="/guard\r" disabled>Show <code>/guard</code></button></li>
+			<li><button type="button" data-type="\u0004" disabled>Leave pi (Ctrl+D)</button>, then <button type="button" data-type="pi -p --model acme/work-model &quot;summarize the garden beds&quot;; echo &quot;exit $?&quot;\r" disabled>run it from a script</button>: exit code 77.</li>
+		</ol>
+	</div>
+	<div class="terminal" id="terminal"></div>
+</div>
+<script src="../vendor/xterm/xterm.js"></script>
+<script src="../vendor/xterm/addon-fit.js"></script>
+<script type="module">
+	import { startTry } from "../try/runtime.js";
+
+	const status = (text) => (document.getElementById("status").textContent = text);
+	document.getElementById("start").addEventListener("click", async (event) => {
+		event.target.disabled = true;
+		try {
+			const session = await startTry({ element: document.getElementById("terminal"), status, shell: true });
+			for (const button of document.querySelectorAll("[data-type]")) {
+				button.disabled = false;
+				button.addEventListener("click", () => session.type(button.dataset.type.replace(/\\r/g, "\r").replace(/\\u0004/g, "\u0004")));
+			}
+		} catch (error) {
+			status(`The demo could not start: ${error.message}`);
+			window.TRY = { state: "failed", error: error.message };
+		}
+	});
+</script>

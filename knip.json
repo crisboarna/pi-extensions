@@ -18,7 +18,7 @@
 	"ignoreExportsUsedInFile": true,
 	"workspaces": {
 		".": {
-			"entry": ["scripts/checks/*.ts", "scripts/hooks/*.ts", "scripts/tools/*.ts", "test/**/*.test.ts", "tools/site/build.ts"],
+			"entry": ["scripts/checks/*.ts", "scripts/hooks/*.ts", "scripts/tools/*.ts", "test/**/*.test.ts", "tools/site/build.ts", "tools/site/try/*.ts"],
 			"project": ["scripts/**/*.ts", "test/**/*.ts", "tools/site/**/*.ts"]
 		},
 		"packages/*": {
@@ -32,6 +32,10 @@
 		"@earendil-works/pi-coding-agent",
 		"@earendil-works/pi-tui",
 		"pi-subagents",
-		"pi-powerline-footer"
+		"pi-powerline-footer",
+		"@webcontainer/api",
+		"@xterm/xterm",
+		"@xterm/addon-fit",
+		"coi-serviceworker"
 	]
 }

@@ -2,7 +2,7 @@
 import type { LlmRequest } from "../../../../../tools/media/terminal-kit/fake-llm.ts";
 import type { GuardScene } from "../setup.ts";
 
-const reply = (request: LlmRequest) => {
+export const reply = (request: LlmRequest) => {
 	// A long answer streams slowly, so a model change lands while it runs.
 	if (request.lastUser.includes("planting plan"))
 		return {

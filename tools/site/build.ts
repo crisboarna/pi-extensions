@@ -6,7 +6,7 @@
 //
 //   node tools/site/build.ts [out]      (default: site/dist)
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Marked, type Tokens } from "marked";
@@ -39,6 +39,8 @@ export interface SitePackage {
 	pages: SitePage[];
 	/** A page with the package's static explainer, when it has one (site/explainers/<folder>.html). */
 	explainer: boolean;
+	/** A live try-it page, when its page (site/try/<folder>.html) and its snapshot (site/.snapshots) exist. */
+	live: boolean;
 }
 
 const titleOf = (markdown: string, fallback: string) => /^# (.+)$/m.exec(markdown)?.[1]?.replace(/`/g, "") ?? fallback;
@@ -89,6 +91,7 @@ export function sitePackages(root = ROOT): SitePackage[] {
 				accent: ACCENTS[folder] ?? "var(--brass)",
 				pages,
 				explainer: existsSync(join(root, "site", "explainers", `${folder}.html`)),
+				live: existsSync(join(root, "site", "try", `${folder}.html`)) && existsSync(join(root, "site", ".snapshots", `${folder}.snapshot.gz`)),
 			};
 		});
 }
@@ -180,18 +183,27 @@ function sidebar(pkg: SitePackage, page: SitePage, root: string): string {
 				const title = group === "Overview" ? "Overview" : candidate.title;
 				return `<li><a href="${root}${candidate.out}"${current}>${escapeHtml(title)}</a></li>`;
 			});
-		if (group === "Overview" && pkg.explainer) {
-			const current = page.out === `${pkg.folder}/explain.html` ? ' aria-current="page"' : "";
-			items.push(`<li><a href="${root}${pkg.folder}/explain.html"${current}>Try it in the browser</a></li>`);
-		}
+		const extra: Array<[boolean, string, string]> = [
+			[pkg.explainer, "explain.html", "Try it in the browser"],
+			[pkg.live, "try.html", "Run it live"],
+		];
+		if (group === "Overview")
+			for (const [present, file, title] of extra) {
+				if (!present) continue;
+				const current = page.out === `${pkg.folder}/${file}` ? ' aria-current="page"' : "";
+				items.push(`<li><a href="${root}${pkg.folder}/${file}"${current}>${title}</a></li>`);
+			}
 		return items.length ? `<h2>${group}</h2><ul>${items.join("")}</ul>` : "";
 	});
 	return `<aside class="sidebar">${groups.join("")}</aside>`;
 }
 
 function tryBox(pkg: SitePackage): string {
-	if (!pkg.explainer) return "";
-	return `<section class="try"><h2>Try it in the browser</h2><ul><li><a href="explain.html">The explainer</a> runs ${pkg.folder}'s own code on your config, in this page.</li></ul></section>`;
+	const items = [
+		pkg.explainer ? `<li><a href="explain.html">The explainer</a> runs ${pkg.folder}'s own code on your config, in the page.</li>` : "",
+		pkg.live ? `<li><a href="try.html">Run it live</a>: real pi and ${pkg.folder} in a container in your browser, with demo accounts.</li>` : "",
+	].join("");
+	return items ? `<section class="try"><h2>Try it in the browser</h2><ul>${items}</ul></section>` : "";
 }
 
 function landing(packages: SitePackage[], copies: Set<string>): string {
@@ -263,6 +275,41 @@ function explainerPage(pkg: SitePackage, packages: SitePackage[]): string {
 	});
 }
 
+/** A live try-it page: its fragment in the site template, with cross-origin isolation for the WebContainer and the terminal's styles. */
+function livePage(pkg: SitePackage, packages: SitePackage[]): string {
+	const page: SitePage = { source: "", out: `${pkg.folder}/try.html`, title: "Run it live", group: "Overview" };
+	return fill({
+		title: `Run ${pkg.folder} live in the browser`,
+		description: pkg.pitch,
+		root: "../",
+		icon: `${pkg.folder}/mark.svg`,
+		// coi-serviceworker reloads the page once with the isolation headers a static host cannot send.
+		head: '<script src="../coi-serviceworker.js"></script>\n<link rel="stylesheet" href="../vendor/xterm/xterm.css">',
+		kind: "package live",
+		accent: pkg.accent,
+		packages: packageNav(packages, "../", pkg.folder),
+		sidebar: sidebar(pkg, page, "../"),
+		content: readFileSync(join(SITE, "try", `${pkg.folder}.html`), "utf8"),
+	});
+}
+
+/** The browser code the live pages load: xterm.js, its fit addon, the WebContainer API, the isolation worker and the page runtime. */
+function copyLiveRuntime(out: string): void {
+	const modules = join(ROOT, "node_modules");
+	const copies: Array<[string, string]> = [
+		[join(modules, "@xterm", "xterm", "lib", "xterm.js"), "vendor/xterm/xterm.js"],
+		[join(modules, "@xterm", "xterm", "css", "xterm.css"), "vendor/xterm/xterm.css"],
+		[join(modules, "@xterm", "addon-fit", "lib", "addon-fit.js"), "vendor/xterm/addon-fit.js"],
+		[join(modules, "coi-serviceworker", "coi-serviceworker.min.js"), "coi-serviceworker.js"],
+		[join(SITE, "try", "runtime.js"), "try/runtime.js"],
+	];
+	for (const [from, to] of copies) {
+		mkdirSync(dirname(join(out, to)), { recursive: true });
+		copyFileSync(from, join(out, to));
+	}
+	cpSync(join(modules, "@webcontainer", "api", "dist"), join(out, "vendor", "webcontainer"), { recursive: true, filter: (path) => !/\.d\.ts$/.test(path) });
+}
+
 /** Builds the site into `out` and returns the problems the link check found (none on success). */
 export function buildSite(out: string): string[] {
 	rmSync(out, { recursive: true, force: true });
@@ -294,8 +341,14 @@ export function buildSite(out: string): string[] {
 		const mark = join(ROOT, "packages", pkg.folder, "media", "src", "mark.svg");
 		if (existsSync(mark)) copyFileSync(mark, join(out, pkg.folder, "mark.svg"));
 		if (pkg.explainer) write(join(out, pkg.folder, "explain.html"), explainerPage(pkg, packages));
+		if (pkg.live) {
+			write(join(out, pkg.folder, "try.html"), livePage(pkg, packages));
+			mkdirSync(join(out, pkg.folder, "try"), { recursive: true });
+			copyFileSync(join(SITE, ".snapshots", `${pkg.folder}.snapshot.gz`), join(out, pkg.folder, "try", "snapshot.gz"));
+		}
 	}
 	if (packages.some((pkg) => pkg.explainer)) compileExplainers(out);
+	if (packages.some((pkg) => pkg.live)) copyLiveRuntime(out);
 	write(join(out, "index.html"), landing(packages, copies));
 	write(join(out, "llms.txt"), llmsText(packages));
 	for (const source of copies) {

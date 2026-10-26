@@ -16,3 +16,4 @@ packages/*/media/check-*.mp4
 # The built site and its verify screenshots
 site/dist/
 site/site-shots/
+site/.snapshots/
