@@ -1,8 +1,15 @@
-# pi-switchboard
+# @crisboarna/pi-switchboard
 
-A [pi](https://pi.dev) package that picks a model for every piece of work. A local decision classifier answers three typed questions about each request (what kind of work, how deep, how risky). Rules turn the answers into a tier, your profile maps the tier to one or more models, and a strategy picks one. It routes the main session and pi-subagents children, and it records every decision so you can see why each model ran and what it cost.
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D24-green)](package.json)
 
-The source names no provider or model. Everything comes from your config.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/banner-dark.png">
+  <img alt="pi-switchboard: the right model for every request, including subagents, with a receipt for each choice" src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/banner-light.png" width="1100">
+</picture>
+
+Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs to small models, design and review to the strongest, and each subagent to its own tier. A local classifier answers three questions about the request, your rules turn the answers into a tier, and a strategy picks one of the tier's models, moving to another account when a subscription runs dry. Every choice is recorded, so you can see why each model ran and what it cost.
+
+![A request is classified as work=implement, depth 1.1, not risky; the second rule matches with confidence above the threshold; the middle tier is chosen; two of its models are cooling down and the strategy picks the third; the decision is recorded](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/decision.gif)
 
 ## Install
 
@@ -10,161 +17,98 @@ The source names no provider or model. Everything comes from your config.
 pi install npm:@crisboarna/pi-switchboard
 ```
 
-Restart pi, then:
+Restart pi. Requires Node 24 or later and pi 1.4 or later.
+
+## Try it first
+
+None of these runs a model; only `/tier init` writes a file, after you confirm the diff:
 
 ```text
-/tier init          # proposes profiles from your signed-in models, shows a diff, writes ~/.pi/agent/pi-switchboard.json
-/model              # pick switchboard/auto (or switchboard/<profile>)
+/tier tour                                      # a two-minute walkthrough with sample decisions
+/tier init                                      # propose a config from your signed-in models; shows the diff first
+/tier try rename foo to bar in utils.ts         # how this request would route
+/tier try work=plan depth=1.8 risky=no design the billing service   # the same with typed answers, no classifier needed
+/tier doctor                                    # check the setup, with what to fix
 ```
 
-Requires Node 24 or later and pi 1.4 or later.
+Then pick `switchboard/auto` in `/model`. To watch decisions before trusting them, `/tier dry-run on` classifies and records every request but runs your baseline tier.
 
-## How it works
+The classifier is a small local model (about 0.2–0.7 s per decision); [classifier setup](docs/classifier-setup.md) takes a few minutes. Without one, requests use your fallback tier and everything else still works.
 
-```text
-user turn ─▶ evidence (request, plan phase, tool outcomes; redacted)
-          ─▶ classifier (one call: work, depth, risky)
-          ─▶ ruleset (first matching tier rule, then floor rules)
-          ─▶ confidence gate (below the threshold: the fallback tier)
-          ─▶ hysteresis, pin, escalation
-          ─▶ strategy picks a member of the tier (health, cooldowns, affinity)
-          ─▶ the request runs on that model; the decision is recorded
-```
+## What you get
 
-- **Main session**: select `switchboard/auto` (profile chosen by your rules), `switchboard/<profile>`, or `switchboard/<profile>.<tier>` (pinned tier).
-- **Subagents**: when pi-subagents is installed, the parent classifies each task at launch and writes a tier-pinned model (`switchboard/<profile>.<tier>`) into the call. pi-switchboard is loaded into every native child, so failover and escalation also work inside children. Explicit models, agent frontmatter and `agentOverrides` are never overridden.
-- **Failover**: usage limits bench the whole provider account, rate limits bench the model, overloads retry before switching. When every model of a tier is cooling down, the router borrows from the next tier up, then down.
+- **The right model per request**: three typed answers (what kind of work, how deep, how risky) and your rules pick the tier, with a confidence gate so an unsure answer never sends a design task to a small model.
+- **Subagents routed too**: each [pi-subagents](https://www.npmjs.com/package/pi-subagents) task gets its own tier, and pi-switchboard runs inside every child, so failover and escalation work there as well.
+- **Work keeps going when a limit hits**: several models per tier, a usage limit benches the whole account, a rate limit benches the model, and a tier with nothing left borrows from its neighbour.
+- **A receipt for every choice**: the answers, the rule, the tier and why that member was picked, in `/tier explain`, a live navigator, and an offline HTML inspector that also estimates what a task would have cost on another tier.
+- **Private, cheap decisions**: the classifier runs on your machine, request text is redacted before it sees it, and remote classifiers are opt-in.
+- **Your models, your rules**: any provider pi supports, 15 selection strategies, custom rulesets and thresholds; the source names no provider or model.
 
-Full design: [DESIGN.md](DESIGN.md). Terms: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr/](docs/adr/).
+## How a decision is made
+
+1. The request, the plan phase and recent tool outcomes go to the local classifier, redacted.
+2. It answers `work` (plan, research, implement, review, mechanical), `depth` (0 to 2) and `risky` (yes or no), each with a confidence.
+3. The first matching rule picks a tier; if its answers are not confident enough, the fallback tier runs instead. Floor rules can raise the tier: in the built-in rules, confidently risky work runs on at least the middle tier.
+4. The tier's strategy picks a healthy member: cooling-down members sit out, and the previous member is kept so the prompt cache survives.
+5. The request runs on that model, and the decision is recorded next to the conversation, outside the model's context.
+
+More: [rules and confidence](docs/rules-and-confidence.md), [strategies and failover](docs/strategies-and-failover.md).
+
+## When a subscription runs dry
+
+![Three accounts serve requests; the first hits its usage limit and is benched until its reset; its requests move to the second; the second is rate limited and one request borrows from the tier above](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/failover.gif)
+
+pi does not retry a usage-limit error itself, so pi-switchboard moves the request to another member when one can take over, and keeps the original error in the record. When every tier is out, the turn ends with the earliest reset, and opt-in auto-continue resumes then.
+
+## Subagents
+
+![A parent task launches three subagents; the scout gets the light tier, the worker the standard tier and the reviewer the deep tier; the worker escalates one tier after its tests fail twice](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/subagents.gif)
+
+Each task of a `subagent` call is classified at launch and given a tier-pinned model such as `switchboard/work.deep`, within the agent's own limits. Explicit models, agent frontmatter and external runners are never overridden. [How it works](docs/subagents.md).
+
+## How it compares
+
+Model routing for pi usually takes one of three approaches:
+
+- **Decide once per session.** Cache-friendly and cheap, but a session that starts with a small question stays on the small model when the work gets hard.
+- **Decide every turn, one model per tier.** Adapts to the work, but one rate limit stops the tier, and subagents are usually left on their own model.
+- **Rotate accounts on limits.** Keeps work going, but every request runs on the same kind of model, whatever it is.
+
+pi-switchboard decides per request with a confidence gate, holds several models per tier with a strategy and shared health, fails over by account, model or tier, and adds three things these approaches leave out: routing inside each subagent, a recorded explanation of every choice with an inspector, and previews (`/tier try`, dry-run) before you trust it.
 
 ## Configuration
 
-`~/.pi/agent/pi-switchboard.json` (schema: [`schema/pi-switchboard.schema.json`](schema/pi-switchboard.schema.json)). A project may add or adjust profiles in `.pi/pi-switchboard.json` once you trust it; it can never change classifiers.
+`~/.pi/agent/pi-switchboard.json`, written by `/tier init` and edited by `/tier models` or by hand ([schema](schema/pi-switchboard.schema.json)).
 
-Examples:
-
-- [`examples/two-subscriptions.json`](examples/two-subscriptions.json): one profile per subscription, three tiers each.
-- [`examples/mixed-providers.json`](examples/mixed-providers.json): five custom tiers across three providers, a shared round-robin tier, agent limits.
-- [`examples/local-only.json`](examples/local-only.json): every tier on local models.
-- [`examples/single-tier.json`](examples/single-tier.json): one tier, two subscriptions, least-recently-used.
-
-To try an example without touching your config: `PI_SWITCHBOARD_CONFIG=/path/to/example.json pi`.
-
-Profiles with no `ruleset` use the built-in one, which targets rank keywords so it works with any tier names:
-
-| Answers | Tier |
+| Setting | Effect |
 |---|---|
-| Plannotator in planning mode, `work` is plan or review, or `depth ≥ 1.5` | `@top` |
-| `work` is mechanical or research and `depth < 1.0` | `@bottom` |
-| anything else | `@middle` |
-| `risky` (confident) | at least `@middle` |
+| `profiles.<name>.tiers.<tier>.members` | which models a tier may use |
+| `profiles.<name>.tiers.<tier>.strategy` | how a tier picks a member (default `sticky`) |
+| `classifiers[].threshold` | how sure the classifier must be before a rule fires (default 0.85) |
+| `profiles.<name>.ruleset` | which answers map to which tier (default: the built-in ruleset) |
+| `subagents.agents.<agent>` | `minTier`, `maxTier` or `fixedTier` for a subagent |
 
-### Confidence and thresholds
+A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it can never change classifiers. Four [examples](examples/) cover two subscriptions, mixed providers, local-only models and a single tier; try one with `PI_SWITCHBOARD_CONFIG=examples/<file>.json pi`.
 
-Choice and yes/no answers gate a rule; their confidence is on one scale (0 = even split, 1 = certain). A rule fires only when every gated answer it uses reaches the threshold. Depth is judged by its value, never by its confidence. Thresholds are per classifier (`classifiers[].threshold`), with `classification.threshold` (0.85) as the default and `profiles.<name>.threshold` as an override.
+## Reference
 
-| Threshold | 5-option choice needs top probability | Yes/no needs |
-|---|---|---|
-| 0.70 | 0.76 | ≥ 0.85 or ≤ 0.15 |
-| 0.80 | 0.84 | ≥ 0.90 or ≤ 0.10 |
-| 0.85 | 0.88 | ≥ 0.925 or ≤ 0.075 |
-
-`/tier report` shows the fallback rate and a confidence histogram, so you can tune it.
-
-## Classifier setup
-
-Any local server that answers `POST <baseUrl>/systemone` works: LM Studio, `llama-server` (llama.cpp build 11773 or later), or a model's own System One shim.
-
-### LM Studio with H2O-Lightning-4B (recommended)
-
-LM Studio treats a GGUF as a decision model only when its metadata declares a decision type. MLX builds load as chat models and are rejected.
-
-```bash
-mkdir -p ~/.lmstudio/models/h2oai/h2o-lightning-4b-gguf
-curl -L -o ~/.lmstudio/models/h2oai/h2o-lightning-4b-gguf/h2o-lightning-4b-Q8_0.gguf \
-  https://huggingface.co/h2oai/h2o-lightning-4b-gguf/resolve/main/h2o-lightning-4b-Q8_0.gguf
-~/.lmstudio/bin/lms ls | grep h2o        # must show type "decision"
-```
-
-Smoke test (the API names the yes/no type `noul`):
-
-```bash
-curl -s http://127.0.0.1:1234/v1/systemone -H 'content-type: application/json' -d '{
-  "model": "h2o-lightning-4b",
-  "state": { "request": "rename the variable foo to bar" },
-  "questions": { "work": { "type": "choice", "instructions": "What kind of work?",
-    "criteria": { "plan": "Designing", "implement": "Writing code", "mechanical": "A small fully specified step" } } }
-}'
-```
-
-Config:
-
-```json
-"classifierProviders": [{ "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "models": ["h2o-lightning-4b"] }],
-"classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }]
-```
-
-Measured on an M5 Max: about 9 s on the first call while LM Studio loads the model, then 0.2–0.7 s per decision. pi-switchboard sends a warm-up call at session start; `keepWarmMs` repeats it while idle.
-
-**If LM Studio also serves your chat models**, turn off its just-in-time option that keeps only the last loaded model, or load models explicitly with `lms load`. Otherwise the classifier and the chat model evict each other mid-request ("Model is unloaded").
-
-Remote classifiers (Jev, Clef) need `"allowRemote": true` on the classifier entry, because they receive your request text. Without it they are skipped, and the decision record says so. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers count as remote.
-
-### Quota-aware strategies
-
-`quota-headroom` and `soonest-reset` choose by how much allowance a model's account has left. They read it from [pi-usage](https://www.npmjs.com/package/@narumitw/pi-usage) when it is installed (its `usage:query:v1` protocol; refreshed in the background, only for providers that these strategies use), else from a member's own `budget` measured against the local usage ledger. With neither, the strategy's fallback chooses. A ChatGPT Business account reports no allowance windows, so it always takes the fallback.
-
-### Checks at session start
-
-pi-switchboard warns (and `/tier validate` repeats) when: Plannotator sets a model for a phase, a project's `.pi/multi-pass.json` restricts providers without listing `switchboard`, or a configured classifier is not registered. The note about pooling several accounts of one provider is shown once and remembered in `state.json`.
-
-## Footer
-
-Add to `powerline.customItems` in `~/.pi/agent/settings.json`:
-
-```json
-{ "id": "tier", "statusKey": "tier", "position": "right", "prefix": "⇄", "hideWhenMissing": true },
-{ "id": "tier-sub", "statusKey": "tier-sub", "position": "right", "hideWhenMissing": true }
-```
-
-Shows, for example, `copilot · deep · claude-opus-5.5 · 0.92`. Change it with `ui.status` (placeholders: `{profile} {tier} {rank} {member} {model} {provider} {account} {thinking} {strategy} {confidence} {reason} {kind} {switches}`).
-
-## Commands
-
-| Command | Does |
-|---|---|
-| `/tier` | Status, active profile and why, last decisions |
-| `/tier init` | Propose a config from signed-in models (diff, then write) |
-| `/tier models` | Edit profiles, tiers and members (diff and `.bak` before saving) |
-| `/tier watch` or `Ctrl+Alt+W` | Live navigator: running tasks and subagents, decisions, transcripts |
-| `/tier profile <name\|auto> [--global]` | Choose the profile |
-| `/tier pin <tier\|@top\|@middle\|@bottom\|auto> [--subagents]` | Pin a tier |
-| `/tier dry-run on\|off` | Classify and record, but run the baseline tier |
-| `/tier log [n]`, `/tier explain [id]` | Decisions and their full reasoning |
-| `/tier health` | Cooldowns, in-flight requests, latency |
-| `/tier report`, `/tier budget` | Cost by tier, model and task; spend against budgets |
-| `/tier inspect [--open] [-o file]` | Write the offline HTML inspector for this session, with subagent transcripts |
-| `/tier validate` | Check the config |
-| `/tier resume cancel` | Cancel a pending auto-continue |
-
-`Ctrl+Alt` shortcuts need Ghostty's `macos-option-as-alt`; change the key with `ui.navigator.shortcut`.
-
-## Inspector, replay and report
-
-```bash
-pi-switchboard inspect ~/.pi/agent/sessions/.../session.jsonl -o inspect.html   # offline HTML: tasks, decisions, costs, counterfactuals
-pi-switchboard replay  session.jsonl [--json] [--reclassify]                    # text timeline; --reclassify re-runs local classifiers on the recorded evidence
-pi-switchboard report  [--since 7d]                                             # cost by tier, model and provider across sessions
-```
-
-Decisions are custom session entries: they never enter the model's context. pi's `/export` HTML does not show them; use the inspector.
+- [Classifier setup](docs/classifier-setup.md): LM Studio, llama-server, remote classifiers, what the classifier sees.
+- [Configuration](docs/configuration.md): profiles, tiers, members, profile selection, virtual models, project files.
+- [Rules and confidence](docs/rules-and-confidence.md): the built-in ruleset, writing rules, thresholds, tuning.
+- [Strategies, failover and quota](docs/strategies-and-failover.md): every strategy, error classes, borrowing, pi-usage, budgets.
+- [Subagents](docs/subagents.md): launch classification, child and launch mode, agent limits, accounts.
+- [Commands](docs/commands.md): every `/tier` command and its output.
+- [Footer](docs/footer.md): the powerline items and placeholders.
+- [Inspector, replay and report](docs/inspector.md): the HTML inspector and the `pi-switchboard` CLI.
+- [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
+- Design of record: [DESIGN.md](DESIGN.md), terms: [GLOSSARY.md](GLOSSARY.md), decisions: [docs/adr/](docs/adr/).
 
 ## Data and privacy
 
 - Network calls go only to configured classifiers.
 - pi-switchboard never reads `auth.json` or other credential files. It reads `multi-pass.json` for account names only.
 - Evidence (request text, short tool errors) is redacted once (home directory, tokens, keys) before it reaches the classifier, the session entry or any log.
-- Files under `~/.pi/agent/pi-switchboard/`: `health.json` (shared cooldowns and pointers), `usage.jsonl` (usage ledger), `state.json` (global profile), `live/` (subagent status and transcript mirrors, deleted 24 hours after a child ends), `decisions.jsonl` (only with `debug.log`).
+- Files under `~/.pi/agent/pi-switchboard/`: `health.json` (shared cooldowns and pointers), `usage.jsonl` (usage ledger), `state.json` (global profile and one-time notices), `live/` (subagent status and transcript mirrors, deleted 24 hours after a child ends), `decisions.jsonl` (only with `debug.log`).
 
 ## Uninstall
 
@@ -173,19 +117,17 @@ pi remove npm:@crisboarna/pi-switchboard
 rm -rf ~/.pi/agent/pi-switchboard ~/.pi/agent/pi-switchboard.json
 ```
 
-Remove the two `powerline.customItems` entries if you added them.
+Remove the footer items if you added them.
 
-## Known limitations
+## Limitations
 
-- **Workflow-script children** (`workflow: true`, `runs.run`, `runs.all`) are not routed: their script text is read from the reply, so no hook can change it.
-- **Exact child linking needs the next pi-subagents release.** pi-switchboard passes each launch's decision id to the child through `extensionBindings`. Foreground children receive bindings from the first pi-subagents release after 0.82.1 ([#3049](https://github.com/nicobailon/pi-subagents/pull/3049), merged); before that they are matched by agent and start time. Routing itself works on every version.
-- **Agents with an external runner** (`claude-code`, `codex-exec`, other `runner.type` agents) are never routed; they keep their own model settings.
-- **`/model` size**: every tier of every profile appears as `switchboard/<profile>.<tier>`.
-- **Usage-limit failover rewrites the error text** of the failed message so pi retries it; the original error stays in the decision record.
-- **`--reclassify` outside pi** only reaches local System One classifiers; remote ones need pi's credentials.
-- **`/tier` commands print through pi's notifications**, which print mode (`pi -p`) does not show.
-- **Not yet verified end to end**: a real pi-subagents child launched by a model on a tier-pinned model, and the interactive TUI (navigator, widget, tier editor). The integration tests drive the same code paths against a fake host; the main session is verified live. See DESIGN.md section 19.
-- **Quota data is best effort**: the first decision after start-up may run before pi-usage has answered, and then the quota strategy's fallback chooses.
+- **Workflow-script children** (`workflow: true`, `runs.run`, `runs.all`) are not routed: their script text comes from the model's reply, so no hook can change it.
+- **Exact child linking needs the next pi-subagents release** after 0.82.1 ([#3049](https://github.com/nicobailon/pi-subagents/pull/3049), merged); before that, foreground children are matched to their launch by agent and start time. Routing works on every version.
+- **Agents with an external runner** (`claude-code`, `codex-exec`) are never routed.
+- **`/model` lists every tier** of every profile as `switchboard/<profile>.<tier>`.
+- **`/tier` output uses pi's notifications**, which print mode (`pi -p`) does not show.
+- **Not yet verified end to end**: a real pi-subagents child on a tier-pinned model, and the interactive TUI (navigator, widget, tier editor, tour). The integration tests drive the same code against a fake pi host; the main session is verified live.
+- **Quota data is best effort**: the first decision after start-up may run before pi-usage answers, and then the quota strategy's fallback chooses.
 
 ## Development
 
@@ -195,11 +137,10 @@ This package lives in the [pi-extensions](https://github.com/crisboarna/pi-exten
 npm test                   # unit tests (node --test)
 npm run test:integration   # loads the extension through jiti against a fake pi host
 npm run coverage           # unit and integration tests, 90% line, branch and function thresholds
+npm run media              # rebuilds the banner, cover and animations (Docker)
 ```
 
-Repository-wide gates (lint, types, packaging) run from the root with `npm run check`; see the root [CONTRIBUTING.md](../../CONTRIBUTING.md).
-
-`test/support/lmstudio-chat.ts` registers LM Studio's chat models as a pi provider for free local end-to-end runs:
+Repository-wide gates run from the root with `npm run check`; see the root [CONTRIBUTING.md](../../CONTRIBUTING.md). `test/support/lmstudio-chat.ts` registers LM Studio's chat models as a pi provider for free local end-to-end runs:
 
 ```bash
 PI_SWITCHBOARD_CONFIG=/path/to/local.json pi -ne -e ./src/index.ts -e ./test/support/lmstudio-chat.ts \
@@ -208,4 +149,4 @@ PI_SWITCHBOARD_CONFIG=/path/to/local.json pi -ne -e ./src/index.ts -e ./test/sup
 
 ## License
 
-MIT
+[MIT](LICENSE)
