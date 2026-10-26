@@ -11,12 +11,13 @@ import { accountOfModel } from "./account-of.ts";
 import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
 import { runInteractiveBlock, showOverrideFooter } from "./interactive-block.ts";
 import { registerModelGuard } from "./model-guard.ts";
+import { createUnknownAccountGate, type UnknownAccountDeps } from "./unknown-account.ts";
 
 /** Exit code of a headless Block (ADR 0005). */
 const BLOCK_EXIT_CODE = 77;
 
 /** Everything the hooks read from or write to the outside world, so tests can inject fakes. */
-export interface GuardDeps {
+export interface GuardDeps extends Omit<UnknownAccountDeps, "configPath" | "writeStderr"> {
 	home: string;
 	configPath: string;
 	/** The file text, `undefined` when the file is missing; may throw. */
@@ -40,6 +41,7 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 	};
 
 	const configState = createConfigState(() => deps.readConfigText(deps.configPath));
+	const unknownAccounts = createUnknownAccountGate(pi, deps, configState);
 
 	function loadConfig(ctx: ExtensionContext): ConfigResult {
 		const { result, warning } = configState.load();
@@ -96,13 +98,19 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			cachedPlace = undefined;
 			overrides = NO_OVERRIDES;
 			configState.reset();
+			unknownAccounts.reset();
 			if (ctx.hasUI) showOverrideFooter(ctx, overrides);
 			currentPlace(ctx.cwd, loadConfig(ctx));
 		}),
 	);
 
 	registerModelGuard(pi, {
-		evaluate: check,
+		// The process Override covers an Unknown account in every hook; the `input` hook logs and warns when it lets a turn through.
+		evaluate(ctx) {
+			const checked = check(ctx);
+			if (checked?.decision.verdict === "block" && unknownAccounts.covers(checked.decision.cause, ctx)) return { ...checked, decision: { verdict: "match" } };
+			return checked;
+		},
 		overrides: overrideStore,
 		messages: deps,
 		writeStderr: deps.writeStderr,
@@ -112,21 +120,34 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		},
 	});
 
+	/** Checks the turn; an error in the check Blocks the turn itself, because pi swallows hook errors and carries on (ADR 0001). */
+	function checkOrBlock(ctx: ExtensionContext): ReturnType<typeof check> {
+		try {
+			return check(ctx);
+		} catch (error) {
+			logHandlerError(pi, "input", error);
+			return { decision: { verdict: "block", cause: { kind: "internal-error", reason: errorText(error) } }, place: { ok: false, reason: "internal error" }, config: { ok: false, errors: [] } };
+		}
+	}
+
 	// Every user turn passes here, `/`-prefixed text included: skills and prompt templates arrive unexpanded.
 	pi.on("input", async (event, ctx) => {
-		let checked: ReturnType<typeof check>;
-		try {
-			checked = check(ctx);
-		} catch (error) {
-			// pi swallows hook errors and carries on, so an error here must Block itself (ADR 0001).
-			logHandlerError(pi, "input", error);
-			checked = { decision: { verdict: "block", cause: { kind: "internal-error", reason: errorText(error) } }, place: { ok: false, reason: "internal error" }, config: { ok: false, errors: [] } };
-		}
+		let checked = checkOrBlock(ctx);
 		if (!checked) return undefined;
-		const verdict = applyOverrides(checked.decision, checked.place, overrides);
+		let verdict = applyOverrides(checked.decision, checked.place, overrides);
 		if (verdict.verdict !== "block") return undefined;
-		const { cause } = verdict;
 		try {
+			if (verdict.cause.kind === "unknown-account") {
+				if (unknownAccounts.letThrough(verdict.cause, ctx)) return undefined;
+				// A tag that gives a Match lets the turn proceed with no resubmit; any other tag falls to the Block with the new tag in its title.
+				if (await unknownAccounts.tag(verdict.cause, ctx)) {
+					checked = checkOrBlock(ctx);
+					if (!checked) return undefined;
+					verdict = applyOverrides(checked.decision, checked.place, overrides);
+					if (verdict.verdict !== "block") return undefined;
+				}
+			}
+			const { cause } = verdict;
 			if (cause.kind !== "internal-error") pi.appendEntry("guard.block", logData(cause, checked.place));
 			if (ctx.hasUI && cause.kind !== "internal-error") {
 				return await runInteractiveBlock({

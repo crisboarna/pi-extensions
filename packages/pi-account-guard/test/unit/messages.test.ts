@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { BlockCause } from "../../src/core/decide.ts";
-import { configFallbackWarning, handlerErrorNotice, headlessBlockMessage } from "../../src/core/messages.ts";
+import { configFallbackWarning, handlerErrorNotice, headlessBlockMessage, processOverrideWarning } from "../../src/core/messages.ts";
 
 const context = { home: "/home/me", configPath: "/home/me/.pi/agent/account-guard.json" };
 const account = { provider: "acme", source: "oauth" };
@@ -46,6 +46,7 @@ describe("headlessBlockMessage", () => {
 				"Add to ~/.pi/agent/account-guard.json accounts:",
 				'  {"provider":"acme","source":"oauth","zones":["personal"]}',
 				"or run pi, then: /guard tag acme oauth personal",
+				"or set PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 for this process.",
 				"",
 			].join("\n"),
 		);
@@ -86,5 +87,14 @@ describe("configFallbackWarning", () => {
 describe("handlerErrorNotice", () => {
 	it("names the handler and the reason", () => {
 		assert.equal(handlerErrorNotice("session_start", "boom"), "guard: the session_start handler failed (boom).");
+	});
+});
+
+describe("processOverrideWarning", () => {
+	it("names the variable, the first account let through and that every turn is logged", () => {
+		assert.equal(
+			processOverrideWarning(account),
+			"guard: PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 lets turns through to accounts with no zone tag, starting with acme (oauth). Each turn is logged in the session.",
+		);
 	});
 });

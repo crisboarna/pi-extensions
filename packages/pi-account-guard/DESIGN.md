@@ -210,7 +210,7 @@ Aborting after a multi-pass rotation ends cleanly: multi-pass stops, there is no
 
 ### 9.3 Headless (print, JSON)
 
-The turn is not sent. The message goes to stderr (stdout stays clean for piping) and the process sets `process.exitCode = 77` (ADR 0005), so scripts can tell a guard Block (77) from a model error (1). Print mode does not fail by itself: a handled `input` exits 0 with no output, so the guard must write stderr and set the code explicitly.
+The turn is not sent. The message goes to stderr (stdout stays clean for piping) and the process sets `process.exitCode = 77` (ADR 0005), so scripts can tell a guard Block (77) from a model error (1). Print mode does not fail by itself: a handled `input` exits 0 with no output, so the guard must write stderr and set the code explicitly. When the Block aborts a run (a mid-turn model change or a `before_agent_start` re-check), pi print mode prints its own `This operation was aborted` and assigns exit code 1 after the extensions have shut down, which would replace 77; the guard therefore sets the code again in a `process` `exit` listener (found while building the mid-turn Block, ticket #19). stderr then carries the guard's notice and pi's aborted line.
 
 ```text
 $ pi -p "summarise the diary"
@@ -400,7 +400,7 @@ Step 1 of the build is one smoke test per item below against real pi. A failing 
 | `input` can await a dialog and then return `continue` | smoke (rpc) | Verified. The turn does not start until the `select` is answered, then runs. |
 | `input` returning `handled` plus `ctx.ui.setEditorText` refills the editor | smoke (rpc) | Verified. The prompt response is `disposition: "handled"`, the client gets an `extension_ui_request` with `method: "set_editor_text"`, and no turn starts. |
 | `ctx.abort()` works from `model_select` mid-turn | smoke | Verified, with the model switched at `turn_start`. `ctx.isIdle()` is false in the handler and `ctx.model` is already the new model; no request reaches the provider after the abort. The aborted assistant message has `stopReason: "error"` and `errorMessage: "This operation was aborted"`, not `"aborted"`. |
-| `process.exitCode = 77` survives `pi -p` | smoke | Verified, with a handled `input`: exit 77, empty stdout, stderr as written. |
+| `process.exitCode = 77` survives `pi -p` for a handled `input`; after an aborted run it needs a `process` `exit` listener (section 9.3) | smoke | Verified, with a handled `input`: exit 77, empty stdout, stderr as written. |
 | `setStatus` is visible in RPC | smoke | Verified: `extension_ui_request` with `method: "setStatus"`, `statusKey`, `statusText`. |
 | `before_agent_start` sees an idle-time model switch and its abort is honoured | smoke | Verified. RPC `set_model` while idle fires `model_select` (`isIdle()` true, `source: "set"`); `before_agent_start` then sees the new `ctx.model`; `ctx.abort()` there sends no request to the provider. As in the line above, the aborted assistant message has `stopReason: "error"`. |
 | A stub provider needs no credentials | smoke | Verified, with credential variables removed from the environment and an empty agent directory. |

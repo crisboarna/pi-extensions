@@ -1,7 +1,8 @@
-import { describeAccount } from "./account.ts";
+import { describeAccount, type AccountKey } from "./account.ts";
 import { formatConfigErrors, type ConfigError } from "./config.ts";
 import type { BlockCause } from "./decide.ts";
 import { displayPath } from "./place.ts";
+import { PROCESS_OVERRIDE_VARIABLE } from "./process-override.ts";
 
 export interface MessageContext {
 	home: string;
@@ -37,6 +38,7 @@ function headlessLines(cause: BlockCause, context: MessageContext): string[] {
 				`Add to ${configFile} accounts:`,
 				`  ${tag}`,
 				`or run pi, then: /guard tag ${account.provider} ${account.source} ${place.zone}`,
+				`or set ${PROCESS_OVERRIDE_VARIABLE}=1 for this process.`,
 			];
 		}
 		case "config-invalid":
@@ -73,4 +75,9 @@ export function configFallbackWarning(errors: ConfigError[], context: MessageCon
 /** The notice shown when one of the guard's own handlers throws. */
 export function handlerErrorNotice(handler: string, reason: string): string {
 	return `guard: the ${handler} handler failed (${reason}).`;
+}
+
+/** The warning shown once per session when the process Override lets a turn through (DESIGN.md section 10). */
+export function processOverrideWarning(account: AccountKey): string {
+	return `guard: ${PROCESS_OVERRIDE_VARIABLE}=1 lets turns through to accounts with no zone tag, starting with ${describeAccount(account)}. Each turn is logged in the session.`;
 }

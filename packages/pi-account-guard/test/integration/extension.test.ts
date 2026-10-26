@@ -28,14 +28,15 @@ describe("extension load", () => {
 		assert.equal(host.providers.size, 0);
 	});
 
-	it("blocks an untagged account from the real wiring when the agent directory has no config", async () => {
+	it("asks the Tag prompt, then blocks an untagged account from the real wiring when the agent directory has no config", async () => {
 		const host = await boot();
 		const session = createFakeSession({ hasUI: true, cwd: tmpdir() });
 		const titles: string[] = [];
 		session.ctx.ui.select = async (title: string) => void titles.push(title);
 		assert.equal(await host.fire("session_start", { reason: "startup" }, session.ctx), undefined);
 		assert.deepEqual(await host.fire("input", { text: "hello", source: "interactive" }, session.ctx), { action: "handled" });
-		assert.match(titles[0] ?? "", /^BLOCKED {2}acme \(stored-key\) has no zone tag/);
+		assert.match(titles[0] ?? "", /^This place is personal\. Which zones does acme · saved API key belong to\?$/);
+		assert.match(titles[1] ?? "", /^BLOCKED {2}acme \(stored-key\) has no zone tag/);
 	});
 });
 
