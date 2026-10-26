@@ -1,6 +1,6 @@
 # Presentation plan: pi-account-guard and the family site
 
-Status: approved 2026-10-26. Step 0 (clean slate) done on 2026-10-26; the remaining work is tracked as tickets #90-#107 under "Spec: presentation for pi-account-guard and the family site" (#89).
+Status: done on 2026-10-26. Step 0 (clean slate) and tickets #90-#107 under "Spec: presentation for pi-account-guard and the family site" (#89) are closed, with two follow-up tickets (#109, #110); see "Outcome" at the end. The site deploys once the repository is public.
 
 Ground rules: nothing on this machine outside the pi-extensions clone is created, changed or deleted, and every check and recording runs in a simulated environment (demo homes, demo accounts, fake providers, no real account or user file).
 
@@ -159,18 +159,18 @@ Clips (MP4, GIF from the MP4, still): `block`, `tag`, `allow`, `mid-turn`, `guar
 - [x] 0.5–0.6: squashed, signed main (one commit per implementation ticket, `Closes #<n>`); local verification.
 - [x] 0.7: after confirmation, recreate `crisboarna/pi-extensions`; labels, issues in ledger order with replacements, sub-issues and blocked-by edges, push, resolution comments, settings.
 - [x] 0.8: after confirmation, delete the GitHub repository `crisboarna/pi-account-guard`; in the clone, point `origin` at the new remote, expire the reflog, `git gc --prune=now`, delete `.git/purge/`.
-- [ ] 0.9: hashed denylist in `scripts/checks/text.ts`; publish this plan's spec and open tickets (Appendix B); then every step below is one ticket, one commit.
-- [ ] account-guard scene setup and the `checks` scene; run manual-checklist items 1–7; fix findings test-first; fill in the checklist.
-- [ ] Shared tooling: terminal kit and brand tokens moved to `tools/`; switchboard media still renders unchanged.
-- [ ] Mark, banner (light, dark), cover; `pi.image`.
-- [ ] README rewrite and `docs/` pages; links and markdownlint pass.
-- [ ] `media/data.ts` and the three concept animations.
-- [ ] Hero (`pi.video`) and the eight clips; embed in README and docs.
-- [ ] `/guard check`, `/guard tour`, first-run notice, bundled skill, with unit and integration tests; changeset.
-- [ ] Site build (landing, package pages, docs, `llms.txt`), shared templates; static explainers for both packages.
-- [ ] WebContainer snapshots for both packages and the try-it pages; measured load time and transfer.
-- [ ] `pages.yml`; update `docs/repository-settings.md` (enable Pages from Actions).
-- [ ] Root README family banner and site link; plan status updated in both packages.
+- [x] 0.9: hashed denylist in `scripts/checks/text.ts`; publish this plan's spec and open tickets (Appendix B); then every step below is one ticket, one commit.
+- [x] account-guard scene setup and the `checks` scene; run manual-checklist items 1–7; fix findings test-first; fill in the checklist.
+- [x] Shared tooling: terminal kit and brand tokens moved to `tools/`; switchboard media still renders unchanged.
+- [x] Mark, banner (light, dark), cover; `pi.image`.
+- [x] README rewrite and `docs/` pages; links and markdownlint pass.
+- [x] `media/data.ts` and the three concept animations.
+- [x] Hero (`pi.video`) and the eight clips; embed in README and docs.
+- [x] `/guard check`, `/guard tour`, first-run notice, bundled skill, with unit and integration tests; changeset.
+- [x] Site build (landing, package pages, docs, `llms.txt`), shared templates; static explainers for both packages.
+- [x] WebContainer snapshots for both packages and the try-it pages; measured load time and transfer.
+- [x] `pages.yml`; update `docs/repository-settings.md` (enable Pages from Actions).
+- [x] Root README family banner and site link; plan status updated in both packages.
 
 ## Verification
 
@@ -316,3 +316,17 @@ Issue #89, **Spec: presentation for pi-account-guard and the family site** (`rea
 - Main is rebuilt in the order the ranges landed: #63–79, #30–35, #36, #81–84, #37, #85–88, then #15–28. That is 47 commits, each closing its ticket.
 - Ranges are contiguous on the first-parent line, so two tickets stay that a topical grouping would merge: #32 (superseded by #34, with #33 between) and #87 (starts with the catch-all wording fix).
 - The full inventory (timeline, decision resolutions, user stories, acceptance criteria) is kept in `.git/purge/` next to the export and turned into ticket bodies in 0.7.
+
+## Outcome
+
+- **Checks as scenes**: items 1-5, 7 and 8 of `docs/manual-checklist.md` ran as simulated terminal scenes with stills. They found that pi-powerline-footer shows extension statuses by default (#109, the docs; #110, `/tier doctor` warned wrongly). Item 6 cannot run without real OAuth subscriptions; item 8 ran against a stand-in provider, because pi-claude-bridge depends on a package outside the permissive licence list. The licence check now reads npm's old `licenses` field.
+- **Front door**: mark, banners, cover, a 112-line README and eight docs pages; three animations from the real core and a one-minute hero plus eight clips, every GIF under 1 MB. Recording the place-add clip found that the README and the hero's end card used `/guard place add here`; the command takes `path=here`.
+- **In-product**: `/guard check`, `/guard tour`, a first-run notice and a bundled skill, each with tests.
+- **Site** (`npm run site`, `tools/site/`): a landing page, each package's README, docs and decision records, `llms.txt`, the explainers (parity-tested against `/guard check` and `/tier try`) and the live pages. `pages.yml` deploys it after verification, skipped while the repository is private.
+- **Live pages**, measured with `tools/site/measure.mjs` and served without isolation headers. The snapshots are 2.7 MB (pi-account-guard) and 2.8 MB (pi-switchboard) gzipped.
+
+| Browser | pi-account-guard: shell ready | pi-switchboard: pi ready | Transferred |
+|---|---|---|---|
+| Chromium | 2.7-3.3 s | 4.7-7.7 s | 9.6-9.7 MB |
+| Firefox | 3.1-3.7 s | 6.8-7.6 s | 25.6-26.8 MB (the container runtime arrives uncompressed) |
+| WebKit | 2.7-3.6 s | 5.3-6.3 s | 9.9 MB |

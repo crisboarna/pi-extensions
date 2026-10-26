@@ -1,6 +1,6 @@
 # Presentation plan: making pi-switchboard easy to understand and want
 
-Status: phases 1 to 4 done on 2026-10-26; phases 0 and 5 open. See "Progress" at the end.
+Status: phases 1 to 5 done on 2026-10-26; phase 0 (making the repository public) open. See "Progress" at the end.
 
 ## 1. What the popular pi packages do beyond the code
 
@@ -223,7 +223,8 @@ Done:
 
 - **Phase 2, terminal recordings**: a 60-second hero video (`pi.video`) and six clips (init, dry-run, explain, watch, pin, report) with captions and callouts, recorded from real pi, pi-switchboard and pi-subagents sessions in the media image (`tools/media/stage-server.mjs`, `media/terminal/`), not VHS. Only the classifier's answers and the model replies are scripted. The same scenes served as the live TUI checks: the navigator, the decision view, `/tier models`, and real pi-subagents children routed at launch. They found eight bugs, all fixed with tests, the worst being that an npm-installed package did not load in pi at all.
 
+- **Phase 5, site and playground**: done with pi-account-guard's presentation plan (`packages/pi-account-guard/docs/plans/presentation.md`). The family site renders this package's README and docs; its rule playground runs `src/rules` and `src/tiering` compiled by `tsc` and gives `/tier try`'s tier and rule for 60 typed-answer sets on every example config; its live page runs real pi and pi-switchboard on `switchboard/auto` in a WebContainer with the demo scene's classifier and providers (pi ready in 4.7-7.7 s in Chromium, Firefox and WebKit).
+
 Open:
 
-- **Phase 0**: make the repository public (the README images and the gallery fields point at `raw.githubusercontent.com`).
-- **Phase 5, site and playground**: optional; a WebContainer spike ran the real pi in a browser tab (see the conversation of 2026-10-26).
+- **Phase 0**: make the repository public (the README images and the gallery fields point at `raw.githubusercontent.com`, and the site deploys only from a public repository).

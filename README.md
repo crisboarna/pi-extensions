@@ -1,6 +1,13 @@
 # pi extensions by @crisboarna
 
-Extensions for the [pi](https://pi.dev) coding agent. Each package installs on its own from npm.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/banner-dark.png">
+  <img alt="pi-extensions: route every request, guard every account. The family mark, two cords crossing on an enamel panel, beside the marks of pi-switchboard and pi-account-guard" src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/banner-light.png" width="1100">
+</picture>
+
+Extensions for the [pi](https://pi.dev) coding agent: pi-switchboard routes every request to a model that fits it, and pi-account-guard keeps every turn on an account of the right zone. Each package installs on its own from npm.
+
+**[The site](https://crisboarna.github.io/pi-extensions/)** has each package's docs, its demo video, an explainer that runs the package's own code on your config, and a live demo: real pi and the extension in a container in your browser.
 
 | Package | What it does | Install |
 |---|---|---|

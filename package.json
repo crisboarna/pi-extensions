@@ -35,6 +35,7 @@
 		"site:snapshots": "node tools/site/snapshot.ts",
 		"site": "node scripts/tools/site.ts",
 		"site:verify": "node scripts/tools/site.ts --verify",
+		"media": "node scripts/tools/media.ts media",
 		"new-package": "node scripts/new-package.ts",
 		"changeset": "changeset",
 		"changeset:status": "changeset status --verbose",

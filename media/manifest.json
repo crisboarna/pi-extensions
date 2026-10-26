@@ -1,0 +1,20 @@
+{
+	"items": [
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=dark",
+			"out": "banner-dark.png",
+			"width": 1100,
+			"height": 300
+		},
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=light",
+			"out": "banner-light.png",
+			"width": 1100,
+			"height": 300
+		}
+	]
+}
