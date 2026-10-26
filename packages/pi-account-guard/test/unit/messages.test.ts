@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { BlockCause } from "../../src/core/decide.ts";
-import { headlessBlockMessage } from "../../src/core/messages.ts";
+import { configFallbackWarning, handlerErrorNotice, headlessBlockMessage } from "../../src/core/messages.ts";
 
 const context = { home: "/home/me", configPath: "/home/me/.pi/agent/account-guard.json" };
 const account = { provider: "acme", source: "oauth" };
@@ -67,5 +67,24 @@ describe("headlessBlockMessage", () => {
 	it("names an internal error as the cause", () => {
 		const cause: BlockCause = { kind: "internal-error", reason: "boom" };
 		assert.equal(headlessBlockMessage(cause, context), ["BLOCKED: the guard failed (boom). No turn was sent.", ""].join("\n"));
+	});
+});
+
+describe("configFallbackWarning", () => {
+	it("names the file, each error and the last valid copy", () => {
+		assert.equal(
+			configFallbackWarning([{ path: "accounts[1]", message: "bad" }], context),
+			[
+				"guard: cannot read ~/.pi/agent/account-guard.json; using the last valid copy for this session.",
+				"  account-guard.json: accounts[1]: bad",
+				"The guard does not write to the file until it is fixed.",
+			].join("\n"),
+		);
+	});
+});
+
+describe("handlerErrorNotice", () => {
+	it("names the handler and the reason", () => {
+		assert.equal(handlerErrorNotice("session_start", "boom"), "guard: the session_start handler failed (boom).");
 	});
 });

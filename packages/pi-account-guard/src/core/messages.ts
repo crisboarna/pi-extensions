@@ -1,5 +1,5 @@
 import { describeAccount } from "./account.ts";
-import { formatConfigErrors } from "./config.ts";
+import { formatConfigErrors, type ConfigError } from "./config.ts";
 import type { BlockCause } from "./decide.ts";
 import { displayPath } from "./place.ts";
 
@@ -58,4 +58,19 @@ export function zonePhrase(zones: string[]): string {
 
 function fileName(path: string): string {
 	return path.slice(path.lastIndexOf("/") + 1);
+}
+
+/** The warning shown once when a malformed config falls back to the last valid copy (DESIGN.md section 7). */
+export function configFallbackWarning(errors: ConfigError[], context: MessageContext): string {
+	const configFile = displayPath(context.configPath, context.home);
+	return [
+		`guard: cannot read ${configFile}; using the last valid copy for this session.`,
+		...formatConfigErrors(errors, fileName(context.configPath)).map((line) => `  ${line}`),
+		"The guard does not write to the file until it is fixed.",
+	].join("\n");
+}
+
+/** The notice shown when one of the guard's own handlers throws. */
+export function handlerErrorNotice(handler: string, reason: string): string {
+	return `guard: the ${handler} handler failed (${reason}).`;
 }

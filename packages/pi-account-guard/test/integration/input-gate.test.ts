@@ -160,7 +160,7 @@ describe("input gate, headless", () => {
 		const s = session();
 		await state.host.fire("session_start", { reason: "startup" }, s.ctx);
 		assert.deepEqual(await state.host.fire("input", prompt(), s.ctx), { action: "handled" });
-		assert.match(state.stderr[0]!, /^BLOCKED: the guard failed \(disk on fire\)/);
+		assert.match(state.stderr.at(-1)!, /^BLOCKED: the guard failed \(disk on fire\)/);
 		assert.deepEqual(state.exitCodes, [77]);
 	});
 });
