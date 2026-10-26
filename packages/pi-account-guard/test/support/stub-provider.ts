@@ -1,16 +1,20 @@
 // A stub model provider for smoke tests. It answers every prompt locally, so real
 // pi can run a full turn with no network and no credentials. Load it with
 // `pi -ne -e test/support/stub-provider.ts`.
+import { appendFileSync } from "node:fs";
 import { createAssistantMessageEventStream, type Api, type AssistantMessage, type Model, type SimpleStreamOptions, type TranscriptContext } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export const STUB_PROVIDER = "stub";
 export const STUB_MODEL = "stub-model";
+export const STUB_MODEL_2 = "stub-model-2";
 export const STUB_REPLY = "stub reply";
 
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 
 function streamStub(model: Model<Api>, _context: TranscriptContext, options?: SimpleStreamOptions) {
+	// Smoke tests set STUB_REQUEST_LOG to count the requests that reach the provider.
+	if (process.env.STUB_REQUEST_LOG) appendFileSync(process.env.STUB_REQUEST_LOG, `${model.id}\n`);
 	const stream = createAssistantMessageEventStream();
 	const message: AssistantMessage = {
 		role: "assistant",
@@ -48,16 +52,14 @@ export default function stubProvider(pi: ExtensionAPI): void {
 		apiKey: "stub-not-a-secret",
 		api: "stub-api",
 		streamSimple: streamStub,
-		models: [
-			{
-				id: STUB_MODEL,
-				name: "Stub model",
-				reasoning: false,
-				input: ["text"],
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow: 8000,
-				maxTokens: 1000,
-			},
-		],
+		models: [STUB_MODEL, STUB_MODEL_2].map((id) => ({
+			id,
+			name: id,
+			reasoning: false,
+			input: ["text" as const],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 8000,
+			maxTokens: 1000,
+		})),
 	});
 }

@@ -117,7 +117,14 @@ An **Account** is the model's provider id plus its **auth source**.
 - The key is built fresh at every check from pi's cached auth snapshot, with public calls that return no secrets: `isUsingOAuth` and `getProviderAuthStatus().source/label`. `/login` and `/logout` inside pi refresh the snapshot; an `auth.json` edit made outside pi is seen one refresh late.
 - A source change under the same id (for example `/logout`, after which an environment key takes over) produces an untagged account, which Blocks with the tag prompt.
 - The Match compares the key built from `ctx.model` with the tags. It does no registry lookup, so an account that disappears from the registry mid-session is not undecidable. Tags for accounts the registry no longer knows are kept and listed by `/guard`.
-- **claude-bridge** gets a built-in resolver, because the registry only sees `apiKey: "not-used"`. If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, the source is `env:<VAR>`. Otherwise the source is `claude-config:<resolved CLAUDE_CONFIG_DIR or ~/.claude>`, so a work and a personal Claude Code config directory are different accounts. Bedrock, Vertex and `apiKeyHelper` setups map to one generic `claude-code` source. Claude Code's exact environment precedence must be checked during implementation.
+- **claude-bridge** gets a built-in resolver, because the registry only sees `apiKey: "not-used"`. If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, the source is `env:<VAR>`. Otherwise the source is `claude-config:<resolved CLAUDE_CONFIG_DIR or ~/.claude>`, so a work and a personal Claude Code config directory are different accounts. Cloud provider (Bedrock, Vertex and the others) and `apiKeyHelper` setups map to one generic `claude-code` source.
+  Claude Code's precedence was read from the Claude Code 2.1.310 binary (its embedded JavaScript) and its agent SDK 0.3.309, the versions pi-claude-bridge 0.9.3 spawns (ticket #16). The bridge passes `process.env` through to the child, so the guard sees the same variables.
+  1. The provider comes first. `CLAUDE_CODE_USE_BEDROCK`, `_FOUNDRY`, `_ANTHROPIC_AWS`, `_ANTHROPIC_GOOGLE_CLOUD`, `_MANTLE` and `_VERTEX` are tested in that order (a cloud gateway before all of them); the first one set wins and every `ANTHROPIC_*` credential below is then ignored. These map to the generic `claude-code` source.
+  2. First-party bearer chain: `ANTHROPIC_AUTH_TOKEN`, then `CLAUDE_CODE_OAUTH_TOKEN` (or its file descriptor), then `apiKeyHelper`, then an Anthropic profile (`~/.config/anthropic`), then the saved claude.ai login under the config directory.
+  3. First-party API key chain: `ANTHROPIC_API_KEY`, then a key from a file descriptor, then `apiKeyHelper`, then the key saved by `/login`.
+  4. When both `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` are set, Claude Code builds its client with both and the code does not choose one. The resolver takes `ANTHROPIC_AUTH_TOKEN` first, the order of Claude Code's own auth-source function.
+  5. `CLAUDE_CODE_OAUTH_TOKEN` is a third environment variable and gives the source `env:CLAUDE_CODE_OAUTH_TOKEN`.
+  6. Claude Code also lets the `env` block of its own `settings.json` define these variables. The guard does not read those files, so a credential set there is a known gap (section 15).
 - **Pooled providers** (pi-multiprovider lifts several accounts under one provider id and leases one inside the stream, with no event). The guard detects a pool through the private `Symbol.for('pi-multiprovider.lifted-base')` marker only to warn: the tag prompt says the id pools several accounts and should be tagged only if all of them share one zone, and `/guard` lists the id as pooled. A pool alone never causes a Block. pi-multiprovider is not installed here; an upstream lease-veto hook is the future exact fix.
 - The guard never reads secrets.
 - **Display.** The tag prompt, Block titles and `/guard` show `<provider id> · <source in words>`, followed by any pi-multi-pass label as a hint. Examples: `openai-codex-2 · OAuth login (multi-pass: Work)`, `claude-bridge · Claude Code login ~/.claude-work`. They never show a raw key string.
@@ -344,6 +351,7 @@ Why no `context` gate: the strongest gate is the `context` hook plus `ctx.abort(
 ## 15. Known gaps
 
 - Re-login into the same provider id as a different human account, a direnv-swapped key under the same variable name, and an `auth.json` edit made outside pi (seen one snapshot refresh late). Detecting them needs secrets (ADR 0002).
+- A claude-bridge credential defined only in the `env` block of Claude Code's own `settings.json` (section 6).
 - Pooled providers: the guard only warns (section 6).
 - The real member behind a virtual model is not checked (section 13.2).
 - Everything in section 14.
@@ -384,20 +392,20 @@ Also: a source scan that fails if a real provider or model id from the examples 
 
 ### 17.1 Assumed pi behaviour, to prove first
 
-Step 1 of the build is one smoke test per item below against real pi. A failing item amends this design before more code exists.
+Step 1 of the build is one smoke test per item below against real pi. A failing item amends this design before more code exists. All items were run in ticket #16 (`test/smoke/assumptions.test.ts`, pi 1.4.0); none failed.
 
-| Assumption | Check |
-|---|---|
-| A throwing handler lets the turn continue (ADR 0001) | smoke |
-| `input` can await a dialog and then return `continue` | smoke (rpc) |
-| `input` returning `handled` plus `ctx.ui.setEditorText` refills the editor | smoke (rpc) |
-| `ctx.abort()` works from `model_select` mid-turn | smoke |
-| `process.exitCode = 77` survives `pi -p` | smoke |
-| `setStatus` is visible in RPC | smoke |
-| `before_agent_start` sees an idle-time model switch and its abort is honoured | smoke |
-| A stub provider needs no credentials | smoke |
-| Extension commands (`/guard`) are dispatched in print mode | smoke |
-| claude-bridge's environment precedence for its auth source | read source / manual |
+| Assumption | Check | Result |
+|---|---|---|
+| A throwing handler lets the turn continue (ADR 0001) | smoke | Verified. Exit 0, the reply is printed on stdout, and pi writes `Extension error (<path>): <message>` to stderr for each throw. |
+| `input` can await a dialog and then return `continue` | smoke (rpc) | Verified. The turn does not start until the `select` is answered, then runs. |
+| `input` returning `handled` plus `ctx.ui.setEditorText` refills the editor | smoke (rpc) | Verified. The prompt response is `disposition: "handled"`, the client gets an `extension_ui_request` with `method: "set_editor_text"`, and no turn starts. |
+| `ctx.abort()` works from `model_select` mid-turn | smoke | Verified, with the model switched at `turn_start`. `ctx.isIdle()` is false in the handler and `ctx.model` is already the new model; no request reaches the provider after the abort. The aborted assistant message has `stopReason: "error"` and `errorMessage: "This operation was aborted"`, not `"aborted"`. |
+| `process.exitCode = 77` survives `pi -p` | smoke | Verified, with a handled `input`: exit 77, empty stdout, stderr as written. |
+| `setStatus` is visible in RPC | smoke | Verified: `extension_ui_request` with `method: "setStatus"`, `statusKey`, `statusText`. |
+| `before_agent_start` sees an idle-time model switch and its abort is honoured | smoke | Verified. RPC `set_model` while idle fires `model_select` (`isIdle()` true, `source: "set"`); `before_agent_start` then sees the new `ctx.model`; `ctx.abort()` there sends no request to the provider. As in the line above, the aborted assistant message has `stopReason: "error"`. |
+| A stub provider needs no credentials | smoke | Verified, with credential variables removed from the environment and an empty agent directory. |
+| Extension commands (`/guard`) are dispatched in print mode | smoke | Verified: `pi -p "/guard status now"` runs the handler with `args` of `status now` and sends no turn. |
+| claude-bridge's environment precedence for its auth source | read source | Read from the Claude Code binary; recorded in section 6. |
 
 ### 17.2 Manual checklist
 
