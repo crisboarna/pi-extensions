@@ -28,7 +28,7 @@
 		"provenance": true
 	},
 	"engines": {
-		"node": ">=22.19"
+		"node": ">=24"
 	},
 	"bin": {
 		"pi-switchboard": "./bin/pi-switchboard.mjs"

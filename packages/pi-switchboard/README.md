@@ -17,7 +17,7 @@ Restart pi, then:
 /model              # pick switchboard/auto (or switchboard/<profile>)
 ```
 
-Requires Node 22.19 or later and pi 1.4 or later.
+Requires Node 24 or later and pi 1.4 or later.
 
 ## How it works
 

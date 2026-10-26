@@ -27,7 +27,7 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 	homepage: "https://github.com/crisboarna/pi-extensions/tree/main/packages/pi-demo#readme",
 	bugs: { url: "https://github.com/crisboarna/pi-extensions/issues" },
 	publishConfig: { access: "public", provenance: true },
-	engines: { node: ">=22.19" },
+	engines: { node: ">=24" },
 	pi: { extensions: ["./src/index.ts"] },
 	files: ["src", "README.md", "LICENSE"],
 	peerDependencies: { "@earendil-works/pi-coding-agent": "*" },
@@ -39,7 +39,7 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const CLEAN: Record<string, string> = {
-	"package.json": JSON.stringify({ name: "root", private: true, devDependencies: { typescript: "7.0.2" } }),
+	"package.json": JSON.stringify({ name: "root", private: true, engines: { node: ">=24" }, devDependencies: { typescript: "7.0.2" } }),
 	"packages/pi-demo/package.json": JSON.stringify(manifest()),
 	"packages/pi-demo/README.md": "# demo\n\nSee [the source](src/index.ts).\n",
 	"packages/pi-demo/LICENSE": "MIT\n",
@@ -115,6 +115,10 @@ describe("manifests", () => {
 		assert.match(result.output, /--test-coverage-branches=90 or higher \(found 74\)/);
 		assert.match(result.output, /--test-coverage-functions=90 or higher \(found none\)/);
 		assert.doesNotMatch(result.output, /coverage-lines/);
+	});
+	test("holds every package to the root's Node version", () => {
+		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ engines: { node: ">=22.19" } })) }));
+		assert.match(result.output, /engines.node must be ">=24"/);
 	});
 	test("rejects floating runtime dependencies", () => {
 		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ dependencies: { jiti: "^2.7.0" } })) }));

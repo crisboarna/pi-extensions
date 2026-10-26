@@ -38,7 +38,10 @@ for (const { dir, path, manifest: m } of listPackages()) {
 	need(typeof m.bugs?.url === "string", "bugs.url is required");
 	need(m.publishConfig?.access === "public", 'publishConfig.access must be "public" (scoped packages are private by default)');
 	need(m.publishConfig?.provenance === true, "publishConfig.provenance must be true");
-	need(typeof m.engines?.node === "string", "engines.node is required");
+	need(
+		m.engines?.node === root.engines?.node,
+		`engines.node must be "${root.engines?.node}", the Node version the repository tests on (found "${m.engines?.node}")`,
+	);
 	need(Array.isArray(m.files) && m.files.length > 0, "files must list what is published");
 	need(existsSync(join(path, "README.md")), "README.md is required");
 	need(existsSync(join(path, "LICENSE")), "LICENSE is required");

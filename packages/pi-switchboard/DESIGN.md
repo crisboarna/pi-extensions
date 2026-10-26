@@ -905,7 +905,7 @@ Before each task, pi-switchboard emits on `plannotator:request` with `action: "p
 
 ## 14. Testing
 
-Runner: `node --test` with Node's built-in type stripping (Node ≥ 22.19), so tests need no dependencies. Code is written as erasable TypeScript (no enums, no parameter properties, `.ts` import extensions) so the same files load under jiti in pi and under plain Node in tests and the CLI. Typecheck: `tsc --noEmit --strict` with `paths` mapping `@earendil-works/*` to the installed 1.3.0 declarations.
+Runner: `node --test` with Node's built-in type stripping (Node ≥ 24), so tests need no dependencies. Code is written as erasable TypeScript (no enums, no parameter properties, `.ts` import extensions) so the same files load under jiti in pi and under plain Node in tests and the CLI. Typecheck: `tsc --noEmit --strict` with `paths` mapping `@earendil-works/*` to the installed 1.3.0 declarations.
 
 - Unit (fake registry, fake classifier, fake clock, seeded rng): rule matching, tier targets, gating, floors, threshold fallback, hysteresis, pin, dry-run, continuation cache-keeping, escalation triggers and cap, retry per error class, direct context fit, evidence bounding and redaction, config merge and validation, profile selection by glob and project, fail-soft paths, account providers (`openai-codex-2`) with both `accountAffinity` values.
 - Flexibility: a three-provider profile, a single-tier profile, a five-tier profile with custom names, a local-only profile, missing config.
