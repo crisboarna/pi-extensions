@@ -9,7 +9,7 @@ import { STUB_PROVIDER } from "../support/stub-provider.ts";
 
 const isUiRequest = (method: string) => (record: RpcRecord) => record.type === "extension_ui_request" && record.method === method;
 
-async function withGuard(config: object, body: (rpc: RpcSession, configFile: string) => Promise<void>): Promise<void> {
+async function withGuard(config: object, body: (rpc: RpcSession, configFile: string, place: string) => Promise<void>): Promise<void> {
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "account-guard-command-")));
 	const agentDir = join(root, "agent");
 	const place = join(root, "place");
@@ -19,7 +19,7 @@ async function withGuard(config: object, body: (rpc: RpcSession, configFile: str
 	writeFileSync(configFile, JSON.stringify(config));
 	const rpc = new RpcSession({ extensions: [GUARD_EXTENSION], env: { PI_CODING_AGENT_DIR: agentDir }, cwd: place });
 	try {
-		await body(rpc, configFile);
+		await body(rpc, configFile, place);
 	} finally {
 		await rpc.close();
 	}
@@ -50,6 +50,33 @@ describe("/guard over RPC", () => {
 			const footers = rpc.records.filter((record) => isUiRequest("setStatus")(record) && record.statusText !== undefined).map((record) => record.statusText);
 			assert.equal(footers.at(-1), "guard personal ? untagged");
 			assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")).accounts, []);
+		});
+	});
+
+	it("adds a place rule with full arguments, and the footer uses the new zone without a reload", async () => {
+		await withGuard({ accounts: [{ provider: STUB_PROVIDER, source: "fallback", zones: ["work"] }] }, async (rpc, configFile, place) => {
+			await rpc.waitFor((record) => isUiRequest("setStatus")(record) && record.statusText === "guard personal ✗ stub is work");
+			rpc.send({ id: "g1", type: "prompt", message: "/guard place add path=here zone=work" });
+			await rpc.waitFor((record) => isUiRequest("setStatus")(record) && record.statusText === "guard work ✓");
+			assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")).places, [{ path: place, zone: "work" }]);
+			rpc.send({ id: "g2", type: "prompt", message: "/guard place list" });
+			const list = await rpc.waitFor((record) => isUiRequest("notify")(record) && String(record.message).startsWith("guard place rules"));
+			assert.equal(list.message, `guard place rules\n 1. ${place} -> work   <- decides this place\n default zone: personal`);
+		});
+	});
+
+	it("confirms a default zone change that moves this place, and refuses to remove a referenced zone", async () => {
+		await withGuard({ accounts: [{ provider: STUB_PROVIDER, source: "fallback", zones: ["work"] }] }, async (rpc, configFile) => {
+			rpc.send({ id: "g1", type: "prompt", message: "/guard zone remove work" });
+			const refused = await rpc.waitFor((record) => isUiRequest("notify")(record) && String(record.message).startsWith("guard: did not remove zone work"));
+			assert.equal(refused.message, `guard: did not remove zone work. It is still referenced by:\n  tag ${STUB_PROVIDER} (fallback)`);
+			rpc.send({ id: "g2", type: "prompt", message: "/guard zone default work" });
+			const confirm = await rpc.waitFor(isUiRequest("confirm"));
+			assert.equal(confirm.title, "Change the default zone to work?");
+			assert.match(String(confirm.message), /This place changes from zone personal to zone work\.$/);
+			rpc.send({ type: "extension_ui_response", id: confirm.id, confirmed: true });
+			await rpc.waitFor((record) => isUiRequest("setStatus")(record) && record.statusText === "guard work ✓");
+			assert.equal(JSON.parse(readFileSync(configFile, "utf8")).defaultZone, "work");
 		});
 	});
 });

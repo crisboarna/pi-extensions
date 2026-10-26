@@ -352,6 +352,20 @@ describe("/guard", () => {
 	it("fails with the usage on an unknown command", async () => {
 		const r = rig();
 		await r.guard("frobnicate");
-		assert.deepEqual(r.session.notices, [{ message: 'guard: unknown command "frobnicate".\nUsage:\n  /guard\n  /guard tag [provider [source] [zones]]\n  /guard untag [provider [source]]', type: "error" }]);
+		const usage = [
+			"Usage:",
+			"  /guard",
+			"  /guard tag [provider [source] [zones]]",
+			"  /guard untag [provider [source]]",
+			"  /guard place add [path=<path|here>] [remote=<glob>] [zone=<zone>] [at=<n>]",
+			"  /guard place list",
+			"  /guard place remove [<n>]",
+			"  /guard place move [<n> <to>]",
+			"  /guard zone add [<name>]",
+			"  /guard zone remove [<zone>]",
+			"  /guard zone rename [<old> <new>]",
+			"  /guard zone default [<zone>]",
+		].join("\n");
+		assert.deepEqual(r.session.notices, [{ message: `guard: unknown command "frobnicate".\n${usage}`, type: "error" }]);
 	});
 });

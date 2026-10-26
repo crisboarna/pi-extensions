@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseTagArguments, parseUntagArguments, sameZones, zoneChangeText } from "../../src/core/guard-command.ts";
+import { parseNumber, parsePlaceAddArguments, parseTagArguments, parseUntagArguments, sameZones, zoneChangeText, zoneNameProblem } from "../../src/core/guard-command.ts";
 
 const declared = ["work", "personal"];
 
@@ -49,5 +49,41 @@ describe("zone lists", () => {
 		assert.equal(sameZones(["work", "lab"], ["lab", "work"]), true);
 		assert.equal(sameZones(["work"], ["work", "lab"]), false);
 		assert.equal(zoneChangeText(["work"], ["work", "lab"]), "work -> work, lab");
+	});
+});
+
+describe("parsePlaceAddArguments", () => {
+	it("reads key=value words in any order", () => {
+		assert.deepEqual(parsePlaceAddArguments([]), {});
+		assert.deepEqual(parsePlaceAddArguments(["zone=work", "path=here", "remote=*/Acme/*", "at=2"]), { zone: "work", path: "here", remote: "*/Acme/*", at: "2" });
+	});
+
+	it("keeps an equals sign inside a value", () => {
+		assert.deepEqual(parsePlaceAddArguments(["remote=host/a=b"]), { remote: "host/a=b" });
+	});
+
+	it("rejects an unknown key, a bare word, an empty value and a repeated key", () => {
+		assert.equal(parsePlaceAddArguments(["color=red"]), undefined);
+		assert.equal(parsePlaceAddArguments(["work"]), undefined);
+		assert.equal(parsePlaceAddArguments(["zone="]), undefined);
+		assert.equal(parsePlaceAddArguments(["zone=work", "zone=personal"]), undefined);
+	});
+});
+
+describe("parseNumber", () => {
+	it("reads a whole number from 1 to the maximum", () => {
+		assert.equal(parseNumber("1", 3), 1);
+		assert.equal(parseNumber("3", 3), 3);
+	});
+
+	it("rejects zero, too large, signed, decimal and non-numeric text", () => {
+		for (const text of ["0", "4", "-1", "1.5", "two", "", "1e1"]) assert.equal(parseNumber(text, 3), undefined, text);
+	});
+});
+
+describe("zoneNameProblem", () => {
+	it("refuses a comma, which would split the name in a zone list", () => {
+		assert.match(zoneNameProblem("a,b")!, /comma/);
+		assert.equal(zoneNameProblem("lab-2"), undefined);
 	});
 });

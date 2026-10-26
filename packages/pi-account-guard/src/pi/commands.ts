@@ -4,6 +4,7 @@ import { accountZones, formatConfigErrors, type ConfigError, type GuardConfig } 
 import type { ConfigSnapshot, ConfigState } from "../core/config-state.ts";
 import { createConfigWriter, removeAccount, setAccountZones, type ConfigWriter } from "../core/config-writer.ts";
 import type { PlaceOutcome } from "../core/decide.ts";
+import type { RemoteUrls } from "../core/place.ts";
 import { GUARD_USAGE, parseTagArguments, parseUntagArguments, sameZones, TAG_USAGE, UNTAG_USAGE, zoneChangeText, type AccountArguments } from "../core/guard-command.ts";
 import { knownAccountLabel, knownAccounts, type KnownAccount } from "../core/known-accounts.ts";
 import type { MessageContext } from "../core/messages.ts";
@@ -12,6 +13,7 @@ import { statusText } from "../core/status.ts";
 import { accountInWords, parseZoneList } from "../core/tag-prompt.ts";
 import { accountOfModel } from "./account-of.ts";
 import { offersOf } from "./interactive-block.ts";
+import { createPlaceZoneCommands } from "./place-zone-commands.ts";
 import { askZones } from "./tag-prompt.ts";
 
 /** Exit code of a `/guard` command that failed without a UI. */
@@ -24,6 +26,13 @@ export interface GuardCommandDeps extends MessageContext {
 	/** The config the checks decide with, as `loadSnapshot` of the hooks reads it. */
 	loadSnapshot(ctx: ExtensionContext): ConfigSnapshot;
 	currentPlace(ctx: ExtensionContext, snapshot: ConfigSnapshot): PlaceOutcome;
+	/** The place zone that `config` would give for the session cwd, resolved afresh with no cache. */
+	placeUnder(ctx: ExtensionContext, config: GuardConfig): PlaceOutcome;
+	/** Resolves the place zone again and draws the footer; called after an edit made through `/guard`. */
+	reresolvePlace(ctx: ExtensionContext): void;
+	/** The real path, `undefined` when the path does not exist. */
+	realpath(path: string): string | undefined;
+	readRemoteUrls(cwd: string): RemoteUrls;
 	overrides(): Overrides;
 	/** Provider ids that pool several accounts under one id. */
 	pooledProviders?(ctx: ExtensionContext): string[];
@@ -34,7 +43,7 @@ export interface GuardCommandDeps extends MessageContext {
 	setExitCode(code: number): void;
 }
 
-/** Registers `/guard`: status, tag and untag (DESIGN.md section 11). Every command takes full arguments; dialogs only fill in missing ones. */
+/** Registers `/guard`: status, tag, untag, place and zone (DESIGN.md section 11). Every command takes full arguments; dialogs only fill in missing ones. */
 export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): void {
 	const { configState, writeConfigText } = deps;
 	const writer: ConfigWriter | undefined = writeConfigText && createConfigWriter({ readForWrite: configState.readForWrite, writeText: (text) => writeConfigText(deps.configPath, text) });
@@ -177,8 +186,23 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 		say(ctx, `Untagged ${name} (was ${existing.join(", ")}).`);
 	}
 
+	const placeZone = createPlaceZoneCommands({
+		home: deps.home,
+		writer,
+		realpath: deps.realpath,
+		readRemoteUrls: deps.readRemoteUrls,
+		currentPlace: (ctx) => deps.currentPlace(ctx, deps.loadSnapshot(ctx)),
+		placeUnder: deps.placeUnder,
+		reresolvePlace: deps.reresolvePlace,
+		fail,
+		say,
+		failWrite,
+		configForWrite,
+		loadConfig: (ctx) => deps.loadSnapshot(ctx).result,
+	});
+
 	pi.registerCommand("guard", {
-		description: "Show the guard status, or tag and untag accounts",
+		description: "Show the guard status, tag and untag accounts, edit place rules and zones",
 		handler: async (args, ctx) => {
 			const [command, ...words] = args.split(/\s+/).filter((word) => word !== "");
 			switch (command) {
@@ -188,6 +212,10 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 					return tag(ctx, words);
 				case "untag":
 					return untag(ctx, words);
+				case "place":
+					return placeZone.place(ctx, words);
+				case "zone":
+					return placeZone.zone(ctx, words);
 				default:
 					return fail(ctx, `guard: unknown command "${command}".\n${GUARD_USAGE}`);
 			}

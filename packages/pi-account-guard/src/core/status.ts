@@ -28,7 +28,7 @@ const LABEL_WIDTH = 9;
 /** The plain-text block of bare `/guard` (DESIGN.md section 11). */
 export function statusText(input: StatusInput): string {
 	const rows: Array<[label: string, value: string]> = [
-		["Place", placeValue(input)],
+		["Place", placeSummary(input)],
 		["Account", accountValue(input)],
 		["Overrides", overridesValue(input.overrides)],
 		["Config", configValue(input)],
@@ -48,7 +48,8 @@ export function ruleText(rule: PlaceRuleEntry): string {
 	return [rule.path, rule.remote === undefined ? undefined : `remote ${rule.remote}`].filter((part) => part !== undefined).join(" + ");
 }
 
-function placeValue({ place, config, cwd, home }: StatusInput): string {
+/** The place line of the status: where, its zone and which rule or the default decides it. */
+export function placeSummary({ place, config, cwd, home }: Pick<StatusInput, "place" | "config" | "cwd" | "home">): string {
 	if (!place.ok) return `${displayPath(cwd, home)} -> unknown (${place.reason})`;
 	const rule = place.ruleIndex === undefined || !config.ok ? undefined : config.config.places[place.ruleIndex];
 	const decidedBy = place.ruleIndex === undefined || !rule ? "default zone" : `rule ${place.ruleIndex + 1}: ${ruleText(rule)}`;

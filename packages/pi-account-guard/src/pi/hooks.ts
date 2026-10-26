@@ -85,6 +85,13 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		return { ok: true, path, zone: resolved.zone, ...(resolved.ruleIndex === undefined ? {} : { ruleIndex: resolved.ruleIndex }) };
 	}
 
+	/** Drops the cached place zone and resolves it again with the file as it is now (DESIGN.md section 11). */
+	function reresolvePlace(ctx: ExtensionContext): void {
+		cachedPlace = undefined;
+		currentPlace(ctx.cwd, loadConfig(ctx));
+		refreshFooter(ctx);
+	}
+
 	function currentPlace(cwd: string, config: ConfigResult): PlaceOutcome {
 		if (cachedPlace?.cwd === cwd) return cachedPlace.place;
 		const place = resolvePlace(cwd, config);
@@ -148,6 +155,10 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		writeConfigText: deps.writeConfigText,
 		loadSnapshot,
 		currentPlace: (ctx, snapshot) => currentPlace(ctx.cwd, snapshot.result),
+		placeUnder: (ctx, config) => resolvePlace(ctx.cwd, { ok: true, config }),
+		reresolvePlace,
+		realpath: deps.realpath,
+		readRemoteUrls: deps.readRemoteUrls,
 		overrides: overrideStore.current,
 		pooledProviders: deps.pooledProviders,
 		multiPassLabel: deps.multiPassLabel,
