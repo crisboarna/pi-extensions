@@ -1,0 +1,22 @@
+{
+	"voice": "af_heart",
+	"speed": 0.92,
+	"pause": 0.6,
+	"lines": {
+		"title": "This is pi-account-guard. Rotate accounts freely, and never send a turn into the wrong zone.",
+		"intro": "Many of us keep a work subscription and a personal one in the same pi. Here, pi is open in a personal repository, but the selected model charges the work account. The footer already warns about it.",
+		"block-ask": "Let's ask for a summary of the garden beds.",
+		"block": "Before anything is sent, pi-account-guard checks the account against this place. The account, acme, is tagged work. This repository is personal. So the turn is blocked, and nothing reaches the work subscription.",
+		"switch-offer": "The fix is one keystroke away. The first choice switches to homelab, a personal account.",
+		"switch-done": "The same prompt runs again on homelab, and the footer shows a match.",
+		"tag-intro": "Accounts start untagged. Let's switch to spare, an account the guard has never seen, and ask about watering.",
+		"tag-prompt": "Before the turn goes, the guard asks which zones spare belongs to. Nothing is ticked for you.",
+		"tag-done": "We tick personal. The turn goes at once, and the tag is saved for next time.",
+		"rotate-intro": "Rotators and routers switch accounts on their own, sometimes in the middle of a turn. Let's start a longer answer, then switch to the work account while it streams.",
+		"rotate-block": "The guard catches the change and stops the turn at once. It is aborted, not finished on the work account.",
+		"rotate-offer": "Once pi is idle, the account it was on comes first. There is no allow once here, because the aborted turn is gone. We switch back to spare.",
+		"status-place": "Finally, slash guard shows what the guard sees. This directory matches no place rule, so it falls to the default zone, personal.",
+		"status-account": "Spare is tagged personal, so it matches, and turns here go through.",
+		"end": "To install it, run the command on screen. Then try slash guard tour, or add your first place rule."
+	}
+}

@@ -1,0 +1,61 @@
+WEBVTT
+
+1
+00:00:00.004 --> 00:00:06.454
+This is pi-account-guard. Rotate accounts freely, and never send a turn into the wrong zone.
+
+2
+00:00:07.708 --> 00:00:21.833
+Many of us keep a work subscription and a personal one in the same pi. Here, pi is open in a personal repository, but the selected model charges the work account. The footer already warns about it.
+
+3
+00:00:22.443 --> 00:00:25.493
+Let's ask for a summary of the garden beds.
+
+4
+00:00:26.224 --> 00:00:40.274
+Before anything is sent, pi-account-guard checks the account against this place. The account, acme, is tagged work. This repository is personal. So the turn is blocked, and nothing reaches the work subscription.
+
+5
+00:00:40.884 --> 00:00:47.084
+The fix is one keystroke away. The first choice switches to homelab, a personal account.
+
+6
+00:00:48.491 --> 00:00:53.091
+The same prompt runs again on homelab, and the footer shows a match.
+
+7
+00:00:53.699 --> 00:01:01.024
+Accounts start untagged. Let's switch to spare, an account the guard has never seen, and ask about watering.
+
+8
+00:01:01.764 --> 00:01:08.089
+Before the turn goes, the guard asks which zones spare belongs to. Nothing is ticked for you.
+
+9
+00:01:08.693 --> 00:01:14.143
+We tick personal. The turn goes at once, and the tag is saved for next time.
+
+10
+00:01:14.753 --> 00:01:25.303
+Rotators and routers switch accounts on their own, sometimes in the middle of a turn. Let's start a longer answer, then switch to the work account while it streams.
+
+11
+00:01:33.312 --> 00:01:40.287
+The guard catches the change and stops the turn at once. It is aborted, not finished on the work account.
+
+12
+00:01:40.897 --> 00:01:50.647
+Once pi is idle, the account it was on comes first. There is no allow once here, because the aborted turn is gone. We switch back to spare.
+
+13
+00:01:53.466 --> 00:02:02.416
+Finally, slash guard shows what the guard sees. This directory matches no place rule, so it falls to the default zone, personal.
+
+14
+00:02:03.024 --> 00:02:07.749
+Spare is tagged personal, so it matches, and turns here go through.
+
+15
+00:02:08.354 --> 00:02:15.404
+To install it, run the command on screen. Then try slash guard tour, or add your first place rule.
