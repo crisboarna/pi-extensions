@@ -314,7 +314,7 @@ Every command takes full arguments, so it works without dialogs (RPC scripting, 
 | No model selected | `guard personal ? no model` (section 18) |
 | The footer check itself failed | `guard ! check failed` (section 18) |
 
-pi-powerline-footer shows every extension status in its `extension_statuses` segment; a `powerline.customItems` entry gives the `guard` key a place of its own and takes it out of that segment. The README says both (corrected after the simulated check of 2026-10-26; the earlier text said the key stayed hidden until placed).
+pi-powerline-footer shows every extension status in its `extension_statuses` segment; a `powerline.customItems` entry gives the `guard` key a place of its own and takes it out of that segment. [docs/footer.md](docs/footer.md) says both (corrected after the simulated check of 2026-10-26; the earlier text said the key stayed hidden until placed).
 
 ## 13. Interaction with other extensions
 
