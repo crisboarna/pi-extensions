@@ -25,7 +25,7 @@ const SUBCOMMANDS: Array<{ value: string; description: string }> = [
 	{ value: "health", description: "Models, cooldowns and requests in flight" },
 	{ value: "report", description: "Cost by task, tier and model" },
 	{ value: "budget", description: "Spend against budgets" },
-	{ value: "inspect", description: "Write the HTML inspector for this session" },
+	{ value: "inspect", description: "Write the HTML inspector for this session: [--open] [-o file]" },
 	{ value: "validate", description: "Check the config" },
 	{ value: "resume", description: "resume cancel: stop a pending auto-continue" },
 ];

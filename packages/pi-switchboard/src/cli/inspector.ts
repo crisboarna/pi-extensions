@@ -1,3 +1,4 @@
+import type { MirrorLine } from "../live/live.ts";
 import { explain, summarize } from "../record/describe.ts";
 import type { DecisionEntry, ProfileSnapshotEntry } from "../record/types.ts";
 import { aggregate, type Task, type Timeline } from "../timeline/parse.ts";
@@ -32,6 +33,16 @@ function decisionBlock(decision: DecisionEntry): string {
 	return `<details class="decision${warn ? " warn" : ""}"><summary>${esc(summarize(decision))}</summary><pre>${esc(explain(decision).join("\n"))}</pre></details>`;
 }
 
+function mirrorBlock(lines: readonly MirrorLine[]): string {
+	const rows = lines
+		.map((line) => {
+			const tag = line.kind === "tool-call" ? `→ ${line.tool ?? ""}` : line.kind === "tool-result" ? `${line.isError ? "✗" : "←"} ${line.tool ?? ""}` : line.kind;
+			return `<div class="${line.isError || line.kind === "error" ? "err" : ""}"><span class="dim">${esc(tag.padEnd(14))}</span> ${esc(line.text.replace(/\s+/gu, " ").slice(0, 600))}</div>`;
+		})
+		.join("");
+	return `<details class="decision"><summary>transcript mirror (${lines.length} entries, redacted and bounded)</summary><pre>${rows}</pre></details>`;
+}
+
 function taskBlock(task: Task, snapshot: ProfileSnapshotEntry | undefined, depth: number): string {
 	const main = task.decisions.find((d) => d.reason === "user") ?? task.decisions[0];
 	const tier = main?.tier.chosen ?? "";
@@ -49,7 +60,8 @@ function taskBlock(task: Task, snapshot: ProfileSnapshotEntry | undefined, depth
 	const tools = task.tools.map((t) => `<li class="${t.isError ? "err" : ""}"><code>${esc(t.name)}</code> ${t.isError ? "✗" : "✓"} <span class="dim">${esc(t.preview.replace(/\s+/gu, " ").slice(0, 160))}</span></li>`).join("");
 	const children = task.children
 		.map((child) => {
-			const nested = child.timeline ? child.timeline.tasks.map((t) => taskBlock(t, snapshot, depth + 1)).join("") : '<p class="dim">Child session not available (in-memory child or removed file).</p>';
+			const transcript = child.timeline?.mirror ? mirrorBlock(child.timeline.mirror) : "";
+			const nested = child.timeline ? child.timeline.tasks.map((t) => taskBlock(t, snapshot, depth + 1)).join("") + transcript : '<p class="dim">Child session not available (in-memory child, removed file, or its transcript mirror was already swept).</p>';
 			return `<div class="child">${decisionBlock(child.decision)}${child.runId ? `<p class="dim">run ${esc(child.runId)}</p>` : ""}${nested}</div>`;
 		})
 		.join("");

@@ -7,6 +7,9 @@ import { describe, it } from "node:test";
 import { renderInspector } from "../../src/cli/inspector.ts";
 import { formatReplay } from "../../src/cli/main.ts";
 import { aggregate, buildTimeline, timelineFromFile } from "../../src/timeline/parse.ts";
+import { LiveWriter } from "../../src/live/live.ts";
+import { createRedactor } from "../../src/classifier/redact.ts";
+import { liveChildMirror } from "../../src/timeline/mirror.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "session-routed.jsonl");
 const BIN = join(import.meta.dirname, "..", "..", "bin", "pi-switchboard.mjs");
@@ -68,5 +71,48 @@ describe("replay and inspector", () => {
 		const replay = execFileSync(process.execPath, [BIN, "replay", FIXTURE], { encoding: "utf8" });
 		assert.match(replay, /2 tasks/u);
 		writeFileSync(join(dir, "x.jsonl"), "");
+	});
+});
+
+describe("child transcript mirrors", () => {
+	/** A live directory holding the in-memory child that the fixture's launch decision d_3 started. */
+	function liveDir() {
+		const dir = mkdtempSync(join(tmpdir(), "switchboard-mirror-"));
+		const writer = new LiveWriter({ dir, session: "child-xyz", parent: "p", redact: createRedactor(), now: Date.UTC(2026, 9, 25, 12, 1, 12) });
+		writer.update({ agent: "scout", launchDecisionId: "d_3", model: "acme/small" });
+		writer.append({ kind: "task", text: "scan the repo" });
+		writer.append({ kind: "tool-call", tool: "grep", text: '{"pattern":"retry"}' });
+		writer.append({ kind: "tool-result", tool: "grep", text: "src/retry.ts:12 <script>alert(1)</script>" });
+		writer.append({ kind: "tool-result", tool: "bash", isError: true, text: "exit 1" });
+		writer.assistant({ provider: "acme", model: "small", text: "found it", usage: { input: 900, output: 100, cacheRead: 50, cost: { total: 0.004 } } });
+		writer.finish("done", Date.UTC(2026, 9, 25, 12, 1, 20));
+		return dir;
+	}
+
+	it("rebuilds an in-memory child from its mirror, joined by the launch decision id", () => {
+		const timeline = timelineFromFile(FIXTURE, { childMirror: liveChildMirror(liveDir()) });
+		const child = timeline.tasks[1]?.children[0];
+		assert.ok(child?.timeline?.mirror, "the child has a mirror timeline");
+		const task = child?.timeline?.tasks[0];
+		assert.equal(task?.request, "scan the repo");
+		assert.deepEqual(task?.tools.map((t) => [t.name, t.isError]), [["grep", false], ["bash", true]]);
+		assert.equal(task?.requests[0]?.model, "small");
+		assert.equal(task?.requests[0]?.durationMs, 8000);
+		assert.ok(Math.abs((task?.cost ?? 0) - 0.004) < 1e-9);
+	});
+
+	it("shows the mirror in the inspector, escaped, and says so when no mirror exists", () => {
+		const withMirror = renderInspector(timelineFromFile(FIXTURE, { childMirror: liveChildMirror(liveDir()) }));
+		assert.match(withMirror, /transcript mirror \(5 entries/u);
+		assert.ok(!withMirror.includes("<script>alert(1)</script>"), "mirror text is escaped");
+		assert.match(withMirror, /&lt;script&gt;/u);
+		const without = renderInspector(timelineFromFile(FIXTURE, { childMirror: liveChildMirror(mkdtempSync(join(tmpdir(), "switchboard-empty-"))) }));
+		assert.match(without, /already swept/u);
+	});
+
+	it("includes mirror children in replay and totals by model", () => {
+		const timeline = timelineFromFile(FIXTURE, { childMirror: liveChildMirror(liveDir()) });
+		assert.match(formatReplay(timeline), /scan the repo/u);
+		assert.ok(aggregate(timeline, (r) => `${r.provider}/${r.model}`).has("acme/small"));
 	});
 });

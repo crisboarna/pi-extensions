@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import type { MirrorLine } from "../live/live.ts";
 import { DECISION_TYPE, type DecisionEntry, LINK_TYPE, type LinkEntry, PROFILE_TYPE, type ProfileSnapshotEntry } from "../record/types.ts";
 
 export interface RequestRecord {
@@ -54,7 +55,8 @@ export interface Timeline {
 	cwd?: string;
 	tasks: Task[];
 	profiles: ProfileSnapshotEntry[];
-	/** Tokens and cost per tier, member and provider. */
+	/** Set when the timeline was rebuilt from a child's transcript mirror instead of a session file. */
+	mirror?: MirrorLine[];
 	totals: { cost: number; tokens: number; switches: number; requests: number; fallbacks: number; decisions: number };
 }
 
@@ -88,7 +90,7 @@ export function readEntries(file: string): Entry[] {
  * decisions, model requests (tokens, cost, switches), tool calls and the
  * subagent runs it launched, parsed recursively when their files exist.
  */
-export function buildTimeline(entries: readonly Entry[], options: { file?: string; depth?: number; childMirror?: (link: { runId?: string; sessionFile?: string }) => Timeline | undefined } = {}): Timeline {
+export function buildTimeline(entries: readonly Entry[], options: { file?: string; depth?: number; childMirror?: (link: { decisionId: string; runId?: string; sessionFile?: string }) => Timeline | undefined } = {}): Timeline {
 	const tasks: Task[] = [];
 	const profiles: ProfileSnapshotEntry[] = [];
 	const links = new Map<string, { runId?: string; sessionFile?: string }>();
@@ -186,9 +188,9 @@ export function buildTimeline(entries: readonly Entry[], options: { file?: strin
 			if (link?.runId) child.runId = link.runId;
 			if (link?.sessionFile) child.sessionFile = link.sessionFile;
 			if (depth < 3 && link?.sessionFile && existsSync(link.sessionFile)) {
-				child.timeline = buildTimeline(readEntries(link.sessionFile), { file: link.sessionFile, depth: depth + 1 });
-			} else if (options.childMirror && link) {
-				const mirrored = options.childMirror(link);
+				child.timeline = buildTimeline(readEntries(link.sessionFile), { file: link.sessionFile, depth: depth + 1, ...(options.childMirror ? { childMirror: options.childMirror } : {}) });
+			} else if (options.childMirror) {
+				const mirrored = options.childMirror({ decisionId: child.decision.id, ...link });
 				if (mirrored) child.timeline = mirrored;
 			}
 		}

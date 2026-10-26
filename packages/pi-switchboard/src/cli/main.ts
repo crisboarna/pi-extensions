@@ -4,7 +4,11 @@ import { join, resolve } from "node:path";
 import { summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
 import { aggregate, readEntries, timelineFromFile, type Timeline } from "../timeline/parse.ts";
+import { liveChildMirror, liveDirOf } from "../timeline/mirror.ts";
 import { renderInspector } from "./inspector.ts";
+
+/** Subagent transcript mirrors live next to the other pi-switchboard data. */
+const childMirror = () => liveChildMirror(liveDirOf(join(homedir(), ".pi", "agent", "pi-switchboard")));
 
 const USAGE = `pi-switchboard <command>
 
@@ -88,7 +92,7 @@ export async function main(argv: string[]): Promise<number> {
 	switch (command) {
 		case "replay": {
 			if (!file) break;
-			const timeline = timelineFromFile(resolve(file));
+			const timeline = timelineFromFile(resolve(file), { childMirror: childMirror() });
 			process.stdout.write(rest.includes("--json") ? `${JSON.stringify(timeline, null, 2)}\n` : `${formatReplay(timeline)}\n`);
 			if (rest.includes("--reclassify")) process.stdout.write(`${(await reclassify(resolve(file))).join("\n")}\n`);
 			return 0;
@@ -96,7 +100,7 @@ export async function main(argv: string[]): Promise<number> {
 		case "inspect": {
 			if (!file) break;
 			const out = resolve(flag("-o") ?? `${file.replace(/\.jsonl$/u, "")}.switchboard.html`);
-			writeFileSync(out, renderInspector(timelineFromFile(resolve(file))));
+			writeFileSync(out, renderInspector(timelineFromFile(resolve(file), { childMirror: childMirror() })));
 			process.stdout.write(`${out}\n`);
 			return 0;
 		}

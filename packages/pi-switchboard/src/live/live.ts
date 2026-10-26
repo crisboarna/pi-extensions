@@ -188,6 +188,26 @@ export function readChildren(dir: string, parent: string | readonly string[]): L
 	return out.sort((a, b) => a.startedAt - b.startedAt);
 }
 
+/** The child that belongs to a launch decision, by the id its binding carried. */
+export function findChildByDecision(dir: string, decisionId: string): LiveStatus | undefined {
+	let names: string[];
+	try {
+		names = readdirSync(dir);
+	} catch {
+		return undefined;
+	}
+	for (const name of names) {
+		if (!name.endsWith(".json")) continue;
+		try {
+			const status = JSON.parse(readFileSync(join(dir, name), "utf8")) as LiveStatus;
+			if (status.launchDecisionId === decisionId) return status;
+		} catch {
+			// Being rewritten.
+		}
+	}
+	return undefined;
+}
+
 export function readMirror(dir: string, session: string): MirrorLine[] {
 	try {
 		return readFileSync(join(dir, `${safe(session)}.jsonl`), "utf8")

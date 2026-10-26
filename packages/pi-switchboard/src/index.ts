@@ -5,6 +5,7 @@ import { textOf } from "./classifier/evidence.ts";
 import { explain, summarize } from "./record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "./record/types.ts";
 import { registerTierCommand } from "./commands/tier.ts";
+import { openFile, writeInspector } from "./commands/inspect.ts";
 import { readJson, userConfigPath, findProjectConfig } from "./config/load.ts";
 import { runTierEditor, saveWithConfirmation } from "./tui/editor.ts";
 import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
@@ -31,6 +32,19 @@ export default function switchboard(pi: ExtensionAPI): void {
 
 	registerTierCommand(runtime, {
 		watch: async (_args, ctx) => openNavigator(runtime, ctx),
+		inspect: async (args, ctx) => {
+			const outIndex = args.indexOf("-o");
+			const sessionFile = ctx.sessionManager.getSessionFile();
+			const out = writeInspector({
+				entries: ctx.sessionManager.getEntries(),
+				sessionId: ctx.sessionManager.getSessionId(),
+				...(sessionFile ? { sessionFile } : {}),
+				dataDir: runtime.dir,
+				...(outIndex >= 0 && args[outIndex + 1] ? { out: args[outIndex + 1] as string } : {}),
+			});
+			const opened = args.includes("--open") ? await openFile(out) : undefined;
+			ctx.ui.notify(`Inspector written to ${out}${opened === false ? " (could not open it; open the file yourself)" : ""}`, "info");
+		},
 		init: async (_args, ctx) => {
 			const path = userConfigPath(runtime.agentDir);
 			const existing = readJson(path).value;
