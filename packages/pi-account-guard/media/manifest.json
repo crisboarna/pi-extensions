@@ -83,6 +83,42 @@
 			"height": 720,
 			"gif": false,
 			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-8a.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "bridgeKeyScene",
+			"out": "check-8a",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-8b.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "bridgeConfigDirScene",
+			"out": "check-8b",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
+			"page": "check-8c.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "bridgeDefaultScene",
+			"out": "check-8c",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
 		}
 	]
 }

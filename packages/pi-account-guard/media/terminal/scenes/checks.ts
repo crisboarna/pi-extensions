@@ -27,3 +27,8 @@ export const footerAbsentScene = powerline([]);
 export const footerPlacedScene = powerline([{ id: "guard", statusKey: "guard", position: "left" }]);
 export const switchboardWorkScene: GuardScene = { place: "work", model: "switchboard/auto", with: ["switchboard"], llm: reply };
 export const switchboardPersonalScene: GuardScene = { place: "personal", model: "switchboard/auto", with: ["switchboard"], llm: reply };
+
+const bridge = (env: Record<string, string>): GuardScene => ({ place: "personal", model: "claude-bridge/bridge-model", bridge: true, env, llm: reply });
+export const bridgeKeyScene = bridge({ ANTHROPIC_API_KEY: "demo-not-a-secret" });
+export const bridgeConfigDirScene = bridge({ CLAUDE_CONFIG_DIR: "~/.claude-work" });
+export const bridgeDefaultScene = bridge({});

@@ -158,6 +158,13 @@ describe("licenses", () => {
 		);
 		assert.ok(result.ok, result.output);
 	});
+	test("reads the old licenses array of an installed package when the lockfile records none", () => {
+		const legacy = (type: string) => JSON.stringify({ name: "old", licenses: [{ type }] });
+		const ok = run("licenses", repo({ "package-lock.json": lock({ "node_modules/old": {} }), "node_modules/old/package.json": legacy("Apache 2.0") }));
+		assert.ok(ok.ok, ok.output);
+		const gpl = run("licenses", repo({ "package-lock.json": lock({ "node_modules/old": {} }), "node_modules/old/package.json": legacy("GPL 3.0") }));
+		assert.match(gpl.output, /node_modules\/old: "GPL-3.0" is not on the permissive allow-list/);
+	});
 	test("rejects copyleft, unknown and missing licences", () => {
 		const result = run(
 			"licenses",

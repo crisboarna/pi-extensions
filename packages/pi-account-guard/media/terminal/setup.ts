@@ -21,6 +21,10 @@ export interface GuardScene {
 	config?: Record<string, unknown> | false;
 	/** Extra pi settings, such as powerline's customItems. */
 	settings?: Record<string, unknown>;
+	/** Register a stand-in provider under pi-claude-bridge's id, so the guard resolves its account as it does for the bridge. */
+	bridge?: boolean;
+	/** Extra environment for pi; `~` is the scene home. */
+	env?: Record<string, string>;
 }
 
 /** Demo accounts: each provider authenticates with its own environment key, so its Account source is `env:<VAR>`. */
@@ -43,9 +47,11 @@ export const CONFIG = {
 	],
 };
 
-const providerExtension = (llmUrl: string) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
+const providerExtension = (llmUrl: string, bridge: boolean) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
 const ACCOUNTS = ${JSON.stringify(ACCOUNTS)};
 export default function demoAccounts(pi) {
+	// The guard keys claude-bridge handling on the provider id; this stand-in has only that id, not the bridge.
+	if (${bridge}) pi.registerProvider("claude-bridge", { name: "claude-bridge (stand-in)", baseUrl: "${llmUrl}/claude-bridge/v1", apiKey: "stand-in", api: "openai-completions", models: [{ type: "chat", id: "bridge-model", name: "bridge-model", reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 8192 }] });
 	for (const [name, { key, models }] of Object.entries(ACCOUNTS)) {
 		pi.registerProvider(name, {
 			name, baseUrl: "${llmUrl}/" + name + "/v1", apiKey: "$" + key, api: "openai-completions",
@@ -79,7 +85,7 @@ export default async function setup(item: { scene: string; variant?: string }) {
 	if (!scene) throw new Error(`setup: scene ${item.scene} has no export ${item.variant ?? "scene"}`);
 	const llm = await startLlm(scene.llm);
 	const home = createSceneHome(scene.settings ?? {});
-	home.write(".pi/agent/extensions/demo-accounts.js", providerExtension(llm.url));
+	home.write(".pi/agent/extensions/demo-accounts.js", providerExtension(llm.url, scene.bridge === true));
 	if (scene.config !== false) home.write(".pi/agent/account-guard.json", `${JSON.stringify(scene.config ?? CONFIG, null, 2)}\n`);
 	if (scene.with?.includes("switchboard")) home.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(SWITCHBOARD, null, "\t")}\n`);
 	for (const { path, remote, file } of Object.values(REPOSITORIES)) {
@@ -103,6 +109,7 @@ export default async function setup(item: { scene: string; variant?: string }) {
 				PI_CODING_AGENT_DIR: home.agentDir,
 				PI_OFFLINE: "1",
 				...Object.fromEntries(Object.values(ACCOUNTS).map(({ key }) => [key, "demo-not-a-secret"])),
+				...Object.fromEntries(Object.entries(scene.env ?? {}).map(([name, value]) => [name, value.replace(/^~/, home.home)])),
 			},
 		},
 		async close() {

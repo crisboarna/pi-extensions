@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 8: the claude-bridge account from its environment key or config directory (stand-in provider).
+clip(async (stage) => {
+	await stage.command("/guard");
+	await stage.waitFor("Account   claude-bridge (env:ANTHROPIC_API_KEY)");
+	await sleep(300);
+	await stage.still("8-status");
+	await stage.type("summarize the garden beds");
+	await stage.press("Enter");
+	await stage.waitFor("claude-bridge · environment variable ANTHROPIC_API_KEY");
+	await sleep(300);
+	await stage.still("8-tag-prompt");
+}, { title: "~/personal/garden-planner — pi" });
+</script>
+</body>
+</html>
