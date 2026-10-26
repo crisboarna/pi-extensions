@@ -34,11 +34,15 @@
 		"extensions": [
 			"./src/index.ts"
 		],
+		"skills": [
+			"./skills"
+		],
 		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/cover.png",
 		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/hero.mp4"
 	},
 	"files": [
 		"src",
+		"skills",
 		"schema",
 		"examples",
 		"README.md",

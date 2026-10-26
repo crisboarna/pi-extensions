@@ -36,6 +36,10 @@ The footer shows the result as you work: `guard personal ✓`, or `guard persona
 
 ![How a turn is checked: the account acme (env:ACME_WORK_KEY) is tagged work; ~/personal/garden-planner matches no place rule, so it falls to the default zone personal; the zones differ, so the turn is blocked and the select offers homelab first; in ~/work/acme-api the remote rule decides work, a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check.gif)
 
+### Agents and scripts
+
+The package ships a skill, `pi-account-guard`, that pi loads with it. Ask the agent why a turn was blocked or how to set up your zones: it reads `account-guard.json` and your git remotes, explains the block in plain words and proposes `/guard` commands for you to run. It never proposes a way around a block. Scripts get exit code 77 and the reason on stderr when a headless run is blocked; see [headless use](docs/headless.md).
+
 ## What you get
 
 - **Fails closed.** An untagged account, a broken config or a git failure blocks the turn and says why, instead of letting it through.

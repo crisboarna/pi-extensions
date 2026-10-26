@@ -3,6 +3,7 @@ README.md
 examples/account-guard.json
 package.json
 schema/account-guard.schema.json
+skills/pi-account-guard/SKILL.md
 src/core/account.ts
 src/core/block-dialog.ts
 src/core/check.ts
