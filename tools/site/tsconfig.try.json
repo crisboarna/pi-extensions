@@ -7,5 +7,5 @@
 		"declaration": false,
 		"sourceMap": false
 	},
-	"files": ["try/account-guard.ts"]
+	"files": ["try/account-guard.ts", "try/switchboard.ts"]
 }

@@ -414,6 +414,12 @@ th {
 	border-radius: 12px;
 	overflow: hidden;
 }
+/* The fit addon subtracts the terminal's own padding, so the text keeps clear of the rounded edge. */
+.try-live .terminal .xterm {
+	padding: 8px 10px;
+	height: 100%;
+	background: #10161e;
+}
 .try-live .steps ol {
 	padding-left: 20px;
 	font-size: 15px;

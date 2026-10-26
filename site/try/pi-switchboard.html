@@ -1,0 +1,36 @@
+<h1>Try pi-switchboard live</h1>
+<p>Real pi and pi-switchboard run here, in your browser, in a <a href="https://webcontainers.io">WebContainer</a>, on <code>switchboard/auto</code>. The local classifier and three demo accounts are stand-ins with scripted answers, as in the demo video; the rules, gates, tiers and strategies are the real ones. Nothing leaves the page.</p>
+<div class="try-live">
+	<div class="steps">
+		<button type="button" id="start" class="primary">Start the demo (about 10 MB to download)</button>
+		<p id="status" class="status" aria-live="polite"></p>
+		<ol>
+			<li><button type="button" data-type="rename foo to bar in utils.ts\r" disabled>A small job</button>: the light tier.</li>
+			<li><button type="button" data-type="design the caching layer for the pricing API\r" disabled>Design work</button>: the deep tier.</li>
+			<li><button type="button" data-type="plan checkout v2\r" disabled>An unsure answer</button>: the fallback tier.</li>
+			<li><button type="button" data-type="/tier explain\r" disabled>Explain the last choice</button></li>
+			<li><button type="button" data-type="/tier tour\r" disabled>Take the tour</button></li>
+		</ol>
+	</div>
+	<div class="terminal" id="terminal"></div>
+</div>
+<script src="../vendor/xterm/xterm.js"></script>
+<script src="../vendor/xterm/addon-fit.js"></script>
+<script type="module">
+	import { startTry } from "../try/runtime.js";
+
+	const status = (text) => (document.getElementById("status").textContent = text);
+	document.getElementById("start").addEventListener("click", async (event) => {
+		event.target.disabled = true;
+		try {
+			const session = await startTry({ element: document.getElementById("terminal"), status, shell: false });
+			for (const button of document.querySelectorAll("[data-type]")) {
+				button.disabled = false;
+				button.addEventListener("click", () => session.type(button.dataset.type.replace(/\\r/g, "\r")));
+			}
+		} catch (error) {
+			status(`The demo could not start: ${error.message}`);
+			window.TRY = { state: "failed", error: error.message };
+		}
+	});
+</script>

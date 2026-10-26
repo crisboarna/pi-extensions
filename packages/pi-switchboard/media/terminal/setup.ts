@@ -44,7 +44,7 @@ export const CONFIG = (classifierUrl: string) => ({
 	profileSelection: { default: "work" },
 });
 
-const providerExtension = (llmUrl: string) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
+export const providerExtension = (llmUrl: string) => `// Demo accounts for the recording; every request goes to the scene's fake provider.
 const PROVIDERS = ${JSON.stringify(PROVIDERS)};
 const PRICES = ${JSON.stringify(PRICES)};
 export default function demoProviders(pi) {
@@ -57,7 +57,7 @@ export default function demoProviders(pi) {
 }
 `;
 
-const PROJECT: Record<string, string> = {
+export const PROJECT: Record<string, string> = {
 	"package.json": '{ "name": "acme-shop", "private": true, "type": "module" }\n',
 	"src/upload/client.ts":
 		"export async function upload(file: Blob): Promise<void> {\n\tfor (let attempt = 0; attempt < 3; attempt++) {\n\t\tif ((await fetch('/upload', { method: 'POST', body: file })).ok) return;\n\t}\n\tthrow new Error('upload failed');\n}\n",

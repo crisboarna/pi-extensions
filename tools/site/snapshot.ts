@@ -18,7 +18,7 @@ import { ROOT } from "../../scripts/lib/repo.ts";
 const NODE_IMAGE = "node:22.19.0@sha256:afff6d8c97964a438d2e6a9c96509367e45d8bf93f790ad561a1eaea926303d9";
 export const SNAPSHOTS = join(ROOT, "site", ".snapshots");
 /** The packages each kit runs: the demo boot script in tools/site/try. */
-export const KITS: Record<string, string> = { "pi-account-guard": "account-guard" };
+export const KITS: Record<string, string> = { "pi-account-guard": "account-guard", "pi-switchboard": "switchboard" };
 /** What pi needs at run time besides the extension; everything else npm installs is left out. */
 const KEEP = ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai", "@earendil-works/pi-telemetry", "jiti", "typebox"];
 /** Files no running pi reads. */

@@ -39,8 +39,12 @@ const PAGES = {
 		],
 	},
 	"pi-switchboard": {
-		ready: /\d+\.\d%\/\d+k/,
-		steps: [["rename foo to bar in utils.ts\r", /Renamed foo to bar/]],
+		ready: /\(switchboard\) auto/,
+		steps: [
+			["rename foo to bar in utils.ts\r", /Renamed foo to bar/],
+			["design the caching layer for the pricing API\r", /deep → big-model/],
+			["/tier explain\r", /answers: work=plan/],
+		],
 	},
 };
 
