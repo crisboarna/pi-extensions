@@ -13,6 +13,7 @@ src/autotier/hints.ts
 src/autotier/propose.ts
 src/budgets/track.ts
 src/classifier/chain.ts
+src/classifier/detect.ts
 src/classifier/eval.ts
 src/classifier/evidence.ts
 src/classifier/pi-adapter.ts

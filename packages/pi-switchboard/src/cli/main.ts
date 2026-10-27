@@ -15,6 +15,7 @@ const USAGE = `pi-switchboard <command>
   replay <session.jsonl> [--json] [--reclassify]   Timeline of tasks, decisions, models and tool calls
   inspect <session.jsonl> [-o file.html]           Write the offline HTML inspector
   report [--since 7d] [--sessions <dir>]           Cost by tier, model and provider across sessions
+  classifier detect                                Find local classifier servers and print the config
   classifier eval <baseUrl> <model>                Test a classifier on 24 labelled requests (classifier --help)
 `;
 

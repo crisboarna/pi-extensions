@@ -42,14 +42,18 @@ function configLines(facts: DoctorFacts, out: Lines): void {
 
 function classifierLines(facts: DoctorFacts, out: Lines): void {
 	if (facts.classifiers.length === 0)
-		out.bad.push("✗ no classifier configured: every request uses the fallback tier; add a local System One server (README: Classifier setup)");
+		out.bad.push(
+			"✗ no classifier configured: every request uses the fallback tier; run `pi-switchboard classifier detect` to find a local server, or see docs/classifier-setup.md",
+		);
 	for (const classifier of facts.classifiers) {
 		if (!classifier.registered) out.bad.push(`✗ classifier ${classifier.model} is not registered in pi: check classifierProviders`);
 		else if (!classifier.local && !classifier.allowRemote)
 			out.warn.push(`! classifier ${classifier.model} is remote and skipped: set allowRemote: true to let it receive request text`);
 		else if (classifier.probe?.ok) out.ok.push(`✓ classifier ${classifier.model} answered in ${classifier.probe.ms} ms`);
 		else if (classifier.probe)
-			out.bad.push(`✗ classifier ${classifier.model} did not answer (${classifier.probe.error ?? "no answer"}): is its server running?`);
+			out.bad.push(
+				`✗ classifier ${classifier.model} did not answer (${classifier.probe.error ?? "no answer"}): is its server running? \`pi-switchboard classifier detect\` shows what is`,
+			);
 	}
 }
 

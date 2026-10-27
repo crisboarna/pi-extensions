@@ -42,6 +42,15 @@ function knownIds(): string[] {
 	return [...ids].filter((id) => id.length >= 6);
 }
 
+/**
+ * The only names src/ may hold, each with its reason. classifier detect probes the local classifier
+ * servers by product: their default ports, how each lists decision models, and the provider name the
+ * config gives them. They are server products, not models a user picks, which is what the scan guards.
+ */
+const ALLOWED: Record<string, string[]> = {
+	"src/classifier/detect.ts": ["lmstudio", "llama.cpp"],
+};
+
 describe("source scan", () => {
 	it("finds the example ids it guards against", () => {
 		const ids = knownIds();
@@ -56,9 +65,17 @@ describe("source scan", () => {
 		const ids = knownIds();
 		const offenders: string[] = [];
 		for (const file of files(join(ROOT, "src"), ".ts")) {
+			const path = file.slice(ROOT.length + 1);
 			const text = readFileSync(file, "utf8").toLowerCase();
-			for (const id of ids) if (text.includes(id.toLowerCase())) offenders.push(`${file.slice(ROOT.length + 1)}: ${id}`);
+			for (const id of ids) if (text.includes(id.toLowerCase()) && !ALLOWED[path]?.includes(id)) offenders.push(`${path}: ${id}`);
 		}
 		assert.deepEqual(offenders, []);
+	});
+
+	it("allows only ids its files still use", () => {
+		for (const [path, allowed] of Object.entries(ALLOWED)) {
+			const text = readFileSync(join(ROOT, path), "utf8").toLowerCase();
+			for (const id of allowed) assert.ok(text.includes(id), `${path} no longer uses ${id}; drop it from ALLOWED`);
+		}
 	});
 });

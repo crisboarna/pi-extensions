@@ -1,7 +1,12 @@
+import { detectClassifiers, formatDetect, KNOWN_SERVERS, SERVER_LABEL, type ServerKind } from "../classifier/detect.ts";
 import { evaluateClassifier, formatEval } from "../classifier/eval.ts";
 import { systemOneClassify } from "../classifier/standalone.ts";
 
 export const CLASSIFIER_USAGE = `pi-switchboard classifier <command>
+
+  detect [--json] ${KNOWN_SERVERS.map((server) => `[--${server.kind} URL]`).join(" ")}
+      Look for ${KNOWN_SERVERS.map((server) => SERVER_LABEL[server.kind]).join(", ")} on their usual ports (or the URLs
+      given), list the decision models each serves, test one, and print the config to paste.
 
   eval <baseUrl> <model> [--api-key-env NAME] [--threshold 0.8] [--json]
       Ask a System One classifier about 24 labelled requests and report how many route to the
@@ -51,10 +56,28 @@ async function evalCommand(args: string[], io: CliIo): Promise<number> {
 	return report.failed === report.results.length ? 1 : 0;
 }
 
+async function detectCommand(args: string[], io: CliIo): Promise<number> {
+	const servers = KNOWN_SERVERS.map((server) => {
+		const origin = option(args, `--${server.kind}`);
+		return origin ? { ...server, origin: origin.replace(/\/+$/u, "").replace(/\/v1$/u, "") } : server;
+	});
+	const unknown = args.filter(
+		(arg) => arg.startsWith("--") && arg !== "--json" && !KNOWN_SERVERS.some((server) => arg === `--${server.kind satisfies ServerKind}`),
+	);
+	if (unknown.length > 0) {
+		io.err(`classifier detect: unknown option ${unknown.join(", ")}\n${CLASSIFIER_USAGE}`);
+		return 1;
+	}
+	const detected = await detectClassifiers({ servers });
+	io.out(args.includes("--json") ? `${JSON.stringify(detected, null, 2)}\n` : `${formatDetect(detected, servers)}\n`);
+	return detected.length > 0 ? 0 : 1;
+}
+
 /** `pi-switchboard classifier ...`; returns the exit code. */
 export async function classifierCommand(args: string[], io: CliIo): Promise<number> {
 	const [command, ...rest] = args;
 	if (command === "eval") return evalCommand(rest, io);
+	if (command === "detect") return detectCommand(rest, io);
 	(command ? io.err : io.out)(CLASSIFIER_USAGE);
 	return command ? 1 : 0;
 }

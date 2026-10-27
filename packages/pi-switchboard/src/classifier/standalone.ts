@@ -16,7 +16,7 @@ export interface SystemOneServer {
  * references whose provider is one of `servers`. Other classifiers need pi's credentials and
  * report that instead.
  */
-export function systemOneClassify(servers: readonly SystemOneServer[]): ClassifyFn {
+export function systemOneClassify(servers: readonly SystemOneServer[], fetcher?: typeof fetch): ClassifyFn {
 	return async (model, request, options) => {
 		const slash = model.indexOf("/");
 		const server = slash > 0 ? servers.find((candidate) => candidate.name === model.slice(0, slash)) : undefined;
@@ -39,7 +39,7 @@ export function systemOneClassify(servers: readonly SystemOneServer[]): Classify
 				contextWindow: 32_768,
 			} as never,
 			{ state: request.state as never, questions: toWireQuestions(request.questions) as never },
-			{ apiKey: server.apiKey ?? "local", signal: options.signal },
+			{ apiKey: server.apiKey ?? "local", signal: options.signal, ...(fetcher ? { fetch: fetcher } : {}) },
 		);
 		return {
 			stopReason: result.stopReason,
