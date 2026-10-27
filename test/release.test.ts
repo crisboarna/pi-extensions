@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { GITHUB_REGISTRY, githubNpmrc, githubPackagesPlan } from "../scripts/release/github-packages.ts";
+import { GITHUB_REGISTRY, githubNpmrc, githubPackagesPlan, sameAsNpm } from "../scripts/release/github-packages.ts";
 
 describe("publishing to GitHub Packages", () => {
-	const workspaces = { "@crisboarna/pi-switchboard": "packages/pi-switchboard", "@crisboarna/pi-account-guard": "packages/pi-account-guard" };
+	const workspaces = { "@crisboarna/pi-switchboard": "./packages/pi-switchboard", "@crisboarna/pi-account-guard": "./packages/pi-account-guard" };
 
 	it("publishes each version Changesets published, from its workspace folder", () => {
 		assert.deepEqual(githubPackagesPlan([{ name: "@crisboarna/pi-switchboard", version: "0.1.0" }], workspaces), [
-			{ name: "@crisboarna/pi-switchboard", version: "0.1.0", folder: "packages/pi-switchboard" },
+			{ name: "@crisboarna/pi-switchboard", version: "0.1.0", folder: "./packages/pi-switchboard" },
 		]);
 		assert.deepEqual(githubPackagesPlan([], workspaces), []);
 	});
@@ -20,5 +20,11 @@ describe("publishing to GitHub Packages", () => {
 		assert.equal(GITHUB_REGISTRY, "https://npm.pkg.github.com");
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: npm expands ${GITHUB_TOKEN} itself; the file must not hold the token
 		assert.equal(githubNpmrc("@crisboarna"), "@crisboarna:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n");
+	});
+
+	it("says the packed file is npm's only when the integrity matches", () => {
+		assert.equal(sameAsNpm({ integrity: "sha512-abc" }, "sha512-abc\n"), true);
+		assert.equal(sameAsNpm({ integrity: "sha512-abc" }, "sha512-xyz"), false);
+		assert.equal(sameAsNpm({ integrity: "sha512-abc" }, undefined), false);
 	});
 });

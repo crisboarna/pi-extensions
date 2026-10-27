@@ -2,7 +2,8 @@
 # commits; only when both pass, Changesets either opens the version pull
 # request or publishes to npm with provenance (trusted publishing, OIDC)
 # from the protected npm environment, with a GitHub release per package and
-# the same versions on GitHub Packages, and the family site is deployed to
+# the same versions on GitHub Packages with a GitHub artifact attestation
+# (npm's provenance exists only on npmjs.com), and the family site is deployed to
 # GitHub Pages. A package's first version cannot be published through
 # trusted publishing; for it, an NPM_TOKEN secret in the npm environment is
 # used once and then removed (docs/repository-settings.md, First release).
@@ -121,6 +122,7 @@ jobs:
       contents: write # push release tags and create GitHub releases
       id-token: write # npm trusted publishing (OIDC) and provenance
       packages: write # publish the same versions to GitHub Packages
+      attestations: write # attest build provenance of the files published to GitHub Packages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -147,9 +149,21 @@ jobs:
           # Empty once trusted publishing is set up; npm tries OIDC first and falls back to the token only for a package's first version.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish the same versions to GitHub Packages
+      # GitHub Packages cannot store npm's provenance, so the files published there get a GitHub artifact attestation instead.
+      - name: Pack the published versions for GitHub Packages
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
+        run: node scripts/release/github-packages.ts pack
+
+      - name: Attest build provenance of the packed files
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: .release/*.tgz
+
+      - name: Publish the attested files to GitHub Packages
         if: steps.changesets.outputs.published == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
-        run: node scripts/release/github-packages.ts
+        run: node scripts/release/github-packages.ts publish

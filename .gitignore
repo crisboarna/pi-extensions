@@ -20,3 +20,5 @@ site/.snapshots/
 # Narration caches: synthesized lines, keyed by text, voice and speed
 packages/*/media/.voice/
 media/.voice/
+# Packed files waiting to be attested and published to GitHub Packages
+.release/
