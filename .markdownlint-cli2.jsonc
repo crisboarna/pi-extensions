@@ -2,7 +2,7 @@
 	// Markdown lint for every doc in the repository. Rules are on by default;
 	// each one turned off or tuned here says why.
 	"globs": ["**/*.md"],
-	"ignores": ["**/node_modules/**", "**/CHANGELOG.md", ".changeset/*.md", "**/CLAUDE.md", ".github/pull_request_template.md"],
+	"ignores": [".git/**", "**/node_modules/**", "**/CHANGELOG.md", ".changeset/*.md", "**/CLAUDE.md", ".github/pull_request_template.md"],
 	"gitignore": true,
 	"config": {
 		"default": true,

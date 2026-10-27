@@ -16,6 +16,7 @@ const USAGE = `pi-switchboard <command>
   inspect <session.jsonl> [-o file.html]           Write the offline HTML inspector
   report [--since 7d] [--sessions <dir>]           Cost by tier, model and provider across sessions
   classifier detect                                Find local classifier servers and print the config
+  classifier setup <server>                        Set up a local classifier server and add it to the config
   classifier eval <baseUrl> <model>                Test a classifier on 24 labelled requests (classifier --help)
 `;
 

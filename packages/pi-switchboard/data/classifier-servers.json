@@ -1,0 +1,62 @@
+{
+	"$comment": "Local classifier servers for `pi-switchboard classifier detect` and `setup`: where each listens, how it lists decision models, which models the measurements recommend (docs/classifier-models.md), and the commands setup shows and runs. Product names and model ids live here, not in src/.",
+	"servers": [
+		{
+			"kind": "lmstudio",
+			"label": "LM Studio",
+			"name": "lmstudio",
+			"origin": "http://127.0.0.1:1234",
+			"listing": "type-field"
+		},
+		{
+			"kind": "ollama",
+			"label": "Ollama",
+			"name": "ollama",
+			"origin": "http://127.0.0.1:11434",
+			"listing": "show-capabilities"
+		},
+		{
+			"kind": "llamacpp",
+			"label": "llama.cpp",
+			"name": "llamacpp",
+			"origin": "http://127.0.0.1:8080",
+			"listing": "output-modalities",
+			"chatHint": "chat models pi's llama.cpp provider can read as classifiers: {models}\nto use one: export LLAMA_BASE_URL={origin} (or /login llama.cpp in pi), add a classifier \"llama.cpp/<model>\", set classification.temperature to 2, and test it with /tier eval",
+			"chatProvider": "llama.cpp"
+		}
+	],
+	"preferred": ["h2o-lightning", "tev1", "lev", "nimble", "kev"],
+	"setups": {
+		"lmstudio": {
+			"commands": ["lms", "~/.lmstudio/bin/lms"],
+			"install": "Install LM Studio from https://lmstudio.ai and open it once; it installs the lms command.",
+			"run": [
+				["{bin}", "get", "https://huggingface.co/h2oai/h2o-lightning-4b-gguf", "--gguf", "-y"],
+				["{bin}", "server", "start"],
+				["{bin}", "load", "h2o-lightning-4b", "-y"]
+			],
+			"model": "h2o-lightning-4b"
+		},
+		"ollama": {
+			"commands": ["ollama"],
+			"install": "Install Ollama 0.35 or later from https://ollama.com/download.",
+			"run": [["{bin}", "pull", "tev1"]],
+			"serverHint": "Open the Ollama app, or run `ollama serve` in another terminal.",
+			"model": "tev1"
+		},
+		"llamacpp": {
+			"commands": ["llama-server"],
+			"install": "Install llama.cpp: `brew install llama.cpp` on macOS or Linux, or a release from https://github.com/ggml-org/llama.cpp/releases.",
+			"serve": ["{bin}", "-hf", "h2oai/h2o-lightning-4b-gguf:Q4_K_M", "--port", "8080"],
+			"model": "h2oai/h2o-lightning-4b-gguf:Q4_K_M"
+		},
+		"llamacpp-chat": {
+			"server": "llamacpp",
+			"commands": ["llama-server"],
+			"install": "Install llama.cpp: `brew install llama.cpp` on macOS or Linux, or a release from https://github.com/ggml-org/llama.cpp/releases.",
+			"serve": ["{bin}", "-hf", "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M", "--jinja", "-c", "8192", "--port", "8080"],
+			"model": "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M",
+			"chat": true
+		}
+	}
+}

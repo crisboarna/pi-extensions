@@ -47,6 +47,7 @@
 		"src",
 		"bin",
 		"schema",
+		"data",
 		"examples",
 		"skills",
 		"README.md",

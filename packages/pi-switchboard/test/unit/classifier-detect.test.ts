@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { configFor, detectClassifiers, formatDetect, preferredModel, type ServerProbe } from "../../src/classifier/detect.ts";
+import { configFor, detectClassifiers, formatDetect, knownServers, preferredModel, type ServerProbe } from "../../src/classifier/detect.ts";
 import { classifierCommand } from "../../src/cli/classifier.ts";
 
 const ANSWERS = {
@@ -9,11 +9,9 @@ const ANSWERS = {
 	risky: { type: "noul", noul: 0.05 },
 };
 
-const SERVERS: ServerProbe[] = [
-	{ kind: "lmstudio", name: "lmstudio", origin: "http://studio.test" },
-	{ kind: "ollama", name: "ollama", origin: "http://ollama.test" },
-	{ kind: "llamacpp", name: "llamacpp", origin: "http://llama.test" },
-];
+/** The shipped catalog's servers, at test origins. */
+const ORIGINS: Record<string, string> = { lmstudio: "http://studio.test", ollama: "http://ollama.test", llamacpp: "http://llama.test" };
+const SERVERS: ServerProbe[] = knownServers().map((server) => ({ ...server, origin: ORIGINS[server.kind] ?? server.origin }));
 
 /** A fake network: each product's model list in its own format, and a System One endpoint per server. */
 function network(routes: Record<string, unknown>, systemOne: (url: string, model: string) => unknown = () => ({ answers: ANSWERS })) {

@@ -25,6 +25,7 @@ pi-switchboard classifier eval http://127.0.0.1:1234/v1 h2o-lightning-4b   # LM 
 | Laya, Q8_0 | 0.45 GB | llama.cpp | 12 (0.5–0.6) | 3 | 0.18 s | Docker, CPU only |
 | Julia-1, Q8_0 | 0.17 GB | llama.cpp | 10 (0.6–0.7) | 0 | 0.06 s | Docker, CPU only |
 | Clef, Clef Flash | 18 GB, 11 GB | Ollama | not measured: the model crashed Ollama's runner on CPU (`GGML_ASSERT`) | | | Docker, CPU only |
+| Qwen3.5-0.8B-decision, gemma-4-e2b decision (MLX) | 1.9 GB, 5.4 GB | OptiQ 0.7.7 | 9 at every threshold: answers near chance (about 0.2 for each of five choices), also on OptiQ's own documented example | 6 | 0.09 s, 0.18 s | M5 Max, MLX |
 
 How to read it:
 
@@ -32,5 +33,7 @@ How to read it:
 - **24 requests are few.** A difference of one or two is noise; the gap between the top rows and Kev, Laya or Julia-1 is not. The small encoder models (Julia-1, Laya) are fast but unsure about these questions, so most requests fall to the fallback tier.
 - **Latency.** The Docker runs had no GPU (Docker on a Mac cannot use Metal), so their times are many times slower than the same model on a GPU. Compare models by the correct column; measure latency on your own machine with eval. pi-switchboard's default budget for one decision is 4 s (`classification.decisionBudgetMs`), and `timeoutMs` per classifier is 2 s.
 - **Chat models** answer through next-token probabilities, one prompt per question, so they take about three times a decision model's work per request. Their raw probabilities are overconfident; pi-switchboard's `classification.temperature` (2 here) softens them.
+
+OptiQ needs `--no-auth` (or a key set in the classifier provider's `apiKey`), because pi-switchboard sends a placeholder key that OptiQ rejects.
 
 Versions: llama.cpp server image `ghcr.io/ggml-org/llama.cpp@sha256:8ee4ec7c…` (2026-10-27), Ollama 0.40.11, LM Studio with its llama.cpp engine; Docker Desktop with 18 CPUs and 35 GB of memory on an Apple M5 Max.

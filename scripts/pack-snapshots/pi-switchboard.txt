@@ -1,6 +1,7 @@
 LICENSE
 README.md
 bin/pi-switchboard.mjs
+data/classifier-servers.json
 examples/local-only.json
 examples/mixed-providers.json
 examples/single-tier.json
@@ -20,6 +21,8 @@ src/classifier/pi-adapter.ts
 src/classifier/questions.ts
 src/classifier/redact.ts
 src/classifier/samples.ts
+src/classifier/servers.ts
+src/classifier/setup.ts
 src/classifier/standalone.ts
 src/classifier/system-one.ts
 src/classifier/warmup.ts
