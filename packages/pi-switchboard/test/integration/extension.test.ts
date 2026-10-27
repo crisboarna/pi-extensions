@@ -247,7 +247,7 @@ describe("subagent launches", () => {
 		await tier("watch");
 		assert.ok(
 			screens[0]?.some((line) => line.includes("scout") && line.includes("standard")),
-			screens[0]?.join("\n"),
+			screens[0]?.join("\n") ?? "no screen was drawn",
 		);
 		assert.ok(screens[1]?.some((line) => line.includes("scout · decision")));
 		assert.ok(!screens[1]?.some((line) => line.includes("No routing decision")), "the launch decision is joined to the child");

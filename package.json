@@ -51,7 +51,7 @@
 		"@earendil-works/pi-ai": "1.4.0",
 		"@earendil-works/pi-coding-agent": "1.4.0",
 		"@earendil-works/pi-tui": "1.4.0",
-		"@types/node": "24.19.2",
+		"@types/node": "26.6.5",
 		"@webcontainer/api": "1.6.4",
 		"@webcontainer/snapshot": "0.1.0",
 		"@xterm/addon-fit": "0.11.0",
