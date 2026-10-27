@@ -18,6 +18,8 @@ export interface DoctorFacts {
 	blocked?: string | undefined;
 	subagents: { enabled: boolean; launchModeReason?: string | undefined };
 	footer: boolean;
+	/** classification.decisionBudgetMs: how long one decision may take before the fallback tier is used. */
+	decisionBudgetMs: number;
 	quotaProviders: string[];
 	piUsage: boolean;
 	warnings: string[];
@@ -49,6 +51,10 @@ function classifierLines(facts: DoctorFacts, out: Lines): void {
 		if (!classifier.registered) out.bad.push(`✗ classifier ${classifier.model} is not registered in pi: check classifierProviders`);
 		else if (!classifier.local && !classifier.allowRemote)
 			out.warn.push(`! classifier ${classifier.model} is remote and skipped: set allowRemote: true to let it receive request text`);
+		else if (classifier.probe?.ok && classifier.probe.ms > facts.decisionBudgetMs)
+			out.warn.push(
+				`! classifier ${classifier.model} answered in ${classifier.probe.ms} ms, more slowly than the ${facts.decisionBudgetMs} ms budget for one decision (classification.decisionBudgetMs): routed requests use the fallback tier; a smaller model or a GPU helps`,
+			);
 		else if (classifier.probe?.ok) out.ok.push(`✓ classifier ${classifier.model} answered in ${classifier.probe.ms} ms`);
 		else if (classifier.probe)
 			out.bad.push(
@@ -145,8 +151,11 @@ async function probe(runtime: Runtime, model: string, timeoutMs: number): Promis
 	}
 }
 
-/** Gathers the facts for `/tier doctor`, probing each usable classifier with a warm-up request. */
-export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext, timeoutMs = 5000): Promise<DoctorFacts> {
+/**
+ * Gathers the facts for `/tier doctor`, probing each usable classifier with a warm-up request. The probe
+ * waits long enough for a slow classifier to answer, so a slow one is told apart from one that is down.
+ */
+export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext, timeoutMs = 30_000): Promise<DoctorFacts> {
 	const config = runtime.config;
 	const settings = readSettings(runtime.agentDir);
 	const packages = (settings.packages ?? []).map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry)));
@@ -176,6 +185,7 @@ export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext,
 		blocked: runtime.blocked,
 		subagents: { enabled: config.subagents.enabled, launchModeReason: runtime.launchModeReason },
 		footer: footerShowsTier(settings),
+		decisionBudgetMs: config.classification.decisionBudgetMs,
 		quotaProviders: quotaProviders(Object.values(config.profiles)),
 		piUsage: packages.some((entry) => entry.includes("pi-usage")),
 		warnings: [...config.warnings, ...runtime.environmentChecks(ctx)],

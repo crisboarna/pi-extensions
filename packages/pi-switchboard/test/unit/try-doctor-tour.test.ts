@@ -96,6 +96,7 @@ const healthy: DoctorFacts = {
 	routingSelected: true,
 	subagents: { enabled: true },
 	footer: true,
+	decisionBudgetMs: 4000,
 	quotaProviders: ["acme"],
 	piUsage: true,
 	warnings: [],
@@ -144,6 +145,24 @@ describe("/tier doctor", () => {
 				lines.some((line) => line.startsWith(expected)),
 				expected,
 			);
+	});
+
+	it("says when a classifier answers but more slowly than the decision budget", () => {
+		const lines = doctorLines({
+			...healthy,
+			decisionBudgetMs: 4000,
+			classifiers: [
+				{ model: "local/quick", registered: true, local: true, allowRemote: false, probe: { ok: true, ms: 380 } },
+				{ model: "local/slow", registered: true, local: true, allowRemote: false, probe: { ok: true, ms: 7893 } },
+			],
+		});
+		const text = lines.join("\n");
+		assert.match(text, /✓ classifier local\/quick answered in 380 ms/);
+		assert.match(
+			text,
+			/! classifier local\/slow answered in 7893 ms, more slowly than the 4000 ms budget for one decision \(classification\.decisionBudgetMs\)/,
+		);
+		assert.doesNotMatch(text, /✓ classifier local\/slow/);
 	});
 
 	it("puts problems first and says what to do about each", () => {
