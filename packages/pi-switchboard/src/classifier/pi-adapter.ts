@@ -64,10 +64,13 @@ export function createClassifyFn(getContext: () => ExtensionContext | undefined)
 	};
 }
 
-/** Whether a classifier runs on this machine, judged by its base URL. */
+/** Ollama's cloud models (`clef:cloud`, `gpt-oss:120b-cloud`): a local server relays them to Ollama's cloud. */
+const RELAYED_TO_CLOUD = /(?::|-)cloud$/u;
+
+/** Whether a classifier runs on this machine: judged by its base URL, except models a local server relays elsewhere. */
 export function isLocalClassifier(ctx: ExtensionContext, model: string, providers: readonly ClassifierProviderConfig[]): boolean {
 	const ref = parseModelRef(model);
-	if (!ref) return false;
+	if (!ref || RELAYED_TO_CLOUD.test(ref.id)) return false;
 	const configured = providers.find((provider) => provider.name === ref.provider);
 	if (configured) return isLocalUrl(configured.baseUrl);
 	const classifier = ctx.modelRegistry.findOfType("classifier", ref.provider, ref.id) as { baseUrl?: string } | undefined;

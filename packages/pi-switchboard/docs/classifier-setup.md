@@ -45,7 +45,7 @@ Measured on an M5 Max: about 9 s on the first call while LM Studio loads the mod
 
 ## Remote classifiers
 
-A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Jev, Clef) count as remote.
+A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them.
 
 ## What the classifier sees
 
