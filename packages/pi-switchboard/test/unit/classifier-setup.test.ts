@@ -40,6 +40,10 @@ function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string
 				cloudModels: [],
 			}) as DetectedServer,
 		smoke: async (_server, model) => ({ model, ok: true, ms: 42 }),
+		load: async (_server, model) => {
+			ran.push(["load", model]);
+			return undefined;
+		},
 		evaluate: async () => ({ best: { threshold: 0.6, correct: 22, under: 0 }, medianMs: 190 }) as EvalReport,
 		configPath: "/home/me/.pi/agent/pi-switchboard.json",
 		readConfig: () => over.config,
@@ -108,6 +112,11 @@ describe("classifier setup", () => {
 		assert.deepEqual(config.classification, { decisionBudgetMs: 5000, temperature: 2 });
 		assert.equal(config.classifierProviders, undefined);
 		assert.match(r.out.join(""), /is a chat model; pi reads it through/);
+		assert.match(r.out.join(""), /First download the model[\s\S]*Ctrl\+C[\s\S]*Then start the server/);
+		assert.deepEqual(r.ran, [["load", spec.model]]);
+		const refused = rig({ chatModels: [spec.model], load: async () => "404 File Not Found" });
+		assert.equal(await runSetup(chatSetup, { yes: true }, refused.deps), 1);
+		assert.match(refused.err.join(""), /could not load .*404 File Not Found/);
 	});
 
 	it("stops without the product, on a declined confirm, a failing command, a model that does not answer, or malformed config", async () => {

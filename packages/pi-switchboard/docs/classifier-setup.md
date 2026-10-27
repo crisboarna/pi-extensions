@@ -1,53 +1,59 @@
 # Classifier setup
 
-pi-switchboard asks a decision classifier three typed questions about each request: what kind of work it is (`work`), how much reasoning it needs (`depth`), and whether a mistake would be costly (`risky`). One call answers all three. Any local server that answers `POST <baseUrl>/systemone` works: LM Studio, `llama-server` (llama.cpp build 11773 or later), or a model's own System One shim.
-
-Which model routes best is measured in [classifier models compared](classifier-models.md); `/tier eval` runs the same test on yours.
+pi-switchboard asks a classifier three typed questions about each request: what kind of work it is (`work`), how much reasoning it needs (`depth`), and whether a mistake would be costly (`risky`). One call answers all three. The classifier must be a **classifier model**, one that answers with a probability for each option, because the confidence gate relies on those probabilities. Chat models such as Haiku that only write text are not supported; a local chat model can still serve, through llama.cpp, which reads its token probabilities.
 
 No classifier yet? Everything still works: requests use the profile's fallback tier, and `/tier try work=plan depth=1.8 risky=no <request>` shows how a request would route with answers you type.
 
-## LM Studio with H2O-Lightning-4B (recommended)
+## Pick a route
 
-LM Studio treats a GGUF as a decision model only when its metadata declares a decision type. MLX builds load as chat models and are rejected.
+| Route | What runs | Setup | Measured (of 24) | Page |
+|---|---|---|---|---|
+| LM Studio | H2O-Lightning-4B, a decision model | `pi-switchboard classifier setup lmstudio` | 22, 0.4 s on Metal | [LM Studio](classifier-lm-studio.md) |
+| llama.cpp, chat model | Qwen3-4B-Instruct (Unsloth GGUF), read by pi's `llama.cpp` provider | `pi-switchboard classifier setup llamacpp-chat` | **23** | [llama.cpp](classifier-llama-cpp.md) |
+| llama.cpp, decision model | H2O-Lightning-4B, or Kev, lev, Julia-1, Laya | `pi-switchboard classifier setup llamacpp` | 21 | [llama.cpp](classifier-llama-cpp.md) |
+| Ollama | Tev1, a decision model | `pi-switchboard classifier setup ollama` | 21 | [Ollama](classifier-ollama.md) |
+| MLX on Apple Silicon | OptiQ, mlx-serve | by hand | 9 (near chance) | [MLX](classifier-mlx.md) |
+| Hosted | OpenAI's GPT-6 Luna, TypeSafe's Jev, Cloudflare's Clef | a config entry | not measured here | [Cloud classifiers](classifier-cloud.md) |
+| Other servers | Unsloth Studio, vLLM, LiteLLM | | | [Other servers](classifier-other-servers.md) |
+
+The measurements, how they were taken and every model tried are in [classifier models compared](classifier-models.md). A Mac with LM Studio already installed is the shortest path; the llama.cpp chat-model route routed best.
+
+## Find, set up and test
+
+Three commands do the work; each setup page shows the same steps by hand.
 
 ```bash
-mkdir -p ~/.lmstudio/models/h2oai/h2o-lightning-4b-gguf
-curl -L -o ~/.lmstudio/models/h2oai/h2o-lightning-4b-gguf/h2o-lightning-4b-Q8_0.gguf \
-  https://huggingface.co/h2oai/h2o-lightning-4b-gguf/resolve/main/h2o-lightning-4b-Q8_0.gguf
-~/.lmstudio/bin/lms ls | grep h2o        # must show type "decision"
+pi-switchboard classifier detect          # finds LM Studio, Ollama and llama.cpp on their usual ports, tests one, prints the config
+pi-switchboard classifier setup ollama    # downloads a model with the product's own command, tests it, writes the config
+pi-switchboard classifier eval http://127.0.0.1:11434/v1 tev1   # 24 labelled requests: correct, too low, latency, best threshold
 ```
 
-Smoke test (the API names the yes/no type `noul`):
+The command is installed with the package: `~/.pi/agent/npm/node_modules/@crisboarna/pi-switchboard/bin/pi-switchboard.mjs`, or run it with `npx @crisboarna/pi-switchboard`. `setup` never installs LM Studio, Ollama or llama.cpp itself; it shows each command and asks before running it, and shows the config change before writing it.
 
-```bash
-curl -s http://127.0.0.1:1234/v1/systemone -H 'content-type: application/json' -d '{
-  "model": "h2o-lightning-4b",
-  "state": { "request": "rename the variable foo to bar" },
-  "questions": { "work": { "type": "choice", "instructions": "What kind of work?",
-    "criteria": { "plan": "Designing", "implement": "Writing code", "mechanical": "A small fully specified step" } } }
-}'
+Inside pi:
+
+```text
+/tier doctor            each classifier answers? how fast? what to fix
+/tier eval              the first classifier on the 24 labelled requests
+/tier eval ollama/tev1:latest --threshold 0.7
 ```
 
-Config (in `~/.pi/agent/pi-switchboard.json`):
+`/tier eval` reaches any classifier pi knows, including llama.cpp chat models and hosted ones (which get only the sample texts, after a confirm). Then `/reload` after changing the config.
 
-```json
-"classifierProviders": [{ "name": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1/", "models": ["h2o-lightning-4b"] }],
-"classifiers": [{ "model": "lmstudio/h2o-lightning-4b", "timeoutMs": 2000, "threshold": 0.8 }]
-```
+## Tuning
 
-Then run `/tier doctor`: it sends the classifier a warm-up request and says whether it answered.
-
-Measured on an M5 Max: about 9 s on the first call while LM Studio loads the model, then 0.2–0.7 s per decision. pi-switchboard sends a warm-up call at session start; `keepWarmMs` repeats it while idle.
-
-**If LM Studio also serves your chat models**, turn off its just-in-time option that keeps only the last loaded model, or load models explicitly with `lms load`. Otherwise the classifier and the chat model evict each other mid-request ("Model is unloaded").
+- **`threshold`, per classifier.** A rule fires only when the answers it uses are at least this confident; below it, the request goes to the fallback tier. Models differ in how confident they sound, so use the value `eval` suggests. See [rules and confidence](rules-and-confidence.md).
+- **`timeoutMs`, per classifier,** and **`classification.decisionBudgetMs`** (4 s) for the whole decision. A classifier slower than the budget never decides; `/tier doctor` warns about it. `setup` sizes `timeoutMs` from the measured latency.
+- **`classification.temperature`** softens a chat model's overconfident probabilities (2 is a good start); decision models ignore it.
+- **Warm-up.** The first request may load the model (2 to 20 s). pi-switchboard sends a warm-up call at session start; a classifier entry's `keepWarmMs` repeats it while idle.
 
 ## Several classifiers
 
-`classifiers` are tried in order within one decision, inside `classification.decisionBudgetMs` (4 s). Each entry may set its own `threshold` and `timeoutMs`.
+`classifiers` are tried in order within one decision, inside `classification.decisionBudgetMs`. Each entry may set its own `threshold` and `timeoutMs`.
 
 ## Remote classifiers
 
-A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them.
+A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them. A local proxy that forwards to a cloud, such as LiteLLM, counts as local by its address; see [other servers](classifier-other-servers.md).
 
 ## What the classifier sees
 

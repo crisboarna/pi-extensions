@@ -19,6 +19,8 @@ export interface SetupDeps {
 	/** The server's model lists, or `undefined` while it does not answer. */
 	probe(server: ServerProbe): Promise<DetectedServer | undefined>;
 	smoke(server: DetectedServer, model: string): Promise<SmokeTest>;
+	/** Asks a router to load a model; resolves to an error message, or `undefined` when it loaded. */
+	load(server: DetectedServer, model: string): Promise<string | undefined>;
 	evaluate(server: DetectedServer, model: string): Promise<EvalReport>;
 	configPath: string;
 	readConfig(): string | undefined;
@@ -172,14 +174,26 @@ export async function runSetup(name: string | undefined, options: SetupOptions, 
 	const fill = (words: readonly string[]) => words.map((word) => (word === "{bin}" ? bin : word));
 	if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return 1;
 	const waitMs = options.waitMs ?? 20 * 60_000;
+	if (spec.prepare)
+		deps.out(`First download the model, in another terminal; stop it with Ctrl+C once it says it is listening:\n  $ ${commandLine(fill(spec.prepare))}\n`);
 	if (spec.serve)
-		deps.out(`Start the server in another terminal and leave it running (the first start downloads the model):\n  $ ${commandLine(fill(spec.serve))}\n`);
+		deps.out(
+			`${spec.prepare ? "Then start" : "Start"} the server in another terminal and leave it running${spec.prepare ? "" : " (the first start downloads the model)"}:\n  $ ${commandLine(fill(spec.serve))}\n`,
+		);
 	else if (!(await deps.probe(server))) deps.out(`${server.label} is not answering at ${server.origin}. ${spec.serverHint ?? "Start it."}\n`);
 	deps.out(`Waiting for ${server.label} at ${server.origin} to list ${spec.model}…\n`);
 	const ready = await waitForModel(server, spec, deps, waitMs);
 	if (!ready) {
 		deps.err(`classifier setup: ${server.label} at ${server.origin} did not list ${spec.model} within ${Math.round(waitMs / 60_000)} minutes\n`);
 		return 1;
+	}
+	if (spec.load) {
+		const error = await deps.load(ready.found, ready.model);
+		if (error) {
+			deps.err(`classifier setup: ${server.label} could not load ${ready.model}: ${error}\n`);
+			return 1;
+		}
+		deps.out(`Loaded ${ready.model}.\n`);
 	}
 	const patch = spec.chat ? chatPatch(ready.found, ready.model, deps) : await decisionPatch(ready.found, ready.model, options, deps);
 	return patch ? writeConfig(patch, options, deps) : 1;

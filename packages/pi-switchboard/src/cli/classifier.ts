@@ -144,6 +144,16 @@ async function setupCommand(args: string[], io: CliIo): Promise<number> {
 			err: io.err,
 			probe: async (server) => (await detectClassifiers({ servers: [server] }).then((found) => found[0])) ?? undefined,
 			smoke: (server, model) => smokeTest(server, model),
+			load: async (server, model) => {
+				const response = await fetch(`${server.origin}/models/load`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ model }),
+					signal: AbortSignal.timeout(600_000),
+				}).catch((error: Error) => error);
+				if (response instanceof Error) return response.message;
+				return response.ok ? undefined : `${response.status} ${(await response.text()).slice(0, 200)}`;
+			},
 			evaluate: (server, model) => evaluateClassifier(systemOneClassify([{ name: server.name, baseUrl: server.baseUrl }]), `${server.name}/${model}`),
 			configPath,
 			readConfig: () => (existsSync(configPath) ? readFileSync(configPath, "utf8") : undefined),

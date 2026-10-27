@@ -30,8 +30,12 @@ export interface SetupSpec {
 	install: string;
 	/** Commands setup runs after showing them; `{bin}` is the command found. */
 	run?: string[][];
+	/** A command the user runs once before `serve`, such as a download, stopping it when it is done. */
+	prepare?: string[];
 	/** A server the user starts in another terminal; setup prints it and waits for the server. */
 	serve?: string[];
+	/** Ask the server to load the model once it lists it (a router lists models it has not loaded). */
+	load?: boolean;
 	/** How to start a server setup cannot start itself. */
 	serverHint?: string;
 	/** The model the setup provides. */

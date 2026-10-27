@@ -37,7 +37,7 @@ None of these runs a model; only `/tier init` writes a file, after you confirm t
 
 Then pick `switchboard/auto` in `/model`. To watch decisions before trusting them, `/tier dry-run on` classifies and records every request but runs your baseline tier ([see it](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/dry-run.gif)).
 
-The classifier is a small local model (about 0.2–0.7 s per decision); [classifier setup](docs/classifier-setup.md) takes a few minutes. Without one, requests use your fallback tier and everything else still works.
+The classifier is a small local model (about 0.2–0.7 s per decision on a GPU): `pi-switchboard classifier detect` finds one already running and `pi-switchboard classifier setup <lmstudio|ollama|llamacpp|llamacpp-chat>` sets one up, or follow [classifier setup](docs/classifier-setup.md) for LM Studio, llama.cpp, Ollama, MLX or a hosted classifier such as GPT-6 Luna. Without one, requests use your fallback tier and everything else still works.
 
 ## What you get
 
@@ -100,7 +100,7 @@ A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it ca
 
 ## Reference
 
-- [Classifier setup](docs/classifier-setup.md): LM Studio, llama-server, remote classifiers, what the classifier sees.
+- [Classifier setup](docs/classifier-setup.md): choosing a route, `classifier detect`, `setup` and `eval`, tuning, remote classifiers, what the classifier sees; one page each for [LM Studio](docs/classifier-lm-studio.md), [llama.cpp](docs/classifier-llama-cpp.md), [Ollama](docs/classifier-ollama.md), [MLX](docs/classifier-mlx.md), [cloud classifiers](docs/classifier-cloud.md) and [other servers](docs/classifier-other-servers.md), and [the models compared](docs/classifier-models.md).
 - [Configuration](docs/configuration.md): profiles, tiers, members, profile selection, virtual models, project files.
 - [Rules and confidence](docs/rules-and-confidence.md): the built-in ruleset, writing rules, thresholds, tuning.
 - [Strategies, failover and quota](docs/strategies-and-failover.md): every strategy, error classes, borrowing, pi-usage, budgets.

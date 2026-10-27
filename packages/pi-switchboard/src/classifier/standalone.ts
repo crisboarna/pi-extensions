@@ -8,7 +8,13 @@ export interface SystemOneServer {
 	name: string;
 	/** The server's API root, the part before `/systemone`, for example `http://127.0.0.1:1234/v1/`. */
 	baseUrl: string;
+	/** A key, or `$NAME` for an environment variable, as pi reads provider keys. */
 	apiKey?: string;
+}
+
+/** A provider key as pi reads it: `$NAME` names an environment variable. */
+export function resolveKey(apiKey: string | undefined, env: Record<string, string | undefined> = process.env): string | undefined {
+	return apiKey?.startsWith("$") ? env[apiKey.slice(1)] : apiKey;
 }
 
 /**
@@ -39,7 +45,7 @@ export function systemOneClassify(servers: readonly SystemOneServer[], fetcher?:
 				contextWindow: 32_768,
 			} as never,
 			{ state: request.state as never, questions: toWireQuestions(request.questions) as never },
-			{ apiKey: server.apiKey ?? "local", signal: options.signal, ...(fetcher ? { fetch: fetcher } : {}) },
+			{ apiKey: resolveKey(server.apiKey) ?? "local", signal: options.signal, ...(fetcher ? { fetch: fetcher } : {}) },
 		);
 		return {
 			stopReason: result.stopReason,

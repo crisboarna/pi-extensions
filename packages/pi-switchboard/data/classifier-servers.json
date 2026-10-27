@@ -54,7 +54,9 @@
 			"server": "llamacpp",
 			"commands": ["llama-server"],
 			"install": "Install llama.cpp: `brew install llama.cpp` on macOS or Linux, or a release from https://github.com/ggml-org/llama.cpp/releases.",
-			"serve": ["{bin}", "-hf", "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M", "--jinja", "-c", "8192", "--port", "8080"],
+			"prepare": ["{bin}", "-hf", "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M"],
+			"serve": ["{bin}", "--port", "8080", "-c", "8192", "--jinja"],
+			"load": true,
 			"model": "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M",
 			"chat": true
 		}

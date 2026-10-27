@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { configFor, detectClassifiers, formatDetect, knownServers, preferredModel, type ServerProbe } from "../../src/classifier/detect.ts";
+import { resolveKey } from "../../src/classifier/standalone.ts";
 import { classifierCommand } from "../../src/cli/classifier.ts";
 
 const ANSWERS = {
@@ -108,5 +109,14 @@ describe("classifier detect", () => {
 		const io = { out: () => {}, err: (text: string) => void err.push(text), env: {} };
 		assert.equal(await classifierCommand(["detect", "--port", "9"], io), 1);
 		assert.match(err.join(""), /unknown option --port/);
+	});
+});
+
+describe("System One keys outside pi", () => {
+	it("reads $NAME from the environment, as pi does for provider keys", () => {
+		assert.equal(resolveKey("$PROXY_KEY", { PROXY_KEY: "sk-1" }), "sk-1");
+		assert.equal(resolveKey("$UNSET", {}), undefined);
+		assert.equal(resolveKey("plain", {}), "plain");
+		assert.equal(resolveKey(undefined, {}), undefined);
 	});
 });
