@@ -1,7 +1,7 @@
 import { normalizeConfig } from "../config/normalize.ts";
 import { BUILTIN_RULESET } from "../rules/builtin.ts";
 import { evaluateRules } from "../rules/evaluate.ts";
-import type { QuestionSet } from "../rules/types.ts";
+import type { Answers, QuestionSet } from "../rules/types.ts";
 import type { ClassifyFn } from "./chain.ts";
 import { buildEvidence } from "./evidence.ts";
 import { BUILTIN_QUESTIONS } from "./questions.ts";
@@ -27,6 +27,15 @@ export interface SampleResult {
 	under: boolean;
 	ms: number;
 	error?: string;
+	/** The classifier's answers, so other thresholds can be tried without asking again. */
+	answers?: Answers;
+}
+
+/** How the same answers route at one threshold. */
+export interface ThresholdResult {
+	threshold: number;
+	correct: number;
+	under: number;
 }
 
 export interface EvalReport {
@@ -39,7 +48,14 @@ export interface EvalReport {
 	/** The first call, which often includes loading the model; not counted in the median. */
 	warmupMs: number;
 	medianMs: number;
+	/** The same answers routed at other thresholds. */
+	sweep: ThresholdResult[];
+	/** The threshold that routes the most samples as labelled, preferring fewer too low, then the higher threshold. */
+	best: ThresholdResult;
 }
+
+/** Thresholds the sweep tries; models differ in how confident they sound, so the right cutoff differs too. */
+export const SWEEP = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95];
 
 export interface EvalOptions {
 	threshold?: number;
@@ -71,6 +87,13 @@ export async function evaluateClassifier(classify: ClassifyFn, model: string, op
 		return { response, ms: now() - started };
 	};
 	const warmup = await ask(samples[0]?.request ?? "warm up");
+	const profile = { ruleset: BUILTIN_RULESET, tiers: TIERS, fallbackTier: "standard" };
+	const route = (answers: Answers, expected: ExpectedTier, at: number) => {
+		const tier = evaluateRules(profile, questions, answers, { $scope: "main" }, at).tier;
+		const got = RANK[tier] ?? -1;
+		const want = WANTED[expected];
+		return { tier, ok: expected === "middle+" ? got >= want : got === want, under: got < want };
+	};
 	const results: SampleResult[] = [];
 	for (const { request, expected } of samples) {
 		const { response, ms } = await ask(request);
@@ -78,13 +101,14 @@ export async function evaluateClassifier(classify: ClassifyFn, model: string, op
 			results.push({ request, expected, ok: false, under: false, ms, error: response.errorMessage ?? response.stopReason });
 			continue;
 		}
-		const profile = { ruleset: BUILTIN_RULESET, tiers: TIERS, fallbackTier: "standard" };
-		const tier = evaluateRules(profile, questions, response.answers, { $scope: "main" }, threshold).tier;
-		const got = RANK[tier] ?? -1;
-		const want = WANTED[expected];
-		results.push({ request, expected, tier, ok: expected === "middle+" ? got >= want : got === want, under: got < want, ms });
+		results.push({ request, expected, ...route(response.answers, expected, threshold), ms, answers: response.answers });
 	}
 	const answered = results.filter((result) => result.tier !== undefined);
+	const sweep = SWEEP.map((at) => {
+		const routed = answered.map((result) => route(result.answers ?? {}, result.expected, at));
+		return { threshold: at, correct: routed.filter((r) => r.ok).length, under: routed.filter((r) => r.under).length };
+	});
+	const best = sweep.reduce((a, b) => (b.correct > a.correct || (b.correct === a.correct && b.under <= a.under) ? b : a));
 	return {
 		model,
 		threshold,
@@ -94,6 +118,8 @@ export async function evaluateClassifier(classify: ClassifyFn, model: string, op
 		failed: results.length - answered.length,
 		warmupMs: warmup.ms,
 		medianMs: median(answered.map((result) => result.ms)),
+		sweep,
+		best,
 	};
 }
 
@@ -115,5 +141,8 @@ export function formatEval(report: EvalReport): string {
 		"",
 		`${report.correct}/${total} on the expected tier, ${report.under} too low, ${report.failed} without an answer`,
 		`median ${Math.round(report.medianMs)} ms per request; first call ${Math.round(report.warmupMs)} ms (includes loading the model)`,
+		"",
+		`at other thresholds: ${report.sweep.map((t) => `${t.threshold} ${t.correct}/${total}${t.under ? ` (${t.under} too low)` : ""}`).join(", ")}`,
+		`suggested "threshold": ${report.best.threshold} (${report.best.correct}/${total}, ${report.best.under} too low)`,
 	].join("\n");
 }

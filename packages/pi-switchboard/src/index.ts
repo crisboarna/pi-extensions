@@ -3,7 +3,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
 import { textOf } from "./classifier/evidence.ts";
+import { isLocalClassifier } from "./classifier/pi-adapter.ts";
 import { doctorLines, gatherDoctorFacts } from "./commands/doctor.ts";
+import { runEval } from "./commands/eval.ts";
 import { openFile, writeInspector } from "./commands/inspect.ts";
 import { registerTierCommand } from "./commands/tier.ts";
 import { runTour } from "./commands/tour.ts";
@@ -70,6 +72,23 @@ export default function switchboard(pi: ExtensionAPI): void {
 		},
 		tour: async (_args, ctx) => {
 			await runTour(ctx);
+		},
+		eval: async (args, ctx) => {
+			const config = runtime.config;
+			await runEval(args, {
+				classify: runtime.engine.deps.classify,
+				registered: (model) => {
+					const slash = model.indexOf("/");
+					return slash > 0 && ctx.modelRegistry.findOfType("classifier", model.slice(0, slash), model.slice(slash + 1)) !== undefined;
+				},
+				isLocal: (model) => isLocalClassifier(ctx, model, config.classifierProviders),
+				classifiers: config.classifiers,
+				defaultThreshold: config.classification.threshold,
+				...(config.classification.temperature ? { defaultTemperature: config.classification.temperature } : {}),
+				hasUI: ctx.hasUI,
+				confirm: (title, message) => ctx.ui.confirm(title, message),
+				notify: (text, level) => ctx.ui.notify(text, level),
+			});
 		},
 		init: async (_args, ctx) => {
 			const path = userConfigPath(runtime.agentDir);

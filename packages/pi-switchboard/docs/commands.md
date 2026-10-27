@@ -7,6 +7,7 @@
 | `/tier try <request>` | How a request would route, without running it or changing any state |
 | `/tier try work=plan depth=1.8 risky=no <request>` | The same with answers you type, for when no classifier is reachable or to test a rule |
 | `/tier doctor` | Checks config, classifiers (with a warm-up request), model selection, subagents, footer and pi-usage, and says what to fix |
+| `/tier eval [provider/model] [--threshold n] [--temperature t] [--yes]` | Asks a classifier (the first configured one by default) about 24 labelled requests and shows how many route to the expected tier, how many too low, its latency and the threshold that suits it. Works with any classifier pi knows; a remote one gets only the sample texts, after a confirm. See [classifier models compared](classifier-models.md) |
 | `/tier init` | Proposes a config from your signed-in models, shows the diff, then writes it |
 | `/tier models` | Edits profiles, tiers and members (diff and `.bak` before saving) |
 | `/tier watch` or `Ctrl+Alt+W` | Live navigator: running tasks and subagents, their decisions and transcripts |

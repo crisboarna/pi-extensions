@@ -27,6 +27,7 @@ src/cli/inspector.ts
 src/cli/main.ts
 src/cli/reclassify.ts
 src/commands/doctor.ts
+src/commands/eval.ts
 src/commands/inspect.ts
 src/commands/tier.ts
 src/commands/tour.ts

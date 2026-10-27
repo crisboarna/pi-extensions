@@ -7,6 +7,7 @@ import type { ClassifyFn } from "../../src/classifier/chain.ts";
 import { evaluateClassifier, formatEval } from "../../src/classifier/eval.ts";
 import { SAMPLE_REQUESTS } from "../../src/classifier/samples.ts";
 import { classifierCommand } from "../../src/cli/classifier.ts";
+import { type EvalDeps, runEval } from "../../src/commands/eval.ts";
 
 const answer = (work: string, confidence: number, depth: number, risky: number) => ({
 	work: { type: "choice" as const, choice: work, probabilities: { [work]: confidence }, confidence },
@@ -44,6 +45,7 @@ describe("classifier eval", () => {
 	it("counts the samples a classifier routes as labelled", async () => {
 		const report = await evaluateClassifier(perfect, "fake/perfect");
 		assert.deepEqual([report.correct, report.under, report.failed, report.results.length], [24, 0, 0, 24]);
+		assert.deepEqual(report.best, { threshold: 0.85, correct: 24, under: 0 });
 	});
 
 	it("tells too low from too high, counts failures, and keeps the warm-up out of the median", async () => {
@@ -69,6 +71,8 @@ describe("classifier eval", () => {
 		assert.match(text, /✗ no answer +deep +→ error: model is unloaded/);
 		assert.match(text, /9\/24 on the expected tier, 14 too low, 1 without an answer/);
 		assert.match(text, /first call 9000 ms \(includes loading the model\)/);
+		assert.match(text, /at other thresholds: 0\.5 9\/24 \(14 too low\), 0\.6 9\/24/);
+		assert.match(text, /suggested "threshold": 0\.95 \(9\/24, 14 too low\)/);
 	});
 });
 
@@ -126,5 +130,81 @@ describe("pi-switchboard classifier eval against a System One server", () => {
 		assert.match(bad.err.join(""), /Usage|eval <baseUrl> <model>[\s\S]*--threshold must be[\s\S]*UNSET is not set/);
 		assert.equal(await classifierCommand([], bad.io), 0);
 		assert.equal(await classifierCommand(["nope"], bad.io), 1);
+	});
+});
+
+describe("classifier eval threshold sweep", () => {
+	it("suggests the threshold that routes the most samples as labelled", async () => {
+		// Sure about light work, unsure about everything else: a low threshold trusts the unsure answers.
+		const classify: ClassifyFn = async (_model, request) => {
+			const text = JSON.stringify(request.state);
+			const sample = SAMPLE_REQUESTS.find((candidate) => text.includes(candidate.request));
+			if (sample?.expected === "top") return { stopReason: "stop", answers: answer("plan", 0.65, 1.9, 0.2) };
+			if (sample?.expected === "bottom") return { stopReason: "stop", answers: answer("mechanical", 0.95, 0.2, 0.02) };
+			return { stopReason: "stop", answers: answer("implement", 0.95, 1.1, 0.1) };
+		};
+		const report = await evaluateClassifier(classify, "fake/unsure");
+		const at = (threshold: number) => report.sweep.find((entry) => entry.threshold === threshold);
+		assert.deepEqual(at(0.6), { threshold: 0.6, correct: 24, under: 0 });
+		assert.deepEqual(at(0.8)?.correct, 18);
+		assert.deepEqual(report.best, { threshold: 0.6, correct: 24, under: 0 });
+	});
+});
+
+describe("/tier eval", () => {
+	const deps = (over: Partial<EvalDeps> = {}) => {
+		const notices: Array<[string, string]> = [];
+		const seen: Array<number | undefined> = [];
+		const confirms: string[] = [];
+		const value: EvalDeps = {
+			classify: async (model, request, options) => {
+				seen.push(options.temperature);
+				return perfect(model, request, options);
+			},
+			registered: (model) => model !== "gone/model",
+			isLocal: (model) => model.startsWith("local/"),
+			classifiers: [{ model: "local/judge", threshold: 0.7 }],
+			defaultThreshold: 0.85,
+			hasUI: true,
+			confirm: async (title) => {
+				confirms.push(title);
+				return false;
+			},
+			notify: (text, level) => void notices.push([level, text]),
+			...over,
+		};
+		return { value, notices, seen, confirms };
+	};
+
+	it("evaluates the first configured classifier at its threshold, with the configured temperature", async () => {
+		const run = deps({ defaultTemperature: 2 });
+		await runEval([], run.value);
+		const report = run.notices.at(-1)?.[1] ?? "";
+		assert.match(report, /^classifier eval: local\/judge at threshold 0\.7/);
+		assert.match(report, /24\/24 on the expected tier/);
+		assert.ok(run.seen.every((temperature) => temperature === 2));
+	});
+
+	it("asks before sending sample requests to a remote classifier, and refuses without a UI unless --yes", async () => {
+		const ui = deps();
+		await runEval(["openai/gpt-6-luna"], ui.value);
+		assert.deepEqual(ui.confirms, ["Evaluate openai/gpt-6-luna?"]);
+		assert.equal(ui.seen.length, 0);
+		const headless = deps({ hasUI: false });
+		await runEval(["openai/gpt-6-luna", "--threshold", "0.6"], headless.value);
+		assert.match(headless.notices[0]?.[1] ?? "", /runs off this machine[\s\S]*25 requests[\s\S]*--yes/);
+		await runEval(["openai/gpt-6-luna", "--threshold", "0.6", "--yes"], headless.value);
+		assert.match(headless.notices.at(-1)?.[1] ?? "", /^classifier eval: openai\/gpt-6-luna at threshold 0\.6/);
+	});
+
+	it("names what is missing: a classifier, a registered model, a valid threshold", async () => {
+		const none = deps({ classifiers: [] });
+		await runEval([], none.value);
+		assert.match(none.notices[0]?.[1] ?? "", /No classifier is configured/);
+		const gone = deps();
+		await runEval(["gone/model"], gone.value);
+		assert.match(gone.notices[0]?.[1] ?? "", /not a classifier pi knows/);
+		await runEval(["local/judge", "--threshold", "3"], gone.value);
+		assert.match(gone.notices.at(-1)?.[1] ?? "", /--threshold must be/);
 	});
 });

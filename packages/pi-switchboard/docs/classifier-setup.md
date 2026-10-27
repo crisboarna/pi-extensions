@@ -2,6 +2,8 @@
 
 pi-switchboard asks a decision classifier three typed questions about each request: what kind of work it is (`work`), how much reasoning it needs (`depth`), and whether a mistake would be costly (`risky`). One call answers all three. Any local server that answers `POST <baseUrl>/systemone` works: LM Studio, `llama-server` (llama.cpp build 11773 or later), or a model's own System One shim.
 
+Which model routes best is measured in [classifier models compared](classifier-models.md); `/tier eval` runs the same test on yours.
+
 No classifier yet? Everything still works: requests use the profile's fallback tier, and `/tier try work=plan depth=1.8 risky=no <request>` shows how a request would route with answers you type.
 
 ## LM Studio with H2O-Lightning-4B (recommended)

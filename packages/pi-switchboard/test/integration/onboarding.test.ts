@@ -85,6 +85,21 @@ describe("/tier doctor and /tier tour", () => {
 		assert.match(last(session), /! the footer does not show the tier/);
 	});
 
+	it("evaluates the configured local classifier on the labelled requests", async () => {
+		const { session, tier } = await boot({ scenario: "plan" });
+		await tier("eval");
+		const text = last(session);
+		assert.match(text, /^classifier eval: local\/judge at threshold/);
+		assert.match(text, /\d+\/24 on the expected tier, \d+ too low, 0 without an answer/);
+		assert.match(text, /suggested "threshold": /);
+	});
+
+	it("names an unknown classifier instead of evaluating it", async () => {
+		const { session, tier } = await boot();
+		await tier("eval nowhere/model");
+		assert.match(last(session), /nowhere\/model is not a classifier pi knows/);
+	});
+
 	it("prints the tour without the TUI", async () => {
 		const { session, tier } = await boot();
 		await tier("tour");
