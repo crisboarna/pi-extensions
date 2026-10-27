@@ -15,6 +15,7 @@ const USAGE = `pi-switchboard <command>
   replay <session.jsonl> [--json] [--reclassify]   Timeline of tasks, decisions, models and tool calls
   inspect <session.jsonl> [-o file.html]           Write the offline HTML inspector
   report [--since 7d] [--sessions <dir>]           Cost by tier, model and provider across sessions
+  classifier eval <baseUrl> <model>                Test a classifier on 24 labelled requests (classifier --help)
 `;
 
 function money(value: number): string {
@@ -96,6 +97,10 @@ export async function main(argv: string[]): Promise<number> {
 	if (command === "--help" || command === "-h" || command === "help") {
 		process.stdout.write(USAGE);
 		return 0;
+	}
+	if (command === "classifier") {
+		const { classifierCommand } = await import("./classifier.ts");
+		return classifierCommand(rest, { out: (text) => process.stdout.write(text), err: (text) => process.stderr.write(text), env: process.env });
 	}
 	switch (command) {
 		case "replay": {

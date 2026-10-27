@@ -1,54 +1,15 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ClassifyFn } from "../classifier/chain.ts";
 import { runClassifierChain } from "../classifier/chain.ts";
-import { toWireQuestions } from "../classifier/questions.ts";
-import { classifySystemOne } from "../classifier/system-one.ts";
+import { systemOneClassify } from "../classifier/standalone.ts";
 import { loadConfig } from "../config/load.ts";
-import type { ClassifierProviderConfig } from "../config/types.ts";
 import type { DecisionEntry } from "../record/types.ts";
 import { evaluateRules } from "../rules/evaluate.ts";
-import type { Answers } from "../rules/types.ts";
-import { parseModelRef } from "../util/model-ref.ts";
-
-/**
- * A ClassifyFn for use outside pi: local System One servers are called
- * directly; other classifiers need pi's credentials and are reported as
- * unavailable here.
- */
-function standaloneClassify(providers: readonly ClassifierProviderConfig[]): ClassifyFn {
-	return async (model, request, options) => {
-		const ref = parseModelRef(model);
-		const provider = providers.find((p) => p.name === ref?.provider);
-		if (!ref || !provider)
-			return { stopReason: "error", errorMessage: `${model} is not a local System One classifier; re-run inside pi with /tier explain` };
-		const result = await classifySystemOne(
-			{
-				id: ref.id,
-				name: ref.id,
-				provider: provider.name,
-				api: "typesafe-system-one",
-				baseUrl: provider.baseUrl,
-				type: "classifier",
-				input: ["text"],
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow: 32_768,
-			} as never,
-			{ state: request.state as never, questions: toWireQuestions(request.questions) as never },
-			{ apiKey: provider.apiKey ?? "local", signal: options.signal },
-		);
-		return {
-			stopReason: result.stopReason,
-			...(Object.keys(result.answers).length > 0 ? { answers: result.answers as unknown as Answers } : {}),
-			...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
-		};
-	};
-}
 
 /** Re-runs the classifier chain on each decision's recorded evidence with the current config. */
 export async function reclassifyDecisions(decisions: readonly DecisionEntry[]): Promise<string[]> {
 	const { config } = loadConfig({ agentDir: join(homedir(), ".pi", "agent"), cwd: process.cwd(), projectTrusted: false });
-	const classify = standaloneClassify(config.classifierProviders);
+	const classify = systemOneClassify(config.classifierProviders);
 	const lines = ["", "Reclassified with the current config:"];
 	for (const decision of decisions) {
 		const state = decision.evidence?.state;

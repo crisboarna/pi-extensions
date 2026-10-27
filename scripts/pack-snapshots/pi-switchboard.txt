@@ -13,12 +13,16 @@ src/autotier/hints.ts
 src/autotier/propose.ts
 src/budgets/track.ts
 src/classifier/chain.ts
+src/classifier/eval.ts
 src/classifier/evidence.ts
 src/classifier/pi-adapter.ts
 src/classifier/questions.ts
 src/classifier/redact.ts
+src/classifier/samples.ts
+src/classifier/standalone.ts
 src/classifier/system-one.ts
 src/classifier/warmup.ts
+src/cli/classifier.ts
 src/cli/inspector.ts
 src/cli/main.ts
 src/cli/reclassify.ts

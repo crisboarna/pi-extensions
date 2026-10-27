@@ -14,6 +14,7 @@ Every decision is a custom entry in the pi session file. Decisions never enter t
 pi-switchboard inspect ~/.pi/agent/sessions/.../session.jsonl -o inspect.html   # offline HTML
 pi-switchboard replay  session.jsonl [--json] [--reclassify]                    # text or JSON timeline
 pi-switchboard report  [--since 7d] [--sessions <dir>]                          # cost across sessions
+pi-switchboard classifier eval <baseUrl> <model> [--json]                       # a classifier on 24 labelled requests
 ```
 
 The command is installed with the package (`~/.pi/agent/npm/node_modules/@crisboarna/pi-switchboard/bin/pi-switchboard.mjs`).
