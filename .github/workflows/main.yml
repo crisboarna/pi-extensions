@@ -1,8 +1,11 @@
 # Pushes to main: full verification and a signature check of the pushed
 # commits; only when both pass, Changesets either opens the version pull
 # request or publishes to npm with provenance (trusted publishing, OIDC)
-# from the protected npm environment, and the family site is deployed to
-# GitHub Pages.
+# from the protected npm environment, with a GitHub release per package and
+# the same versions on GitHub Packages, and the family site is deployed to
+# GitHub Pages. A package's first version cannot be published through
+# trusted publishing; for it, an NPM_TOKEN secret in the npm environment is
+# used once and then removed (docs/repository-settings.md, First release).
 name: Main
 
 on:
@@ -117,6 +120,7 @@ jobs:
     permissions:
       contents: write # push release tags and create GitHub releases
       id-token: write # npm trusted publishing (OIDC) and provenance
+      packages: write # publish the same versions to GitHub Packages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,9 +137,19 @@ jobs:
 
       - run: npm run smoke:pack
 
-      - uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+      - id: changesets
+        uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           script: npm run release
           create-github-releases: true
         env:
           NPM_CONFIG_PROVENANCE: "true"
+          # Empty once trusted publishing is set up; npm tries OIDC first and falls back to the token only for a package's first version.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish the same versions to GitHub Packages
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
+        run: node scripts/release/github-packages.ts
