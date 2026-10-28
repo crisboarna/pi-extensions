@@ -68,7 +68,8 @@ describe("classifier setup ollama, with Ollama in Docker", { skip: skipUnlessSel
 		runDir.record("ollama.setup", written.classifiers);
 	});
 
-	it("says it already serves the model on a rerun, and adds nothing twice", async () => {
+	it("says it already serves the model on a rerun, adds nothing twice, and keeps what eval chose", async () => {
+		const chosen = readConfig(config).classifiers;
 		const result = await run(installed.bin, ["classifier", "setup", "ollama", "--yes", "--no-eval"], {
 			env: env(config),
 			log: join(runDir.dir, "rerun.log"),
@@ -79,6 +80,7 @@ describe("classifier setup ollama, with Ollama in Docker", { skip: skipUnlessSel
 		const written = readConfig(config);
 		assert.equal(written.classifierProviders?.length, 1);
 		assertOneClassifier(written, CLASSIFIER);
+		assert.deepEqual(written.classifiers, chosen, runDir.explain("the rerun without eval changed the threshold or timeout eval chose"));
 	});
 
 	it("keeps the rest of an existing config", async () => {

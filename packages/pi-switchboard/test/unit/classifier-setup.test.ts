@@ -122,6 +122,19 @@ describe("classifier setup", () => {
 		assert.doesNotMatch(close.out.join(""), /more slowly than/);
 	});
 
+	it("keeps the threshold and timeout already in the config when it does not evaluate", async () => {
+		const spec = decisionSpec!;
+		const model = `${serverOf(decisionSetup!)!.name}/${spec.model}`;
+		const config = JSON.stringify({ classifiers: [{ model, timeoutMs: 11500, threshold: 0.7 }] });
+		const kept = rig({ models: [spec.model], loaded: [spec.model], config });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, kept.deps), 0);
+		assert.deepEqual(JSON.parse(kept.written[0] ?? "{}").classifiers, [{ model, timeoutMs: 11500, threshold: 0.7 }]);
+		assert.match(kept.out.join(""), /keeps its threshold 0\.7 and timeout 11500 ms from the config/);
+		const fresh = rig({ models: [spec.model], loaded: [spec.model] });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, fresh.deps), 0);
+		assert.deepEqual(JSON.parse(fresh.written[0] ?? "{}").classifiers, [{ model, timeoutMs: 2000, threshold: 0.8 }], "a new classifier gets the defaults");
+	});
+
 	it("waits for a server the user starts, and gives up after the wait", async () => {
 		const spec = servedSpec!;
 		const ready = rig({ models: [spec.model] });

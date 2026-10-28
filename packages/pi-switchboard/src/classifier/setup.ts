@@ -180,7 +180,21 @@ async function decisionPatch(found: DetectedServer, model: string, options: Setu
 	const config = configFor(found, model, threshold);
 	if (!config) return undefined;
 	for (const classifier of config.classifiers) classifier.timeoutMs = timeoutMs;
+	if (options.evaluate === false) keepChosen(config.classifiers, deps);
 	return config as ConfigPatch;
+}
+
+/** Without eval nothing new is measured, so a classifier already in the config keeps the threshold and timeout chosen for it before. */
+function keepChosen(classifiers: Array<{ model: string; timeoutMs: number; threshold: number }>, deps: SetupDeps): void {
+	const existing = readExisting(deps)?.classifiers;
+	const entries = Array.isArray(existing) ? (existing as Array<{ model?: unknown; timeoutMs?: unknown; threshold?: unknown } | null>) : [];
+	for (const classifier of classifiers) {
+		const before = entries.find((entry) => entry?.model === classifier.model);
+		if (typeof before?.threshold !== "number" || typeof before.timeoutMs !== "number") continue;
+		classifier.threshold = before.threshold;
+		classifier.timeoutMs = before.timeoutMs;
+		deps.out(`  ${classifier.model} keeps its threshold ${before.threshold} and timeout ${before.timeoutMs} ms from the config (no eval)\n`);
+	}
 }
 
 interface Resolved {
