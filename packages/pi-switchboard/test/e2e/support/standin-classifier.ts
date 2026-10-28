@@ -52,6 +52,7 @@ export class StandinClassifier {
 	readonly requests: Received[] = [];
 	readonly #server: Server;
 	readonly #queue: Reply[] = [];
+	readonly #when: Array<{ pattern: RegExp; reply: Reply }> = [];
 	readonly #hanging = new Set<ServerResponse>();
 	readonly #sockets = new Set<Socket>();
 
@@ -80,9 +81,15 @@ export class StandinClassifier {
 		this.#queue.push(...replies);
 	}
 
-	/** Forgets queued replies and received requests, between tests. */
+	/** Answers every request whose text matches `pattern` with `reply`, before the queue: parallel requests arrive in any order. */
+	when(pattern: RegExp, reply: Reply): void {
+		this.#when.push({ pattern, reply });
+	}
+
+	/** Forgets queued replies, `when` rules and received requests, between tests. */
 	reset(): void {
 		this.#queue.length = 0;
+		this.#when.length = 0;
 		this.requests.length = 0;
 	}
 
@@ -103,7 +110,8 @@ export class StandinClassifier {
 		// pi-switchboard's warm-up at session start and /tier doctor's probe ask one question, `ready`.
 		if (received.state?.request === "warm-up") return send({});
 		this.requests.push(received);
-		const reply = this.#queue.shift() ?? {};
+		const text = String(received.state?.request ?? "");
+		const reply = this.#when.find(({ pattern }) => pattern.test(text))?.reply ?? this.#queue.shift() ?? {};
 		if ("refuse" in reply) response.socket?.destroy();
 		else if ("hang" in reply) this.#hanging.add(response);
 		else if ("delayMs" in reply) setTimeout(() => send(reply.answer ?? {}), reply.delayMs);

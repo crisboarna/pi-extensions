@@ -3,11 +3,11 @@
 // beside it, one stand-in classifier, and a fresh pi session per test on
 // `switchboard/auto`. A test gets its own session because a decision carries
 // over to the next (hysteresis, cooldowns, the previous member).
-import { writeFileSync } from "node:fs";
+import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Installed, installTarball } from "./install.ts";
+import { type Installed, installTarball, writeSettings } from "./install.ts";
 import { PiSession } from "./pi-rpc.ts";
-import { isolatedEnv, type Run, startRun } from "./run.ts";
+import { isolatedEnv, REPO, type Run, startRun } from "./run.ts";
 import { StandinClassifier } from "./standin-classifier.ts";
 import { type Request, readRequests, type Script, STANDIN_EXTENSION, writeScript } from "./standin-provider.ts";
 
@@ -57,11 +57,30 @@ export function routingConfig(classifier: StandinClassifier, extra: Record<strin
 	};
 }
 
+export interface StandinsOptions {
+	/**
+	 * Also install pi-subagents, at the version the repository pins: linked into
+	 * the agent folder, so nothing is downloaded. Its children run in pi's own
+	 * process, and their temporary files go into the run folder.
+	 */
+	subagents?: boolean;
+}
+
 /** Installs pi-switchboard and the stand-in provider into a fresh run folder for `suite`, and starts the stand-in classifier. */
-export async function startStandins(suite: string): Promise<Standins> {
+export async function startStandins(suite: string, setup: StandinsOptions = {}): Promise<Standins> {
 	const runDir = startRun(suite);
 	// pi retries a rate limit itself, after retry.baseDelayMs; a short delay keeps the suites quick.
-	const installed = await installTarball(runDir, { settings: { extensions: [STANDIN_EXTENSION], retry: { enabled: true, baseDelayMs: 50 } } });
+	const settings = { extensions: [STANDIN_EXTENSION], retry: { enabled: true, baseDelayMs: 50 } };
+	const installed = await installTarball(runDir, { settings });
+	const temp: Record<string, string> = {};
+	// A child is a subagent by its session header, which names the parent's session file; with --no-session there is none.
+	const sessionArgs = (label: string): string[] => (setup.subagents ? ["--session-dir", runDir.folder(`sessions/${label}`)] : []);
+	if (setup.subagents) {
+		symlinkSync(join(REPO, "node_modules", "pi-subagents"), join(installed.agentDir, "npm", "node_modules", "pi-subagents"));
+		writeSettings(installed.agentDir, ["@crisboarna/pi-switchboard", "pi-subagents"], settings);
+		const tmp = runDir.folder("tmp");
+		Object.assign(temp, { PI_SUBAGENTS_TEMP_ROOT: tmp, TMPDIR: tmp });
+	}
 	const classifier = await StandinClassifier.start();
 	const sessions: PiSession[] = [];
 	return {
@@ -81,10 +100,12 @@ export async function startStandins(suite: string): Promise<Standins> {
 					PI_SWITCHBOARD_CONFIG: configPath,
 					STANDIN_SCRIPT: scriptPath,
 					STANDIN_LOG: logPath,
+					...temp,
 					...options.env,
 				}),
 				cwd: installed.home,
 				log: join(runDir.dir, `pi-${label}`),
+				args: sessionArgs(label),
 			});
 			sessions.push(pi);
 			const [provider, id] = options.model ?? ["switchboard", "auto"];

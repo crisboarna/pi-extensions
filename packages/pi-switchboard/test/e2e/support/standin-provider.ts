@@ -6,7 +6,7 @@
 // STANDIN_LOG. Suites install it beside pi-switchboard through settings.json
 // `extensions`. pi-account-guard's test/support/stub-provider.ts works the same
 // way; a package may not import another's files.
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
 	type Api,
@@ -46,6 +46,8 @@ export interface Script {
 /** One request as the stand-in saw it. */
 export interface Request {
 	model: string;
+	/** The script's epoch when it was served. */
+	epoch?: number | undefined;
 	/** Which step of the model's list answered, counted from the script's epoch; past the list, the default answer. */
 	step: number;
 	/** The last user message's text. */
@@ -53,6 +55,8 @@ export interface Request {
 	/** Whether the request carries a tool result, which pi sends after running a scripted tool call. */
 	afterTool: boolean;
 	at: number;
+	/** The process that served it: pi's own, or a pi-subagents runner's. */
+	pid: number;
 }
 
 export function writeScript(path: string, script: Script): void {
@@ -69,8 +73,6 @@ export function readRequests(path: string): Request[] {
 }
 
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
-let epoch: number | undefined;
-const served = new Map<string, number>();
 
 function readScript(): Script {
 	const path = process.env.STANDIN_SCRIPT;
@@ -83,16 +85,38 @@ function userText(context: TranscriptContext): string {
 	return typeof user.content === "string" ? user.content : user.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
 }
 
-/** The next step for `model`, and its place in the model's list. */
-function nextStep(model: string): { step: Step; index: number } {
-	const script = readScript();
-	if (script.epoch !== epoch) {
-		epoch = script.epoch;
-		served.clear();
+/** Runs `work` while holding a lock beside `path`: pi-subagents children run in their own processes and log to the same file. */
+function locked<T>(path: string, work: () => T): T {
+	const lock = `${path}.lock`;
+	for (;;) {
+		try {
+			mkdirSync(lock);
+			break;
+		} catch {
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2);
+		}
 	}
-	const index = served.get(model) ?? 0;
-	served.set(model, index + 1);
-	return { step: script.models?.[model]?.[index] ?? {}, index };
+	try {
+		return work();
+	} finally {
+		rmdirSync(lock);
+	}
+}
+
+/**
+ * Takes `model`'s next step and logs the request. The step's place is counted
+ * from the log, which every process appends to, so a child takes the step
+ * after its parent's, not the first again.
+ */
+function serve(model: string, request: Omit<Request, "model" | "step" | "epoch">): { step: Step; index: number } {
+	const script = readScript();
+	const log = process.env.STANDIN_LOG;
+	const take = () => {
+		const index = log ? readRequests(log).filter((seen) => seen.model === model && seen.epoch === script.epoch).length : 0;
+		if (log) appendFileSync(log, `${JSON.stringify({ model, step: index, epoch: script.epoch, ...request })}\n`);
+		return { step: script.models?.[model]?.[index] ?? {}, index };
+	};
+	return log ? locked(log, take) : take();
 }
 
 function wait(ms: number, signal: AbortSignal | undefined): Promise<void> {
@@ -108,15 +132,13 @@ function wait(ms: number, signal: AbortSignal | undefined): Promise<void> {
 
 function streamStandin(model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) {
 	const id = `${model.provider}/${model.id}`;
-	const { step, index } = nextStep(id);
-	const request: Request = {
-		model: id,
-		step: index,
+	const at = Date.now();
+	const { step, index } = serve(id, {
 		user: userText(context),
 		afterTool: context.messages.some((message) => message.role === "toolResult"),
-		at: Date.now(),
-	};
-	if (process.env.STANDIN_LOG) appendFileSync(process.env.STANDIN_LOG, `${JSON.stringify(request)}\n`);
+		at,
+		pid: process.pid,
+	});
 	const stream = createAssistantMessageEventStream();
 	const message: AssistantMessage = {
 		role: "assistant",
@@ -135,7 +157,7 @@ function streamStandin(model: Model<Api>, context: TranscriptContext, options?: 
 		} else if (step.error !== undefined) {
 			stream.push({ type: "error", reason: "error", error: { ...message, stopReason: "error", errorMessage: step.error } });
 		} else if (step.toolCall) {
-			const call: ToolCall = { type: "toolCall", id: `call-${request.at}-${index}`, name: step.toolCall.name, arguments: {} };
+			const call: ToolCall = { type: "toolCall", id: `call-${at}-${index}`, name: step.toolCall.name, arguments: {} };
 			message.content = [call];
 			stream.push({ type: "start", partial: message });
 			stream.push({ type: "toolcall_start", contentIndex: 0, partial: message });
