@@ -173,7 +173,7 @@ async function decisionPatch(found: DetectedServer, model: string, options: Setu
 		deps.out(
 			`  ${report.best.correct}/24 route as labelled at threshold ${threshold}, ${report.best.under} too low; median ${Math.round(report.medianMs)} ms\n`,
 		);
-		if (timeoutMs > DECISION_BUDGET_MS)
+		if (report.medianMs > DECISION_BUDGET_MS)
 			deps.out(
 				`  ! it answers more slowly than pi-switchboard's ${DECISION_BUDGET_MS / 1000} s budget for one decision (classification.decisionBudgetMs), so most requests would use the fallback tier; a smaller model or a GPU helps\n`,
 			);

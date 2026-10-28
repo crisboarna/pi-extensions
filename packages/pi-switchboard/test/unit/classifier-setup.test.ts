@@ -112,6 +112,14 @@ describe("classifier setup", () => {
 		assert.equal(await runSetup(decisionSetup, { yes: true }, slow.deps), 0);
 		assert.equal(JSON.parse(slow.written[0] ?? "{}").classifiers[0].timeoutMs, 27_000);
 		assert.match(slow.out.join(""), /more slowly than pi-switchboard's 4 s budget/);
+		// The timeout written is twice the median; a 3.7 s median still fits the 4 s budget.
+		const close = rig({
+			models: [decisionSpec!.model],
+			evaluate: async () => ({ best: { threshold: 0.7, correct: 21, under: 0 }, medianMs: 3696 }) as EvalReport,
+		});
+		assert.equal(await runSetup(decisionSetup, { yes: true }, close.deps), 0);
+		assert.equal(JSON.parse(close.written[0] ?? "{}").classifiers[0].timeoutMs, 7500);
+		assert.doesNotMatch(close.out.join(""), /more slowly than/);
 	});
 
 	it("waits for a server the user starts, and gives up after the wait", async () => {
