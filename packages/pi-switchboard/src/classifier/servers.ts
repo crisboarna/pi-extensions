@@ -28,6 +28,8 @@ export interface SetupSpec {
 	/** Commands to look for, in order; `~` is the home directory. */
 	commands: string[];
 	install: string;
+	/** The `run` commands talk to the server, so setup waits for the server before running them. */
+	needsServer?: boolean;
 	/** Commands setup runs after showing them; `{bin}` is the command found. */
 	run?: string[][];
 	/** A command the user runs once before `serve`, such as a download, stopping it when it is done. */

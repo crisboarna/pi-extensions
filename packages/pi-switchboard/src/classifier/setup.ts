@@ -31,7 +31,7 @@ export interface SetupDeps {
 export interface SetupOptions {
 	/** Run the commands and write the config without asking. */
 	yes?: boolean;
-	/** Choose the threshold with eval (25 requests); otherwise 0.8. */
+	/** Choose the threshold with eval (a warm-up and 24 labelled requests); otherwise 0.8. */
 	evaluate?: boolean;
 	/** How long to wait for a server the user starts, in milliseconds. */
 	waitMs?: number;
@@ -102,11 +102,24 @@ async function waitForModel(
 	return undefined;
 }
 
+/** Polls until the server answers or the wait runs out. */
+async function waitForServer(server: ServerProbe, deps: SetupDeps, waitMs: number): Promise<boolean> {
+	const step = 2000;
+	for (let waited = 0; waited <= waitMs; waited += step) {
+		if (await deps.probe(server)) return true;
+		await deps.sleep(step);
+	}
+	return false;
+}
+
 /** Shows the setup's commands, asks once, and runs them in order; false when declined or one fails. */
 async function runCommands(run: readonly string[][], intro: string, options: SetupOptions, deps: SetupDeps): Promise<boolean> {
 	if (run.length === 0) return true;
 	deps.out(`${intro}\n${run.map((words) => `  $ ${commandLine(words)}`).join("\n")}\n`);
-	if (!options.yes && !(await deps.confirm("Run them?"))) return false;
+	if (!options.yes && !(await deps.confirm("Run them?"))) {
+		deps.out("Nothing was run, and the config is unchanged.\n");
+		return false;
+	}
 	for (const [command = "", ...args] of run) {
 		const code = await deps.run(command, args);
 		if (code !== 0) {
@@ -157,23 +170,44 @@ async function decisionPatch(found: DetectedServer, model: string, options: Setu
 	return config as ConfigPatch;
 }
 
-/** Runs the setup; resolves to the exit code. */
-export async function runSetup(name: string | undefined, options: SetupOptions, deps: SetupDeps): Promise<number> {
+interface Resolved {
+	spec: SetupSpec;
+	server: ServerProbe;
+	/** The setup's command words with `{bin}` replaced by the command found. */
+	fill(words: readonly string[]): string[];
+}
+
+/** The setup, its server and its command, after checking the product is installed and the config is readable. */
+function resolveSetup(name: string | undefined, deps: SetupDeps): Resolved | undefined {
 	const catalog = serverCatalog();
 	const spec = name ? catalog.setups[name] : undefined;
 	const server = spec && name ? serverFor(spec, name) : undefined;
 	if (!spec || !server) {
 		deps.err(`classifier setup: name one of ${Object.keys(catalog.setups).join(", ")}\n`);
-		return 1;
+		return undefined;
 	}
 	const bin = spec.commands.map((command) => deps.which(command)).find((path) => path !== undefined);
 	if (!bin) {
 		deps.err(`${spec.commands[0]} was not found. ${spec.install}\n`);
-		return 1;
+		return undefined;
 	}
-	const fill = (words: readonly string[]) => words.map((word) => (word === "{bin}" ? bin : word));
-	if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return 1;
-	const waitMs = options.waitMs ?? 20 * 60_000;
+	if (readExisting(deps) === undefined) {
+		deps.err(`${deps.configPath} is not valid JSON: fix it or move it aside, then run setup again.\n`);
+		return undefined;
+	}
+	return { spec, server, fill: (words) => words.map((word) => (word === "{bin}" ? bin : word)) };
+}
+
+/** Runs the setup's commands, waiting for the server first when they need it, and prints the commands the user runs; false to stop. */
+async function startServer({ spec, server, fill }: Resolved, options: SetupOptions, deps: SetupDeps, waitMs: number): Promise<boolean> {
+	if (spec.needsServer && !(await deps.probe(server))) {
+		deps.out(`${server.label} is not answering at ${server.origin}. ${spec.serverHint ?? "Start it."}\nWaiting for it…\n`);
+		if (!(await waitForServer(server, deps, waitMs))) {
+			deps.err(`classifier setup: ${server.label} is not answering at ${server.origin} after ${Math.round(waitMs / 60_000)} minutes\n`);
+			return false;
+		}
+	}
+	if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return false;
 	if (spec.prepare)
 		deps.out(`First download the model, in another terminal; stop it with Ctrl+C once it says it is listening:\n  $ ${commandLine(fill(spec.prepare))}\n`);
 	if (spec.serve)
@@ -181,30 +215,54 @@ export async function runSetup(name: string | undefined, options: SetupOptions, 
 			`${spec.prepare ? "Then start" : "Start"} the server in another terminal and leave it running${spec.prepare ? "" : " (the first start downloads the model)"}:\n  $ ${commandLine(fill(spec.serve))}\n`,
 		);
 	else if (!(await deps.probe(server))) deps.out(`${server.label} is not answering at ${server.origin}. ${spec.serverHint ?? "Start it."}\n`);
+	return true;
+}
+
+/** Waits for the server to list the model, and loads it when the setup asks; `undefined` to stop. */
+async function readyModel({ spec, server }: Resolved, deps: SetupDeps, waitMs: number): Promise<{ found: DetectedServer; model: string } | undefined> {
 	deps.out(`Waiting for ${server.label} at ${server.origin} to list ${spec.model}…\n`);
 	const ready = await waitForModel(server, spec, deps, waitMs);
 	if (!ready) {
 		deps.err(`classifier setup: ${server.label} at ${server.origin} did not list ${spec.model} within ${Math.round(waitMs / 60_000)} minutes\n`);
-		return 1;
+		return undefined;
 	}
 	if (spec.load) {
 		const error = await deps.load(ready.found, ready.model);
 		if (error) {
 			deps.err(`classifier setup: ${server.label} could not load ${ready.model}: ${error}\n`);
-			return 1;
+			return undefined;
 		}
 		deps.out(`Loaded ${ready.model}.\n`);
 	}
-	const patch = spec.chat ? chatPatch(ready.found, ready.model, deps) : await decisionPatch(ready.found, ready.model, options, deps);
+	return ready;
+}
+
+/** Runs the setup; resolves to the exit code. */
+export async function runSetup(name: string | undefined, options: SetupOptions, deps: SetupDeps): Promise<number> {
+	const resolved = resolveSetup(name, deps);
+	if (!resolved) return 1;
+	const waitMs = options.waitMs ?? 20 * 60_000;
+	if (!(await startServer(resolved, options, deps, waitMs))) return 1;
+	const ready = await readyModel(resolved, deps, waitMs);
+	if (!ready) return 1;
+	const patch = resolved.spec.chat ? chatPatch(ready.found, ready.model, deps) : await decisionPatch(ready.found, ready.model, options, deps);
 	return patch ? writeConfig(patch, options, deps) : 1;
+}
+
+/** The config as it is now: `{}` when there is none, `undefined` when it is not valid JSON. */
+function readExisting(deps: SetupDeps): Record<string, unknown> | undefined {
+	const text = deps.readConfig();
+	try {
+		return text === undefined ? {} : (JSON.parse(text) as Record<string, unknown>);
+	} catch {
+		return undefined;
+	}
 }
 
 async function writeConfig(patch: ConfigPatch, options: SetupOptions, deps: SetupDeps): Promise<number> {
 	const text = deps.readConfig();
-	let existing: Record<string, unknown> = {};
-	try {
-		existing = text === undefined ? {} : (JSON.parse(text) as Record<string, unknown>);
-	} catch {
+	const existing = readExisting(deps);
+	if (existing === undefined) {
 		deps.err(`${deps.configPath} is not valid JSON, so it is left alone. Add this yourself:\n${JSON.stringify(patch, null, "\t")}\n`);
 		return 1;
 	}
@@ -213,7 +271,10 @@ async function writeConfig(patch: ConfigPatch, options: SetupOptions, deps: Setu
 		(key) => `"${key}": ${JSON.stringify(next[key], null, "\t").replaceAll("\n", "\n  ")}`,
 	);
 	deps.out(`${text === undefined ? "Creating" : "Changing"} ${deps.configPath}:\n  ${changed.join("\n  ")}\n`);
-	if (!options.yes && !(await deps.confirm("Write it?"))) return 1;
+	if (!options.yes && !(await deps.confirm("Write it?"))) {
+		deps.out("The config is unchanged.\n");
+		return 1;
+	}
 	deps.writeConfig(`${JSON.stringify(next, null, "\t")}\n`);
 	deps.out("Done. In pi, run /reload, then /tier doctor.\n");
 	return 0;

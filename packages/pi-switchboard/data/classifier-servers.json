@@ -40,6 +40,7 @@
 		"ollama": {
 			"commands": ["ollama"],
 			"install": "Install Ollama 0.35 or later from https://ollama.com/download.",
+			"needsServer": true,
 			"run": [["{bin}", "pull", "tev1"]],
 			"serverHint": "Open the Ollama app, or run `ollama serve` in another terminal.",
 			"model": "tev1"

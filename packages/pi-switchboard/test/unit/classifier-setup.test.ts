@@ -10,6 +10,7 @@ const catalog = serverCatalog();
 const [decisionSetup, decisionSpec] = Object.entries(catalog.setups).find(([, spec]) => !spec.chat && spec.run && !spec.serve) ?? [];
 const [servedSetup, servedSpec] = Object.entries(catalog.setups).find(([, spec]) => !spec.chat && spec.serve) ?? [];
 const [chatSetup, chatSpec] = Object.entries(catalog.setups).find(([, spec]) => spec.chat) ?? [];
+const [serverFirstSetup, serverFirstSpec] = Object.entries(catalog.setups).find(([, spec]) => spec.needsServer) ?? [];
 const serverOf = (name: string) => knownServers().find((server) => server.kind === (catalog.setups[name]?.server ?? name));
 
 function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string[]; config?: string; answers?: boolean[] } = {}) {
@@ -119,6 +120,50 @@ describe("classifier setup", () => {
 		assert.match(refused.err.join(""), /could not load .*404 File Not Found/);
 	});
 
+	it("waits for the server before running commands that talk to it, with the setup's hint", async () => {
+		const spec = serverFirstSpec!;
+		const events: string[] = [];
+		let probes = 0;
+		const r = rig({
+			models: [spec.model],
+			run: async (command, args) => {
+				events.push(`run ${[command, ...args].join(" ")}`);
+				return 0;
+			},
+		});
+		const answering = r.deps.probe;
+		r.deps.probe = async (server) => {
+			probes++;
+			events.push(`probe ${probes}`);
+			return probes <= 2 ? undefined : answering(server);
+		};
+		assert.equal(await runSetup(serverFirstSetup, { yes: true, evaluate: false }, r.deps), 0);
+		assert.deepEqual(events.slice(0, 4), ["probe 1", "probe 2", "probe 3", `run /usr/bin/${spec.commands[0]} ${spec.run?.[0]?.slice(1).join(" ")}`]);
+		assert.match(r.out.join(""), new RegExp(`is not answering at .*${spec.serverHint?.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+		const never = rig({ probe: async () => undefined });
+		assert.equal(await runSetup(serverFirstSetup, { yes: true, waitMs: 4000 }, never.deps), 1);
+		assert.equal(never.ran.length, 0);
+		assert.match(never.err.join(""), /is not answering at .* after 0 minutes/);
+	});
+
+	it("checks the config before running anything, and says nothing changed when declined", async () => {
+		const malformed = rig({ models: [decisionSpec!.model], config: "{ nope" });
+		assert.equal(await runSetup(decisionSetup, { yes: true }, malformed.deps), 1);
+		assert.equal(malformed.ran.length, 0, "no command runs before the config is known to be readable");
+		assert.match(malformed.err.join(""), /is not valid JSON: fix it or move it aside, then run setup again/);
+		const declinedRun = rig({ answers: [false] });
+		assert.equal(await runSetup(decisionSetup, {}, declinedRun.deps), 1);
+		assert.match(declinedRun.out.join(""), /Nothing was run, and the config is unchanged\./);
+		const declinedWrite = rig({ models: [decisionSpec!.model], answers: [true, false] });
+		assert.equal(await runSetup(decisionSetup, { evaluate: false }, declinedWrite.deps), 1);
+		assert.match(declinedWrite.out.join(""), /The config is unchanged\./);
+		const reads = ["{}", "{ edited meanwhile"];
+		const changed = rig({ models: [decisionSpec!.model], readConfig: () => reads.shift() ?? "{ edited meanwhile" });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, changed.deps), 1);
+		assert.match(changed.err.join(""), /is not valid JSON, so it is left alone\. Add this yourself/);
+		assert.equal(changed.written.length, 0);
+	});
+
 	it("stops without the product, on a declined confirm, a failing command, a model that does not answer, or malformed config", async () => {
 		const missing = rig({ which: () => undefined });
 		assert.equal(await runSetup(decisionSetup, {}, missing.deps), 1);
@@ -134,7 +179,7 @@ describe("classifier setup", () => {
 		assert.match(silent.err.join(""), /did not answer: Model is unloaded/);
 		const malformed = rig({ models: [decisionSpec!.model], config: "{ nope" });
 		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, malformed.deps), 1);
-		assert.match(malformed.err.join(""), /is not valid JSON, so it is left alone/);
+		assert.match(malformed.err.join(""), /is not valid JSON: fix it or move it aside/);
 		assert.equal(malformed.written.length, 0);
 		const unknown = rig();
 		assert.equal(await runSetup("nope", {}, unknown.deps), 1);

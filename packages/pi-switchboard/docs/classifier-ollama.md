@@ -8,7 +8,7 @@ Ollama 0.35 and later serve decision models on `POST /v1/systemone`. Of the ones
 pi-switchboard classifier setup ollama
 ```
 
-It finds `ollama`, shows `ollama pull tev1` and asks, pulls it, waits for the server (open the Ollama app, or run `ollama serve`), tests the model, chooses its threshold and timeout with eval, and adds the classifier after showing the change.
+It finds `ollama`, waits for the server if it is not running (open the Ollama app, or run `ollama serve`), shows `ollama pull tev1` and asks, pulls it, tests the model, chooses its threshold and timeout with eval, and adds the classifier after showing the change.
 
 ## By hand
 
