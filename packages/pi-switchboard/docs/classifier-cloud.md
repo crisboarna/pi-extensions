@@ -4,7 +4,7 @@ pi includes hosted classifier models, built for exactly this kind of typed quest
 
 Chat models such as Haiku are not classifiers: they write text and give no probabilities for the confidence gate, so pi-switchboard does not accept them.
 
-None of these was measured for this guide (they need paid accounts). `/tier eval <model>` measures one on your account with pi-switchboard's 24 sample texts, after a confirm.
+None of these was measured for this guide (they need paid accounts). On 2026-10-28 the model ids in the table were checked against pi 1.4's catalog, where each is a classifier, and GPT-6 Luna without a key was run through `/tier doctor` and `/tier eval`: skipped without `allowRemote`, and with it a clear "Provider is not configured" pointing to the key. `/tier eval <model>` measures one on your account with pi-switchboard's 24 sample texts, after a confirm.
 
 | Classifier | Model id in pi-switchboard | Credentials |
 |---|---|---|

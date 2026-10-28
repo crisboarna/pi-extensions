@@ -1,6 +1,6 @@
 # Classifier with Ollama
 
-Ollama 0.35 and later serve decision models on `POST /v1/systemone`. Of the ones it offers, Tev1 (4.4 GB) routed 21 of the 24 labelled requests at threshold 0.7 and Nimble (9.3 GB) 17 ([measurements](classifier-models.md)). Checked on 2026-10-27 with Ollama 0.40.11 in Docker, CPU only; there Tev1 took about 3 s a request, too slow for pi-switchboard's 4 s decision budget, so on a machine without a GPU prefer a smaller model or another route. With a GPU it answers in a fraction of that.
+Ollama 0.35 and later serve decision models on `POST /v1/systemone`. Of the ones it offers, Tev1 (4.4 GB) routed 21 of the 24 labelled requests at threshold 0.7 and Nimble (9.3 GB) 17 ([measurements](classifier-models.md)). Checked on 2026-10-27 with Ollama 0.40.11 in Docker, CPU only, and on 2026-10-28 with `classifier setup ollama` from a fresh install (21 of 24 at 0.7, 2.2 s a request); there Tev1 took about 3 s a request, too slow for pi-switchboard's 4 s decision budget, so on a machine without a GPU prefer a smaller model or another route. With a GPU it answers in a fraction of that.
 
 ## With setup
 

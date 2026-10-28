@@ -5,7 +5,7 @@ llama.cpp's `llama-server` gives pi-switchboard two kinds of classifier:
 - **A chat model, read through its token probabilities.** pi's built-in `llama.cpp` provider asks a small instruct model one prompt per question and reads the probability of each answer label. Qwen3-4B-Instruct (Unsloth's GGUF) routed **23 of 24** labelled requests, the best of every model measured ([measurements](classifier-models.md)).
 - **A decision model on `/v1/systemone`.** H2O-Lightning-4B routed 21 of 24; Kev-4B, lev, Laya and Julia-1 are smaller or faster but routed fewer.
 
-Both were run on 2026-10-27 with the llama.cpp server image (`ghcr.io/ggml-org/llama.cpp:server`) in Docker, CPU only, and checked in real pi with `/tier doctor` and `/tier eval`. On a GPU (Metal, CUDA) they answer many times faster.
+Both were run on 2026-10-27 with the llama.cpp server image (`ghcr.io/ggml-org/llama.cpp:server`) in Docker, CPU only, and checked in real pi with `/tier doctor` and `/tier eval`; on 2026-10-28 both setups ran again from a fresh install, with the same results. On a GPU (Metal, CUDA) they answer many times faster.
 
 Install llama.cpp with `brew install llama.cpp` (macOS, Linux), a [release](https://github.com/ggml-org/llama.cpp/releases), or the newer `llama` command from [llama.app](https://llama.app) (`llama serve` takes the same options as `llama-server`).
 

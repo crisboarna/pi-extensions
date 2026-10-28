@@ -1,6 +1,6 @@
 # Classifier with LM Studio
 
-LM Studio serves decision models on `POST /v1/systemone` from its local server. On a Mac it runs them on the GPU (Metal): H2O-Lightning-4B answers pi-switchboard's three questions in 0.2 to 0.4 s and routes 22 of the 24 labelled requests as a reviewer would ([measurements](classifier-models.md)). Checked on 2026-10-27 on an M5 Max; the `lms get` step was run with Julia-1, because Hugging Face rate-limited the H2O download that day.
+LM Studio serves decision models on `POST /v1/systemone` from its local server. On a Mac it runs them on the GPU (Metal): H2O-Lightning-4B answers pi-switchboard's three questions in 0.2 to 0.4 s and routes 22 of the 24 labelled requests as a reviewer would ([measurements](classifier-models.md)). Checked on 2026-10-27 on an M5 Max, and on 2026-10-28 with `classifier setup lmstudio` from a fresh install: 22 of 24 at 0.6, 0.2 s a request.
 
 ## With setup
 

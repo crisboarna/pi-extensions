@@ -32,6 +32,7 @@ How to read it:
 - **Recommended:** H2O-Lightning-4B in LM Studio for the shortest setup, and a small instruct chat model on llama.cpp for the best routing. Tev1 is the pick on Ollama.
 - **24 requests are few.** A difference of one or two is noise; the gap between the top rows and Kev, Laya or Julia-1 is not. The small encoder models (Julia-1, Laya) are fast but unsure about these questions, so most requests fall to the fallback tier.
 - **Latency.** The Docker runs had no GPU (Docker on a Mac cannot use Metal), so their times are many times slower than the same model on a GPU. Compare models by the correct column; measure latency on your own machine with eval. pi-switchboard's default budget for one decision is 4 s (`classification.decisionBudgetMs`), and `timeoutMs` per classifier is 2 s.
+- **Power.** On a Mac running on battery in Low Power Mode, the CPU runs several times slower: on 2026-10-28 Tev1 in Docker took 11 to 16 s a request on battery and 2.2 s on mains power, with the same routing. Measure on mains power, and run eval again if you mostly work on battery.
 - **Chat models** answer through next-token probabilities, one prompt per question, so they take about three times a decision model's work per request. Their raw probabilities are overconfident; pi-switchboard's `classification.temperature` (2 here) softens them.
 
 OptiQ needs `--no-auth` (or a key set in the classifier provider's `apiKey`), because pi-switchboard sends a placeholder key that OptiQ rejects.

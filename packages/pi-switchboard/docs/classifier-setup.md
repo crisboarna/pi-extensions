@@ -14,7 +14,7 @@ No classifier yet? Everything still works: requests use the profile's fallback t
 | Ollama | Tev1, a decision model | `pi-switchboard classifier setup ollama` | 21 | [Ollama](classifier-ollama.md) |
 | MLX on Apple Silicon | OptiQ, mlx-serve | by hand | 9 (near chance) | [MLX](classifier-mlx.md) |
 | Hosted | OpenAI's GPT-6 Luna, TypeSafe's Jev, Cloudflare's Clef | a config entry | not measured here | [Cloud classifiers](classifier-cloud.md) |
-| Other servers | Unsloth Studio, vLLM, LiteLLM | | | [Other servers](classifier-other-servers.md) |
+| Other servers | Unsloth Studio, vLLM, LiteLLM | a config entry | LiteLLM in front of LM Studio: 22 | [Other servers](classifier-other-servers.md) |
 
 The measurements, how they were taken and every model tried are in [classifier models compared](classifier-models.md). A Mac with LM Studio already installed is the shortest path; the llama.cpp chat-model route routed best.
 
