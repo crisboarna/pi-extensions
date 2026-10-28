@@ -2,7 +2,8 @@
 // pi-switchboard loads from what installTarball put there. A command such as
 // `/tier doctor` is done when pi answers its prompt with
 // `disposition: "handled"`: pi awaits an extension command's handler before
-// answering, so every notice the command shows has arrived by then.
+// answering, so every notice the command shows has arrived by then. A prompt
+// to a model is done when pi sends `agent_settled`, after any retries.
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
@@ -15,7 +16,43 @@ export interface Notice {
 	message: string;
 }
 
-type RpcRecord = { type: string; id?: string; [key: string]: unknown };
+export type RpcRecord = { type: string; id?: string; [key: string]: unknown };
+
+/** An assistant message of a turn: which model answered, and what. */
+export interface Reply {
+	provider: string;
+	model: string;
+	text: string;
+	stopReason: string;
+	errorMessage?: string;
+}
+
+/** What one prompt to a model produced, up to `agent_settled`. */
+export interface Turn {
+	replies: Reply[];
+	/** Every record of the turn, such as tool executions. */
+	records: RpcRecord[];
+	/** The notices shown during the turn, joined. */
+	notices: string;
+}
+
+/** The assistant messages among `records`. */
+export function repliesOf(records: readonly RpcRecord[]): Reply[] {
+	return records.flatMap((record) => {
+		const message = record.message as Record<string, unknown> | undefined;
+		if (record.type !== "message_end" || message?.role !== "assistant") return [];
+		const content = (message.content as Array<{ type: string; text?: string }> | undefined) ?? [];
+		return [
+			{
+				provider: String(message.provider),
+				model: String(message.model),
+				text: content.flatMap((part) => (part.type === "text" && part.text ? [part.text] : [])).join(""),
+				stopReason: String(message.stopReason),
+				...(message.errorMessage ? { errorMessage: String(message.errorMessage) } : {}),
+			},
+		];
+	});
+}
 
 export interface PiOptions {
 	env: Record<string, string>;
@@ -24,6 +61,8 @@ export interface PiOptions {
 	log: string;
 	/** pi's `--offline` (no catalog refreshes or other automatic network calls); default true. */
 	offline?: boolean;
+	/** More command-line arguments, such as `--session-dir`. */
+	args?: string[];
 }
 
 export class PiSession {
@@ -42,7 +81,14 @@ export class PiSession {
 	#next = 0;
 
 	private constructor(options: PiOptions) {
-		const args = [PI_CLI, "--mode", "rpc", "--no-session", ...(options.offline === false ? [] : ["--offline"])];
+		const args = [
+			PI_CLI,
+			"--mode",
+			"rpc",
+			...(options.args?.includes("--session-dir") ? [] : ["--no-session"]),
+			...(options.offline === false ? [] : ["--offline"]),
+			...(options.args ?? []),
+		];
 		this.#child = spawn(process.execPath, args, { cwd: options.cwd, env: options.env, stdio: ["pipe", "pipe", "pipe"] });
 		this.#log = createWriteStream(`${options.log}.jsonl`);
 		const stderrLog = createWriteStream(`${options.log}.stderr`);
@@ -79,6 +125,56 @@ export class PiSession {
 			.slice(from)
 			.map((notice) => notice.message)
 			.join("\n");
+	}
+
+	/** Selects `provider/modelId`, such as the virtual model `switchboard/auto`. */
+	async setModel(provider: string, modelId: string): Promise<void> {
+		const id = `s${this.#next++}`;
+		this.#send({ id, type: "set_model", provider, modelId });
+		const response = await this.#response(id, 30_000);
+		if (response.success !== true) throw new Error(`pi did not select ${provider}/${modelId}: ${JSON.stringify(response).slice(0, 400)}`);
+	}
+
+	/** How many records have arrived; pass it to `waitForRecord` to wait only for later ones. */
+	mark(): number {
+		return this.#records.length;
+	}
+
+	/** Every record from `from` on. */
+	recordsSince(from: number): RpcRecord[] {
+		return this.#records.slice(from);
+	}
+
+	/** Waits for a record from `from` on that matches, such as a later `agent_settled`, and returns its index. */
+	waitForRecord(match: (record: RpcRecord) => boolean, timeoutMs: number, from = 0, what = "a matching record"): Promise<number> {
+		return this.#until(
+			() => {
+				const index = this.#records.findIndex((record, at) => at >= from && match(record));
+				return index >= 0 ? index : undefined;
+			},
+			timeoutMs,
+			what,
+		);
+	}
+
+	/** Sends `text` as a prompt to the selected model and waits until pi settles, retries included. */
+	async prompt(text: string, timeoutMs = 60_000): Promise<Turn> {
+		const id = `p${this.#next++}`;
+		const from = this.#records.length;
+		const noticesFrom = this.notices.length;
+		this.#send({ id, type: "prompt", message: text });
+		const response = await this.#response(id, timeoutMs);
+		if (response.success !== true) throw new Error(`pi refused the prompt: ${JSON.stringify(response).slice(0, 400)}`);
+		const settled = await this.waitForRecord((record) => record.type === "agent_settled", timeoutMs, from, `pi to settle after "${text}"`);
+		const records = this.#records.slice(from, settled + 1);
+		return {
+			replies: repliesOf(records),
+			records,
+			notices: this.notices
+				.slice(noticesFrom)
+				.map((notice) => notice.message)
+				.join("\n"),
+		};
 	}
 
 	/**
@@ -139,17 +235,23 @@ export class PiSession {
 		for (const wake of this.#waiters.splice(0)) wake();
 	}
 
-	#response(id: string, timeoutMs: number): Promise<RpcRecord> {
+	async #response(id: string, timeoutMs: number): Promise<RpcRecord> {
+		const at = await this.waitForRecord((record) => record.type === "response" && record.id === id, timeoutMs, 0, `a response to ${id}`);
+		return this.#records[at] as RpcRecord;
+	}
+
+	/** Resolves with what `found` returns once it is defined; fails if pi exits first or after `timeoutMs`. */
+	#until<T>(found: () => T | undefined, timeoutMs: number, what: string): Promise<T> {
 		return new Promise((resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error(`pi gave no response to ${id} in ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
+			const timer = setTimeout(() => reject(new Error(`pi gave no ${what} in ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
 			const check = () => {
-				const found = this.#records.find((record) => record.type === "response" && record.id === id);
-				if (found) {
+				const value = found();
+				if (value !== undefined) {
 					clearTimeout(timer);
-					resolve(found);
+					resolve(value);
 				} else if (this.#exited) {
 					clearTimeout(timer);
-					reject(new Error(`pi exited before answering ${id}:\n${this.stderr.slice(-2000)}`));
+					reject(new Error(`pi exited before ${what}:\n${this.stderr.slice(-2000)}`));
 				} else this.#waiters.push(check);
 			};
 			check();

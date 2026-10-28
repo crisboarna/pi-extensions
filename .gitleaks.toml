@@ -8,3 +8,9 @@ description = "Fake credentials in pi-switchboard's redaction test"
 condition = "AND"
 paths = ['''^packages/pi-switchboard/test/unit/classifier\.test\.ts$''']
 regexes = ['''AKIAABCDEFGHIJKLMNOP''', '''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.[A-Za-z0-9_-]+''']
+
+[[allowlists]]
+description = "The fake key pi-switchboard's routing suite sends to check it is redacted before the classifier"
+condition = "AND"
+paths = ['''^packages/pi-switchboard/test/e2e/routing\.test\.ts$''']
+regexes = ['''sk-AbCdEf1234567890XyZw9876''']
