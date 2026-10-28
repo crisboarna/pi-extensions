@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { configFor, detectClassifiers, formatDetect, knownServers, preferredModel, type ServerProbe } from "../../src/classifier/detect.ts";
+import { configFor, detectClassifiers, formatDetect, knownServers, listModels, preferredModel, type ServerProbe } from "../../src/classifier/detect.ts";
 import { resolveKey } from "../../src/classifier/standalone.ts";
 import { classifierCommand } from "../../src/cli/classifier.ts";
 
@@ -90,6 +90,19 @@ describe("classifier detect", () => {
 		assert.deepEqual([llama?.loaded, llama?.chatModels], [["judge"], ["chat"]]);
 		const [ollama, single] = await detectClassifiers({ servers: SERVERS.filter((server) => server.kind !== "lmstudio"), fetch: network(everything).fake });
 		assert.deepEqual([ollama?.loaded, single?.loaded], [undefined, undefined], "lists that do not say what is loaded");
+	});
+
+	it("lists one server's models without asking any model anything, for setup's wait", async () => {
+		// setup polls every 2 s; a smoke test on each poll made a llama.cpp router load a decision model nobody asked for.
+		const { fake, calls } = network(everything);
+		const llama = SERVERS.find((server) => server.kind === "llamacpp")!;
+		const found = await listModels(llama, { fetch: fake });
+		assert.deepEqual(
+			[found?.decisionModels, found?.chatModels, found?.smoke],
+			[["/models/Julia-1-Q8_0.gguf"], ["/models/qwen3-4b-instruct.gguf"], undefined],
+		);
+		assert.deepEqual(calls, ["http://llama.test/v1/models"]);
+		assert.equal(await listModels({ ...llama, origin: "http://down.test" }, { fetch: fake }), undefined);
 	});
 
 	it("prints the config to paste, the eval command, and how to use a chat model", async () => {

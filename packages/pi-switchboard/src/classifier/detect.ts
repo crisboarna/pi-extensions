@@ -120,16 +120,18 @@ export function preferredModel(models: readonly string[], preferred: readonly st
 	return models[0];
 }
 
+/** One server's model lists, without asking any model anything; `undefined` when it does not answer. */
+export async function listModels(server: ServerProbe, options: Pick<DetectOptions, "fetch" | "timeoutMs"> = {}): Promise<DetectedServer | undefined> {
+	const { fetch: fetcher = fetch, timeoutMs = 1500 } = options;
+	const lists = await LISTERS[server.listing](fetcher, server.origin, timeoutMs).catch(() => undefined);
+	if (!lists) return undefined;
+	return { ...server, baseUrl: `${server.origin}/v1`, ...lists, chatModels: server.chatProvider ? lists.chatModels : [] };
+}
+
 /** Probes each server, lists its models and smoke-tests the preferred decision model with pi-switchboard's three questions. */
 export async function detectClassifiers(options: DetectOptions = {}): Promise<DetectedServer[]> {
 	const { servers = knownServers(), fetch: fetcher = fetch, timeoutMs = 1500, now = Date.now } = options;
-	const found = await Promise.all(
-		servers.map(async (server): Promise<DetectedServer | undefined> => {
-			const lists = await LISTERS[server.listing](fetcher, server.origin, timeoutMs).catch(() => undefined);
-			if (!lists) return undefined;
-			return { ...server, baseUrl: `${server.origin}/v1`, ...lists, chatModels: server.chatProvider ? lists.chatModels : [] };
-		}),
-	);
+	const found = await Promise.all(servers.map((server) => listModels(server, { fetch: fetcher, timeoutMs })));
 	const detected = found.filter((server): server is DetectedServer => server !== undefined);
 	for (const server of detected) {
 		const model = preferredModel(server.decisionModels);

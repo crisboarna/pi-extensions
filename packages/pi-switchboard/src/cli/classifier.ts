@@ -3,7 +3,7 @@ import { accessSync, constants, existsSync, mkdirSync, readFileSync, renameSync,
 import { homedir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { detectClassifiers, formatDetect, knownServers, smokeTest } from "../classifier/detect.ts";
+import { detectClassifiers, formatDetect, knownServers, listModels, smokeTest } from "../classifier/detect.ts";
 import { evaluateClassifier, formatEval } from "../classifier/eval.ts";
 import { serverCatalog } from "../classifier/servers.ts";
 import { runSetup } from "../classifier/setup.ts";
@@ -142,7 +142,8 @@ async function setupCommand(args: string[], io: CliIo): Promise<number> {
 			confirm: ask,
 			out: io.out,
 			err: io.err,
-			probe: async (server) => (await detectClassifiers({ servers: [server] }).then((found) => found[0])) ?? undefined,
+			// Lists only: setup polls every 2 s, and a smoke test would query (and load) whichever decision model the server has.
+			probe: (server) => listModels(server),
 			smoke: (server, model) => smokeTest(server, model),
 			load: async (server, model) => {
 				const response = await fetch(`${server.origin}/models/load`, {

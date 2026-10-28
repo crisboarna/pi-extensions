@@ -16,7 +16,7 @@ export interface SetupDeps {
 	confirm(question: string): Promise<boolean>;
 	out(text: string): void;
 	err(text: string): void;
-	/** The server's model lists, or `undefined` while it does not answer. */
+	/** The server's model lists, without asking any model anything; `undefined` while it does not answer. */
 	probe(server: ServerProbe): Promise<DetectedServer | undefined>;
 	smoke(server: DetectedServer, model: string): Promise<SmokeTest>;
 	/** Asks a router to load a model; resolves to an error message, or `undefined` when it loaded. */
