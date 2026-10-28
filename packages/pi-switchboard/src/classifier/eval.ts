@@ -52,6 +52,8 @@ export interface EvalReport {
 	sweep: ThresholdResult[];
 	/** The threshold that routes the most samples as labelled, preferring fewer too low, then the higher threshold. */
 	best: ThresholdResult;
+	/** Set when eval stopped early: the warm-up and the first request failed with `error`, and `notAsked` requests were left. */
+	stopped?: { error: string; notAsked: number };
 }
 
 /** Thresholds the sweep tries; models differ in how confident they sound, so the right cutoff differs too. */
@@ -95,10 +97,18 @@ export async function evaluateClassifier(classify: ClassifyFn, model: string, op
 		return { tier, ok: expected === "middle+" ? got >= want : got === want, under: got < want };
 	};
 	const results: SampleResult[] = [];
+	const warmupFailed = warmup.response.stopReason !== "stop" || !warmup.response.answers;
+	let stopped: EvalReport["stopped"];
 	for (const { request, expected } of samples) {
 		const { response, ms } = await ask(request);
 		if (response.stopReason !== "stop" || !response.answers) {
-			results.push({ request, expected, ok: false, under: false, ms, error: response.errorMessage ?? response.stopReason });
+			const error = response.errorMessage ?? response.stopReason;
+			results.push({ request, expected, ok: false, under: false, ms, error });
+			// A server that is down, a missing key or a missing endpoint fails every request the same way.
+			if (warmupFailed && results.length === 1) {
+				stopped = { error, notAsked: samples.length - results.length };
+				break;
+			}
 			continue;
 		}
 		results.push({ request, expected, ...route(response.answers, expected, threshold), ms, answers: response.answers });
@@ -120,13 +130,24 @@ export async function evaluateClassifier(classify: ClassifyFn, model: string, op
 		medianMs: median(answered.map((result) => result.ms)),
 		sweep,
 		best,
+		...(stopped === undefined ? {} : { stopped }),
 	};
 }
 
 const LABEL: Record<ExpectedTier, string> = { bottom: "light", middle: "standard", top: "deep", "middle+": "standard+" };
 
-/** The report as text: one line per request, then the totals. */
+/** The report as text: one line per request, then the totals; or the error once, when nothing answered. */
 export function formatEval(report: EvalReport): string {
+	if (report.results.every((result) => result.tier === undefined)) {
+		const error = report.stopped?.error ?? report.results[0]?.error ?? "no answer";
+		const notAsked = report.stopped?.notAsked ?? 0;
+		return [
+			`classifier eval: ${report.model} at threshold ${report.threshold}`,
+			"",
+			`${report.model} did not answer: ${error}`,
+			...(notAsked > 0 ? [`The other ${notAsked} requests were not asked.`] : []),
+		].join("\n");
+	}
 	const lines = report.results.map((result) => {
 		const mark = result.ok ? "✓" : result.under ? "✗ too low" : result.tier ? "✗ too high" : "✗ no answer";
 		const got = result.tier ?? `error: ${result.error}`;

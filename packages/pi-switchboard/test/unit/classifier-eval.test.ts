@@ -74,6 +74,34 @@ describe("classifier eval", () => {
 		assert.match(text, /at other thresholds: 0\.5 9\/24 \(14 too low\), 0\.6 9\/24/);
 		assert.match(text, /suggested "threshold": 0\.95 \(9\/24, 14 too low\)/);
 	});
+
+	it("stops when the warm-up and the first request both fail, and suggests nothing when nothing answers", async () => {
+		let calls = 0;
+		const down: ClassifyFn = async () => {
+			calls++;
+			return { stopReason: "error", errorMessage: "fetch failed" };
+		};
+		const report = await evaluateClassifier(down, "fake/down");
+		assert.equal(calls, 2, "the warm-up and the first request, not 25 calls");
+		assert.deepEqual(report.stopped, { error: "fetch failed", notAsked: 23 });
+		assert.equal(report.failed, report.results.length);
+		const text = formatEval(report);
+		assert.match(text, /fake\/down did not answer: fetch failed\nThe other 23 requests were not asked\./);
+		assert.doesNotMatch(text, /suggested|at other thresholds|→ error/);
+		// A first load can outlast the warm-up's timeout; the requests after it still count.
+		let n = 0;
+		const slowStart: ClassifyFn = async (model, request, options) =>
+			++n === 1 ? { stopReason: "error", errorMessage: "timed out" } : perfect(model, request, options);
+		const warm = await evaluateClassifier(slowStart, "fake/slow");
+		assert.deepEqual([warm.stopped, warm.correct], [undefined, 24]);
+		// Answers stop part way: the rows show which failed, and the totals still suggest a threshold.
+		let m = 0;
+		const flaky: ClassifyFn = async (model, request, options) =>
+			++m > 13 ? { stopReason: "error", errorMessage: "server went away" } : perfect(model, request, options);
+		const partial = formatEval(await evaluateClassifier(flaky, "fake/flaky"));
+		assert.match(partial, /✗ no answer .*error: server went away/);
+		assert.match(partial, /suggested "threshold"/);
+	});
 });
 
 describe("pi-switchboard classifier eval against a System One server", () => {
@@ -122,7 +150,7 @@ describe("pi-switchboard classifier eval against a System One server", () => {
 		} finally {
 			http.close();
 		}
-		assert.match(run.out.join(""), /0\/24 on the expected tier, 0 too low, 24 without an answer/);
+		assert.match(run.out.join(""), /\nmissing did not answer: .+\nThe other 23 requests were not asked\./);
 		const bad = io();
 		assert.equal(await classifierCommand(["eval", url], bad.io), 1);
 		assert.equal(await classifierCommand(["eval", url, "m", "--threshold", "2"], bad.io), 1);
