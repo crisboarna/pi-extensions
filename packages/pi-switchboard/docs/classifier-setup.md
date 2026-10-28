@@ -25,7 +25,7 @@ Three commands do the work; each setup page shows the same steps by hand.
 ```bash
 pi-switchboard classifier detect          # finds LM Studio, Ollama and llama.cpp on their usual ports, tests one, prints the config
 pi-switchboard classifier setup ollama    # downloads a model with the product's own command, tests it, writes the config
-pi-switchboard classifier eval http://127.0.0.1:11434/v1 tev1   # 24 labelled requests: correct, too low, latency, best threshold
+pi-switchboard classifier eval http://127.0.0.1:11434/v1 tev1   # 24 labelled requests: correct, too low, latency, and the threshold and timeout to use
 ```
 
 The command is installed with the package: `~/.pi/agent/npm/node_modules/@crisboarna/pi-switchboard/bin/pi-switchboard.mjs`, or run it with `npx @crisboarna/pi-switchboard`. `setup` never installs LM Studio, Ollama or llama.cpp itself; it shows each command and asks before running it, and shows the config change before writing it.

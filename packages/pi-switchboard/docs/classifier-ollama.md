@@ -20,18 +20,19 @@ It finds `ollama`, waits for the server if it is not running (open the Ollama ap
    curl -s http://127.0.0.1:11434/api/show -d '{"model":"tev1"}' | grep -o '"capabilities":\[[^]]*\]'   # "decision"
    ```
 
-3. Choose the threshold:
+3. Choose the threshold and timeout:
 
    ```bash
    pi-switchboard classifier eval http://127.0.0.1:11434/v1 tev1:latest
    # suggested "threshold": 0.7 (21/24, 0 too low)
+   # suggested "timeoutMs": 6000 (twice the median, at least 2000), on CPU
    ```
 
 4. Add to `~/.pi/agent/pi-switchboard.json`, then `/reload` in pi:
 
    ```json
    "classifierProviders": [{ "name": "ollama", "baseUrl": "http://127.0.0.1:11434/v1/", "models": ["tev1:latest"] }],
-   "classifiers": [{ "model": "ollama/tev1:latest", "timeoutMs": 2000, "threshold": 0.7 }]
+   "classifiers": [{ "model": "ollama/tev1:latest", "timeoutMs": 6000, "threshold": 0.7 }]
    ```
 
 5. `/tier doctor` in pi says how fast it answers. On the CPU-only test machine it said:

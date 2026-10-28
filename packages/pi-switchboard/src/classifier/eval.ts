@@ -56,6 +56,14 @@ export interface EvalReport {
 	stopped?: { error: string; notAsked: number };
 }
 
+/** The timeout a classifier gets when nothing was measured. */
+export const DEFAULT_TIMEOUT_MS = 2000;
+
+/** A classifier's timeout from its measured median: twice it, rounded up to half a second, at least the default. */
+export function timeoutFor(medianMs: number): number {
+	return Math.max(DEFAULT_TIMEOUT_MS, Math.ceil((medianMs * 2) / 500) * 500);
+}
+
 /** Thresholds the sweep tries; models differ in how confident they sound, so the right cutoff differs too. */
 export const SWEEP = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95];
 
@@ -165,5 +173,6 @@ export function formatEval(report: EvalReport): string {
 		"",
 		`at other thresholds: ${report.sweep.map((t) => `${t.threshold} ${t.correct}/${total}${t.under ? ` (${t.under} too low)` : ""}`).join(", ")}`,
 		`suggested "threshold": ${report.best.threshold} (${report.best.correct}/${total}, ${report.best.under} too low)`,
+		`suggested "timeoutMs": ${timeoutFor(report.medianMs)} (twice the median, at least ${DEFAULT_TIMEOUT_MS})`,
 	].join("\n");
 }

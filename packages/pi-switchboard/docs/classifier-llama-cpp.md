@@ -75,7 +75,7 @@ By hand:
    ```
 
    With one model loaded, the server ignores the request's `model` field; `/v1/models` lists the model as `h2oai/h2o-lightning-4b-gguf:Q4_K_M`, marked with `"output_modalities": ["decisions"]`. Other decision models: `ggml-org/Kev-4B-GGUF`, `ggml-org/lev-GGUF`, `ggml-org/Laya-GGUF`, `ggml-org/Julia-1-GGUF`.
-2. Choose the threshold:
+2. Choose the threshold and timeout:
 
    ```bash
    pi-switchboard classifier eval http://127.0.0.1:8080/v1 h2oai/h2o-lightning-4b-gguf:Q4_K_M
@@ -85,7 +85,7 @@ By hand:
 
    ```json
    "classifierProviders": [{ "name": "llamacpp", "baseUrl": "http://127.0.0.1:8080/v1/", "models": ["h2oai/h2o-lightning-4b-gguf:Q4_K_M"] }],
-   "classifiers": [{ "model": "llamacpp/h2oai/h2o-lightning-4b-gguf:Q4_K_M", "timeoutMs": 2000, "threshold": 0.7 }]
+   "classifiers": [{ "model": "llamacpp/h2oai/h2o-lightning-4b-gguf:Q4_K_M", "timeoutMs": 4000, "threshold": 0.7 }]
    ```
 
    With `LLAMA_BASE_URL` set, pi's own provider lists decision models too, as `llama.cpp/<model>`, so the `classifierProviders` entry is optional.

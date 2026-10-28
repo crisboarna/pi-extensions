@@ -34,11 +34,12 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
    }'
    ```
 
-4. Choose the threshold:
+4. Choose the threshold and timeout:
 
    ```bash
    pi-switchboard classifier eval http://127.0.0.1:1234/v1 h2o-lightning-4b
    # 21/24 on the expected tier, 0 too low ... suggested "threshold": 0.6 (22/24, 0 too low)
+   # suggested "timeoutMs": 2000 (twice the median, at least 2000)
    ```
 
 5. Add to `~/.pi/agent/pi-switchboard.json`, then `/reload` in pi:

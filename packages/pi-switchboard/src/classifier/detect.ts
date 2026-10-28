@@ -194,7 +194,9 @@ export function formatDetect(detected: readonly DetectedServer[], probed: readon
 			const [classifier] = config.classifiers;
 			lines.push("  add to ~/.pi/agent/pi-switchboard.json:");
 			for (const line of JSON.stringify(config, null, 2).split("\n").slice(1, -1)) lines.push(`  ${line}`);
-			lines.push(`  then choose its threshold: pi-switchboard classifier eval ${server.baseUrl} ${classifier?.model.slice(server.name.length + 1)}`);
+			lines.push(
+				`  then choose its threshold and timeout: pi-switchboard classifier eval ${server.baseUrl} ${classifier?.model.slice(server.name.length + 1)}`,
+			);
 		}
 		if (server.chatModels.length > 0 && server.chatHint) {
 			const hint = server.chatHint.replaceAll("{models}", server.chatModels.join(", ")).replaceAll("{origin}", server.origin);

@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { ClassifyFn } from "../../src/classifier/chain.ts";
-import { evaluateClassifier, formatEval } from "../../src/classifier/eval.ts";
+import { evaluateClassifier, formatEval, timeoutFor } from "../../src/classifier/eval.ts";
 import { SAMPLE_REQUESTS } from "../../src/classifier/samples.ts";
 import { classifierCommand } from "../../src/cli/classifier.ts";
 import { type EvalDeps, runEval } from "../../src/commands/eval.ts";
@@ -73,6 +73,10 @@ describe("classifier eval", () => {
 		assert.match(text, /first call 9000 ms \(includes loading the model\)/);
 		assert.match(text, /at other thresholds: 0\.5 9\/24 \(14 too low\), 0\.6 9\/24/);
 		assert.match(text, /suggested "threshold": 0\.95 \(9\/24, 14 too low\)/);
+		// The config needs a timeout too: twice the median, so a 3 s classifier is not cut off at the default 2 s.
+		assert.match(text, /suggested "timeoutMs": 2000 \(twice the median, at least 2000\)/);
+		const slow = formatEval({ ...report, medianMs: 3696 });
+		assert.match(slow, new RegExp(`suggested "timeoutMs": ${timeoutFor(3696)} `));
 	});
 
 	it("stops when the warm-up and the first request both fail, and suggests nothing when nothing answers", async () => {
@@ -87,7 +91,7 @@ describe("classifier eval", () => {
 		assert.equal(report.failed, report.results.length);
 		const text = formatEval(report);
 		assert.match(text, /fake\/down did not answer: fetch failed\nThe other 23 requests were not asked\./);
-		assert.doesNotMatch(text, /suggested|at other thresholds|→ error/);
+		assert.doesNotMatch(text, /suggested|at other thresholds|→ error|timeoutMs/);
 		// A first load can outlast the warm-up's timeout; the requests after it still count.
 		let n = 0;
 		const slowStart: ClassifyFn = async (model, request, options) =>

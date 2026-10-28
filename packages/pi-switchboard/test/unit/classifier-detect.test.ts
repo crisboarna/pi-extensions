@@ -110,7 +110,7 @@ describe("classifier detect", () => {
 		const text = formatDetect(await detectClassifiers({ servers: SERVERS, fetch: fake }), SERVERS);
 		assert.match(text, /LM Studio at http:\/\/studio\.test\n {2}decision models: kev-4b, h2o-lightning-4b\n {2}✓ h2o-lightning-4b answered/);
 		assert.match(text, /"model": "lmstudio\/h2o-lightning-4b"/);
-		assert.match(text, /then choose its threshold: pi-switchboard classifier eval http:\/\/studio\.test\/v1 h2o-lightning-4b/);
+		assert.match(text, /then choose its threshold and timeout: pi-switchboard classifier eval http:\/\/studio\.test\/v1 h2o-lightning-4b/);
 		assert.match(text, /relayed to a cloud, left out: clef:cloud/);
 		assert.match(text, /chat models pi's llama\.cpp provider can read as classifiers: \/models\/qwen3-4b-instruct\.gguf/);
 		assert.match(text, /export LLAMA_BASE_URL=http:\/\/llama\.test/);

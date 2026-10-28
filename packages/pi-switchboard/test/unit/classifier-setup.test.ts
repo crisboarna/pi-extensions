@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { type DetectedServer, knownServers } from "../../src/classifier/detect.ts";
-import type { EvalReport } from "../../src/classifier/eval.ts";
+import { type EvalReport, timeoutFor } from "../../src/classifier/eval.ts";
 import { serverCatalog } from "../../src/classifier/servers.ts";
-import { commandLine, listedAs, mergeClassifierConfig, runSetup, type SetupDeps, timeoutFor } from "../../src/classifier/setup.ts";
+import { commandLine, listedAs, mergeClassifierConfig, runSetup, type SetupDeps } from "../../src/classifier/setup.ts";
 import { which } from "../../src/cli/classifier.ts";
 
 const catalog = serverCatalog();

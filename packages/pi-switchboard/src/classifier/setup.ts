@@ -1,5 +1,5 @@
 import { configFor, type DetectedServer, type ServerProbe, type SmokeTest } from "./detect.ts";
-import type { EvalReport } from "./eval.ts";
+import { DEFAULT_TIMEOUT_MS, type EvalReport, timeoutFor } from "./eval.ts";
 import { type SetupSpec, serverCatalog } from "./servers.ts";
 
 /**
@@ -37,14 +37,8 @@ export interface SetupOptions {
 	waitMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 2000;
 /** pi-switchboard's default budget for one decision (classification.decisionBudgetMs). */
 const DECISION_BUDGET_MS = 4000;
-
-/** A classifier's timeout from its measured median: twice it, rounded up to half a second, at least the default. */
-export function timeoutFor(medianMs: number): number {
-	return Math.max(DEFAULT_TIMEOUT_MS, Math.ceil((medianMs * 2) / 500) * 500);
-}
 
 const quote = (word: string) => (/^[\w./:@=+-]+$/u.test(word) ? word : `'${word.replaceAll("'", "'\\''")}'`);
 export const commandLine = (words: readonly string[]) => words.map(quote).join(" ");
