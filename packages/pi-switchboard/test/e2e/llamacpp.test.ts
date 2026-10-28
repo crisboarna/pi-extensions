@@ -68,12 +68,14 @@ describe("classifier setup llamacpp, with llama-server in Docker", { skip: skipU
 		check.runDir.record("llamacpp.setup", written.classifiers);
 	});
 
-	it("finds the running server on a rerun, and adds nothing twice", async () => {
+	it("says on a rerun that the server is already running, starts nothing, and adds nothing twice", async () => {
 		const result = await run(check.bin, ["classifier", "setup", "llamacpp", "--yes", "--no-eval"], {
 			env: check.env,
 			log: join(check.runDir.dir, "rerun.log"),
 		});
 		assert.equal(result.code, 0, check.runDir.explain(result.text));
+		assert.match(result.text, /^llama\.cpp is already running at http:\/\/127\.0\.0\.1:8080, so there is nothing to start\.$/mu);
+		assert.doesNotMatch(result.text, /^ {2}\$ /mu, check.runDir.explain("it printed a command to start the server"));
 		const written = readConfig(config);
 		assert.equal(written.classifierProviders?.length, 1);
 		assertOneClassifier(written, `llamacpp/${MODEL}`);

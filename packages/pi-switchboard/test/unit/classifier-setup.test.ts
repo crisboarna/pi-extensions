@@ -125,6 +125,10 @@ describe("classifier setup", () => {
 	it("waits for a server the user starts, and gives up after the wait", async () => {
 		const spec = servedSpec!;
 		const ready = rig({ models: [spec.model] });
+		const started = ready.deps.probe;
+		let probes = 0;
+		// Nothing answers until the user starts the server setup prints.
+		ready.deps.probe = async (server) => (++probes === 1 ? undefined : started(server));
 		assert.equal(await runSetup(servedSetup, { yes: true, evaluate: false }, ready.deps), 0);
 		assert.equal(ready.ran.length, 0);
 		assert.match(ready.out.join(""), /Start the server in another terminal[\s\S]*\$ \/usr\/bin\//);
@@ -137,6 +141,9 @@ describe("classifier setup", () => {
 	it("configures a chat model through pi's provider, with a softer temperature, and no provider entry", async () => {
 		const spec = chatSpec!;
 		const r = rig({ chatModels: [spec.model], router: true, config: '{ "classification": { "decisionBudgetMs": 5000 } }' });
+		const started = r.deps.probe;
+		let probes = 0;
+		r.deps.probe = async (server) => (++probes === 1 ? undefined : started(server));
 		assert.equal(await runSetup(chatSetup, { yes: true }, r.deps), 0);
 		const config = JSON.parse(r.written[0] ?? "{}");
 		const server = serverOf(chatSetup!)!;
@@ -196,6 +203,21 @@ describe("classifier setup", () => {
 		const downloaded = rig({ models: [spec.model], loaded: [] });
 		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, downloaded.deps), 0);
 		assert.equal(downloaded.ran.length, spec.run?.length, "a model that is only downloaded still gets loaded");
+	});
+
+	it("tells the user to start nothing when the server already serves the model, or the router is already up", async () => {
+		const served = rig({ models: [servedSpec!.model] });
+		assert.equal(await runSetup(servedSetup, { yes: true, evaluate: false }, served.deps), 0);
+		assert.match(served.out.join(""), /is already running at http:\S+, so there is nothing to start\./);
+		assert.doesNotMatch(served.out.join(""), /^ {2}\$ /m, "no command to start it");
+		const router = rig({ chatModels: [chatSpec!.model], router: true, loaded: [] });
+		assert.equal(await runSetup(chatSetup, { yes: true }, router.deps), 0);
+		assert.doesNotMatch(router.out.join(""), /^ {2}\$ /m, "neither the download nor the router command");
+		assert.deepEqual(router.ran, [["load", chatSpec!.model]], "setup loads the model on the running router");
+		// A one-model server on the port is not the router: the user still has to replace it.
+		const single = rig({ chatModels: [chatSpec!.model] });
+		assert.equal(await runSetup(chatSetup, { yes: true, waitMs: 4000 }, single.deps), 1);
+		assert.match(single.out.join(""), /First download the model[\s\S]*Then start the server/);
 	});
 
 	it("checks the config before running anything, and says nothing changed when declined", async () => {

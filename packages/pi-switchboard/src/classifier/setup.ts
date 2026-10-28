@@ -216,9 +216,15 @@ async function startServer({ spec, server, fill }: Resolved, options: SetupOptio
 		}
 	}
 	// Running them again would download nothing new, and LM Studio would load a second copy of the model.
-	const found = spec.run?.length ? await deps.probe(server) : undefined;
-	if (found && serves(found, spec.model)) deps.out(`${server.label} already serves ${spec.model}, so nothing is downloaded or loaded.\n`);
+	const found = spec.run?.length || spec.serve ? await deps.probe(server) : undefined;
+	const served = found !== undefined && serves(found, spec.model);
+	if (spec.run?.length && served) deps.out(`${server.label} already serves ${spec.model}, so nothing is downloaded or loaded.\n`);
 	else if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return false;
+	// What the commands below would start is already up: a server with the model, or the router, which loads it.
+	if (spec.serve && found && (spec.load ? found.router === true : served)) {
+		deps.out(`${server.label} is already running at ${server.origin}, so there is nothing to start.\n`);
+		return true;
+	}
 	if (spec.prepare)
 		deps.out(`First download the model, in another terminal; stop it with Ctrl+C once it says it is listening:\n  $ ${commandLine(fill(spec.prepare))}\n`);
 	if (spec.serve)
