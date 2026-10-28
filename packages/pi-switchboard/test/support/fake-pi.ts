@@ -112,6 +112,8 @@ export interface FakeSession {
 	notices: Array<{ message: string; type?: string }>;
 	/** Classifier calls received, with the state the extension sent. */
 	classifierCalls: Array<{ model: string; state: any; questions: any }>;
+	/** The classifiers pi's registry lists, as `provider/id`; a test adds one to list it late, as pi's own providers can. */
+	classifiers: Set<string>;
 	setScenario(scenario: Scenario): void;
 	setHeader(header: { parentSession?: string } | null): void;
 }
@@ -126,6 +128,7 @@ export function createFakeSession(
 	const notices: Array<{ message: string; type?: string }> = [];
 	const classifierCalls: FakeSession["classifierCalls"] = [];
 	const known = new Set(CATALOG.map((m) => m.provider));
+	const classifiers = new Set(["local/judge"]);
 	const registry = {
 		find: (provider: string, id: string) => CATALOG.find((m) => m.provider === provider && m.id === id),
 		getAll: () => CATALOG,
@@ -134,7 +137,7 @@ export function createFakeSession(
 		getProviderAuthStatus: () => ({ configured: true }),
 		isUsingOAuth: () => true,
 		findOfType: (type: string, provider: string, id: string) =>
-			type === "classifier" && provider === "local" && id === "judge" ? { type, provider, id, baseUrl: "http://127.0.0.1:1234/v1/" } : undefined,
+			type === "classifier" && classifiers.has(`${provider}/${id}`) ? { type, provider, id, baseUrl: "http://127.0.0.1:1234/v1/" } : undefined,
 		classify: async (model: { provider: string; id: string }, context: { state: unknown; questions: unknown }) => {
 			classifierCalls.push({ model: `${model.provider}/${model.id}`, state: context.state, questions: context.questions });
 			if (scenario === "fail") return { stopReason: "error", errorMessage: "connection refused", answers: undefined };
@@ -168,6 +171,7 @@ export function createFakeSession(
 		statuses,
 		notices,
 		classifierCalls,
+		classifiers,
 		setScenario: (next) => {
 			scenario = next;
 		},

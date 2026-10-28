@@ -25,6 +25,29 @@ describe("first run", () => {
 	});
 });
 
+describe("classifiers that pi's own providers list late", () => {
+	const missing = (session: { notices: Array<{ message: string }> }, model: string) =>
+		session.notices.filter((n) => n.message.includes(`classifier ${model} is not registered`)).length;
+
+	it("waits for the first request before saying that a known provider's classifier is missing", async () => {
+		const classifiers = [
+			{ model: "acme/late", warmup: false },
+			{ model: "acme/never", warmup: false },
+			{ model: "nowhere/judge", warmup: false },
+		];
+		const { session, route } = await boot({ config: { classifiers } });
+		assert.equal(missing(session, "nowhere/judge"), 1, "a provider pi does not know is reported at once");
+		// acme is one of pi's providers: like llama.cpp, it may list its models a moment after the session starts.
+		assert.equal(missing(session, "acme/late") + missing(session, "acme/never"), 0);
+		session.classifiers.add("acme/late");
+		await route(routeRequest({ text: "fix the build" }));
+		assert.equal(missing(session, "acme/late"), 0, "listed by the first request");
+		assert.equal(missing(session, "acme/never"), 1, "still missing at the first request");
+		await route(routeRequest({ text: "and again" }));
+		assert.equal(missing(session, "acme/never"), 1, "said once");
+	});
+});
+
 describe("/tier try", () => {
 	it("previews with the classifier without recording anything", async () => {
 		const { session, tier, host } = await boot({ scenario: "plan" });

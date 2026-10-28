@@ -9,7 +9,7 @@ import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
 import { createClassifyFn, isLocalClassifier, registerClassifierProviders } from "./classifier/pi-adapter.ts";
 import { createRedactor } from "./classifier/redact.ts";
 import { WarmupTracker } from "./classifier/warmup.ts";
-import { needsTosNotice, runChecks, TOS_WARNING, withoutTosWarnings } from "./config/checks.ts";
+import { needsTosNotice, runChecks, TOS_WARNING, unregisteredWarning, withoutTosWarnings } from "./config/checks.ts";
 import { dataDir, loadConfig } from "./config/load.ts";
 import type { Config } from "./config/types.ts";
 import { LiveWriter, sweep } from "./live/live.ts";
@@ -101,6 +101,8 @@ export class Runtime {
 	readonly registered = new Set<string>();
 	private readonly customs = new Map<string, CustomSelect>();
 	private lastRouteAt = 0;
+	/** Classifiers from one of pi's own providers that it had not listed at session start; looked for again at the first request. */
+	private pendingClassifiers: string[] = [];
 	private childRegistration?: RequiredRegistration | undefined;
 	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
 	launchModeReason?: string;
@@ -427,17 +429,39 @@ export class Runtime {
 			cwd: ctx.cwd,
 			projectTrusted: ctx.isProjectTrusted(),
 			plannotatorBuiltin: join(this.agentDir, "npm", "node_modules", "@plannotator", "pi-extension", "plannotator.json"),
-			classifierAvailable: (model) => {
-				const ref = model.indexOf("/");
-				return ref > 0 && ctx.modelRegistry.findOfType("classifier", model.slice(0, ref), model.slice(ref + 1)) !== undefined;
-			},
+			classifierAvailable: (model) => this.classifierRegistered(ctx, model),
 			classifierIsLocal: (model) => isLocalClassifier(ctx, model, this.config.classifierProviders),
 		});
 	}
 
+	private classifierRegistered(ctx: ExtensionContext, model: string): boolean {
+		const ref = model.indexOf("/");
+		return ref > 0 && ctx.modelRegistry.findOfType("classifier", model.slice(0, ref), model.slice(ref + 1)) !== undefined;
+	}
+
+	/**
+	 * Unregistered classifiers whose provider pi knows. Some of pi's own providers list a local server's
+	 * models a moment after the session starts, so these are looked for again at the first request.
+	 */
+	private lateClassifiers(ctx: ExtensionContext): string[] {
+		return this.config.classifiers
+			.map((entry) => entry.model)
+			.filter((model) => !this.classifierRegistered(ctx, model) && ctx.modelRegistry.getProvider(model.slice(0, model.indexOf("/"))) !== undefined);
+	}
+
+	/** Warns, once, about the classifiers that were pending at session start and are still not listed. */
+	private recheckClassifiers(ctx: ExtensionContext): void {
+		for (const model of this.pendingClassifiers.splice(0))
+			if (!this.classifierRegistered(ctx, model)) ctx.ui.notify(`pi-switchboard: ${unregisteredWarning(model)}`, "warning");
+	}
+
 	/** Shows config and environment warnings once, and the terms-of-service notice only the first time ever. */
 	private announce(ctx: ExtensionContext): void {
-		const notices = [...withoutTosWarnings(this.config.warnings), ...(this.blocked ? [] : this.environmentChecks(ctx))];
+		this.pendingClassifiers = this.blocked ? [] : this.lateClassifiers(ctx);
+		const later = new Set(this.pendingClassifiers.map(unregisteredWarning));
+		const notices = [...withoutTosWarnings(this.config.warnings), ...(this.blocked ? [] : this.environmentChecks(ctx))].filter(
+			(notice) => !later.has(notice),
+		);
 		const shown = notices.slice(0, 6);
 		for (const warning of shown) ctx.ui.notify(`pi-switchboard: ${warning}`, "warning");
 		if (notices.length > shown.length) ctx.ui.notify(`pi-switchboard: ${notices.length - shown.length} more warnings; run /tier validate`, "warning");
@@ -507,6 +531,7 @@ export class Runtime {
 
 	async route(virtualId: string, request: RouteRequestLike, ctx: ExtensionContext) {
 		this.ctx = ctx;
+		if (this.pendingClassifiers.length > 0) this.recheckClassifiers(ctx);
 		const messages = request.messages as readonly TranscriptMessage[];
 		const header = ctx.sessionManager.getHeader() as { parentSession?: string } | null;
 		const scope = header?.parentSession || process.env.PI_SUBAGENT_CHILD === "1" ? "subagent" : "main";
