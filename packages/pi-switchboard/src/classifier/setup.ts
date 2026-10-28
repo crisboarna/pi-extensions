@@ -88,6 +88,7 @@ async function waitForModel(
 ): Promise<{ found: DetectedServer; model: string } | undefined> {
 	const step = 2000;
 	let told = false;
+	let waiting = false;
 	for (let waited = 0; waited <= waitMs; waited += step) {
 		const found = await deps.probe(server);
 		const model = found ? listedAs([...found.decisionModels, ...found.chatModels], spec.model) : undefined;
@@ -99,6 +100,10 @@ async function waitForModel(
 				);
 			told = true;
 		} else if (found && model) return { found, model };
+		else if (!waiting) {
+			deps.out(`Waiting for ${server.label} at ${server.origin} to list ${spec.model}…\n`);
+			waiting = true;
+		}
 		await deps.sleep(step);
 	}
 	return undefined;
@@ -237,7 +242,6 @@ async function startServer({ spec, server, fill }: Resolved, options: SetupOptio
 
 /** Waits for the server to list the model, and loads it when the setup asks; `undefined` to stop. */
 async function readyModel({ spec, server }: Resolved, deps: SetupDeps, waitMs: number): Promise<{ found: DetectedServer; model: string } | undefined> {
-	deps.out(`Waiting for ${server.label} at ${server.origin} to list ${spec.model}…\n`);
 	const ready = await waitForModel(server, spec, deps, waitMs);
 	if (!ready) {
 		deps.err(`classifier setup: ${server.label} at ${server.origin} did not list ${spec.model} within ${Math.round(waitMs / 60_000)} minutes\n`);

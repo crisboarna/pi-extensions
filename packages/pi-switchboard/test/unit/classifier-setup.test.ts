@@ -220,6 +220,21 @@ describe("classifier setup", () => {
 		assert.match(single.out.join(""), /First download the model[\s\S]*Then start the server/);
 	});
 
+	it("says it is waiting for the model only while the server does not list it", async () => {
+		const listed = rig({ models: [decisionSpec!.model], loaded: [decisionSpec!.model] });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, listed.deps), 0);
+		assert.doesNotMatch(listed.out.join(""), /Waiting for/);
+		const later = rig({ models: [servedSpec!.model] });
+		const lists = later.deps.probe;
+		let probes = 0;
+		later.deps.probe = async (server) => {
+			const found = await lists(server);
+			return ++probes <= 3 && found ? { ...found, decisionModels: [] } : found;
+		};
+		assert.equal(await runSetup(servedSetup, { yes: true, evaluate: false }, later.deps), 0);
+		assert.equal(later.out.join("").match(/^Waiting for .* to list /gm)?.length, 1, "said once, while the model was not listed");
+	});
+
 	it("checks the config before running anything, and says nothing changed when declined", async () => {
 		const malformed = rig({ models: [decisionSpec!.model], config: "{ nope" });
 		assert.equal(await runSetup(decisionSetup, { yes: true }, malformed.deps), 1);

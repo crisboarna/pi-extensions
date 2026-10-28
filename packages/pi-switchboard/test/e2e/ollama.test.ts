@@ -75,6 +75,7 @@ describe("classifier setup ollama, with Ollama in Docker", { skip: skipUnlessSel
 		});
 		assert.equal(result.code, 0, runDir.explain(result.text));
 		assert.match(result.text, /^Ollama already serves tev1, so nothing is downloaded or loaded\.$/mu);
+		assert.doesNotMatch(result.text, /^Waiting for /mu, runDir.explain("it said it was waiting for a model it had found"));
 		const written = readConfig(config);
 		assert.equal(written.classifierProviders?.length, 1);
 		assertOneClassifier(written, CLASSIFIER);
