@@ -77,10 +77,7 @@ describe("pi-switchboard in real pi, installed from the tarball, with no server"
 		const evaluated = await session.command("/tier eval");
 		assert.match(evaluated, /^local\/judge did not answer: fetch failed\nThe other 23 requests were not asked\.$/mu);
 		assert.equal(count(evaluated, /did not answer/u), 1, runDir.explain(`repeated:\n${evaluated}`));
-		assert.equal(
-			await session.command("/tier eval nope/model"),
-			"nope/model is not a classifier pi knows, or it has no credentials. /tier doctor lists what is registered.",
-		);
+		assert.equal(await session.command("/tier eval nope/model"), "nope/model is not a classifier pi lists. /tier doctor says why.");
 		assert.equal(await session.command("/tier eval --threshold 7"), "--threshold must be a number from 0 to 1");
 		assertClean(session);
 	});
@@ -108,6 +105,12 @@ describe("pi-switchboard in real pi, installed from the tarball, with no server"
 			/^✗ classifier llama\.cpp\/some-chat-model is not listed by pi's llama\.cpp provider: is its server running with the model loaded\? Then run \/tier doctor again$/mu,
 		);
 		assert.doesNotMatch(doctor, /check classifierProviders/u);
+		const validate = await session.command("/tier validate");
+		assert.match(
+			validate,
+			/^warning: classifier llama\.cpp\/some-chat-model is not listed by pi's llama\.cpp provider: is its server running with the model loaded\? Its decisions fall back to the fallback tier\.$/mu,
+		);
+		assert.doesNotMatch(validate, /classifierProviders|\/login|credentials/u);
 		assertClean(session);
 	});
 

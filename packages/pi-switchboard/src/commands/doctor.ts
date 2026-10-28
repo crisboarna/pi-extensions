@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isLocalClassifier } from "../classifier/pi-adapter.ts";
 import { WARMUP_REQUEST } from "../classifier/warmup.ts";
-import { remoteSkippedWarning, unregisteredWarning } from "../config/checks.ts";
+import { remoteSkippedWarning, type UnlistedCause, unlistedCause, unregisteredWarning } from "../config/checks.ts";
 import type { Runtime } from "../runtime.ts";
 import { quotaProviders } from "../selection/pi-usage.ts";
 import { PI_SUBAGENTS_MISSING } from "../subagents/pi-subagents.ts";
@@ -17,8 +17,8 @@ export interface DoctorFacts {
 	classifiers: Array<{
 		model: string;
 		registered: boolean;
-		/** For a classifier that is not registered: the name of pi's own provider it comes from, when pi has that provider and no classifierProviders entry names it. */
-		piProvider?: string;
+		/** For a classifier that is not registered: why, as the session-start warning says it. */
+		cause?: UnlistedCause;
 		local: boolean;
 		allowRemote: boolean;
 		probe?: { ok: boolean; ms: number; error?: string };
@@ -68,9 +68,9 @@ function classifierLines(facts: DoctorFacts, out: Lines): void {
 			"✗ no classifier configured: every request uses the fallback tier; run `pi-switchboard classifier detect` to find a local server, or see docs/classifier-setup.md",
 		);
 	for (const classifier of facts.classifiers) {
-		if (!classifier.registered && classifier.piProvider)
+		if (!classifier.registered && classifier.cause === "pi-provider")
 			out.bad.push(
-				`✗ classifier ${classifier.model} is not listed by pi's ${classifier.piProvider} provider: is its server running with the model loaded? Then run /tier doctor again`,
+				`✗ classifier ${classifier.model} is not listed by pi's ${classifier.model.slice(0, classifier.model.indexOf("/"))} provider: is its server running with the model loaded? Then run /tier doctor again`,
 			);
 		else if (!classifier.registered) out.bad.push(`✗ classifier ${classifier.model} is not registered in pi: check classifierProviders`);
 		else if (!classifier.local && !classifier.allowRemote)
@@ -102,7 +102,12 @@ function sessionLines(facts: DoctorFacts, out: Lines): void {
 		else out.warn.push(`! quota strategies for ${facts.quotaProviders.join(", ")} without pi-usage: install @narumitw/pi-usage or give members a budget`);
 	}
 	// The classifier lines already say these.
-	const said = new Set(facts.classifiers.flatMap((classifier) => [unregisteredWarning(classifier.model), remoteSkippedWarning(classifier.model)]));
+	const said = new Set(
+		facts.classifiers.flatMap((classifier) => [
+			...(classifier.cause ? [unregisteredWarning(classifier.model, classifier.cause)] : []),
+			remoteSkippedWarning(classifier.model),
+		]),
+	);
 	for (const warning of facts.warnings) if (!said.has(warning)) out.warn.push(`! ${warning}`);
 }
 
@@ -188,20 +193,16 @@ export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext,
 		const slash = entry.model.indexOf("/");
 		const provider = entry.model.slice(0, Math.max(slash, 0));
 		const registered = slash > 0 && ctx.modelRegistry.findOfType("classifier", provider, entry.model.slice(slash + 1)) !== undefined;
-		const piProvider =
-			!registered &&
-			slash > 0 &&
-			!config.classifierProviders.some((listed) => listed.name === provider) &&
-			ctx.modelRegistry.getProvider(provider) !== undefined
-				? provider
-				: undefined;
+		const cause = registered
+			? undefined
+			: unlistedCause(entry.model, config.classifierProviders, (name) => ctx.modelRegistry.getProvider(name) !== undefined);
 		const local = isLocalClassifier(ctx, entry.model, config.classifierProviders);
 		const allowRemote = entry.allowRemote === true;
 		const usable = registered && (local || allowRemote);
 		classifiers.push({
 			model: entry.model,
 			registered,
-			...(piProvider ? { piProvider } : {}),
+			...(cause ? { cause } : {}),
 			local,
 			allowRemote,
 			...(usable ? { probe: await probe(runtime, entry.model, timeoutMs) } : {}),

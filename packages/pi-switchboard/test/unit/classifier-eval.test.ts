@@ -235,7 +235,7 @@ describe("/tier eval", () => {
 		assert.match(none.notices[0]?.[1] ?? "", /No classifier is configured/);
 		const gone = deps();
 		await runEval(["gone/model"], gone.value);
-		assert.match(gone.notices[0]?.[1] ?? "", /not a classifier pi knows/);
+		assert.match(gone.notices[0]?.[1] ?? "", /is not a classifier pi lists\. \/tier doctor says why\.$/);
 		await runEval(["local/judge", "--threshold", "3"], gone.value);
 		assert.match(gone.notices.at(-1)?.[1] ?? "", /--threshold must be/);
 	});

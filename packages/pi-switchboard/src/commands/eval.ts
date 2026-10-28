@@ -33,8 +33,7 @@ export async function runEval(args: string[], deps: EvalDeps): Promise<void> {
 	const model =
 		args.find((arg, index) => !arg.startsWith("--") && !["--threshold", "--temperature"].includes(args[index - 1] ?? "")) ?? deps.classifiers[0]?.model;
 	if (!model) return deps.notify(`No classifier is configured; name one.\nUsage: ${EVAL_USAGE}`, "error");
-	if (!deps.registered(model))
-		return deps.notify(`${model} is not a classifier pi knows, or it has no credentials. /tier doctor lists what is registered.`, "error");
+	if (!deps.registered(model)) return deps.notify(`${model} is not a classifier pi lists. /tier doctor says why.`, "error");
 	const threshold = option(args, "--threshold") ?? deps.classifiers.find((entry) => entry.model === model)?.threshold ?? deps.defaultThreshold;
 	if (!(threshold >= 0 && threshold <= 1)) return deps.notify("--threshold must be a number from 0 to 1", "error");
 	const temperature = option(args, "--temperature") ?? deps.defaultTemperature;

@@ -74,8 +74,10 @@ export interface ChecksInput {
 	projectTrusted: boolean;
 	/** Plannotator's built-in config, if installed. */
 	plannotatorBuiltin?: string;
-	/** Whether the classifier model exists in pi's registry as a classifier with credentials. */
+	/** Whether pi's registry lists the model as a classifier; credentials play no part. */
 	classifierAvailable: (model: string) => boolean;
+	/** Why pi does not list it, for the warning's hint. */
+	classifierCause: (model: string) => UnlistedCause;
 	classifierIsLocal: (model: string) => boolean;
 	read?: Reader;
 }
@@ -84,9 +86,34 @@ export interface ChecksInput {
 export const TOS_WARNING =
 	"pooling several subscription accounts of one provider to get around its rate limits may breach that provider's terms; rotating between different providers or models does not";
 
-/** The warning for a classifier pi does not know; `/tier doctor` says it in its own words, so it leaves this one out. */
-export const unregisteredWarning = (model: string) =>
-	`classifier ${model} is not registered as a classifier or has no credentials; check classifierProviders and /login. Its decisions fall back to the fallback tier.`;
+/** Why pi does not list a classifier, which decides what its warning tells the user to check. */
+export type UnlistedCause = "pi-provider" | "classifier-provider" | "unknown";
+
+/**
+ * The cause, found as `/tier doctor` finds it: a classifierProviders entry of that name, which pi-switchboard
+ * registered, so the entry lacks the model; else one of pi's own providers, which may list a server's models late.
+ */
+export function unlistedCause(model: string, entries: ReadonlyArray<{ name: string }>, piHas: (provider: string) => boolean): UnlistedCause {
+	const provider = model.slice(0, Math.max(model.indexOf("/"), 0));
+	if (!provider) return "unknown";
+	if (entries.some((entry) => entry.name === provider)) return "classifier-provider";
+	return piHas(provider) ? "pi-provider" : "unknown";
+}
+
+/** The warning for a classifier pi does not list; `/tier doctor` says it in its own words, so it leaves this one out. */
+export function unregisteredWarning(model: string, cause: UnlistedCause): string {
+	const slash = model.indexOf("/");
+	const provider = model.slice(0, Math.max(slash, 0));
+	const why =
+		cause === "pi-provider"
+			? `is not listed by pi's ${provider} provider: is its server running with the model loaded?`
+			: cause === "classifier-provider"
+				? `is not listed by its classifierProviders entry ${provider}: add ${model.slice(slash + 1)} to the entry's "models".`
+				: provider
+					? `names ${provider}, a provider pi does not have: add a classifierProviders entry for it.`
+					: "names no provider: write it as provider/model.";
+	return `classifier ${model} ${why} Its decisions fall back to the fallback tier.`;
+}
 
 /** The warning for a remote classifier without allowRemote; `/tier doctor` says it in its own words, so it leaves this one out. */
 export const remoteSkippedWarning = (model: string) =>
@@ -127,7 +154,7 @@ export function runChecks(input: ChecksInput): string[] {
 	}
 
 	for (const entry of config.classifiers) {
-		if (!input.classifierAvailable(entry.model)) warnings.push(unregisteredWarning(entry.model));
+		if (!input.classifierAvailable(entry.model)) warnings.push(unregisteredWarning(entry.model, input.classifierCause(entry.model)));
 		else if (!input.classifierIsLocal(entry.model) && !entry.allowRemote) warnings.push(remoteSkippedWarning(entry.model));
 	}
 	return warnings;

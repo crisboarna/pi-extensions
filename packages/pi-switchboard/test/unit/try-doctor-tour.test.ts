@@ -153,9 +153,9 @@ describe("/tier doctor", () => {
 			...healthy,
 			classifiers: [
 				{ model: "cloud/judge", registered: true, local: false, allowRemote: false },
-				{ model: "local/gone", registered: false, local: true, allowRemote: false },
+				{ model: "local/gone", registered: false, cause: "classifier-provider", local: true, allowRemote: false },
 			],
-			warnings: [remoteSkippedWarning("cloud/judge"), unregisteredWarning("local/gone"), "something else to look at"],
+			warnings: [remoteSkippedWarning("cloud/judge"), unregisteredWarning("local/gone", "classifier-provider"), "something else to look at"],
 		});
 		const text = lines.join("\n");
 		assert.equal(text.match(/cloud\/judge/g)?.length, 1, text);

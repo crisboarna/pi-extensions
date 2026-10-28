@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { needsTosNotice, plannotatorModels, runChecks, TOS_WARNING, withoutTosWarnings } from "../../src/config/checks.ts";
+import { needsTosNotice, plannotatorModels, runChecks, TOS_WARNING, type UnlistedCause, unlistedCause, withoutTosWarnings } from "../../src/config/checks.ts";
 import { normalizeConfig } from "../../src/config/normalize.ts";
 import type { CatalogView, RawConfig } from "../../src/config/types.ts";
 
@@ -15,6 +15,7 @@ const input = (over: Partial<Parameters<typeof runChecks>[0]> = {}): Parameters<
 	cwd: "/work/repo",
 	projectTrusted: true,
 	classifierAvailable: () => true,
+	classifierCause: () => "unknown",
 	classifierIsLocal: () => true,
 	read: files({}),
 	...over,
@@ -66,12 +67,55 @@ describe("multi-pass project restriction", () => {
 
 describe("classifier checks", () => {
 	it("warns about a classifier that is not registered, and about a remote one without allowRemote", () => {
-		const missing = runChecks(input({ classifierAvailable: () => false }));
-		assert.match(missing[0] ?? "", /not registered as a classifier or has no credentials/u);
+		const missing = runChecks(input({ classifierAvailable: () => false, classifierCause: () => "unknown" }));
+		assert.match(missing[0] ?? "", /^classifier local\/judge /u);
 		const remote = runChecks(input({ classifierIsLocal: () => false }));
 		assert.match(remote[0] ?? "", /runs off this machine and is skipped.*allowRemote/u);
 		const allowed = runChecks(input({ config: base({ classifiers: [{ model: "cloud/judge", allowRemote: true }] }), classifierIsLocal: () => false }));
 		assert.deepEqual(allowed, []);
+	});
+});
+
+describe("a classifier pi does not list", () => {
+	const warned = (cause: UnlistedCause) => runChecks(input({ classifierAvailable: () => false, classifierCause: () => cause }))[0] ?? "";
+
+	it("names the cause: pi's own provider has not listed it, its classifierProviders entry lacks it, or pi has no such provider", () => {
+		assert.equal(
+			warned("pi-provider"),
+			"classifier local/judge is not listed by pi's local provider: is its server running with the model loaded? Its decisions fall back to the fallback tier.",
+		);
+		assert.equal(
+			warned("classifier-provider"),
+			'classifier local/judge is not listed by its classifierProviders entry local: add judge to the entry\'s "models". Its decisions fall back to the fallback tier.',
+		);
+		assert.equal(
+			warned("unknown"),
+			"classifier local/judge names local, a provider pi does not have: add a classifierProviders entry for it. Its decisions fall back to the fallback tier.",
+		);
+	});
+
+	it("never blames credentials: pi lists a classifier whether or not its key is set", () => {
+		for (const cause of ["pi-provider", "classifier-provider", "unknown"] as const) assert.doesNotMatch(warned(cause), /credentials|\/login/u);
+	});
+
+	it("finds the cause as /tier doctor does: a classifierProviders entry first, then a provider pi has", () => {
+		const entries = [{ name: "local" }];
+		assert.equal(
+			unlistedCause("local/judge", entries, () => true),
+			"classifier-provider",
+		);
+		assert.equal(
+			unlistedCause("llama.cpp/qwen", entries, (name) => name === "llama.cpp"),
+			"pi-provider",
+		);
+		assert.equal(
+			unlistedCause("nowhere/judge", entries, () => false),
+			"unknown",
+		);
+		assert.equal(
+			unlistedCause("judge", entries, () => true),
+			"unknown",
+		);
 	});
 });
 

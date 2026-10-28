@@ -9,7 +9,7 @@ import { lastUserIndex, textOf as messageText } from "./classifier/evidence.ts";
 import { createClassifyFn, isLocalClassifier, registerClassifierProviders } from "./classifier/pi-adapter.ts";
 import { createRedactor } from "./classifier/redact.ts";
 import { WarmupTracker } from "./classifier/warmup.ts";
-import { needsTosNotice, runChecks, TOS_WARNING, unregisteredWarning, withoutTosWarnings } from "./config/checks.ts";
+import { needsTosNotice, runChecks, TOS_WARNING, unlistedCause, unregisteredWarning, withoutTosWarnings } from "./config/checks.ts";
 import { dataDir, loadConfig } from "./config/load.ts";
 import type { Config } from "./config/types.ts";
 import { LiveWriter, sweep } from "./live/live.ts";
@@ -430,6 +430,7 @@ export class Runtime {
 			projectTrusted: ctx.isProjectTrusted(),
 			plannotatorBuiltin: join(this.agentDir, "npm", "node_modules", "@plannotator", "pi-extension", "plannotator.json"),
 			classifierAvailable: (model) => this.classifierRegistered(ctx, model),
+			classifierCause: (model) => this.classifierCause(ctx, model),
 			classifierIsLocal: (model) => isLocalClassifier(ctx, model, this.config.classifierProviders),
 		});
 	}
@@ -439,26 +440,31 @@ export class Runtime {
 		return ref > 0 && ctx.modelRegistry.findOfType("classifier", model.slice(0, ref), model.slice(ref + 1)) !== undefined;
 	}
 
+	private classifierCause(ctx: ExtensionContext, model: string) {
+		return unlistedCause(model, this.config.classifierProviders, (provider) => ctx.modelRegistry.getProvider(provider) !== undefined);
+	}
+
 	/**
-	 * Unregistered classifiers whose provider pi knows. Some of pi's own providers list a local server's
-	 * models a moment after the session starts, so these are looked for again at the first request.
+	 * Unregistered classifiers from one of pi's own providers. Some list a local server's models a moment
+	 * after the session starts, so these are looked for again at the first request.
 	 */
 	private lateClassifiers(ctx: ExtensionContext): string[] {
 		return this.config.classifiers
 			.map((entry) => entry.model)
-			.filter((model) => !this.classifierRegistered(ctx, model) && ctx.modelRegistry.getProvider(model.slice(0, model.indexOf("/"))) !== undefined);
+			.filter((model) => !this.classifierRegistered(ctx, model) && this.classifierCause(ctx, model) === "pi-provider");
 	}
 
 	/** Warns, once, about the classifiers that were pending at session start and are still not listed. */
 	private recheckClassifiers(ctx: ExtensionContext): void {
 		for (const model of this.pendingClassifiers.splice(0))
-			if (!this.classifierRegistered(ctx, model)) ctx.ui.notify(`pi-switchboard: ${unregisteredWarning(model)}`, "warning");
+			if (!this.classifierRegistered(ctx, model))
+				ctx.ui.notify(`pi-switchboard: ${unregisteredWarning(model, this.classifierCause(ctx, model))}`, "warning");
 	}
 
 	/** Shows config and environment warnings once, and the terms-of-service notice only the first time ever. */
 	private announce(ctx: ExtensionContext): void {
 		this.pendingClassifiers = this.blocked ? [] : this.lateClassifiers(ctx);
-		const later = new Set(this.pendingClassifiers.map(unregisteredWarning));
+		const later = new Set(this.pendingClassifiers.map((model) => unregisteredWarning(model, this.classifierCause(ctx, model))));
 		const notices = [...withoutTosWarnings(this.config.warnings), ...(this.blocked ? [] : this.environmentChecks(ctx))].filter(
 			(notice) => !later.has(notice),
 		);

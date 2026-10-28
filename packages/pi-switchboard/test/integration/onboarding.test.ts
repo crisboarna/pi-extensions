@@ -26,8 +26,9 @@ describe("first run", () => {
 });
 
 describe("classifiers that pi's own providers list late", () => {
-	const missing = (session: { notices: Array<{ message: string }> }, model: string) =>
-		session.notices.filter((n) => n.message.includes(`classifier ${model} is not registered`)).length;
+	const warnings = (session: { notices: Array<{ message: string }> }, model: string) =>
+		session.notices.filter((n) => n.message.startsWith(`pi-switchboard: classifier ${model} `) && n.message.endsWith("fall back to the fallback tier."));
+	const missing = (session: { notices: Array<{ message: string }> }, model: string) => warnings(session, model).length;
 
 	it("waits for the first request before saying that a known provider's classifier is missing", async () => {
 		const classifiers = [
@@ -45,6 +46,26 @@ describe("classifiers that pi's own providers list late", () => {
 		assert.equal(missing(session, "acme/never"), 1, "still missing at the first request");
 		await route(routeRequest({ text: "and again" }));
 		assert.equal(missing(session, "acme/never"), 1, "said once");
+		assert.equal(
+			warnings(session, "acme/never")[0]?.message,
+			"pi-switchboard: classifier acme/never is not listed by pi's acme provider: is its server running with the model loaded? Its decisions fall back to the fallback tier.",
+		);
+		assert.match(warnings(session, "nowhere/judge")[0]?.message ?? "", /names nowhere, a provider pi does not have: add a classifierProviders entry/u);
+	});
+
+	it("says at once that a classifierProviders entry lacks the model: pi-switchboard registered the entry, so it will not list it later", async () => {
+		const { session } = await boot({
+			config: {
+				classifierProviders: [{ name: "local", baseUrl: "http://127.0.0.1:1234/v1/", models: ["judge"] }],
+				classifiers: [{ model: "local/missing", warmup: false }],
+			},
+		});
+		assert.deepEqual(
+			warnings(session, "local/missing").map((n) => n.message),
+			[
+				'pi-switchboard: classifier local/missing is not listed by its classifierProviders entry local: add missing to the entry\'s "models". Its decisions fall back to the fallback tier.',
+			],
+		);
 	});
 
 	it("tells /tier doctor whether pi's own provider has not listed the model, or the classifierProviders entry lacks it", async () => {
@@ -65,6 +86,7 @@ describe("classifiers that pi's own providers list late", () => {
 		);
 		assert.doesNotMatch(text, /acme\/never is not registered in pi: check classifierProviders/);
 		assert.match(text, /✗ classifier local\/missing is not registered in pi: check classifierProviders/);
+		assert.doesNotMatch(text, /^! classifier/mu, "doctor does not repeat the session-start warning beside its own line");
 	});
 });
 
@@ -140,7 +162,7 @@ describe("/tier doctor and /tier tour", () => {
 	it("names an unknown classifier instead of evaluating it", async () => {
 		const { session, tier } = await boot();
 		await tier("eval nowhere/model");
-		assert.match(last(session), /nowhere\/model is not a classifier pi knows/);
+		assert.match(last(session), /nowhere\/model is not a classifier pi lists\. \/tier doctor says why\./);
 	});
 
 	it("prints the tour without the TUI", async () => {

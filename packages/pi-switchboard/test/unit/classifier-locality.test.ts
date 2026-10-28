@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isLocalClassifier } from "../../src/classifier/pi-adapter.ts";
+import { createClassifyFn, isLocalClassifier } from "../../src/classifier/pi-adapter.ts";
 
 const providers = [
 	{ name: "ollama", baseUrl: "http://127.0.0.1:11434/v1", models: ["tev1", "clef:cloud", "clef-flash:cloud"] },
@@ -36,5 +36,12 @@ describe("which classifiers count as local", () => {
 		assert.equal(isLocalClassifier(ctx, "ollama/clef:cloud", providers), false);
 		assert.equal(isLocalClassifier(ctx, "ollama/clef-flash:cloud", providers), false);
 		assert.equal(isLocalClassifier(ctx, "ollama/gpt-oss:120b-cloud", providers), false);
+	});
+});
+
+describe("a classifier pi does not list", () => {
+	it("fails with that, not with a guess about credentials: pi lists a classifier whether or not its key is set", async () => {
+		const result = await createClassifyFn(() => ctx)("nowhere/model", { state: {}, questions: {} } as never, { signal: new AbortController().signal });
+		assert.deepEqual(result, { stopReason: "error", errorMessage: "classifier nowhere/model is not listed by pi" });
 	});
 });

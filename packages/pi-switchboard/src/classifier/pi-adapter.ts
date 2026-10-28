@@ -49,7 +49,7 @@ export function createClassifyFn(getContext: () => ExtensionContext | undefined)
 		const ref = parseModelRef(model);
 		if (!ctx || !ref) return { stopReason: "error", errorMessage: ctx ? `bad classifier reference ${model}` : "no extension context" };
 		const classifier = ctx.modelRegistry.findOfType("classifier", ref.provider, ref.id);
-		if (!classifier) return { stopReason: "error", errorMessage: `classifier ${model} is not registered or has no credentials` };
+		if (!classifier) return { stopReason: "error", errorMessage: `classifier ${model} is not listed by pi` };
 		const result = await ctx.modelRegistry.classify(
 			classifier,
 			{ state: request.state as never, questions: toWireQuestions(request.questions) as never },
