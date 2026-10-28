@@ -43,6 +43,17 @@ function configLines(facts: DoctorFacts, out: Lines): void {
 	for (const profile of facts.invalidProfiles) out.bad.push(`✗ profile ${profile.name} is invalid: ${profile.errors.join("; ")} (run /tier validate)`);
 }
 
+/** Errors that mean the credentials are missing or refused, not the server. */
+const CREDENTIALS = /api key|not configured|credential|unauthori[sz]ed|forbidden|\b40[13]\b/iu;
+
+/** What to check for a classifier that did not answer: its key, a remote provider, or the local server. */
+function notAnsweringHint(classifier: DoctorFacts["classifiers"][number]): string {
+	if (CREDENTIALS.test(classifier.probe?.error ?? ""))
+		return `check its key: the classifierProviders entry's "apiKey", /login, or the provider's environment variable (docs/classifier-cloud.md)`;
+	if (!classifier.local) return "is the provider reachable from here? (docs/classifier-cloud.md)";
+	return "is its server running? `pi-switchboard classifier detect` shows what is";
+}
+
 function classifierLines(facts: DoctorFacts, out: Lines): void {
 	if (facts.classifiers.length === 0)
 		out.bad.push(
@@ -58,9 +69,7 @@ function classifierLines(facts: DoctorFacts, out: Lines): void {
 			);
 		else if (classifier.probe?.ok) out.ok.push(`✓ classifier ${classifier.model} answered in ${classifier.probe.ms} ms`);
 		else if (classifier.probe)
-			out.bad.push(
-				`✗ classifier ${classifier.model} did not answer (${classifier.probe.error ?? "no answer"}): is its server running? \`pi-switchboard classifier detect\` shows what is`,
-			);
+			out.bad.push(`✗ classifier ${classifier.model} did not answer (${classifier.probe.error ?? "no answer"}): ${notAnsweringHint(classifier)}`);
 	}
 }
 

@@ -163,6 +163,40 @@ describe("/tier doctor", () => {
 		assert.match(text, /! something else to look at/);
 	});
 
+	it("points a classifier that did not answer at its key, its provider or its server, by what failed", () => {
+		const fail = (model: string, local: boolean, error: string) => ({
+			model,
+			registered: true,
+			local,
+			allowRemote: !local,
+			probe: { ok: false, ms: 3, error },
+		});
+		const lines = doctorLines({
+			...healthy,
+			classifiers: [
+				fail("openai/luna", false, "Provider is not configured: openai"),
+				fail(
+					"litellm/h2o",
+					true,
+					'API key auth failed for provider litellm: Failed to resolve API key for provider "litellm" from environment variable: LITELLM_API_KEY',
+				),
+				fail("hosted/judge", false, "fetch failed"),
+				fail("local/down", true, "fetch failed"),
+			],
+		});
+		const line = (model: string) => lines.find((candidate) => candidate.includes(model)) ?? "";
+		for (const model of ["openai/luna", "litellm/h2o"]) {
+			assert.match(
+				line(model),
+				/check its key: the classifierProviders entry's "apiKey", \/login, or the provider's environment variable \(docs\/classifier-cloud\.md\)/,
+			);
+			assert.doesNotMatch(line(model), /server running|classifier detect/);
+		}
+		assert.match(line("hosted/judge"), /is the provider reachable from here\? \(docs\/classifier-cloud\.md\)/);
+		assert.doesNotMatch(line("hosted/judge"), /classifier detect/);
+		assert.match(line("local/down"), /is its server running\? `pi-switchboard classifier detect` shows what is/);
+	});
+
 	it("says when a classifier answers but more slowly than the decision budget", () => {
 		const lines = doctorLines({
 			...healthy,
