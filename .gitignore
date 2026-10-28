@@ -22,3 +22,5 @@ packages/*/media/.voice/
 media/.voice/
 # Packed files waiting to be attested and published to GitHub Packages
 .release/
+# Claude Code agent worktrees: whole checkouts with their own configs, which the gates would read as this repository
+/.claude/worktrees/
