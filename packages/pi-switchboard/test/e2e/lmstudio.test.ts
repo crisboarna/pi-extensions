@@ -17,6 +17,8 @@ import { assertAnswersInPi, assertDetected, assertEvalFloor, assertOneClassifier
 /** docs/classifier-lm-studio.md: H2O-Lightning-4B routes 22 of 24 as labelled; a drop of more than two fails. */
 const FLOOR = 20;
 const MODEL = "h2o-lightning-4b";
+/** The file setup downloads and loads: the Q8_0 the guide measured. */
+const FILE = "h2o-lightning-4b-Q8_0.gguf";
 
 interface Loaded {
 	identifier: string;
@@ -38,6 +40,7 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 	let shims: string;
 	let config: string;
 	let initial: Loaded[] = [];
+	let hadVariant = false;
 	const env = (configPath: string) =>
 		isolatedEnv(installed.home, {
 			PATH: `${shims}${delimiter}${process.env.PATH ?? ""}`,
@@ -56,6 +59,26 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 		return (JSON.parse(listed.stdout) as Loaded[]).filter((model) => ofModel(model.modelKey) || ofModel(model.identifier));
 	}
 
+	/** Whether LM Studio has the Q8_0 file on disk, by `lms ls --json` (its key is `h2o-lightning-4b@q8_0`, or the plain name when it is the only variant). */
+	async function downloaded(): Promise<boolean> {
+		const listed = await lms(["ls", "--json"], "lms-ls");
+		assert.equal(listed.code, 0, runDir.explain(listed.text));
+		return (JSON.parse(listed.stdout) as Array<{ path?: string }>).some((model) => model.path?.endsWith(`/${FILE}`) === true);
+	}
+
+	/** One LM Studio entry, which lists the model once; it lists every decision model LM Studio offers, such as other variants on disk. */
+	function assertOneProvider(written: ReturnType<typeof readConfig>): void {
+		const entries = written.classifierProviders ?? [];
+		assert.deepEqual(
+			entries.map(({ name, baseUrl }) => ({ name, baseUrl })),
+			[{ name: "lmstudio", baseUrl: "http://127.0.0.1:1234/v1/" }],
+			runDir.explain(JSON.stringify(entries)),
+		);
+		const models = entries[0]?.models ?? [];
+		assert.ok(models.includes(MODEL), runDir.explain(`${MODEL} is not listed: ${models.join(", ")}`));
+		assert.equal(new Set(models).size, models.length, runDir.explain(`a model is listed twice: ${models.join(", ")}`));
+	}
+
 	async function unloadAll(): Promise<void> {
 		for (const copy of await copies()) await lms(["unload", copy.identifier], "lms-unload");
 	}
@@ -72,7 +95,8 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 		);
 		chmodSync(join(shims, "lms"), 0o755);
 		initial = await copies();
-		runDir.record("lmstudio.before", initial);
+		hadVariant = await downloaded();
+		runDir.record("lmstudio.before", { loaded: initial, downloaded: hadVariant });
 		await unloadAll();
 	});
 
@@ -107,7 +131,14 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 			{ run: "y", write: "n" },
 			{ env: env(unwritten), dir: runDir.dir, label: "setup-unwritten" },
 		);
-		assert.match(result.text, /^ {2}\$ \S+\/lms load h2o-lightning-4b -y -c 8192 --identifier h2o-lightning-4b$/mu, runDir.explain(result.text));
+		assert.match(
+			result.text,
+			/^ {2}\$ \S+\/lms get https:\/\/huggingface\.co\/h2oai\/h2o-lightning-4b-gguf\/blob\/main\/h2o-lightning-4b-Q8_0\.gguf --gguf -y$/mu,
+			runDir.explain(result.text),
+		);
+		assert.match(result.text, /^ {2}\$ \S+\/lms load h2o-lightning-4b@q8_0 -y -c 8192 --identifier h2o-lightning-4b$/mu, runDir.explain(result.text));
+		// A machine that has the variant downloads nothing.
+		if (hadVariant) assert.match(result.text, /Model already downloaded/u, runDir.explain("the variant was downloaded again"));
 		assert.match(result.text, /Write it\? \[y\/N\] n\s+The config is unchanged\./u, runDir.explain(result.text));
 		assert.equal(existsSync(unwritten), false, runDir.explain("a config was written"));
 		assert.deepEqual(
@@ -125,7 +156,7 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 		assert.equal(result.code, 0, runDir.explain(result.text));
 		assert.match(result.text, /^LM Studio already serves h2o-lightning-4b, so nothing is downloaded or loaded\.$/mu);
 		const written = readConfig(config);
-		assert.deepEqual(written.classifierProviders, [{ name: "lmstudio", baseUrl: "http://127.0.0.1:1234/v1/", models: [MODEL] }]);
+		assertOneProvider(written);
 		assertOneClassifier(written, `lmstudio/${MODEL}`);
 		runDir.record("lmstudio.setup", written.classifiers);
 		const rerun = await run(installed.bin, ["classifier", "setup", "lmstudio", "--yes", "--no-eval"], {
@@ -133,7 +164,7 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 			log: join(runDir.dir, "rerun.log"),
 		});
 		assert.equal(rerun.code, 0, runDir.explain(rerun.text));
-		assert.equal(readConfig(config).classifierProviders?.length, 1);
+		assertOneProvider(readConfig(config));
 		assertOneClassifier(readConfig(config), `lmstudio/${MODEL}`);
 		assert.equal((await copies()).length, 1, runDir.explain("a second copy was loaded"));
 	});

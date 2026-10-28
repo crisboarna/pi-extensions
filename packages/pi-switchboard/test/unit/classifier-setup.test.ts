@@ -93,6 +93,18 @@ describe("classifier setup", () => {
 			}
 	});
 
+	it("downloads and loads one named variant, not whichever the server prefers for the free memory", () => {
+		// `lms get <repo> -y` took IQ3_XXS on a machine that had Q8_0, the variant the guide measured, and loaded it.
+		for (const [name, spec] of Object.entries(catalog.setups)) {
+			const run = spec.run ?? [];
+			const get = run.find((words) => words[1] === "get");
+			const load = run.find((words) => words[1] === "load");
+			if (!get || !load) continue;
+			assert.ok(get[2]?.endsWith(".gguf"), `${name}: \`${commandLine(get)}\` names one file`);
+			assert.ok(load[2]?.startsWith(`${spec.model}@`), `${name}: \`${commandLine(load)}\` loads a named variant of ${spec.model}`);
+		}
+	});
+
 	it("shows the commands, asks once, runs them, tests the model, chooses the threshold and writes the config after asking", async () => {
 		const spec = decisionSpec!;
 		const r = rig({ models: [`${spec.model}:latest`], loaded: [], config: '{ "profiles": {}, "classifiers": [{ "model": "old/judge" }] }' });

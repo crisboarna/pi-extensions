@@ -16,13 +16,13 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
 2. Download the decision model, start the server and load the model:
 
    ```bash
-   lms get https://huggingface.co/h2oai/h2o-lightning-4b-gguf --gguf -y   # LM Studio picks a quantization for your hardware
+   lms get https://huggingface.co/h2oai/h2o-lightning-4b-gguf/blob/main/h2o-lightning-4b-Q8_0.gguf --gguf -y   # Q8_0, the file measured here
    lms server start
-   lms load h2o-lightning-4b -y -c 8192 --identifier h2o-lightning-4b    # a classifier needs a few thousand tokens of context
+   lms load h2o-lightning-4b@q8_0 -y -c 8192 --identifier h2o-lightning-4b   # a classifier needs a few thousand tokens of context
    lms ls | grep -A3 DECISION                                            # lists it under DECISION
    ```
 
-   Without `-c`, LM Studio loads the model with its full 262,144-token context: 12.6 GB of memory instead of 4.8 GB, and no better routing. Download the GGUF build. MLX builds of decision models (`h2o-lightning-4b-mlx`, `kev-4b-mlx`) load as chat models, and LM Studio rejects System One requests for them with a 400.
+   Without a file named, `lms get -y` takes the variant LM Studio prefers for the memory free at that moment, which can differ from run to run. On a machine with little memory, choose a smaller file by hand with `lms get https://huggingface.co/h2oai/h2o-lightning-4b-gguf --select` (not one marked Stock: those are for the model's Python shim), load it by the name `lms get` prints, and keep `--identifier h2o-lightning-4b`; the [model card](https://huggingface.co/h2oai/h2o-lightning-4b-gguf) lists what each file changes. Without `-c`, LM Studio loads the model with its full 262,144-token context: 12.6 GB of memory instead of 4.8 GB, and no better routing. Download the GGUF build. MLX builds of decision models (`h2o-lightning-4b-mlx`, `kev-4b-mlx`) load as chat models, and LM Studio rejects System One requests for them with a 400.
 3. Smoke test (the API names the yes/no type `noul`):
 
    ```bash
