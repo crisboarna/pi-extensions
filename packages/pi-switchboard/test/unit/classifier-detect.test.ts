@@ -87,9 +87,9 @@ describe("classifier detect", () => {
 		const [studio, llama] = await detectClassifiers({ servers: SERVERS.filter((server) => server.kind !== "ollama"), fetch: fake });
 		assert.deepEqual(studio?.decisionModels, ["h2o-lightning-4b", "kev-4b", "solo:2"], "a copy is left out only when its model is listed too");
 		assert.deepEqual(studio?.loaded, ["h2o-lightning-4b", "solo:2"]);
-		assert.deepEqual([llama?.loaded, llama?.chatModels], [["judge"], ["chat"]]);
+		assert.deepEqual([llama?.loaded, llama?.chatModels, llama?.router], [["judge"], ["chat"], true]);
 		const [ollama, single] = await detectClassifiers({ servers: SERVERS.filter((server) => server.kind !== "lmstudio"), fetch: network(everything).fake });
-		assert.deepEqual([ollama?.loaded, single?.loaded], [undefined, undefined], "lists that do not say what is loaded");
+		assert.deepEqual([ollama?.loaded, single?.loaded, single?.router], [undefined, undefined, undefined], "lists that do not say what is loaded");
 	});
 
 	it("lists one server's models without asking any model anything, for setup's wait", async () => {
@@ -114,6 +114,8 @@ describe("classifier detect", () => {
 		assert.match(text, /relayed to a cloud, left out: clef:cloud/);
 		assert.match(text, /chat models pi's llama\.cpp provider can read as classifiers: \/models\/qwen3-4b-instruct\.gguf/);
 		assert.match(text, /export LLAMA_BASE_URL=http:\/\/llama\.test/);
+		// pi lists a router's models only once they are loaded.
+		assert.match(text, /a llama-server router \(started without a model\)[\s\S]*curl -s http:\/\/llama\.test\/models\/load/);
 		assert.doesNotMatch(text, /not running/);
 	});
 

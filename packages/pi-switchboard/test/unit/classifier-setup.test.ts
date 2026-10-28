@@ -13,7 +13,9 @@ const [chatSetup, chatSpec] = Object.entries(catalog.setups).find(([, spec]) => 
 const [serverFirstSetup, serverFirstSpec] = Object.entries(catalog.setups).find(([, spec]) => spec.needsServer) ?? [];
 const serverOf = (name: string) => knownServers().find((server) => server.kind === (catalog.setups[name]?.server ?? name));
 
-function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string[]; loaded?: string[]; config?: string; answers?: boolean[] } = {}) {
+function rig(
+	over: Partial<SetupDeps> & { models?: string[]; chatModels?: string[]; loaded?: string[]; router?: boolean; config?: string; answers?: boolean[] } = {},
+) {
 	const out: string[] = [];
 	const err: string[] = [];
 	const ran: string[][] = [];
@@ -40,6 +42,7 @@ function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string
 				chatModels: over.chatModels ?? [],
 				cloudModels: [],
 				...(over.loaded ? { loaded: over.loaded } : {}),
+				...(over.router ? { router: true } : {}),
 			}) as DetectedServer,
 		smoke: async (_server, model) => ({ model, ok: true, ms: 42 }),
 		load: async (_server, model) => {
@@ -62,15 +65,18 @@ describe("classifier setup", () => {
 		for (const [name, spec] of Object.entries(catalog.setups)) assert.ok(serverOf(name), `${name} sets up a known server (${spec.server ?? name})`);
 	});
 
-	it("loads and serves decision models with a small context, not the model's full one", () => {
+	it("loads and serves models with a small context, not the model's full one", () => {
 		// Without one, H2O-Lightning-4B loads with 262,144 tokens: LM Studio's backend held 12.6 GB instead of 4.8 GB.
 		const contextOf = (words: readonly string[]) => {
 			const at = words.findIndex((word) => ["-c", "--ctx-size", "--context-length"].includes(word));
 			return at >= 0 ? Number(words[at + 1]) : undefined;
 		};
 		for (const [name, spec] of Object.entries(catalog.setups)) {
-			if (spec.chat) continue;
-			const loading = [...(spec.run ?? []).filter((words) => words.includes("load")), ...(spec.serve ? [spec.serve] : [])];
+			// The one-time download command loads the model too, and with its full context it was killed for want of memory.
+			const loading = [
+				...(spec.run ?? []).filter((words) => words.includes("load")),
+				...[spec.prepare, spec.serve].filter((words) => words !== undefined),
+			];
 			for (const words of loading) {
 				const context = contextOf(words);
 				assert.ok(context !== undefined && context > 0 && context <= 8192, `${name}: \`${commandLine(words)}\` sets a context of at most 8192`);
@@ -122,7 +128,7 @@ describe("classifier setup", () => {
 
 	it("configures a chat model through pi's provider, with a softer temperature, and no provider entry", async () => {
 		const spec = chatSpec!;
-		const r = rig({ chatModels: [spec.model], config: '{ "classification": { "decisionBudgetMs": 5000 } }' });
+		const r = rig({ chatModels: [spec.model], router: true, config: '{ "classification": { "decisionBudgetMs": 5000 } }' });
 		assert.equal(await runSetup(chatSetup, { yes: true }, r.deps), 0);
 		const config = JSON.parse(r.written[0] ?? "{}");
 		const server = serverOf(chatSetup!)!;
@@ -132,7 +138,7 @@ describe("classifier setup", () => {
 		assert.match(r.out.join(""), /is a chat model; pi reads it through/);
 		assert.match(r.out.join(""), /First download the model[\s\S]*Ctrl\+C[\s\S]*Then start the server/);
 		assert.deepEqual(r.ran, [["load", spec.model]]);
-		const refused = rig({ chatModels: [spec.model], load: async () => "404 File Not Found" });
+		const refused = rig({ chatModels: [spec.model], router: true, load: async () => "404 File Not Found" });
 		assert.equal(await runSetup(chatSetup, { yes: true }, refused.deps), 1);
 		assert.match(refused.err.join(""), /could not load .*404 File Not Found/);
 	});
@@ -200,6 +206,24 @@ describe("classifier setup", () => {
 		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, changed.deps), 1);
 		assert.match(changed.err.join(""), /is not valid JSON, so it is left alone\. Add this yourself/);
 		assert.equal(changed.written.length, 0);
+	});
+
+	it("loads a chat model only on the router, not on the one-model server the download command starts", async () => {
+		const spec = chatSpec!;
+		let probes = 0;
+		const r = rig({ chatModels: [spec.model] });
+		const router = r.deps.probe;
+		r.deps.probe = async (server) => {
+			probes++;
+			const listed = await router(server);
+			// The download command listens on the same port when it is done, with the model but without a router's model status.
+			return probes <= 3 ? listed : listed && { ...listed, router: true, loaded: [] };
+		};
+		assert.equal(await runSetup(chatSetup, { yes: true }, r.deps), 0);
+		assert.deepEqual(r.ran, [["load", spec.model]]);
+		assert.ok(probes > 3, "it kept waiting past the one-model server");
+		assert.equal(r.out.join("").match(/serves one model, not the router/g)?.length, 1, "it says so once");
+		assert.doesNotMatch(r.out.join(""), /curl -s .*models\/load/, "setup loads the model itself");
 	});
 
 	it("stops without the product, on a declined confirm, a failing command, a model that does not answer, or malformed config", async () => {

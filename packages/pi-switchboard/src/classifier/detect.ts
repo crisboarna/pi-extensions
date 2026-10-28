@@ -30,6 +30,8 @@ export interface DetectedServer extends ServerProbe {
 	cloudModels: string[];
 	/** The models the server has loaded, when its model list says; a list that does not say leaves this out. */
 	loaded?: string[];
+	/** A router, which loads and unloads its models on request; a server started with one model is not. */
+	router?: boolean;
 	smoke?: SmokeTest;
 }
 
@@ -57,7 +59,7 @@ async function getJson(fetcher: typeof fetch, url: string, timeoutMs: number, bo
 	return response.json();
 }
 
-type ModelLists = Pick<DetectedServer, "decisionModels" | "chatModels" | "cloudModels" | "loaded">;
+type ModelLists = Pick<DetectedServer, "decisionModels" | "chatModels" | "cloudModels" | "loaded" | "router">;
 
 /** `model:2` and on: a second loaded instance of a listed model, not a model of its own. */
 const COPY = /^(.+):\d+$/u;
@@ -101,7 +103,7 @@ async function listByOutputModalities(fetcher: typeof fetch, origin: string, tim
 		decisionModels: models.filter(isDecision).flatMap((m) => text(m.id) ?? []),
 		chatModels: models.filter((m) => !isDecision(m)).flatMap((m) => text(m.id) ?? []),
 		cloudModels: [],
-		...(router ? { loaded: models.filter((m) => isRecord(m.status) && m.status.value === "loaded").flatMap((m) => text(m.id) ?? []) } : {}),
+		...(router ? { router, loaded: models.filter((m) => isRecord(m.status) && m.status.value === "loaded").flatMap((m) => text(m.id) ?? []) } : {}),
 	};
 }
 

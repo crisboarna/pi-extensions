@@ -93,10 +93,18 @@ async function waitForModel(
 	waitMs: number,
 ): Promise<{ found: DetectedServer; model: string } | undefined> {
 	const step = 2000;
+	let told = false;
 	for (let waited = 0; waited <= waitMs; waited += step) {
 		const found = await deps.probe(server);
 		const model = found ? listedAs([...found.decisionModels, ...found.chatModels], spec.model) : undefined;
-		if (found && model) return { found, model };
+		// The download command serves the model on the same port when it is done; only the router can load it for pi.
+		if (found && model && spec.load && !found.router) {
+			if (!told)
+				deps.out(
+					`${server.label} at ${server.origin} serves one model, not the router: once the download is done, stop it with Ctrl+C and start the router.\n`,
+				);
+			told = true;
+		} else if (found && model) return { found, model };
 		await deps.sleep(step);
 	}
 	return undefined;
@@ -139,7 +147,8 @@ async function runCommands(run: readonly string[][], intro: string, options: Set
 function chatPatch(found: DetectedServer, model: string, deps: SetupDeps): ConfigPatch {
 	deps.out(`${model} is a chat model; pi reads it through its ${found.chatProvider} provider, which needs the server's address:\n`);
 	const hint = (found.chatHint ?? "").replaceAll("{models}", model).replaceAll("{origin}", found.origin);
-	deps.out(`  ${hint.split("\n").slice(1).join("\n  ")}\n`);
+	// The hint's last line: setup has already started the router and loaded the model.
+	deps.out(`  ${hint.split("\n").at(-1)}\n`);
 	return {
 		classifiers: [{ model: `${found.chatProvider}/${model}`, timeoutMs: 3000, threshold: 0.8 } as { model: string }],
 		classification: { temperature: 2 },

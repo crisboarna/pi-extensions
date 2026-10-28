@@ -17,12 +17,12 @@ With setup:
 pi-switchboard classifier setup llamacpp-chat
 ```
 
-It prints the two commands below for you to run in another terminal, waits for the server, loads the model, and writes the classifier with a softer temperature. pi's `llama.cpp` provider works with llama-server in **router mode** (started without a model) and lists a router's models once they are loaded. By hand:
+It prints the two commands below for you to run in another terminal, waits for the router (the download command's own server, on the same port, does not count), loads the model, and writes the classifier with a softer temperature. pi's `llama.cpp` provider works with llama-server in **router mode** (started without a model) and lists a router's models once they are loaded. By hand:
 
-1. Download the model once (2.5 GB), and stop the server with Ctrl+C when it says it is listening:
+1. Download the model once (2.5 GB), and stop the server with Ctrl+C when it says it is listening. Without `-c`, it loads the model with its full 262,144-token context, which can run out of memory:
 
    ```bash
-   llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M
+   llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M -c 8192
    ```
 
 2. Start the router, which serves the models in llama.cpp's download cache, and load the model:
