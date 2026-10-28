@@ -48,11 +48,12 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 	const lms = (args: string[], label: string) =>
 		run(join(shims, "lms"), args, { env: env(config), log: join(runDir.dir, `${label}.log`), timeoutMs: 600_000 });
 
-	/** The loaded copies of the classifier model, by `lms ps --json`. */
+	/** The loaded copies of the classifier model, by `lms ps --json`: any variant, such as `h2o-lightning-4b@iq3_xxs`, and any name. */
 	async function copies(): Promise<Loaded[]> {
 		const listed = await lms(["ps", "--json"], "lms-ps");
 		assert.equal(listed.code, 0, runDir.explain(listed.text));
-		return (JSON.parse(listed.stdout) as Loaded[]).filter((model) => model.modelKey === MODEL);
+		const ofModel = (name: string) => name === MODEL || name.startsWith(`${MODEL}@`);
+		return (JSON.parse(listed.stdout) as Loaded[]).filter((model) => ofModel(model.modelKey) || ofModel(model.identifier));
 	}
 
 	async function unloadAll(): Promise<void> {
@@ -77,7 +78,7 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 
 	after(async () => {
 		await unloadAll();
-		for (const copy of initial) await lms(["load", MODEL, "-y", "-c", String(copy.contextLength), "--identifier", copy.identifier], "lms-restore");
+		for (const copy of initial) await lms(["load", copy.modelKey, "-y", "-c", String(copy.contextLength), "--identifier", copy.identifier], "lms-restore");
 		assert.deepEqual(
 			(await copies()).map((copy) => [copy.identifier, copy.contextLength]),
 			initial.map((copy) => [copy.identifier, copy.contextLength]),
@@ -106,7 +107,7 @@ describe("classifier setup lmstudio, with this machine's LM Studio", { skip: ski
 			{ run: "y", write: "n" },
 			{ env: env(unwritten), dir: runDir.dir, label: "setup-unwritten" },
 		);
-		assert.match(result.text, /^ {2}\$ \S+\/lms load h2o-lightning-4b -y -c 8192$/mu, runDir.explain(result.text));
+		assert.match(result.text, /^ {2}\$ \S+\/lms load h2o-lightning-4b -y -c 8192 --identifier h2o-lightning-4b$/mu, runDir.explain(result.text));
 		assert.match(result.text, /Write it\? \[y\/N\] n\s+The config is unchanged\./u, runDir.explain(result.text));
 		assert.equal(existsSync(unwritten), false, runDir.explain("a config was written"));
 		assert.deepEqual(

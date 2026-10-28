@@ -18,7 +18,7 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
    ```bash
    lms get https://huggingface.co/h2oai/h2o-lightning-4b-gguf --gguf -y   # LM Studio picks a quantization for your hardware
    lms server start
-   lms load h2o-lightning-4b -y -c 8192                                  # a classifier needs a few thousand tokens of context
+   lms load h2o-lightning-4b -y -c 8192 --identifier h2o-lightning-4b    # a classifier needs a few thousand tokens of context
    lms ls | grep -A3 DECISION                                            # lists it under DECISION
    ```
 

@@ -84,6 +84,15 @@ describe("classifier setup", () => {
 		}
 	});
 
+	it("names the loaded copy as the config names the model, whatever variant is loaded", () => {
+		// With two variants on disk, LM Studio listed the copy as h2o-lightning-4b@iq3_xxs and setup waited for h2o-lightning-4b.
+		for (const [name, spec] of Object.entries(catalog.setups))
+			for (const words of (spec.run ?? []).filter((command) => command.includes("load"))) {
+				const at = words.indexOf("--identifier");
+				assert.equal(at >= 0 ? words[at + 1] : undefined, spec.model, `${name}: \`${commandLine(words)}\` names the copy ${spec.model}`);
+			}
+	});
+
 	it("shows the commands, asks once, runs them, tests the model, chooses the threshold and writes the config after asking", async () => {
 		const spec = decisionSpec!;
 		const r = rig({ models: [`${spec.model}:latest`], loaded: [], config: '{ "profiles": {}, "classifiers": [{ "model": "old/judge" }] }' });
