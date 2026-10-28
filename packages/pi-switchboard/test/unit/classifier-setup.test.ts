@@ -13,7 +13,7 @@ const [chatSetup, chatSpec] = Object.entries(catalog.setups).find(([, spec]) => 
 const [serverFirstSetup, serverFirstSpec] = Object.entries(catalog.setups).find(([, spec]) => spec.needsServer) ?? [];
 const serverOf = (name: string) => knownServers().find((server) => server.kind === (catalog.setups[name]?.server ?? name));
 
-function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string[]; config?: string; answers?: boolean[] } = {}) {
+function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string[]; loaded?: string[]; config?: string; answers?: boolean[] } = {}) {
 	const out: string[] = [];
 	const err: string[] = [];
 	const ran: string[][] = [];
@@ -39,6 +39,7 @@ function rig(over: Partial<SetupDeps> & { models?: string[]; chatModels?: string
 				decisionModels: over.models ?? [],
 				chatModels: over.chatModels ?? [],
 				cloudModels: [],
+				...(over.loaded ? { loaded: over.loaded } : {}),
 			}) as DetectedServer,
 		smoke: async (_server, model) => ({ model, ok: true, ms: 42 }),
 		load: async (_server, model) => {
@@ -63,7 +64,7 @@ describe("classifier setup", () => {
 
 	it("shows the commands, asks once, runs them, tests the model, chooses the threshold and writes the config after asking", async () => {
 		const spec = decisionSpec!;
-		const r = rig({ models: [`${spec.model}:latest`], config: '{ "profiles": {}, "classifiers": [{ "model": "old/judge" }] }' });
+		const r = rig({ models: [`${spec.model}:latest`], loaded: [], config: '{ "profiles": {}, "classifiers": [{ "model": "old/judge" }] }' });
 		assert.equal(await runSetup(decisionSetup, {}, r.deps), 0);
 		assert.deepEqual(r.asked, ["Run them?", "Write it?"]);
 		assert.equal(r.ran.length, spec.run?.length);
@@ -135,15 +136,36 @@ describe("classifier setup", () => {
 		r.deps.probe = async (server) => {
 			probes++;
 			events.push(`probe ${probes}`);
-			return probes <= 2 ? undefined : answering(server);
+			if (probes <= 2) return undefined;
+			// The model is listed once the command has fetched it.
+			const listed = await answering(server);
+			return events.some((event) => event.startsWith("run")) ? listed : listed && { ...listed, decisionModels: [] };
 		};
 		assert.equal(await runSetup(serverFirstSetup, { yes: true, evaluate: false }, r.deps), 0);
-		assert.deepEqual(events.slice(0, 4), ["probe 1", "probe 2", "probe 3", `run /usr/bin/${spec.commands[0]} ${spec.run?.[0]?.slice(1).join(" ")}`]);
+		// Waits for the server (1 to 3), checks the model is not there yet (4), then runs the command.
+		assert.deepEqual(events.slice(0, 5), [
+			"probe 1",
+			"probe 2",
+			"probe 3",
+			"probe 4",
+			`run /usr/bin/${spec.commands[0]} ${spec.run?.[0]?.slice(1).join(" ")}`,
+		]);
 		assert.match(r.out.join(""), new RegExp(`is not answering at .*${spec.serverHint?.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 		const never = rig({ probe: async () => undefined });
 		assert.equal(await runSetup(serverFirstSetup, { yes: true, waitMs: 4000 }, never.deps), 1);
 		assert.equal(never.ran.length, 0);
 		assert.match(never.err.join(""), /is not answering at .* after 0 minutes/);
+	});
+
+	it("skips the download and load when the server already has the model loaded", async () => {
+		const spec = decisionSpec!;
+		const loaded = rig({ models: [spec.model], loaded: [spec.model] });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, loaded.deps), 0);
+		assert.equal(loaded.ran.length, 0, "running them again would load a second copy");
+		assert.match(loaded.out.join(""), /already serves .*, so nothing is downloaded or loaded/);
+		const downloaded = rig({ models: [spec.model], loaded: [] });
+		assert.equal(await runSetup(decisionSetup, { yes: true, evaluate: false }, downloaded.deps), 0);
+		assert.equal(downloaded.ran.length, spec.run?.length, "a model that is only downloaded still gets loaded");
 	});
 
 	it("checks the config before running anything, and says nothing changed when declined", async () => {
@@ -154,7 +176,7 @@ describe("classifier setup", () => {
 		const declinedRun = rig({ answers: [false] });
 		assert.equal(await runSetup(decisionSetup, {}, declinedRun.deps), 1);
 		assert.match(declinedRun.out.join(""), /Nothing was run, and the config is unchanged\./);
-		const declinedWrite = rig({ models: [decisionSpec!.model], answers: [true, false] });
+		const declinedWrite = rig({ models: [decisionSpec!.model], loaded: [], answers: [true, false] });
 		assert.equal(await runSetup(decisionSetup, { evaluate: false }, declinedWrite.deps), 1);
 		assert.match(declinedWrite.out.join(""), /The config is unchanged\./);
 		const reads = ["{}", "{ edited meanwhile"];

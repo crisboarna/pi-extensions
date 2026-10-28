@@ -8,7 +8,7 @@ LM Studio serves decision models on `POST /v1/systemone` from its local server. 
 pi-switchboard classifier setup lmstudio
 ```
 
-It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands below and asks, runs them, tests the model, chooses its threshold and timeout with eval, and adds the classifier to `~/.pi/agent/pi-switchboard.json` after showing the change.
+It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands below and asks, runs them, tests the model, chooses its threshold and timeout with eval, and adds the classifier to `~/.pi/agent/pi-switchboard.json` after showing the change. Run again while the model is loaded, it skips the commands.
 
 ## By hand
 
@@ -57,5 +57,6 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
 ## Notes
 
 - The first request after loading takes a few seconds; pi-switchboard's warm-up at session start covers it.
+- `lms load` on a model that is already loaded loads a second copy (`h2o-lightning-4b:2`), with the memory that takes; `lms ps` lists what is loaded, and `lms unload h2o-lightning-4b:2` removes a copy.
 - **If LM Studio also serves your chat models**, turn off its just-in-time option that keeps only the last loaded model, or load models explicitly with `lms load`. Otherwise the classifier and the chat model evict each other mid-request ("Model is unloaded").
 - Other decision models work the same way: `lms get https://huggingface.co/ggml-org/Julia-1-GGUF --gguf -y`, then `lms load julia-1 -y`. Compare them with `classifier eval` before switching.

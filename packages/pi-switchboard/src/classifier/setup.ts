@@ -102,6 +102,11 @@ async function waitForModel(
 	return undefined;
 }
 
+/** Whether the server can answer with the model now: loaded, or listed when its list does not say what is loaded. */
+function serves(found: DetectedServer, model: string): boolean {
+	return listedAs(found.loaded ?? [...found.decisionModels, ...found.chatModels], model) !== undefined;
+}
+
 /** Polls until the server answers or the wait runs out. */
 async function waitForServer(server: ServerProbe, deps: SetupDeps, waitMs: number): Promise<boolean> {
 	const step = 2000;
@@ -207,7 +212,10 @@ async function startServer({ spec, server, fill }: Resolved, options: SetupOptio
 			return false;
 		}
 	}
-	if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return false;
+	// Running them again would download nothing new, and LM Studio would load a second copy of the model.
+	const found = spec.run?.length ? await deps.probe(server) : undefined;
+	if (found && serves(found, spec.model)) deps.out(`${server.label} already serves ${spec.model}, so nothing is downloaded or loaded.\n`);
+	else if (!(await runCommands((spec.run ?? []).map(fill), `To set up ${server.label} with ${spec.model}, these commands run:`, options, deps))) return false;
 	if (spec.prepare)
 		deps.out(`First download the model, in another terminal; stop it with Ctrl+C once it says it is listening:\n  $ ${commandLine(fill(spec.prepare))}\n`);
 	if (spec.serve)

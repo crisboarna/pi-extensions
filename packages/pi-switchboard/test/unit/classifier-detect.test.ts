@@ -67,6 +67,31 @@ describe("classifier detect", () => {
 		);
 	});
 
+	it("knows which models a server has loaded, and leaves out LM Studio's extra copies of a model", async () => {
+		const { fake } = network({
+			"http://studio.test/api/v0/models": {
+				data: [
+					{ id: "h2o-lightning-4b", type: "decision", state: "loaded" },
+					{ id: "h2o-lightning-4b:2", type: "decision", state: "loaded" },
+					{ id: "kev-4b", type: "decision", state: "not-loaded" },
+					{ id: "solo:2", type: "decision", state: "loaded" },
+				],
+			},
+			"http://llama.test/v1/models": {
+				data: [
+					{ id: "judge", architecture: { output_modalities: ["decisions"] }, status: { value: "loaded" } },
+					{ id: "chat", architecture: { output_modalities: ["text"] }, status: { value: "unloaded" } },
+				],
+			},
+		});
+		const [studio, llama] = await detectClassifiers({ servers: SERVERS.filter((server) => server.kind !== "ollama"), fetch: fake });
+		assert.deepEqual(studio?.decisionModels, ["h2o-lightning-4b", "kev-4b", "solo:2"], "a copy is left out only when its model is listed too");
+		assert.deepEqual(studio?.loaded, ["h2o-lightning-4b", "solo:2"]);
+		assert.deepEqual([llama?.loaded, llama?.chatModels], [["judge"], ["chat"]]);
+		const [ollama, single] = await detectClassifiers({ servers: SERVERS.filter((server) => server.kind !== "lmstudio"), fetch: network(everything).fake });
+		assert.deepEqual([ollama?.loaded, single?.loaded], [undefined, undefined], "lists that do not say what is loaded");
+	});
+
 	it("prints the config to paste, the eval command, and how to use a chat model", async () => {
 		const { fake } = network(everything);
 		const text = formatDetect(await detectClassifiers({ servers: SERVERS, fetch: fake }), SERVERS);

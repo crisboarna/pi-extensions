@@ -28,6 +28,8 @@ export interface DetectedServer extends ServerProbe {
 	chatModels: string[];
 	/** Decision models a local server relays to a cloud; left out of the config. */
 	cloudModels: string[];
+	/** The models the server has loaded, when its model list says; a list that does not say leaves this out. */
+	loaded?: string[];
 	smoke?: SmokeTest;
 }
 
@@ -55,13 +57,25 @@ async function getJson(fetcher: typeof fetch, url: string, timeoutMs: number, bo
 	return response.json();
 }
 
-type ModelLists = Pick<DetectedServer, "decisionModels" | "chatModels" | "cloudModels">;
+type ModelLists = Pick<DetectedServer, "decisionModels" | "chatModels" | "cloudModels" | "loaded">;
 
-/** A REST model list that marks decision models with `type: "decision"`. */
+/** `model:2` and on: a second loaded instance of a listed model, not a model of its own. */
+const COPY = /^(.+):\d+$/u;
+
+/**
+ * A REST model list that marks decision models with `type: "decision"` and says each one's `state`. It
+ * lists every loaded instance of a model as its own id; the extra copies are folded into the model.
+ */
 async function listByTypeField(fetcher: typeof fetch, origin: string, timeoutMs: number): Promise<ModelLists> {
 	const body = await getJson(fetcher, `${origin}/api/v0/models`, timeoutMs);
-	const models = list(isRecord(body) ? body.data : undefined).filter(isRecord);
-	return { decisionModels: models.filter((m) => m.type === "decision").flatMap((m) => text(m.id) ?? []), chatModels: [], cloudModels: [] };
+	const models = list(isRecord(body) ? body.data : undefined).filter((m) => isRecord(m) && m.type === "decision") as Array<Record<string, unknown>>;
+	const ids = models.flatMap((m) => text(m.id) ?? []);
+	const modelOf = (id: string) => {
+		const base = COPY.exec(id)?.[1];
+		return base !== undefined && ids.includes(base) ? base : id;
+	};
+	const loaded = models.filter((m) => m.state === "loaded").flatMap((m) => text(m.id) ?? []);
+	return { decisionModels: ids.filter((id) => modelOf(id) === id), chatModels: [], cloudModels: [], loaded: [...new Set(loaded.map(modelOf))] };
 }
 
 /** Models listed as tags, each naming `decision` among its capabilities. */
@@ -81,10 +95,13 @@ async function listByOutputModalities(fetcher: typeof fetch, origin: string, tim
 	const body = await getJson(fetcher, `${origin}/v1/models`, timeoutMs);
 	const models = list(isRecord(body) ? body.data : undefined).filter(isRecord);
 	const isDecision = (m: Record<string, unknown>) => list(isRecord(m.architecture) ? m.architecture.output_modalities : undefined).includes("decisions");
+	// A router says each model's status; a server started with one model does not.
+	const router = models.some((m) => isRecord(m.status));
 	return {
 		decisionModels: models.filter(isDecision).flatMap((m) => text(m.id) ?? []),
 		chatModels: models.filter((m) => !isDecision(m)).flatMap((m) => text(m.id) ?? []),
 		cloudModels: [],
+		...(router ? { loaded: models.filter((m) => isRecord(m.status) && m.status.value === "loaded").flatMap((m) => text(m.id) ?? []) } : {}),
 	};
 }
 
