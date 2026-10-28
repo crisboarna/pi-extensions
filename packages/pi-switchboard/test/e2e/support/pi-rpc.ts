@@ -72,6 +72,8 @@ export class PiSession {
 	readonly errors: string[] = [];
 	/** pi's stderr. */
 	stderr = "";
+	/** The commands pi listed at start, such as `tier` and `guard`. */
+	commands: string[] = [];
 	readonly #child: ChildProcessWithoutNullStreams;
 	readonly #log: WriteStream;
 	readonly #records: RpcRecord[] = [];
@@ -108,7 +110,8 @@ export class PiSession {
 	static async start(options: PiOptions): Promise<PiSession> {
 		const session = new PiSession(options);
 		session.#send({ id: "ready", type: "get_commands" });
-		await session.#response("ready", 120_000);
+		const ready = await session.#response("ready", 120_000);
+		session.commands = ((ready.data as { commands?: Array<{ name: string }> } | undefined)?.commands ?? []).map((command) => command.name);
 		return session;
 	}
 
@@ -157,14 +160,20 @@ export class PiSession {
 		);
 	}
 
-	/** Sends `text` as a prompt to the selected model and waits until pi settles, retries included. */
-	async prompt(text: string, timeoutMs = 60_000): Promise<Turn> {
+	/** Sends `text` as a prompt and returns pi's answer to it, without waiting for a turn: an extension may stop one starting. */
+	async submit(text: string, timeoutMs = 60_000): Promise<RpcRecord> {
 		const id = `p${this.#next++}`;
-		const from = this.#records.length;
-		const noticesFrom = this.notices.length;
 		this.#send({ id, type: "prompt", message: text });
 		const response = await this.#response(id, timeoutMs);
 		if (response.success !== true) throw new Error(`pi refused the prompt: ${JSON.stringify(response).slice(0, 400)}`);
+		return response;
+	}
+
+	/** Sends `text` as a prompt to the selected model and waits until pi settles, retries included. */
+	async prompt(text: string, timeoutMs = 60_000): Promise<Turn> {
+		const from = this.#records.length;
+		const noticesFrom = this.notices.length;
+		await this.submit(text, timeoutMs);
 		const settled = await this.waitForRecord((record) => record.type === "agent_settled", timeoutMs, from, `pi to settle after "${text}"`);
 		const records = this.#records.slice(from, settled + 1);
 		return {

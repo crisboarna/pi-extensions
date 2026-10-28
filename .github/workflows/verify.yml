@@ -82,7 +82,7 @@ jobs:
         run: npm run smoke:pack
 
       # The suites that need no model server; the model-server suites run on demand (E2E_SERVERS).
-      - name: pi-switchboard end to end in real pi, installed from its tarball
+      - name: End to end in real pi, from the tarballs, pi-switchboard alone and with account-guard
         run: npm run test:e2e
 
       - name: account-guard smoke tests in real pi
@@ -123,7 +123,7 @@ jobs:
         run: npm run smoke:pack
 
       # The suites that need no model server; the model-server suites run on demand (E2E_SERVERS).
-      - name: pi-switchboard end to end in real pi, installed from its tarball
+      - name: End to end in real pi, from the tarballs, pi-switchboard alone and with account-guard
         run: npm run test:e2e
 
       - name: account-guard smoke tests in real pi
