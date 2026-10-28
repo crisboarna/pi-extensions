@@ -18,6 +18,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 - `npm run check:fast` runs the gates the pre-commit hook runs.
 - `npm test` runs every package's unit tests and the repository script tests; `npm run test:integration` and `npm run coverage` run the rest of what CI runs.
 - `npm run smoke:pack` installs each package from its packed tarball and loads it through jiti, the way users get it.
+- `npm run test:e2e` installs pi-switchboard from its packed tarball and runs its classifier CLI and `/tier doctor` and `/tier eval` in the repository's pinned pi; with `E2E_SERVERS` it also runs the suites that need a model server (`packages/pi-switchboard/AGENTS.md`, Testing). CI runs it without `E2E_SERVERS`, and account-guard's real-pi smoke tests.
 - `npm run format` applies Biome formatting and safe fixes; Markdown is linted by markdownlint, never formatted by Biome.
 
 ## Definition of done
@@ -27,6 +28,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 - Coverage stays at 90% or more for lines, branches and functions in every package (`npm run coverage`); cover new code with tests that assert behaviour, not with tests that only execute lines.
 - After changing how a package loads, its `files`, `bin` or `pi` manifest entries, run `npm run smoke:pack` and `node scripts/checks/pack.ts`.
 - After changing runtime behaviour, smoke it in a real pi: `pi -ne -e ./packages/<name>/src/index.ts`, with `PI_CODING_AGENT_DIR` pointing at a temporary directory.
+- After changing pi-switchboard's classifier setup, detect or eval, its server catalog or a classifier guide, run its model-server suites as well: `E2E_SERVERS=docker npm run test:e2e`, and `E2E_SERVERS=lmstudio npm run test:e2e` where LM Studio is installed.
 - Say in the handoff which checks ran, which live checks ran, and what remains unverified.
 
 ## Guardrails are not negotiable

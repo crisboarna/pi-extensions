@@ -55,6 +55,10 @@ Inside pi:
 
 A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them. A local proxy that forwards to a cloud, such as LiteLLM, counts as local by its address; see [other servers](classifier-other-servers.md).
 
+## How these guides are checked
+
+The setup commands and the guides' commands are checked end to end by suites in this package's `test/e2e/`, which install pi-switchboard from its packed tarball and run real pi. `E2E_SERVERS=docker npm run test:e2e` runs `classifier setup` for Ollama, llama.cpp and llama.cpp chat models, and the LiteLLM guide, against servers in pinned Docker images; `E2E_SERVERS=lmstudio` runs it against this machine's LM Studio. Each checks the setup's commands, the config it writes, a rerun, `classifier detect` and `eval`, and `/tier doctor` and `/tier eval` in pi, and fails when a model routes more than two requests fewer than its guide says.
+
 ## What the classifier sees
 
 The request text, the plan phase from Plannotator, recent tool outcomes and short tool errors, bounded by `classification.evidence` and redacted once (home directory, tokens, keys, and your own `evidence.redact` patterns) before it reaches the classifier, the session file or any log.

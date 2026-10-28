@@ -30,6 +30,6 @@ Stops a pi session from sending a user turn to a model account that does not bel
 
 - Unit tests (`test/unit/`) cover the pure core.
 - Integration tests (`test/integration/`) load the extension through jiti against the fake host in `test/support/fake-pi.ts`, with `PI_CODING_AGENT_DIR` in a temporary directory.
-- Smoke tests (`npm run test:smoke`, opt-in) drive the real `pi` on `PATH` offline with `test/support/stub-provider.ts`; they are not part of `npm test` or CI. Run them for anything touching hooks, dialogs or exit codes.
+- Smoke tests (`npm run test:smoke`) drive the real `pi` on `PATH` (or `PI_BIN`) offline with `test/support/stub-provider.ts`; they are not part of `npm test`, and CI runs them with `PI_BIN` set to the repository's pinned pi. Run them for anything touching hooks, dialogs or exit codes.
 - `test/unit/glossary-terms.test.ts` fails when `src` uses a term `GLOSSARY.md` says to avoid; `test/fixtures/glossary-allowlist.json` lists the accepted exceptions.
 - `docs/manual-checklist.md` lists the checks that need a real TUI; record results there and remove an entry from the README's limitations only after running it.

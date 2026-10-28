@@ -2,7 +2,7 @@
 
 Every gate in this repository, where it runs, and the failure it prevents. A gate that fails prints the problem and how to fix it. No gate may be weakened to make a change pass (see `AGENTS.md`).
 
-Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI** `verify.yml` (run by `pr.yml` for pull requests and `main.yml` for pushes to `main`), **PR** pull requests only, **R** the publish jobs in `main.yml`, which run only after verification passes.
+Where: **C** pre-commit hook, **M** commit-msg hook, **P** pre-push hook, **CI** `verify.yml` (run by `pr.yml` for pull requests and `main.yml` for pushes to `main`), **PR** pull requests only, **R** the publish jobs in `main.yml`, which run only after verification passes, **D** on demand, run by hand when a change touches what it covers (`AGENTS.md`, Definition of done).
 
 Tools that are not npm packages of this repository (knip, gitleaks, actionlint, zizmor) run from Docker images pinned by digest (`scripts/tools/`, `tools/docker/`), so they give the same result on every machine and in CI. Docker must be running for the full check.
 
@@ -30,6 +30,8 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Narration loudness (`tools/media/narration.mjs`) | media renders | A narrated video whose voice is too quiet or too loud: the render fails unless the voice track measures -16 ±1 LUFS |
 | Pack contents (`scripts/checks/pack.ts`) | P CI | Publishing tests, secrets or local files, or silently adding or dropping files. The file list is a committed snapshot in `scripts/pack-snapshots/` |
 | Tarball smoke (`scripts/smoke-pack.ts`) | CI R | A package that works from the repository but not once installed: TypeScript that Node will not strip under `node_modules`, files missing from `files`, undeclared imports |
+| End to end in real pi (`npm run test:e2e`; account-guard's `npm run test:smoke`) | CI | A package that loads but fails once used: commands that throw, CLI paths that crash, messages that name the wrong cause or fix, a warning shown twice. pi-switchboard runs from its tarball in the repository's pinned pi |
+| Classifier servers end to end (`E2E_SERVERS=docker` or `lmstudio` `npm run test:e2e`) | D | Classifier setup, detect and eval that pass against fakes but fail against a real Ollama, llama.cpp, LiteLLM or LM Studio: printed commands that do not work as printed, a context too large for memory, a second copy loaded, a config written wrong, guide commands that do not run, a score well below the guide's |
 | Changeset per changed package (`changeset status`) | CI | A release that does not mention a change |
 
 ## Text and documentation
