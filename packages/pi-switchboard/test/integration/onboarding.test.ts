@@ -46,6 +46,26 @@ describe("classifiers that pi's own providers list late", () => {
 		await route(routeRequest({ text: "and again" }));
 		assert.equal(missing(session, "acme/never"), 1, "said once");
 	});
+
+	it("tells /tier doctor whether pi's own provider has not listed the model, or the classifierProviders entry lacks it", async () => {
+		const { session, tier } = await boot({
+			config: {
+				classifierProviders: [{ name: "local", baseUrl: "http://127.0.0.1:1234/v1/", models: ["judge"] }],
+				classifiers: [
+					{ model: "acme/never", warmup: false },
+					{ model: "local/missing", warmup: false },
+				],
+			},
+		});
+		await tier("doctor");
+		const text = last(session);
+		assert.match(
+			text,
+			/✗ classifier acme\/never is not listed by pi's acme provider: is its server running with the model loaded\? Then run \/tier doctor again/,
+		);
+		assert.doesNotMatch(text, /acme\/never is not registered in pi: check classifierProviders/);
+		assert.match(text, /✗ classifier local\/missing is not registered in pi: check classifierProviders/);
+	});
 });
 
 describe("/tier try", () => {

@@ -31,11 +31,11 @@ after(async () => {
 	for (const session of sessions) await session.close();
 });
 
-/** Starts pi with `config` as pi-switchboard's config (none when undefined). */
-async function pi(name: string, config?: unknown): Promise<PiSession> {
+/** Starts pi with `config` as pi-switchboard's config (none when undefined), and `extra` in its environment. */
+async function pi(name: string, config?: unknown, extra: Record<string, string> = {}): Promise<PiSession> {
 	const path = join(runDir.dir, `${name}.json`);
 	if (config !== undefined) writeFileSync(path, JSON.stringify(config, null, "\t"));
-	const env = isolatedEnv(installed.home, { PI_CODING_AGENT_DIR: installed.agentDir, PI_SWITCHBOARD_CONFIG: path });
+	const env = isolatedEnv(installed.home, { PI_CODING_AGENT_DIR: installed.agentDir, PI_SWITCHBOARD_CONFIG: path, ...extra });
 	const session = await PiSession.start({ env, cwd: installed.home, log: join(runDir.dir, `pi-${name}`) });
 	sessions.push(session);
 	return session;
@@ -93,6 +93,21 @@ describe("pi-switchboard in real pi, installed from the tarball, with no server"
 		assert.match(doctor, /^pi-switchboard doctor: 0 problem\(s\), 1 warning\(s\)$/mu);
 		assert.match(doctor, new RegExp(`^! classifier ${REMOTE} is remote and skipped: set allowRemote: true`, "mu"));
 		assert.equal(count(doctor, new RegExp(REMOTE, "u")), 1, runDir.explain(`named more than once:\n${doctor}`));
+		assertClean(session);
+	});
+
+	it("says pi's own llama.cpp provider does not list a chat classifier whose router is not running", async () => {
+		const session = await pi(
+			"llama-missing",
+			{ classifiers: [{ model: "llama.cpp/some-chat-model", timeoutMs: 3000, threshold: 0.8 }] },
+			{ LLAMA_BASE_URL: "http://127.0.0.1:9" },
+		);
+		const doctor = await session.command("/tier doctor");
+		assert.match(
+			doctor,
+			/^✗ classifier llama\.cpp\/some-chat-model is not listed by pi's llama\.cpp provider: is its server running with the model loaded\? Then run \/tier doctor again$/mu,
+		);
+		assert.doesNotMatch(doctor, /check classifierProviders/u);
 		assertClean(session);
 	});
 

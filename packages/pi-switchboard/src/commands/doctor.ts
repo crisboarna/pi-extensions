@@ -14,7 +14,15 @@ export interface DoctorFacts {
 	sources: string[];
 	profiles: Array<{ name: string; tiers: number; members: number; disabled: string[] }>;
 	invalidProfiles: Array<{ name: string; errors: string[] }>;
-	classifiers: Array<{ model: string; registered: boolean; local: boolean; allowRemote: boolean; probe?: { ok: boolean; ms: number; error?: string } }>;
+	classifiers: Array<{
+		model: string;
+		registered: boolean;
+		/** For a classifier that is not registered: the name of pi's own provider it comes from, when pi has that provider and no classifierProviders entry names it. */
+		piProvider?: string;
+		local: boolean;
+		allowRemote: boolean;
+		probe?: { ok: boolean; ms: number; error?: string };
+	}>;
 	routingSelected: boolean;
 	blocked?: string | undefined;
 	subagents: { enabled: boolean; launchModeReason?: string | undefined };
@@ -60,7 +68,11 @@ function classifierLines(facts: DoctorFacts, out: Lines): void {
 			"✗ no classifier configured: every request uses the fallback tier; run `pi-switchboard classifier detect` to find a local server, or see docs/classifier-setup.md",
 		);
 	for (const classifier of facts.classifiers) {
-		if (!classifier.registered) out.bad.push(`✗ classifier ${classifier.model} is not registered in pi: check classifierProviders`);
+		if (!classifier.registered && classifier.piProvider)
+			out.bad.push(
+				`✗ classifier ${classifier.model} is not listed by pi's ${classifier.piProvider} provider: is its server running with the model loaded? Then run /tier doctor again`,
+			);
+		else if (!classifier.registered) out.bad.push(`✗ classifier ${classifier.model} is not registered in pi: check classifierProviders`);
 		else if (!classifier.local && !classifier.allowRemote)
 			out.warn.push(`! classifier ${classifier.model} is remote and skipped: set allowRemote: true to let it receive request text`);
 		else if (classifier.probe?.ok && classifier.probe.ms > facts.decisionBudgetMs)
@@ -174,11 +186,26 @@ export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext,
 	const classifiers: DoctorFacts["classifiers"] = [];
 	for (const entry of config.classifiers) {
 		const slash = entry.model.indexOf("/");
-		const registered = slash > 0 && ctx.modelRegistry.findOfType("classifier", entry.model.slice(0, slash), entry.model.slice(slash + 1)) !== undefined;
+		const provider = entry.model.slice(0, Math.max(slash, 0));
+		const registered = slash > 0 && ctx.modelRegistry.findOfType("classifier", provider, entry.model.slice(slash + 1)) !== undefined;
+		const piProvider =
+			!registered &&
+			slash > 0 &&
+			!config.classifierProviders.some((listed) => listed.name === provider) &&
+			ctx.modelRegistry.getProvider(provider) !== undefined
+				? provider
+				: undefined;
 		const local = isLocalClassifier(ctx, entry.model, config.classifierProviders);
 		const allowRemote = entry.allowRemote === true;
 		const usable = registered && (local || allowRemote);
-		classifiers.push({ model: entry.model, registered, local, allowRemote, ...(usable ? { probe: await probe(runtime, entry.model, timeoutMs) } : {}) });
+		classifiers.push({
+			model: entry.model,
+			registered,
+			...(piProvider ? { piProvider } : {}),
+			local,
+			allowRemote,
+			...(usable ? { probe: await probe(runtime, entry.model, timeoutMs) } : {}),
+		});
 	}
 	return {
 		missingConfig: runtime.missingConfig,
