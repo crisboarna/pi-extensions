@@ -1,8 +1,8 @@
 # Verification shared by pull requests and main: every repository gate
 # (including knip, gitleaks, actionlint and zizmor in pinned Docker images),
 # the tests with 90% coverage thresholds, the same tests on the oldest
-# supported Node, the tarball smoke test and the dependency audits. Called by
-# pr.yml and main.yml.
+# supported Node, the tarball smoke test, the end-to-end tests in real pi and
+# the dependency audits. Called by pr.yml and main.yml.
 name: Verify
 
 on:
@@ -81,6 +81,13 @@ jobs:
       - name: Install every package from its tarball and load it
         run: npm run smoke:pack
 
+      # The suites that need no model server; the model-server suites run on demand (E2E_SERVERS).
+      - name: pi-switchboard end to end in real pi, installed from its tarball
+        run: npm run test:e2e
+
+      - name: account-guard smoke tests in real pi
+        run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-account-guard
+
   # Packages claim root engines.node; scripts/checks/manifests.ts fails if this version and that floor differ.
   floor:
     name: tests on the oldest supported Node
@@ -114,6 +121,13 @@ jobs:
 
       - name: Install every package from its tarball and load it
         run: npm run smoke:pack
+
+      # The suites that need no model server; the model-server suites run on demand (E2E_SERVERS).
+      - name: pi-switchboard end to end in real pi, installed from its tarball
+        run: npm run test:e2e
+
+      - name: account-guard smoke tests in real pi
+        run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-account-guard
 
   audit:
     name: dependency audit
