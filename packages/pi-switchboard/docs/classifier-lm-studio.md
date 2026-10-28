@@ -18,11 +18,11 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
    ```bash
    lms get https://huggingface.co/h2oai/h2o-lightning-4b-gguf --gguf -y   # LM Studio picks a quantization for your hardware
    lms server start
-   lms load h2o-lightning-4b -y
+   lms load h2o-lightning-4b -y -c 8192                                  # a classifier needs a few thousand tokens of context
    lms ls | grep -A3 DECISION                                            # lists it under DECISION
    ```
 
-   Download the GGUF build. MLX builds of decision models (`h2o-lightning-4b-mlx`, `kev-4b-mlx`) load as chat models, and LM Studio rejects System One requests for them with a 400.
+   Without `-c`, LM Studio loads the model with its full 262,144-token context: 12.6 GB of memory instead of 4.8 GB, and no better routing. Download the GGUF build. MLX builds of decision models (`h2o-lightning-4b-mlx`, `kev-4b-mlx`) load as chat models, and LM Studio rejects System One requests for them with a 400.
 3. Smoke test (the API names the yes/no type `noul`):
 
    ```bash
@@ -59,4 +59,4 @@ It finds `lms` (on the PATH, or `~/.lmstudio/bin/lms`), shows the three commands
 - The first request after loading takes a few seconds; pi-switchboard's warm-up at session start covers it.
 - `lms load` on a model that is already loaded loads a second copy (`h2o-lightning-4b:2`), with the memory that takes; `lms ps` lists what is loaded, and `lms unload h2o-lightning-4b:2` removes a copy.
 - **If LM Studio also serves your chat models**, turn off its just-in-time option that keeps only the last loaded model, or load models explicitly with `lms load`. Otherwise the classifier and the chat model evict each other mid-request ("Model is unloaded").
-- Other decision models work the same way: `lms get https://huggingface.co/ggml-org/Julia-1-GGUF --gguf -y`, then `lms load julia-1 -y`. Compare them with `classifier eval` before switching.
+- Other decision models work the same way: `lms get https://huggingface.co/ggml-org/Julia-1-GGUF --gguf -y`, then `lms load julia-1 -y -c 8192`. Compare them with `classifier eval` before switching.

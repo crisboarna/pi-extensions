@@ -62,6 +62,22 @@ describe("classifier setup", () => {
 		for (const [name, spec] of Object.entries(catalog.setups)) assert.ok(serverOf(name), `${name} sets up a known server (${spec.server ?? name})`);
 	});
 
+	it("loads and serves decision models with a small context, not the model's full one", () => {
+		// Without one, H2O-Lightning-4B loads with 262,144 tokens: LM Studio's backend held 12.6 GB instead of 4.8 GB.
+		const contextOf = (words: readonly string[]) => {
+			const at = words.findIndex((word) => ["-c", "--ctx-size", "--context-length"].includes(word));
+			return at >= 0 ? Number(words[at + 1]) : undefined;
+		};
+		for (const [name, spec] of Object.entries(catalog.setups)) {
+			if (spec.chat) continue;
+			const loading = [...(spec.run ?? []).filter((words) => words.includes("load")), ...(spec.serve ? [spec.serve] : [])];
+			for (const words of loading) {
+				const context = contextOf(words);
+				assert.ok(context !== undefined && context > 0 && context <= 8192, `${name}: \`${commandLine(words)}\` sets a context of at most 8192`);
+			}
+		}
+	});
+
 	it("shows the commands, asks once, runs them, tests the model, chooses the threshold and writes the config after asking", async () => {
 		const spec = decisionSpec!;
 		const r = rig({ models: [`${spec.model}:latest`], loaded: [], config: '{ "profiles": {}, "classifiers": [{ "model": "old/judge" }] }' });

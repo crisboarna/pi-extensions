@@ -33,7 +33,7 @@
 			"run": [
 				["{bin}", "get", "https://huggingface.co/h2oai/h2o-lightning-4b-gguf", "--gguf", "-y"],
 				["{bin}", "server", "start"],
-				["{bin}", "load", "h2o-lightning-4b", "-y"]
+				["{bin}", "load", "h2o-lightning-4b", "-y", "-c", "8192"]
 			],
 			"model": "h2o-lightning-4b"
 		},
@@ -48,7 +48,7 @@
 		"llamacpp": {
 			"commands": ["llama-server"],
 			"install": "Install llama.cpp: `brew install llama.cpp` on macOS or Linux, or a release from https://github.com/ggml-org/llama.cpp/releases.",
-			"serve": ["{bin}", "-hf", "h2oai/h2o-lightning-4b-gguf:Q4_K_M", "--port", "8080"],
+			"serve": ["{bin}", "-hf", "h2oai/h2o-lightning-4b-gguf:Q4_K_M", "--port", "8080", "-c", "8192"],
 			"model": "h2oai/h2o-lightning-4b-gguf:Q4_K_M"
 		},
 		"llamacpp-chat": {

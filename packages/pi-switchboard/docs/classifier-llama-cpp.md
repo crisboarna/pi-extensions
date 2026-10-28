@@ -71,7 +71,7 @@ By hand:
 1. Start the server (the first start downloads 2.7 GB):
 
    ```bash
-   llama-server -hf h2oai/h2o-lightning-4b-gguf:Q4_K_M --port 8080
+   llama-server -hf h2oai/h2o-lightning-4b-gguf:Q4_K_M --port 8080 -c 8192
    ```
 
    With one model loaded, the server ignores the request's `model` field; `/v1/models` lists the model as `h2oai/h2o-lightning-4b-gguf:Q4_K_M`, marked with `"output_modalities": ["decisions"]`. Other decision models: `ggml-org/Kev-4B-GGUF`, `ggml-org/lev-GGUF`, `ggml-org/Laya-GGUF`, `ggml-org/Julia-1-GGUF`.
