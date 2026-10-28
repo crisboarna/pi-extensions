@@ -145,7 +145,7 @@ This package lives in the [pi-extensions](https://github.com/crisboarna/pi-exten
 npm test                   # unit tests (node --test)
 npm run test:integration   # loads the extension through jiti against a fake pi host
 npm run coverage           # unit and integration tests, 90% line, branch and function thresholds
-npm run test:e2e           # from the packed tarball: the classifier CLI, and /tier doctor and /tier eval in real pi
+npm run test:e2e           # from the packed tarball, in real pi: the classifier CLI and commands, routing, failover and subagents
 E2E_SERVERS=docker npm run test:e2e   # adds classifier setup against Ollama, llama.cpp and LiteLLM in Docker
 npm run media              # rebuilds the banner, cover, animations, hero video and terminal clips (Docker)
 ```

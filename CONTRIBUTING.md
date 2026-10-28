@@ -26,7 +26,7 @@ npm test                      # unit tests of every package, plus the script tes
 npm run test:integration      # each extension loaded through jiti against a fake pi host
 npm run coverage              # tests with 90% line, branch and function thresholds
 npm run smoke:pack            # install each package from its tarball and load it
-npm run test:e2e              # pi-switchboard from its tarball, in real pi; E2E_SERVERS=docker adds model servers
+npm run test:e2e              # the tarballs in real pi: routing, failover, subagents, both packages; E2E_SERVERS=docker adds model servers
 pi -ne -e ./packages/<name>/src/index.ts   # try a package in a real pi session
 ```
 
