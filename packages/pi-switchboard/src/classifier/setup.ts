@@ -267,9 +267,31 @@ async function readyModel({ spec, server }: Resolved, deps: SetupDeps, waitMs: n
 			deps.err(`classifier setup: ${server.label} could not load ${ready.model}: ${error}\n`);
 			return undefined;
 		}
+		const loaded = await waitForLoad(server, ready.model, deps, waitMs);
+		if (!loaded) {
+			deps.err(`classifier setup: ${server.label} did not finish loading ${ready.model} within ${Math.round(waitMs / 60_000)} minutes\n`);
+			return undefined;
+		}
 		deps.out(`Loaded ${ready.model}.\n`);
+		return { found: loaded, model: ready.model };
 	}
 	return ready;
+}
+
+/**
+ * The router answers a load at once and loads in the background, and pi lists
+ * only models that have finished loading; waits until the server lists
+ * `model` as loaded.
+ */
+async function waitForLoad(server: ServerProbe, model: string, deps: SetupDeps, waitMs: number): Promise<DetectedServer | undefined> {
+	const step = 2000;
+	for (let waited = 0; waited <= waitMs; waited += step) {
+		const found = await deps.probe(server);
+		if (found && serves(found, model)) return found;
+		if (waited === 0) deps.out(`Loading ${model}…\n`);
+		await deps.sleep(step);
+	}
+	return undefined;
 }
 
 /** Runs the setup; resolves to the exit code. */

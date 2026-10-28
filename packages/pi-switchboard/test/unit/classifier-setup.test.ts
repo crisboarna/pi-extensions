@@ -224,6 +224,12 @@ describe("classifier setup", () => {
 		assert.match(served.out.join(""), /is already running at http:\S+, so there is nothing to start\./);
 		assert.doesNotMatch(served.out.join(""), /^ {2}\$ /m, "no command to start it");
 		const router = rig({ chatModels: [chatSpec!.model], router: true, loaded: [] });
+		const lists = router.deps.probe;
+		// The router lists the model as loaded once setup has asked it to load it.
+		router.deps.probe = async (server) => {
+			const found = await lists(server);
+			return found && router.ran.length > 0 ? { ...found, loaded: [chatSpec!.model] } : found;
+		};
 		assert.equal(await runSetup(chatSetup, { yes: true }, router.deps), 0);
 		assert.doesNotMatch(router.out.join(""), /^ {2}\$ /m, "neither the download nor the router command");
 		assert.deepEqual(router.ran, [["load", chatSpec!.model]], "setup loads the model on the running router");
@@ -275,13 +281,42 @@ describe("classifier setup", () => {
 			probes++;
 			const listed = await router(server);
 			// The download command listens on the same port when it is done, with the model but without a router's model status.
-			return probes <= 3 ? listed : listed && { ...listed, router: true, loaded: [] };
+			if (probes <= 3) return listed;
+			return listed && { ...listed, router: true, loaded: r.ran.some(([step]) => step === "load") ? [spec.model] : [] };
 		};
 		assert.equal(await runSetup(chatSetup, { yes: true }, r.deps), 0);
 		assert.deepEqual(r.ran, [["load", spec.model]]);
 		assert.ok(probes > 3, "it kept waiting past the one-model server");
 		assert.equal(r.out.join("").match(/serves one model, not the router/g)?.length, 1, "it says so once");
 		assert.doesNotMatch(r.out.join(""), /curl -s .*models\/load/, "setup loads the model itself");
+	});
+
+	it("says a chat model is loaded only once the router lists it as loaded, and stops when it never does", async () => {
+		const spec = chatSpec!;
+		const events: string[] = [];
+		let probesAfterLoad = -1;
+		const r = rig({ chatModels: [spec.model], router: true, loaded: [] });
+		const listed = r.deps.probe;
+		r.deps.load = async () => {
+			events.push("load requested");
+			probesAfterLoad = 0;
+			return undefined;
+		};
+		// The router answers the load at once and loads in the background: two checks later it lists the model as loaded.
+		r.deps.probe = async (server) => {
+			const found = await listed(server);
+			if (probesAfterLoad < 0 || !found) return found;
+			return ++probesAfterLoad >= 3 ? { ...found, loaded: [spec.model] } : found;
+		};
+		r.deps.out = (text) => void events.push(text.trim());
+		assert.equal(await runSetup(chatSetup, { yes: true }, r.deps), 0);
+		const said = events.indexOf(`Loaded ${spec.model}.`);
+		assert.ok(said > events.indexOf("load requested"), events.join("\n"));
+		assert.ok(probesAfterLoad >= 3, "it checked until the router listed the model as loaded");
+		const stuck = rig({ chatModels: [spec.model], router: true, loaded: [] });
+		assert.equal(await runSetup(chatSetup, { yes: true, waitMs: 4000 }, stuck.deps), 1);
+		assert.match(stuck.err.join(""), /did not finish loading .* within 0 minutes/);
+		assert.equal(stuck.written.length, 0, "no config for a model that is not loaded");
 	});
 
 	it("stops without the product, on a declined confirm, a failing command, a model that does not answer, or malformed config", async () => {
