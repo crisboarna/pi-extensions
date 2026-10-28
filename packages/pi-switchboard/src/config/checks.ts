@@ -84,6 +84,14 @@ export interface ChecksInput {
 export const TOS_WARNING =
 	"pooling several subscription accounts of one provider to get around its rate limits may breach that provider's terms; rotating between different providers or models does not";
 
+/** The warning for a classifier pi does not know; `/tier doctor` says it in its own words, so it leaves this one out. */
+export const unregisteredWarning = (model: string) =>
+	`classifier ${model} is not registered as a classifier or has no credentials; check classifierProviders and /login. Its decisions fall back to the fallback tier.`;
+
+/** The warning for a remote classifier without allowRemote; `/tier doctor` says it in its own words, so it leaves this one out. */
+export const remoteSkippedWarning = (model: string) =>
+	`classifier ${model} runs off this machine and is skipped; set "allowRemote": true to let it receive request text.`;
+
 /** Warnings about the environment around the config; shown at session start and by `/tier validate`. */
 export function runChecks(input: ChecksInput): string[] {
 	const read = input.read ?? readText;
@@ -119,13 +127,8 @@ export function runChecks(input: ChecksInput): string[] {
 	}
 
 	for (const entry of config.classifiers) {
-		if (!input.classifierAvailable(entry.model)) {
-			warnings.push(
-				`classifier ${entry.model} is not registered as a classifier or has no credentials; check classifierProviders and /login. Its decisions fall back to the fallback tier.`,
-			);
-		} else if (!input.classifierIsLocal(entry.model) && !entry.allowRemote) {
-			warnings.push(`classifier ${entry.model} runs off this machine and is skipped; set "allowRemote": true to let it receive request text.`);
-		}
+		if (!input.classifierAvailable(entry.model)) warnings.push(unregisteredWarning(entry.model));
+		else if (!input.classifierIsLocal(entry.model) && !entry.allowRemote) warnings.push(remoteSkippedWarning(entry.model));
 	}
 	return warnings;
 }

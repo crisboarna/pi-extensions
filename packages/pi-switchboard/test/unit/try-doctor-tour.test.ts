@@ -4,6 +4,7 @@ import { BUILTIN_QUESTIONS } from "../../src/classifier/questions.ts";
 import { type DoctorFacts, doctorLines, footerShowsTier } from "../../src/commands/doctor.ts";
 import { runTour, TOUR_STEPS } from "../../src/commands/tour.ts";
 import { formatPreview, parseTryArgs } from "../../src/commands/try.ts";
+import { remoteSkippedWarning, unregisteredWarning } from "../../src/config/checks.ts";
 import { TYPED_ANSWERS } from "../../src/router/engine.ts";
 import { answers, engine } from "../support/engine.ts";
 
@@ -145,6 +146,21 @@ describe("/tier doctor", () => {
 				lines.some((line) => line.startsWith(expected)),
 				expected,
 			);
+	});
+
+	it("names each classifier problem once, though the config checks report it too", () => {
+		const lines = doctorLines({
+			...healthy,
+			classifiers: [
+				{ model: "cloud/judge", registered: true, local: false, allowRemote: false },
+				{ model: "local/gone", registered: false, local: true, allowRemote: false },
+			],
+			warnings: [remoteSkippedWarning("cloud/judge"), unregisteredWarning("local/gone"), "something else to look at"],
+		});
+		const text = lines.join("\n");
+		assert.equal(text.match(/cloud\/judge/g)?.length, 1, text);
+		assert.equal(text.match(/local\/gone/g)?.length, 1, text);
+		assert.match(text, /! something else to look at/);
 	});
 
 	it("says when a classifier answers but more slowly than the decision budget", () => {

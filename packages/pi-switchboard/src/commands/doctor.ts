@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isLocalClassifier } from "../classifier/pi-adapter.ts";
 import { WARMUP_REQUEST } from "../classifier/warmup.ts";
+import { remoteSkippedWarning, unregisteredWarning } from "../config/checks.ts";
 import type { Runtime } from "../runtime.ts";
 import { quotaProviders } from "../selection/pi-usage.ts";
 import { PI_SUBAGENTS_MISSING } from "../subagents/pi-subagents.ts";
@@ -79,7 +80,9 @@ function sessionLines(facts: DoctorFacts, out: Lines): void {
 		if (facts.piUsage) out.ok.push(`✓ pi-usage provides quota for ${facts.quotaProviders.join(", ")}`);
 		else out.warn.push(`! quota strategies for ${facts.quotaProviders.join(", ")} without pi-usage: install @narumitw/pi-usage or give members a budget`);
 	}
-	for (const warning of facts.warnings) out.warn.push(`! ${warning}`);
+	// The classifier lines already say these.
+	const said = new Set(facts.classifiers.flatMap((classifier) => [unregisteredWarning(classifier.model), remoteSkippedWarning(classifier.model)]));
+	for (const warning of facts.warnings) if (!said.has(warning)) out.warn.push(`! ${warning}`);
 }
 
 /** One line per check: ✓ fine, ! worth a look, ✗ a problem, each with what to do. Problems come first. */
