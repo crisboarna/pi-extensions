@@ -81,6 +81,22 @@ export class PiSession {
 			.join("\n");
 	}
 
+	/**
+	 * Waits until pi lists `model` (`provider/id`) among its available models. A
+	 * provider such as llama.cpp lists a server's models a moment after start.
+	 */
+	async waitForModel(model: string, timeoutMs: number): Promise<void> {
+		const deadline = Date.now() + timeoutMs;
+		for (;;) {
+			const id = `m${this.#next++}`;
+			this.#send({ id, type: "get_available_models" });
+			const data = (await this.#response(id, 30_000)).data as { models?: Array<{ provider: string; id: string }> } | undefined;
+			if (data?.models?.some((listed) => `${listed.provider}/${listed.id}` === model)) return;
+			if (Date.now() > deadline) throw new Error(`pi did not list ${model} within ${Math.round(timeoutMs / 1000)} s`);
+			await new Promise((done) => setTimeout(done, 500));
+		}
+	}
+
 	/** Closes stdin, which asks pi to shut down, then kills it after 10 s. */
 	async close(): Promise<void> {
 		if (!this.#exited) {
