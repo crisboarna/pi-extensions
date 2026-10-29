@@ -1,0 +1,45 @@
+{
+	"name": "@crisboarna/pi-context-refs",
+	"version": "0.0.0",
+	"description": "Save context refs and insert them from a picker as compact placeholders that expand to real content when the message is sent.",
+	"type": "module",
+	"license": "MIT",
+	"author": "Cristian Boarna",
+	"keywords": [
+		"pi-package",
+		"pi-extension"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/crisboarna/pi-extensions.git",
+		"directory": "packages/pi-context-refs"
+	},
+	"homepage": "https://github.com/crisboarna/pi-extensions/tree/main/packages/pi-context-refs#readme",
+	"bugs": {
+		"url": "https://github.com/crisboarna/pi-extensions/issues"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=dot \"test/**/*.test.ts\"",
+		"coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/**/*.test.ts\""
+	}
+}
