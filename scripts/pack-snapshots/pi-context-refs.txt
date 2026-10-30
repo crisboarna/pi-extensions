@@ -14,6 +14,7 @@ src/core/glob.ts
 src/core/library-state.ts
 src/core/library.ts
 src/core/names.ts
+src/core/picker.ts
 src/core/ref-command.ts
 src/core/ref-completions.ts
 src/core/ref-edit.ts
@@ -23,6 +24,7 @@ src/core/resolve.ts
 src/core/scope.ts
 src/core/segments.ts
 src/core/tokens.ts
+src/core/trigger.ts
 src/index.ts
 src/pi/commands.ts
 src/pi/editor.ts
@@ -31,6 +33,7 @@ src/pi/fs.ts
 src/pi/git-remotes.ts
 src/pi/input.ts
 src/pi/libraries.ts
+src/pi/picker.ts
 src/pi/ref-run.ts
 src/pi/running.ts
 src/pi/sent.ts
