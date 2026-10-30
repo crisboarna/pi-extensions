@@ -10,3 +10,9 @@ export function visibleRefs(refs: readonly Ref[]): Map<string, Ref> {
 	}
 	return visible;
 }
+
+/** The Bundle of `tag`: every Visible Ref that carries it, in the order of `visible`, which is scoped, project, global, then file order. */
+export function bundleMembers(visible: ReadonlyMap<string, Ref>, tag: string): Ref[] {
+	const folded = foldName(tag);
+	return [...visible.values()].filter((ref) => ref.tags?.some((candidate) => foldName(candidate) === folded));
+}

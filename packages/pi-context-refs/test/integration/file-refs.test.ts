@@ -202,3 +202,129 @@ describe("a File Ref that cannot be read", () => {
 		assert.equal(stderr.length, 1);
 	});
 });
+
+describe("File limits at the fake pi host", () => {
+	const numbered = (count: number) => Array.from({ length: count }, (_, index) => `${String(index + 1).padStart(9, "0")}\n`).join("");
+	const write = (name: string, content: string | Uint8Array) => writeFileSync(join(project, "src", name), content);
+	const attributes = (text: string) => text.match(/<context-ref ([^>]*)>/)?.[1] ?? "";
+	const body = (text: string) => text.slice(text.indexOf(">\n") + 2, text.lastIndexOf("\n</context-ref>"));
+
+	beforeEach(() => {
+		writeLibrary([
+			file("big", "src/big.txt"),
+			{ ...file("wide", "src/wide.txt"), max_bytes: 200_000 },
+			file("bin", "src/bin.dat"),
+			file("shot", "src/shot.png"),
+			file("huge", "src/huge.png"),
+		]);
+	});
+
+	for (const mode of ["tui", "print", "json", "rpc"] as const) {
+		it(`cuts a file one line past 2000 and still sends it in ${mode} mode`, async () => {
+			write("big.txt", numbered(2001));
+			const { send, s } = await session(mode);
+			const sent = await send("#big");
+			assert.equal(
+				attributes(sent.text),
+				`name="big" kind="file" path="src/big.txt" bytes="${Buffer.byteLength(body(sent.text))}" truncated="2000 lines"`,
+			);
+			assert.ok(
+				body(sent.text).endsWith("\n[Truncated at 2000 lines: showing lines 1-2000 of 2001. Use the read tool with offset=2001 to read the rest.]"),
+			);
+			assert.deepEqual(s.notices, []);
+			assert.deepEqual(stderr, []);
+		});
+	}
+
+	it("sends a file of exactly 2000 lines and one of exactly 50 KB whole", async () => {
+		const { send } = await session("print");
+		write("big.txt", numbered(2000));
+		assert.equal(body((await send("#big")).text), numbered(2000));
+		write("big.txt", "x".repeat(99).concat("\n").repeat(512));
+		assert.ok(!attributes((await send("#big")).text).includes("truncated"));
+		write("big.txt", "x".repeat(99).concat("\n").repeat(512).concat("y"));
+		assert.match(attributes((await send("#big")).text), /truncated="50 KB"$/);
+	});
+
+	it("honours a Ref's max_bytes: 3000 lines under 200 KB are not cut", async () => {
+		write("wide.txt", numbered(3000));
+		const { send } = await session("print");
+		assert.equal(body((await send("#wide")).text), numbered(3000));
+	});
+
+	it("fails a binary file by mode: the draft comes back in the TUI, a Failure note elsewhere", async () => {
+		write("bin.dat", new Uint8Array([1, 2, 0, 3]));
+		const reason = "src/bin.dat is a binary file and cannot be sent as text";
+		const tui = await session("tui");
+		assert.deepEqual(await tui.send("#bin"), { action: "handled" });
+		assert.deepEqual(tui.s.notices, [{ message: `pi-context-refs: #bin: ${reason}`, type: "error" }]);
+		const print = await session("print");
+		assert.match((await print.send("#bin")).text, /bytes="0" error="src\/bin\.dat is a binary file and cannot be sent as text"/);
+		assert.deepEqual(stderr, [`pi-context-refs: #bin: ${reason}\n`]);
+	});
+
+	describe("an image", () => {
+		const png = (extra = 0) => {
+			const header = Buffer.alloc(33);
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header);
+			header.writeUInt32BE(13, 8);
+			header.write("IHDR", 12, "ascii");
+			return Buffer.concat([header, Buffer.alloc(extra, 1)]);
+		};
+
+		it("is attached through the input event's images, unresized, next to the images already there", async () => {
+			write("shot.png", png());
+			const { send } = await session("print");
+			const earlier = { type: "image", data: "AAAA", mimeType: "image/jpeg" };
+			const sent = await send("look #shot", { images: [earlier] });
+			assert.equal(sent.text, `look #shot\n\n${block('name="shot" kind="file" path="src/shot.png" bytes="0"', "")}`);
+			assert.deepEqual(sent.images, [earlier, { type: "image", data: png().toString("base64"), mimeType: "image/png" }]);
+		});
+
+		it("fails over 5 MB with a hint to resize, in the TUI as a refused send", async () => {
+			write("huge.png", png(5 * 1024 * 1024));
+			const { send, s } = await session("tui");
+			assert.deepEqual(await send("#huge"), { action: "handled" });
+			assert.deepEqual(s.notices, [{ message: "pi-context-refs: #huge: src/huge.png is an image over 5 MB; resize it and try again", type: "error" }]);
+		});
+	});
+});
+
+for (const mode of ["tui", "print", "json", "rpc"] as const) {
+	describe(`a #tag:<tag> Bundle with a File member in ${mode} mode`, () => {
+		beforeEach(() => {
+			writeFileSync(join(project, "src", "api.ts"), "export const api = 1;\n");
+			writeLibrary([
+				{ ...file("api", "src/api.ts"), tags: ["ctx"] },
+				{ name: "terse", kind: "snippet", text: "Be brief.", tags: ["ctx"] },
+				{ ...file("gone", "src/gone.ts"), tags: ["lost"] },
+			]);
+		});
+
+		it("sends the File as a Context block after the prose, with the inline members in the prose", async () => {
+			const { send } = await session(mode);
+			assert.deepEqual(await send("Review #tag:ctx now"), {
+				action: "transform",
+				text: `Review Be brief. now\n\n${block('name="api" kind="file" path="src/api.ts" bytes="22"', "export const api = 1;\n")}`,
+			});
+		});
+
+		it("gives one block when the message also names the File", async () => {
+			const { send } = await session(mode);
+			const sent = await send("#tag:ctx and [ref:api]");
+			assert.equal(sent.text.match(/<context-ref /g)?.length, 1);
+			assert.ok(sent.text.startsWith('Be brief. and [ref:api]\n\n<context-ref name="api"'), sent.text);
+		});
+
+		it("reports a member that cannot be read the way a File Ref is reported", async () => {
+			const { send, s } = await session(mode);
+			const sent = await send("#tag:lost");
+			if (mode === "tui") {
+				assert.deepEqual(sent, { action: "handled" });
+				assert.deepEqual(s.editorTexts, ["#tag:lost"]);
+			} else {
+				assert.match(sent.text, /error="src\/gone\.ts does not exist"/);
+			}
+		});
+	});
+}

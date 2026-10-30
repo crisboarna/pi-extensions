@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { foldName, nameProblem } from "../../src/core/names.ts";
+import { foldName, nameProblem, tagProblem } from "../../src/core/names.ts";
 
 describe("nameProblem", () => {
 	it("accepts letters, digits, dots, dashes and underscores", () => {
@@ -20,6 +20,18 @@ describe("nameProblem", () => {
 	it("rejects every character outside the name set", () => {
 		for (const name of ["a b", "a/b", "a:b", "a#b", "a]b", "a[b", "é", "a\nb", "a,b", "~"])
 			assert.match(nameProblem(name) ?? "", /letters, digits/, JSON.stringify(name));
+	});
+});
+
+describe("tagProblem", () => {
+	it("takes the same characters as a name, in any case", () => {
+		for (const tag of ["docs", "Docs", "a.b-c_d", "v1", ".x"]) assert.equal(tagProblem(tag), undefined, tag);
+	});
+
+	it("rejects what a name rejects, in words about a tag", () => {
+		assert.match(tagProblem("") ?? "", /a tag cannot be empty/);
+		assert.match(tagProblem("a:b") ?? "", /a tag uses only letters, digits/);
+		assert.match(tagProblem("docs.") ?? "", /a tag cannot end in "\."/);
 	});
 });
 

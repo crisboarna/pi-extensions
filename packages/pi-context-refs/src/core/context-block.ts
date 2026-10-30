@@ -3,11 +3,12 @@ import { foldName } from "./names.ts";
 /** The attributes every Context block starts with: a File names its path, a Dynamic Ref its source. */
 type BlockHead = { name: string; kind: "file"; path: string } | { name: string; kind: "dynamic"; source: string };
 
-/** A Context block that carries content. `exit` is a Dynamic Ref's non-zero exit code; `truncated` says how much was kept. */
+/** A Context block that carries content. `exit` is a Dynamic Ref's non-zero exit code. */
 export type BlockContent = BlockHead & {
 	body: string;
-	exit?: number;
-	truncated?: string;
+	exit?: number | undefined;
+	/** The cap that cut the content, when it was cut. */
+	truncated?: string | undefined;
 };
 
 /** A Failure note: a Context block with an empty body and the reason in `error`. */
@@ -23,8 +24,9 @@ export function sanitizeText(bytes: Uint8Array): string {
 
 /** `<context-ref>` with the body raw between a newline after the opening tag and a newline before the closing tag. `bytes` is the body's length in UTF-8. */
 export function contextBlock(block: BlockContent): string {
-	const tail = `${block.exit === undefined ? "" : ` exit="${block.exit}"`}${block.truncated === undefined ? "" : ` truncated="${attributeValue(block.truncated)}"`}`;
-	return element(block, Buffer.byteLength(block.body, "utf8"), tail, block.body);
+	const exit = block.exit === undefined ? "" : ` exit="${block.exit}"`;
+	const truncated = block.truncated === undefined ? "" : ` truncated="${attributeValue(block.truncated)}"`;
+	return element(block, Buffer.byteLength(block.body, "utf8"), exit + truncated, block.body);
 }
 
 /** A Context block with an empty body that says why the Expansion could not be produced. */

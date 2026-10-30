@@ -114,7 +114,7 @@ A missing file is an empty library. In a file that parses, each invalid Ref is s
 
 ### 5.6 Bundles
 
-`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
+`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send, each as it would be on its own: a Snippet or Path inline where the token stood, a File as a Context block after the text (the token adds no text for it), once for a member the message also names or already carries a block for. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
 
 ## 6. The Placeholder and the editor
 
@@ -180,7 +180,7 @@ One XML-style element for every block kind, after pi's own `<file name="…">` t
 
 ### 9.4 File limits
 
-- By default a File is cut at 50 KB or 2000 lines, whichever comes first. These are pi's read-tool caps (exported `truncateHead`, `DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). The block is marked `truncated`, and a closing line tells the model it can read the rest with the read tool from line N. A per-Ref `max_bytes` raises the cap up to 1 MB. A cut never blocks the send.
+- By default a File is cut at 50 KB or 2000 lines, whichever comes first. These are pi's read-tool caps (exported `truncateHead`, `DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). The block is marked `truncated`, and a closing line tells the model it can read the rest with the read tool from line N. The closing line reads `[Truncated at 2000 lines: showing lines 1-2000 of 2500. Use the read tool with offset=2001 to read the rest.]` (the cap that was hit is `50 KB` or `2000 lines`, and it is also the value of `truncated`). A per-Ref `max_bytes` replaces the byte cap, up to 1 MB, and lifts the line cap. A cut never blocks the send.
 - An image of a type pi supports (`detectSupportedImageMimeTypeFromFile`, exported) is attached through the `input` event's `images`, with an empty block naming it. It is not resized, because pi's `processImage` is not exported. Over 5 MB is a failure that suggests resizing.
 - Any other binary file (a NUL byte in the first 8 KB) is a failure, never mojibake.
 - A missing or unreadable file, a directory, or a target outside the project after following symlinks is a failure (section 12). A directory's message suggests a Path Ref or a Dynamic `["ls", …]` Ref.

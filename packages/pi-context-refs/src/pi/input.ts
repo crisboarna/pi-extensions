@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { addBuiltins } from "../core/builtins.ts";
 import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
+import type { TruncateHead } from "../core/file-content.ts";
 import { createLibraryState, type LibraryState } from "../core/library-state.ts";
 import { readSettings } from "../core/ref-list.ts";
 import { visibleRefs } from "../core/resolve.ts";
@@ -15,6 +16,10 @@ export interface InputDeps extends CommandEnv {
 	readText: (path: string) => string | undefined;
 	/** The bytes of a file; it rejects with the system's error. */
 	readFile: (path: string) => Promise<Uint8Array>;
+	/** Pi's `truncateHead`: cuts a File at the caps of pi's read tool. */
+	truncateHead: TruncateHead;
+	/** The image type pi supports for the file at this path, or null. */
+	imageType: (path: string) => Promise<string | null>;
 	writeStderr: (text: string) => void;
 }
 
@@ -45,14 +50,15 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 			run.finish();
 		}
 		if (run.signal.aborted) return cancelSend(event.text, ["cancelled"], ctx);
-		const { text, failures } = expansion;
+		const { text, images, failures } = expansion;
 		if (failures.length > 0) {
 			const reasons = failures.map((failure) => `#${failure.name}: ${failure.reason}`);
 			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);
 			showNotices(reasons, ctx, deps);
 		}
 		if (text === event.text) return undefined;
-		return event.images ? { action: "transform", text, images: event.images } : { action: "transform", text };
+		const attached = [...(event.images ?? []), ...images];
+		return attached.length > 0 ? { action: "transform", text, images: attached } : { action: "transform", text };
 	});
 }
 

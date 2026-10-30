@@ -7,6 +7,7 @@ src/core/config-writer.ts
 src/core/context-block.ts
 src/core/dynamic.ts
 src/core/expand.ts
+src/core/file-content.ts
 src/core/library-state.ts
 src/core/library.ts
 src/core/names.ts
