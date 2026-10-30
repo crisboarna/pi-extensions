@@ -215,3 +215,40 @@ describe("the library file", () => {
 		assert.equal(second.notices.length, 1);
 	});
 });
+
+for (const mode of ["tui", "print", "json", "rpc"] as const) {
+	describe(`a typed #tag:<tag> Bundle in ${mode} mode`, () => {
+		const prompt = async (text: string) => {
+			writeLibrary([
+				{ name: "terse", kind: "snippet", text: "Be brief.", tags: ["style", "Docs"] },
+				{ name: "agents", kind: "path", path: "AGENTS.md", tags: ["docs"] },
+				{ name: "bad", kind: "snippet", text: "x", tags: ["no good"] },
+				{ name: "readme", kind: "path", path: "README.md", tags: ["DOCS"] },
+				snippet("loose", "Untagged."),
+			]);
+			const host = await boot();
+			const session = createFakeSession({ cwd: project, hasUI: hasUI(mode) });
+			await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+			return { result: await send(host, session, text, { source: source(mode) }), session };
+		};
+
+		it("expands to every Visible member in file order, each as it would be on its own", async () => {
+			assert.deepEqual((await prompt("Read #tag:docs first")).result, { action: "transform", text: "Read Be brief. AGENTS.md README.md first" });
+		});
+
+		it("does not repeat a member the message already names", async () => {
+			assert.deepEqual((await prompt("#agents then #tag:docs")).result, { action: "transform", text: "AGENTS.md then Be brief. README.md" });
+		});
+
+		it("passes an unknown tag through unchanged", async () => {
+			assert.equal((await prompt("see #tag:nope")).result, undefined);
+		});
+
+		it("skips a Ref with an invalid tag as a config error for that Ref alone", async () => {
+			const { result, session } = await prompt("#tag:style #bad");
+			assert.deepEqual(result, { action: "transform", text: "Be brief. #bad" });
+			const reported = mode === "print" || mode === "json" ? stderr.join("") : session.notices.map((notice) => notice.message).join("\n");
+			assert.match(reported, /\$\.refs\[2\]\.tags\[0\]: a tag uses only letters/);
+		});
+	});
+}

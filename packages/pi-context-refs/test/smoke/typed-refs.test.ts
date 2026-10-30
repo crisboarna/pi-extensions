@@ -36,6 +36,15 @@ describe("typed refs in print mode (DESIGN.md sections 8 and 9)", () => {
 		assert.equal(result.stderr, "");
 	});
 
+	it("sends every member of a #tag:<tag> Bundle expanded, without repeating one the message names", async () => {
+		const tagged = refs.map((ref) => (ref.name === "hosts" ? ref : { ...ref, tags: ["Setup"] }));
+		const probe = run({ version: 1, refs: tagged });
+		const result = await runPrint("Start with #agents, then #tag:setup and #tag:nope.", probe.options);
+		assert.equal(result.code, 0, result.stderr);
+		assert.deepEqual(probe.received(), [{ text: "Start with AGENTS.md, then Answer in one sentence. and #tag:nope.", images: 0 }]);
+		assert.equal(result.stderr, "");
+	});
+
 	it("sends text that matches no Ref as typed", async () => {
 		const probe = run({ version: 1, refs });
 		const text = "#1 priority, issue #42, #unknown, # heading, [ref:unknown]";

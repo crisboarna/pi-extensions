@@ -108,6 +108,81 @@ describe("what does not expand", () => {
 	});
 });
 
+describe("Bundle", () => {
+	const tagged = (ref: Ref, ...tags: string[]): Ref => ({ ...ref, tags });
+	const refs = [
+		tagged(snippet("terse", "Be brief."), "style"),
+		tagged(path("agents", "AGENTS.md"), "docs", "Style"),
+		tagged(path("readme", "README.md"), "docs"),
+		snippet("loose", "Untagged."),
+	];
+
+	it("expands #tag:<tag> to every member, each as it would be on its own, in order", () => {
+		assert.equal(expand("read #tag:docs now", refs), "read AGENTS.md README.md now");
+		assert.equal(expand("#tag:style", refs), "Be brief. AGENTS.md");
+	});
+
+	it("matches the tag case-insensitively, as a typed token", () => {
+		assert.equal(expand("#TAG:DOCS", refs), "AGENTS.md README.md");
+	});
+
+	it("ends the token like a name, so the sentence can go on", () => {
+		assert.equal(expand("read #tag:docs, then #tag:style.", refs), "read AGENTS.md README.md, then Be brief..");
+	});
+
+	it("passes an unknown tag through unchanged", () => {
+		assert.equal(expand("see #tag:nope and #tag:", refs), "see #tag:nope and #tag:");
+	});
+
+	it("leaves a [ref:tag:<tag>] Placeholder alone, because only a typed token is a Bundle", () => {
+		assert.equal(expand("[ref:tag:docs]", refs), "[ref:tag:docs]");
+	});
+
+	it("does not repeat a member that the message already names, wherever it sits", () => {
+		assert.equal(expand("#tag:docs #agents", refs), "README.md AGENTS.md");
+		assert.equal(expand("#agents #tag:docs", refs), "AGENTS.md README.md");
+		assert.equal(expand("[ref:readme] #tag:docs", refs), "README.md AGENTS.md");
+	});
+
+	it("does not repeat a member that an earlier Bundle gave", () => {
+		assert.equal(expand("#tag:style then #tag:docs", refs), "Be brief. AGENTS.md then README.md");
+	});
+
+	it("drops a Bundle that has nothing left to add, with the space before it", () => {
+		assert.equal(expand("#tag:docs and #tag:docs", refs), "AGENTS.md README.md and");
+		assert.equal(expand("#agents #readme #tag:docs", refs), "AGENTS.md README.md");
+		assert.equal(expand("#tag:docs\n#tag:docs", refs), "AGENTS.md README.md\n");
+	});
+
+	it("still expands a member named twice outside the Bundle at every occurrence", () => {
+		assert.equal(expand("#terse #terse #tag:style", refs), "Be brief. Be brief. AGENTS.md");
+	});
+
+	it("leaves a Ref named tag to the plain #name rule", () => {
+		assert.equal(expand("#tag", [snippet("tag", "T")]), "T");
+	});
+
+	it("keeps a File or Dynamic member as a Placeholder, to be expanded as a Context block", () => {
+		const members = [
+			tagged({ name: "api", kind: "file", path: "src/api.ts" }, "ctx"),
+			tagged(snippet("terse", "Be brief."), "ctx"),
+			tagged({ name: "diff", kind: "dynamic", command: ["git", "diff"] }, "ctx"),
+		];
+		assert.equal(expand("#tag:ctx", members), "[ref:api] Be brief. [ref:diff]");
+	});
+
+	it("does not expand the text of a Snippet member again", () => {
+		const members = [tagged(snippet("a", "see #b and #tag:t"), "t"), tagged(snippet("b", "B"), "t")];
+		assert.equal(expand("#tag:t", members), "see #b and #tag:t B");
+	});
+
+	it("leaves a Scoped Ref out of the Bundle until its scope is matched", () => {
+		const scoped: Ref = { ...tagged(snippet("here", "x"), "t"), scope: { path: "/work/repo" } };
+		assert.equal(expand("#tag:t", [scoped, tagged(snippet("b", "B"), "t")]), "B");
+		assert.equal(expand("#tag:t", [scoped]), "#tag:t");
+	});
+});
+
 describe("visibleRefs", () => {
 	it("keeps the first Ref of a name, compared case-insensitively", () => {
 		const visible = visibleRefs([snippet("Api", "first"), snippet("api", "second")]);
