@@ -114,7 +114,7 @@ A missing file is an empty library. In a file that parses, each invalid Ref is s
 
 ### 5.6 Bundles
 
-`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
+`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send, each as it would be on its own: a Snippet or Path inline where the token stood, a File as a Context block after the text (the token adds no text for it), once for a member the message also names or already carries a block for. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
 
 ## 6. The Placeholder and the editor
 

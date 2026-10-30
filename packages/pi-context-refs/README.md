@@ -26,6 +26,7 @@ The design promises:
 - Real content in the message the model gets, read when you send.
 - Refs of your own and refs shared with your team, with project commands run only after you approve them.
 - Typed `#name` refs that expand in print, JSON and RPC modes too.
+- Tags: type `#tag:<tag>` to send every ref with that tag; `/ref list tag=<tag>` shows them.
 
 ## Limitations
 
