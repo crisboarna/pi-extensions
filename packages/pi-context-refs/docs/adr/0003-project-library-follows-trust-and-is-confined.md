@@ -19,3 +19,10 @@ Pi does not gate this file itself, so the package applies the same rule pi uses 
 - In an untrusted project `/ref` explains why the library is not loaded and points to `/trust`.
 - A team that wants a shared Ref to a file outside the repository cannot; it uses a Global Ref scoped to the repository.
 - Global Refs are not confined: they are the user's own.
+
+## Amendment
+
+Proved against pi 1.4.0 (DESIGN.md section 16.1). The decision stands; what "trusted" means in practice is narrower than the text above suggests:
+
+- `/trust` saves a decision for the next start of pi. It does not change `ctx.isProjectTrusted()` in the running session, so `/ref` points to `/trust` and says to restart pi.
+- Pi treats a project with no trust-requiring resource as trusted without any decision. A repository whose only `.pi` file is `pi-context-refs.json` therefore loads its Project library. The confinement rule and the Approval of a Dynamic Ref (ADR 0004) are what protect the user in that case; trust is not.

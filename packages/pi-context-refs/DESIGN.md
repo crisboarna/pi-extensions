@@ -94,7 +94,7 @@ Decided in [What is a Ref, and where does the Ref library live?](https://github.
 ### 5.2 The two libraries
 
 - **Global library**: `~/.pi/agent/pi-context-refs.json`. Unscoped Refs appear everywhere; Scoped Refs only where their scope matches. Personal repository-specific Refs live here, so nothing personal has to be committed. It also holds the global settings `trigger` and `builtins` (section 10.2).
-- **Project library**: `<cwd>/.pi/pi-context-refs.json`, exactly where pi reads project config and never in a parent directory. It is meant to be shared and committed. It loads only when pi trusts the project (`ctx.isProjectTrusted()`); in an untrusted project `/ref` says why and points to `/trust`. Pi does not gate this file itself. Its Path and File Refs must resolve inside the project directory after following symlinks; anything outside is a config error for that Ref. ADR [0003](docs/adr/0003-project-library-follows-trust-and-is-confined.md).
+- **Project library**: `<cwd>/.pi/pi-context-refs.json`, exactly where pi reads project config and never in a parent directory. It is meant to be shared and committed. It loads only when pi trusts the project (`ctx.isProjectTrusted()`); in an untrusted project `/ref` says why and points to `/trust`, and says that a saved decision applies from the next start of pi, because `/trust` does not change a running session (section 16.1). Pi does not gate this file itself. Pi treats a project as trusted when it has no trust-requiring resource (a `.pi/settings.json`, `mcp.json`, `extensions`, `skills`, `prompts`, `themes`, `SYSTEM.md` or `APPEND_SYSTEM.md`, or a `.agents/skills` directory), so a repository whose only `.pi` file is `pi-context-refs.json` loads its Project library with no decision from the user. Trust is then not what protects the user: the Approval (section 10.3) and the confinement rule below are. Its Path and File Refs must resolve inside the project directory after following symlinks; anything outside is a config error for that Ref. ADR [0003](docs/adr/0003-project-library-follows-trust-and-is-confined.md).
 - Relative paths in either library resolve against the session's working directory, so a global `#agents` pointing at `AGENTS.md` means this repository's `AGENTS.md` wherever pi starts. `~/` expands.
 - Both files carry `"version": 1` and a `"$schema"` link (as pi-switchboard's do), and are re-read when they change on disk, checked when the picker opens and before a send.
 
@@ -236,7 +236,7 @@ Decided in the Dynamic and static-kinds tickets, with the RPC rule settled while
 
 | Mode | A File or Dynamic Ref fails |
 |---|---|
-| TUI | The send is cancelled (`input` returns `handled`), the draft comes back through `setEditorText`, and the reason is shown. |
+| TUI | The send is cancelled (`input` returns `handled`), the draft comes back through `setEditorText`, and the reason is shown with `ctx.ui.notify`. The notify call is required: pi puts the draft in the editor but repaints it only on the next render, and the notice is what triggers that render (section 16.1). |
 | RPC | The Placeholder's block becomes a **Failure note** (`error="…"`, empty body, `bytes="0"`), and the client gets an RPC notification. Approvals still go through the client's confirm. |
 | Print, JSON | The same Failure note, and a warning on stderr. |
 
@@ -254,7 +254,7 @@ Decided in [How does the transcript show a sent Placeholder, and how is it expan
 - Only the tail run of Context blocks the extension wrote. Each block is parsed by its declared `bytes` length, so file content that contains a closing tag cannot break the collapse.
 - Each block becomes one line (name, kind, size). `[ref:<name>]` stays in the prose. Path and Snippet text replaced inline is not collapsed.
 
-**Seeing the full text.** `/ref sent` shows the full Expansions of the last sent message (read from the session branch) in a read-only dialog, and as plain notify text in print and RPC. There is no per-message ctrl+o or click expand: pi gives user messages no expandable state.
+**Seeing the full text.** `/ref sent` shows the full Expansions of the last sent message (read from the session branch) in a read-only dialog, as plain notify text in RPC, and on stderr in print mode (section 14). There is no per-message ctrl+o or click expand: pi gives user messages no expandable state.
 
 **Resend.** A Ref whose `<context-ref name=…>` block is already in the message is not expanded again, so a forked or recalled prompt never doubles content (the same rule as Bundles skipping members already in the draft). Stale content is not refreshed.
 
@@ -262,11 +262,11 @@ Decided in [How does the transcript show a sent Placeholder, and how is it expan
 
 Decided in [How are Refs created, edited and removed?](https://github.com/crisboarna/pi-extensions/issues/171), plus `/ref sent` from section 13.
 
-Every command works with full arguments; the TUI dialogs only fill in what is missing, and with no UI and missing arguments a command fails with its usage (the principle of pi-account-guard's `/guard`). Print mode dispatches extension commands, because `session.prompt` runs them, so `pi -p "/ref add …"` works. Subcommands, Ref names, kinds and `in=` values complete through `getArgumentCompletions`.
+Every command works with full arguments; the TUI dialogs only fill in what is missing, and with no UI and missing arguments a command fails with its usage (the principle of pi-account-guard's `/guard`). Print mode dispatches extension commands, because `session.prompt` runs them, so `pi -p "/ref add …"` works. Its output goes to stderr, never stdout (section 16.1). Subcommands, Ref names, kinds and `in=` values complete through `getArgumentCompletions`.
 
 | Command | Does |
 |---|---|
-| `/ref`, `/ref list [tag=<tag>] [in=<library>]` | One plain-text block through `ctx.ui.notify`, the same in TUI, RPC and print: settings (`trigger`, `builtins`), Refs by layer (name, kind, tags, target summary), Shadowed Refs, Built-ins, load warnings, and the Approval state of each Project Dynamic Ref (approved or pending). |
+| `/ref`, `/ref list [tag=<tag>] [in=<library>]` | One plain-text block, the same in TUI, RPC and print, through `ctx.ui.notify` in the TUI and in RPC and written to stderr in print mode, where `ctx.ui.notify` prints nothing (section 16.1): settings (`trigger`, `builtins`), Refs by layer (name, kind, tags, target summary), Shadowed Refs, Built-ins, load warnings, and the Approval state of each Project Dynamic Ref (approved or pending). |
 | `/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>] …` | Kind is `path`, `file`, `snippet` or `dynamic`. The rest of the line is the target: a path, the Snippet text, an `http(s)` URL (Dynamic `url`), or an argv for Dynamic `command`, parsed with shell-style quoting and never run through a shell. Other fields (`cwd`, limits, `scope`) are `key=value` or set with `edit`. |
 | `/ref edit <name> [key=value …]` | With no `key=value`, the Ref opens as pretty JSON in `ctx.ui.editor`, validated on save (an invalid result reopens with the error); with pairs it changes those fields headless. Renaming is allowed unless it clashes. Covers every field. |
 | `/ref remove <name> [in=<library>]` | Removes the Visible Ref. With a UI it confirms first, showing kind, library and target (Snippet text is lost for good) and any Ref it was shadowing; with no UI it runs as typed. `in=` removes a Shadowed Ref from a named library. A Built-in cannot be removed (turn it off with `builtins`). Placeholders already in drafts or history stop resolving and are sent unchanged. |
@@ -339,22 +339,26 @@ Runner `node --test` with Node's built-in type stripping, erasable TypeScript, 9
    - Dynamic Refs against hermetic real things: a child started through `process.execPath` (a metacharacter argument proves no shell; a timeout proves the kill; output past 50 KB proves the cap), a `127.0.0.1` `http.createServer` for URL sources, and real `git` in temporary repositories for the Built-in Refs, including hidden outside a repository. No user command and no external network ever runs.
    - A contract test that asserts the private `segment` shape of the installed pi-tui on every run, so a pi upgrade turns CI red instead of silently degrading the Placeholder to plain text.
 3. **Smoke** (`test/smoke/**`, `npm run test:smoke --workspace packages/pi-context-refs`): real pi with `-ne -e`, `PI_OFFLINE`, no credentials and a stub provider that echoes what it received, so the test asserts the model's text. Run in CI as a step beside the account-guard one with `PI_BIN` set to the pinned pi; not part of `npm test`. Covers print mode (a typed ref expands for every kind, a Failure note), RPC (a failed Dynamic Ref becomes a Failure note with a notification, steer and follow-up, an Approval answered only through `extension_ui_response`, never headless) and a few pty flows through `tools/media/run-in-pty.py`: `#` opens the list, a pick inserts a Placeholder, a send collapses the tail blocks while the model got the full text, and a failed Ref restores the draft.
-4. **Assumptions first.** `test/smoke/assumptions.test.ts` is build step 1: one smoke per pi behaviour the design relies on (section 16.1). A failing item amends this design before more code exists.
+4. **Assumptions first.** `test/smoke/assumptions.test.ts` and the tests listed in section 16.1 were build step 1: one test per pi behaviour the design relies on. A failing item amended this design before more code existed.
 
-### 16.1 Assumed pi behaviour, to prove first
+### 16.1 Assumed pi behaviour
 
-| Assumption | Check | Recorded from |
+Every row was proved against pi 1.4.0 before any feature code was written, by the test named in the last column (all under `packages/pi-context-refs/test/`). Smoke tests run real pi and are opt-in (`npm run test:smoke --workspace packages/pi-context-refs`); integration tests run in `npm run test:integration`.
+
+| Assumption | Result | Proved by |
 |---|---|---|
-| An `input` rewrite reaches the model, including steer and follow-up | smoke (print, RPC) | ticket 164, run in pi 1.4.0 |
-| `registerMarkdownTransformer` collapses the tail Context blocks of a user message, and receives `messageType` | smoke (pty) | tickets 164, 173 |
-| `input` returning `handled` plus `ctx.ui.setEditorText` restores the draft | smoke (pty) | pi-account-guard's assumptions suite |
-| `ctx.ui.confirm` is `false` with no UI and reaches the client in RPC | smoke | ticket 170 |
-| `#` autocomplete chains through `addAutocompleteProvider`, and unmatched or numeric tokens fall through | integration, smoke (pty) | ticket 166 |
-| pi-tui's `Editor.prototype.segment` exists and keeps pi's paste markers atomic when merged | contract test | ticket 168 |
-| A typed token of `/` characters (`#src/…`) keeps the picker open while a Recent row matches | integration | ticket 172, not yet checked in pi |
-| Extension commands run in print mode | smoke | ticket 171 |
-| `ctx.isProjectTrusted()` reflects `/trust` | integration | ticket 167 |
-| Tool results carry the path as sent, and `nestedCalls` carry codemode's inner calls | integration | ticket 165 |
+| An `input` rewrite reaches the model, including steer and follow-up | Holds. In RPC the `input` event also fires for a steer and a follow-up, with `streamingBehavior` `steer` or `followUp`. Images returned by the handler reach the model | `smoke/assumptions.test.ts` |
+| `registerMarkdownTransformer` collapses the tail Context blocks of a user message, and receives `messageType` | Holds: `user`, `assistant` and `assistant-thinking`. The live transcript shows the rewritten text; the model got the full text | `smoke/assumptions-tui.test.ts` (pty) |
+| `input` returning `handled` plus `ctx.ui.setEditorText` restores the draft | **Holds only with a repaint.** In the TUI the editor state is restored, but pi does not repaint until the next render, so an empty editor stays on screen. A `ctx.ui.notify` after it (the failure notice of section 12) triggers the repaint. In RPC the client gets a `set_editor_text` request | `smoke/assumptions-tui.test.ts` (pty); RPC from pi-account-guard's suite |
+| `ctx.ui.confirm` is `false` with no UI and reaches the client in RPC | Holds. `ctx.hasUI` is `false` in print mode; in RPC the client answers with `extension_ui_response` (`confirmed`) | `smoke/assumptions.test.ts` |
+| `#` autocomplete chains through `addAutocompleteProvider`, and unmatched or numeric tokens fall through | Holds with pi's own chain: the last provider registered is asked first, and a provider that returns the next one's suggestions hands a token on. `# heading` opens nothing | `integration/autocomplete-chain.test.ts` (real pi-tui `Editor`) |
+| A typed token of `/` characters (`#src/…`) keeps the picker open while a Recent row matches | Holds: with the list open, every key re-asks the provider, so the list stays while a row matches and closes when none does | `integration/autocomplete-chain.test.ts` |
+| pi-tui's `Editor.prototype.segment` exists and keeps pi's paste markers atomic when merged | Holds in both `grapheme` and `word` mode. Backspace, the cursor, Ctrl+W and undo treat a merged `[ref:…]` as one unit, and `[paste #N]` stays atomic beside it. Ctrl+W deletes only the Placeholder because the merged segment is not word-like | `integration/editor-segment-contract.test.ts` (runs on every build) |
+| Extension commands run in print mode | Holds, with no turn sent to the model. **Output does not:** `ctx.ui.notify` prints nothing in print mode, and `process.stdout.write` from an extension is redirected to stderr, so a command's output in print mode goes to stderr (section 14). In RPC, notify arrives as an `extension_ui_request` | `smoke/assumptions.test.ts` |
+| `ctx.isProjectTrusted()` reflects `/trust` | **Differs.** It reflects the decision pi resolved at start: `--approve` or `--no-approve`, then a saved decision for the directory or the nearest parent, then `defaultProjectTrust`. `/trust` saves a decision for the next start and leaves the running session as it was. A project with no trust-requiring resource is trusted without any decision, so a library-only `.pi/pi-context-refs.json` loads (section 5.2) | `integration/project-trust.test.ts` (real pi, print and pty) |
+| Tool results carry the path as sent, and `nestedCalls` carry codemode's inner calls | Holds. The path is as the model wrote it (`@note.txt` keeps its `@`), so the Recent ref resolver strips and resolves it. A codemode result carries `nestedCalls.calls` (`id`, `name`, `arguments.path`, `status` `ok` or `error`); each inner call also raises a `tool_result` event with `parentToolCallId`. `nestedCalls` is on the stored tool result message, not on the `tool_result` event | `integration/tool-results.test.ts` (real pi) |
+
+The test doubles are in `test/support/`: a stub provider that answers locally and echoes the last user message it received, a probe extension (one scenario per run, not package code), a pty runner that reads the screen through xterm.js, and a real pi-tui `Editor` driven by key bytes.
 
 ### 16.2 Manual checklist
 

@@ -88,6 +88,9 @@ jobs:
       - name: account-guard smoke tests in real pi
         run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-account-guard
 
+      - name: context-refs smoke tests in real pi
+        run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-context-refs
+
   # Packages claim root engines.node; scripts/checks/manifests.ts fails if this version and that floor differ.
   floor:
     name: tests on the oldest supported Node
@@ -128,6 +131,9 @@ jobs:
 
       - name: account-guard smoke tests in real pi
         run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-account-guard
+
+      - name: context-refs smoke tests in real pi
+        run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-context-refs
 
   audit:
     name: dependency audit

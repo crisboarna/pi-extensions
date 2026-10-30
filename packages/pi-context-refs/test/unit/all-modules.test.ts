@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 
-const SRC = join(import.meta.dirname, "..", "src");
+const SRC = join(import.meta.dirname, "..", "..", "src");
 
 test("every source module loads", async () => {
 	const files = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".ts"));
