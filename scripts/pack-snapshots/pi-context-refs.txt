@@ -28,6 +28,7 @@ src/core/resolve.ts
 src/core/scope.ts
 src/core/segments.ts
 src/core/suggest-name.ts
+src/core/text.ts
 src/core/tokens.ts
 src/core/trigger.ts
 src/core/url.ts
