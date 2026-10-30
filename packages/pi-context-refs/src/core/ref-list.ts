@@ -1,3 +1,4 @@
+import type { ApprovalState } from "./approval.ts";
 import type { Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { LAYER_PHRASE, type Layer, resolveRefs } from "./resolve.ts";
@@ -96,6 +97,8 @@ export interface ListInput extends ListedLibrary {
 	/** The Project library: its Refs when the project is trusted, `untrusted` when it is not loaded for that reason. */
 	project: (ListedLibrary & { untrusted?: never }) | { file: string; untrusted: true };
 	place: Place;
+	/** The Approval state of a Project library Ref; undefined for a Ref that needs none. */
+	approvalOf?: (ref: Ref) => ApprovalState | undefined;
 	filter: { tag?: string; library?: "global" | "project" };
 }
 
@@ -110,14 +113,18 @@ export function formatList(input: ListInput): string {
 	const lines = ["pi-context-refs", triggerLine(settings.trigger, input.sessionTrigger), `builtins: ${builtinsText(settings.builtins)}`];
 	const showGlobal = filter.library !== "project";
 	const showProject = filter.library !== "global";
-	const section = (title: string, refs: readonly Ref[]): void => {
+	const section = (title: string, refs: readonly Ref[], approvalOf?: ListInput["approvalOf"]): void => {
 		const shown = tagged(refs);
-		lines.push("", `${title} (${countText(shown.length, refs.length, filter.tag)})`, ...shown.map((ref) => `  ${describeRef(ref)}`));
+		const mark = (ref: Ref): string => {
+			const state = approvalOf?.(ref);
+			return state === undefined ? "" : `  (${state})`;
+		};
+		lines.push("", `${title} (${countText(shown.length, refs.length, filter.tag)})`, ...shown.map((ref) => `  ${describeRef(ref)}${mark(ref)}`));
 	};
 	if (showGlobal && inLayer("scoped").length > 0) section(`Scoped Refs that apply here, in ${input.file}`, inLayer("scoped"));
 	if (showProject) {
 		if (project.untrusted) lines.push("", `Project library ${project.file}: not loaded. ${UNTRUSTED}`);
-		else section(`Project library ${project.file}`, project.refs);
+		else section(`Project library ${project.file}`, project.refs, input.approvalOf);
 	}
 	if (showGlobal) section(`Global library ${input.file}`, inLayer("global"));
 	if (showGlobal && layered.scopedElsewhere.length > 0) section(`Scoped Refs that do not apply here, in ${input.file}`, layered.scopedElsewhere);

@@ -137,6 +137,29 @@ describe("formatList", () => {
 	});
 });
 
+describe("formatList: Approvals", () => {
+	const project = (refs: Ref[]) => ({ file: "/work/app/.pi/pi-context-refs.json", refs, warnings: [] as string[] });
+	const tests: Ref = { name: "tests", kind: "dynamic", command: ["npm", "test"] };
+	const spec: Ref = { name: "spec", kind: "dynamic", url: "https://example.com/spec" };
+	const notes: Ref = { name: "notes", kind: "snippet", text: "x" };
+
+	it("marks each Project Dynamic Ref as approved or pending, and leaves other Refs alone", () => {
+		const text = formatList({
+			...base,
+			project: project([tests, spec, notes]),
+			approvalOf: (ref) => (ref.kind !== "dynamic" ? undefined : ref.name === "tests" ? "approved" : "pending"),
+		});
+		assert.match(text, /^ {2}tests {2}dynamic {2}npm test {2}\(approved\)$/m);
+		assert.match(text, /^ {2}spec {2}dynamic {2}https:\/\/example\.com\/spec {2}\(pending\)$/m);
+		assert.match(text, /^ {2}notes {2}snippet {2}"x"$/m);
+	});
+
+	it("marks nothing in the Global library", () => {
+		const text = formatList({ ...base, refs: [tests], approvalOf: () => "approved" });
+		assert.match(text, /^ {2}tests {2}dynamic {2}npm test$/m);
+	});
+});
+
 describe("formatList: layers", () => {
 	const snippet = (name: string, text: string, scope?: Ref["scope"]): Ref => ({ name, kind: "snippet", text, ...(scope && { scope }) });
 	const project = (refs: Ref[], warnings: string[] = []) => ({ file: "/work/app/.pi/pi-context-refs.json", refs, warnings });

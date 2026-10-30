@@ -1,4 +1,5 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
@@ -18,8 +19,10 @@ export interface ExpandEnv extends CommandEnv, UrlEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
-	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library is not run, since it cannot be approved yet. */
+	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library runs only when `approve` allows it. */
 	layers?: ReadonlyMap<string, Layer>;
+	/** Decides whether a Project library command or URL Ref may run. It is asked one Ref at a time, before any Ref of the message runs. Without it none may. */
+	approve?: (request: ApprovalRequest) => Promise<Verdict>;
 	/** Cancels the commands and fetches that are running. */
 	signal?: AbortSignal;
 }
@@ -72,21 +75,45 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all([...blockRefs.values()].map((ref) => (ref.kind === "file" ? fileBlock(ref, env) : dynamicRefBlock(ref, env))));
+	const refused = await askApprovals([...blockRefs.values()], env);
+	const blocks = await Promise.all(
+		[...blockRefs.values()].map((ref) => {
+			if (ref.kind === "file") return fileBlock(ref, env);
+			const reason = refused.get(ref);
+			return reason === undefined ? dynamicRefBlock(ref, env) : refusedBlock(ref, reason);
+		}),
+	);
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
 }
 
-/** A command or URL Ref's Context block. A Project library command or URL is refused, not run, until its approval exists. */
-function dynamicRefBlock(ref: CommandRef | UrlRef, env: ExpandEnv): Promise<BlockResult> | BlockResult {
-	const needsApproval = env.layers?.get(foldName(ref.name)) === "project";
-	if (isUrlRef(ref)) {
-		return needsApproval ? urlFailure(ref, "a Project library URL needs your approval, and approvals are not built yet") : urlBlock(ref, env, env.signal);
-	}
-	if (needsApproval) return dynamicFailure(ref, "a Project library command needs your approval, and approvals are not built yet");
-	return dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal);
+/** A command or URL Ref's Context block. */
+function dynamicRefBlock(ref: CommandRef | UrlRef, env: ExpandEnv): Promise<BlockResult> {
+	return isUrlRef(ref) ? urlBlock(ref, env, env.signal) : dynamicBlock(ref, commandCwd(ref, env), env, env.signal);
 }
+
+/** The absolute directory a command Ref runs in: its `cwd` (a `~` expands to the home directory) resolved against the session's working directory. */
+export const commandCwd = (ref: Pick<CommandRef, "cwd">, where: { cwd: string; home: string }): string =>
+	resolve(where.cwd, expandHome(ref.cwd ?? ".", where.home));
+
+/** The definition an Approval of a command or URL Ref covers, with a command's directory resolved the way the command runs. */
+export const refDefinition = (ref: CommandRef | UrlRef, where: { cwd: string; home: string }): Definition =>
+	definitionOf(ref, isUrlRef(ref) ? where.cwd : commandCwd(ref, where));
+
+/** The reason each Project library command or URL Ref may not run, asked in order and one at a time so only one dialog is open. */
+async function askApprovals(refs: BlockRef[], env: ExpandEnv): Promise<Map<BlockRef, string>> {
+	const refused = new Map<BlockRef, string>();
+	for (const ref of refs) {
+		if (ref.kind === "file" || env.layers?.get(foldName(ref.name)) !== "project") continue;
+		const verdict = env.approve ? await env.approve({ ref, definition: refDefinition(ref, env) }) : undefined;
+		if (!verdict?.allowed) refused.set(ref, verdict?.reason ?? "it is not approved");
+	}
+	return refused;
+}
+
+/** The Failure note of a command or URL Ref that was not run. */
+const refusedBlock = (ref: CommandRef | UrlRef, reason: string): BlockResult => (isUrlRef(ref) ? urlFailure(ref, reason) : dynamicFailure(ref, reason));
 
 /**
  * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File or Dynamic member goes to `addBlock` and adds no text.
