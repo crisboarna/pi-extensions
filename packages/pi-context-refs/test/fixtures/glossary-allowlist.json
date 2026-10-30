@@ -1,0 +1,67 @@
+{
+	"ignoredTerms": [
+		{
+			"term": "type",
+			"reason": "The TypeScript keyword in import type, and the type field of pi's events. Neither is a Ref kind."
+		},
+		{
+			"term": "set",
+			"reason": "JavaScript's Set and Map.set. Neither is a Bundle."
+		}
+	],
+	"allowedUses": [
+		{
+			"term": "token",
+			"files": [
+				"src/core/expand.ts",
+				"src/core/names.ts",
+				"src/core/picker.ts",
+				"src/core/segments.ts",
+				"src/core/tokens.ts"
+			],
+			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token. segments.ts only imports tokens.ts to find where Placeholders sit. picker.ts finds the Placeholders and typed names already in the draft with findRefTokens."
+		},
+		{
+			"term": "mode",
+			"files": ["src/pi/input.ts", "src/pi/overlay.ts", "src/pi/running.ts", "src/pi/sent.ts"],
+			"reason": "ctx.mode is pi's run mode (tui, rpc, json, print). A Ref kind is never called a mode."
+		},
+		{
+			"term": "snippet",
+			"files": [
+				"src/core/expand.ts",
+				"src/core/library.ts",
+				"src/core/ref-command.ts",
+				"src/core/ref-edit.ts",
+				"src/core/ref-list.ts",
+				"src/pi/commands.ts"
+			],
+			"reason": "Snippet is a Ref kind, and the name of that kind in a library file. The glossary lists it under Ref to say a Ref is not only a Snippet. /ref reads, prints and writes that name."
+		},
+		{
+			"term": "label",
+			"files": ["src/core/ref-completions.ts", "src/pi/picker.ts"],
+			"reason": "The label field of pi's autocomplete item, the text a completion shows. It is not a Tag."
+		},
+		{
+			"term": "trust",
+			"files": ["src/core/ref-list.ts"],
+			"reason": "Pi's project trust: the /trust command and whether pi trusts the project. GLOSSARY.md (Approval) says it is a different thing. /ref list tells the user what to run."
+		},
+		{
+			"term": "provider",
+			"files": ["src/pi/picker.ts"],
+			"reason": "Pi's autocomplete API names its extension point AutocompleteProvider and addAutocompleteProvider. A Dynamic Ref's Source is never called a provider."
+		},
+		{
+			"term": "shortcut",
+			"files": ["src/pi/overlay.ts"],
+			"reason": "Pi's API registers a key binding with registerShortcut. The alt+r overlay key is that; a Ref is never called a shortcut."
+		},
+		{
+			"term": "prefix",
+			"files": ["src/pi/picker.ts"],
+			"reason": "The prefix field of pi's autocomplete suggestions: the typed text a pick replaces. It is not the Trigger."
+		}
+	]
+}

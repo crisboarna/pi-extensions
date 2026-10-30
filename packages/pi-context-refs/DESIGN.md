@@ -86,15 +86,17 @@ Decided in [What is a Ref, and where does the Ref library live?](https://github.
 | `command` or `url` | the **Source** of a Dynamic Ref (section 10): `command` is an argv array, `url` an http or https URL; exactly one |
 | `cwd` | Dynamic `command` only, optional; resolves like Ref paths |
 | `max_bytes` | File only, optional, raises the cut (section 9.4) up to 1 MB |
-| `timeout`, `max_output` | Dynamic only, optional, raise the defaults up to 120 s and 1 MB |
+| `timeout`, `max_output` | Dynamic only, optional, raise the defaults up to 120 s and 1 MB. `max_bytes` and `max_output` are whole numbers of bytes, `timeout` a whole number of seconds |
 | `description` | optional, shown in the picker |
 | `tags` | optional list; same characters as names, case-insensitive |
 | `scope` | Global library only, optional (section 5.3) |
 
+A library file is `{ "version": 1, "$schema": "…", "refs": [ … ] }`. `schema/pi-context-refs.schema.json` describes it and every field above; a Ref may carry only the fields its kind uses, and a field this version does not know skips that Ref, so a typo is reported rather than ignored. Keys outside `refs` that this version does not read (the settings of section 10.2 among them) are left alone.
+
 ### 5.2 The two libraries
 
 - **Global library**: `~/.pi/agent/pi-context-refs.json`. Unscoped Refs appear everywhere; Scoped Refs only where their scope matches. Personal repository-specific Refs live here, so nothing personal has to be committed. It also holds the global settings `trigger` and `builtins` (section 10.2).
-- **Project library**: `<cwd>/.pi/pi-context-refs.json`, exactly where pi reads project config and never in a parent directory. It is meant to be shared and committed. It loads only when pi trusts the project (`ctx.isProjectTrusted()`); in an untrusted project `/ref` says why and points to `/trust`. Pi does not gate this file itself. Its Path and File Refs must resolve inside the project directory after following symlinks; anything outside is a config error for that Ref. ADR [0003](docs/adr/0003-project-library-follows-trust-and-is-confined.md).
+- **Project library**: `<cwd>/.pi/pi-context-refs.json`, exactly where pi reads project config and never in a parent directory. It is meant to be shared and committed. It loads only when pi trusts the project (`ctx.isProjectTrusted()`); in an untrusted project `/ref` says why and points to `/trust`, and says that a saved decision applies from the next start of pi, because `/trust` does not change a running session (section 16.1). Pi does not gate this file itself. Pi treats a project as trusted when it has no trust-requiring resource (a `.pi/settings.json`, `mcp.json`, `extensions`, `skills`, `prompts`, `themes`, `SYSTEM.md` or `APPEND_SYSTEM.md`, or a `.agents/skills` directory), so a repository whose only `.pi` file is `pi-context-refs.json` loads its Project library with no decision from the user. Trust is then not what protects the user: the Approval (section 10.3) and the confinement rule below are. Its Path and File Refs must resolve inside the project directory after following symlinks; anything outside is a config error for that Ref. ADR [0003](docs/adr/0003-project-library-follows-trust-and-is-confined.md).
 - Relative paths in either library resolve against the session's working directory, so a global `#agents` pointing at `AGENTS.md` means this repository's `AGENTS.md` wherever pi starts. `~/` expands.
 - Both files carry `"version": 1` and a `"$schema"` link (as pi-switchboard's do), and are re-read when they change on disk, checked when the picker opens and before a send.
 
@@ -108,11 +110,11 @@ The same name in several places: **Scoped Ref > Project library > unscoped Globa
 
 ### 5.5 Missing or malformed files
 
-A missing file is an empty library. In a file that parses, each invalid Ref is skipped on its own, with one warning naming the file and the JSON path, so one typo does not hide the rest. A file that does not parse keeps the session's last good copy (or none). Warnings show once in the TUI, in `/ref`, and on stderr in print mode.
+A missing file is an empty library. In a file that parses, each invalid Ref is skipped on its own, with one warning naming the file and the JSON path, so one typo does not hide the rest; a Ref whose name repeats an earlier one in the file, compared case-insensitively, is skipped the same way. A file that does not parse, or whose `version` is not 1, keeps the session's last good copy (or none). Warnings show once in the TUI, in `/ref`, and on stderr in print mode.
 
 ### 5.6 Bundles
 
-`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
+`#tag:<tag>` (Ref names cannot contain `:`, so there is no clash) means every Visible Ref carrying that tag, ordered scoped, project, global, then file order. Picking a Bundle inserts one Placeholder per member, so each can be removed before sending, and only for members not already in the draft. A typed `#tag:<tag>` expands to all members at send, each as it would be on its own: a Snippet or Path inline where the token stood, a File as a Context block after the text (the token adds no text for it), once for a member the message also names or already carries a block for. A Dynamic member keeps every Dynamic rule: a Bundle never skips an Approval.
 
 ## 6. The Placeholder and the editor
 
@@ -132,6 +134,8 @@ Same ticket as section 6.
 - **Overlay on `alt+r`.** A sectioned overlay with a filter and a preview of the selected Ref's Expansion. Picking from it after a typed `#` replaces that `#`. In the overlay you can also save a Recent row and edit or remove a saved row (section 14).
 - **Tags** group and narrow the rows. Picking a Bundle inserts one Placeholder per member (section 5.6).
 - Built-in Refs are hidden outside a git work tree.
+- **Matching.** A row answers `#text` when the text is part of its Ref name or one of its Tags, or part of a Bundle's Tag (`#tag:<tag>` asks for Bundles only). Better matches (the whole name, then its start, then any part of it, then a Tag) come first within a section.
+- **Config errors.** A `trigger` that is not one character, or is `/`, `@`, `!` or whitespace, is reported as a warning at session start and in `/ref list`, and the picker uses `#`.
 
 ## 8. Sending: the `input` handler
 
@@ -172,20 +176,21 @@ One XML-style element for every block kind, after pi's own `<file name="…">` t
 
 ### 9.3 Duplicates
 
-- Picking a Bundle inserts Placeholders only for the members not already in the draft.
+- Picking a Bundle inserts Placeholders only for the members not already in the draft. Picking a single Ref always inserts its Placeholder, even when the draft has it, because a Path or Snippet expands at every occurrence.
 - At send, a File or Dynamic Ref used more than once gives one block (a Dynamic Ref also runs once).
 - Path and Snippet are inline text, so they expand at every occurrence.
 
 ### 9.4 File limits
 
-- By default a File is cut at 50 KB or 2000 lines, whichever comes first. These are pi's read-tool caps (exported `truncateHead`, `DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). The block is marked `truncated`, and a closing line tells the model it can read the rest with the read tool from line N. A per-Ref `max_bytes` raises the cap up to 1 MB. A cut never blocks the send.
+- By default a File is cut at 50 KB or 2000 lines, whichever comes first. These are pi's read-tool caps (exported `truncateHead`, `DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). The block is marked `truncated`, and a closing line tells the model it can read the rest with the read tool from line N. The closing line reads `[Truncated at 2000 lines: showing lines 1-2000 of 2500. Use the read tool with offset=2001 to read the rest.]` (the cap that was hit is `50 KB` or `2000 lines`, and it is also the value of `truncated`). A per-Ref `max_bytes` replaces the byte cap, up to 1 MB, and lifts the line cap. A cut never blocks the send.
 - An image of a type pi supports (`detectSupportedImageMimeTypeFromFile`, exported) is attached through the `input` event's `images`, with an empty block naming it. It is not resized, because pi's `processImage` is not exported. Over 5 MB is a failure that suggests resizing.
 - Any other binary file (a NUL byte in the first 8 KB) is a failure, never mojibake.
+- At most 16 MB of a text File is read, so a huge file cannot fill memory. Past that sample the cut note says `showing lines 1-N` with no total.
 - A missing or unreadable file, a directory, or a target outside the project after following symlinks is a failure (section 12). A directory's message suggests a Path Ref or a Dynamic `["ls", …]` Ref.
 
 ### 9.5 Typed tokens
 
-A typed `#name` ends at the first character that is not a name character (letters, digits, `.`, `-`, `_`), and a trailing `.` is never part of it: `#terse,` gives `terse`, and `#readme.md.` gives `readme.md`. A `[ref:…]` Placeholder is bounded by its `]` (section 6).
+A typed `#name` ends at the first character that is not a name character (letters, digits, `.`, `-`, `_`), and a trailing `.` is never part of it: `#terse,` gives `terse`, and `#readme.md.` gives `readme.md`. It starts only at the beginning of the text or after a character that cannot belong to a word, URL or path, so `page#api`, `src/#a` and `C#sharp` pass through. A `[ref:…]` Placeholder is bounded by its `]` (section 6) and must close on the line it opens on.
 
 ## 10. Dynamic Refs and Approvals
 
@@ -194,7 +199,7 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 ### 10.1 Sources
 
 - **command**: an argv array (`"command": ["git", "diff", "--staged"]`), run through `pi.exec` with no shell. A pipe needs an explicit `["sh", "-c", "…"]`, so a reader can see that a shell runs. It runs in the session cwd, or in an optional per-Ref `cwd` that resolves like Ref paths (confined to the project for Project library Refs). It inherits pi's environment; there is no `env` field.
-- **url**: a plain GET over http or https, following up to 5 redirects. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure. No custom headers (no secrets in config files) and no templating.
+- **url**: a plain GET over http or https, following up to 5 redirects. A redirect from a public host to a loopback, private or link-local address (a local service, the cloud metadata address) is refused; a Ref whose own URL is local follows its own redirects. Host names are not resolved. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure: a `Content-Type` that is not text, JSON, XML, YAML, JavaScript or TOML, or a NUL byte in the first 8 KB, makes a body binary. A status outside 200 to 299 is a fetch error. The timeout and the output cap of section 10.4 apply (the cap cuts the body; the fetcher stops reading there), and the block's first line is `GET <url>`. No custom headers (no secrets in config files) and no templating.
 - No parameters: every Dynamic Ref is fixed.
 
 ### 10.2 Built-in Refs
@@ -203,15 +208,17 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 
 ### 10.3 Approval
 
-- Built-ins and Global library Refs run without asking.
+- Built-ins and Global library Refs run without asking. A Built-in runs `git` in the project, and git reads that repository's `.git/config`, which a hostile repository controls (for example `core.fsmonitor`).
 - A Project library Dynamic Ref runs only after you approve its exact definition (source, argv or URL, and cwd). The choices are: once, always for this definition, or deny.
 - "Always" is saved in `~/.pi/agent/pi-context-refs-approvals.json`, keyed by canonical project path, Ref name and a hash of the definition. A changed definition (after a pull, for example) asks again. Approvals are never stored in the project, so a repository cannot approve itself.
-- RPC asks through the client's confirm dialog. In print and JSON modes an unapproved Ref does not run: it becomes a failure note, and a hint on stderr says how to approve it. There is no approve-all flag.
+- The question is a `ctx.ui.select` with three choices (run once, always for this definition, deny) whose title shows the Ref and its exact definition. The TUI shows it as a dialog and an RPC client gets it as an `extension_ui_request` that it answers with `extension_ui_response`; a dismissed dialog is a deny. All questions of a message are asked one at a time, before any Ref of the message runs. In print and JSON modes an unapproved Ref does not run: it becomes a failure note, and a hint on stderr says how to approve it. There is no approve-all flag.
+- The definition is hashed as source plus argv and the absolute directory a command runs in, or source plus the URL. The name, limits and description are not part of it, so changing only those keeps the Approval. An Approval is replaced, never added to, when the same Ref is approved again.
+- An Approval covers the definition only: the argv and directory, or the URL. It does not cover the files a command runs, so a pull that rewrites `./scripts/x.sh`, a Makefile or `package.json` runs under the old Approval, and a URL's page can change. A command also inherits pi's whole environment. Every Approval dialog says so.
 - A Bundle never skips an Approval.
 
 ### 10.4 Limits and running
 
-By default a 10 s timeout and a 50 KB output cap per Ref; a Ref can raise them up to 120 s and 1 MB. A cut is marked in the Expansion, control characters are stripped, and binary output is a failure. Dynamic Refs run at every send, with no caching across messages.
+By default a 10 s timeout and a 50 KB output cap per Ref; a Ref can raise them up to 120 s and 1 MB. A cut is marked in the Expansion, control characters are stripped, and binary output is a failure. Dynamic Refs run at every send, with no caching across messages. The output is stdout followed by stderr, so a failing test run shows its errors. `pi.exec` reports a command that cannot start as exit 1 with no output, so only that case is checked: a missing working directory or program becomes "cannot start", and any other exit 1 stays a non-zero exit. `pi.exec` buffers all output before the cap applies; the timeout bounds how much a runaway command can write.
 
 ### 10.5 What counts as a failure
 
@@ -236,7 +243,7 @@ Decided in the Dynamic and static-kinds tickets, with the RPC rule settled while
 
 | Mode | A File or Dynamic Ref fails |
 |---|---|
-| TUI | The send is cancelled (`input` returns `handled`), the draft comes back through `setEditorText`, and the reason is shown. |
+| TUI | The send is cancelled (`input` returns `handled`), the draft comes back through `setEditorText`, and the reason is shown with `ctx.ui.notify`. The notify call is required: pi puts the draft in the editor but repaints it only on the next render, and the notice is what triggers that render (section 16.1). |
 | RPC | The Placeholder's block becomes a **Failure note** (`error="…"`, empty body, `bytes="0"`), and the client gets an RPC notification. Approvals still go through the client's confirm. |
 | Print, JSON | The same Failure note, and a warning on stderr. |
 
@@ -254,7 +261,7 @@ Decided in [How does the transcript show a sent Placeholder, and how is it expan
 - Only the tail run of Context blocks the extension wrote. Each block is parsed by its declared `bytes` length, so file content that contains a closing tag cannot break the collapse.
 - Each block becomes one line (name, kind, size). `[ref:<name>]` stays in the prose. Path and Snippet text replaced inline is not collapsed.
 
-**Seeing the full text.** `/ref sent` shows the full Expansions of the last sent message (read from the session branch) in a read-only dialog, and as plain notify text in print and RPC. There is no per-message ctrl+o or click expand: pi gives user messages no expandable state.
+**Seeing the full text.** `/ref sent` shows the full Expansions of the last sent message (read from the session branch) in a read-only dialog, as plain notify text in RPC, and on stderr in print mode (section 14). There is no per-message ctrl+o or click expand: pi gives user messages no expandable state.
 
 **Resend.** A Ref whose `<context-ref name=…>` block is already in the message is not expanded again, so a forked or recalled prompt never doubles content (the same rule as Bundles skipping members already in the draft). Stale content is not refreshed.
 
@@ -262,24 +269,24 @@ Decided in [How does the transcript show a sent Placeholder, and how is it expan
 
 Decided in [How are Refs created, edited and removed?](https://github.com/crisboarna/pi-extensions/issues/171), plus `/ref sent` from section 13.
 
-Every command works with full arguments; the TUI dialogs only fill in what is missing, and with no UI and missing arguments a command fails with its usage (the principle of pi-account-guard's `/guard`). Print mode dispatches extension commands, because `session.prompt` runs them, so `pi -p "/ref add …"` works. Subcommands, Ref names, kinds and `in=` values complete through `getArgumentCompletions`.
+Every command works with full arguments; the TUI dialogs only fill in what is missing, and with no UI and missing arguments a command fails with its usage (the principle of pi-account-guard's `/guard`). Print mode dispatches extension commands, because `session.prompt` runs them, so `pi -p "/ref add …"` works. Its output goes to stderr, never stdout (section 16.1). Subcommands, Ref names, kinds and `in=` values complete through `getArgumentCompletions`.
 
 | Command | Does |
 |---|---|
-| `/ref`, `/ref list [tag=<tag>] [in=<library>]` | One plain-text block through `ctx.ui.notify`, the same in TUI, RPC and print: settings (`trigger`, `builtins`), Refs by layer (name, kind, tags, target summary), Shadowed Refs, Built-ins, load warnings, and the Approval state of each Project Dynamic Ref (approved or pending). |
+| `/ref`, `/ref list [tag=<tag>] [in=<library>]` | One plain-text block, the same in TUI, RPC and print, through `ctx.ui.notify` in the TUI and in RPC and written to stderr in print mode, where `ctx.ui.notify` prints nothing (section 16.1): settings (`trigger`, `builtins`), Refs by layer (name, kind, tags, target summary), Shadowed Refs, Built-ins, load warnings, and the Approval state of each Project Dynamic Ref (approved or pending). |
 | `/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>] …` | Kind is `path`, `file`, `snippet` or `dynamic`. The rest of the line is the target: a path, the Snippet text, an `http(s)` URL (Dynamic `url`), or an argv for Dynamic `command`, parsed with shell-style quoting and never run through a shell. Other fields (`cwd`, limits, `scope`) are `key=value` or set with `edit`. |
 | `/ref edit <name> [key=value …]` | With no `key=value`, the Ref opens as pretty JSON in `ctx.ui.editor`, validated on save (an invalid result reopens with the error); with pairs it changes those fields headless. Renaming is allowed unless it clashes. Covers every field. |
 | `/ref remove <name> [in=<library>]` | Removes the Visible Ref. With a UI it confirms first, showing kind, library and target (Snippet text is lost for good) and any Ref it was shadowing; with no UI it runs as typed. `in=` removes a Shadowed Ref from a named library. A Built-in cannot be removed (turn it off with `builtins`). Placeholders already in drafts or history stop resolving and are sent unchanged. |
 | `/ref approvals` | This project's Approvals (Ref, definition, date) and any pending Project Dynamic Refs. |
 | `/ref approve <name>` | Shows the exact definition and needs a UI confirm. With no UI it refuses and says to run it in pi, so a script cannot approve a hostile repository's Refs. There is no headless or approve-all form. |
-| `/ref revoke <name\|all>` | Drops Approvals; needs no confirm. |
+| `/ref revoke <name\|*>` | Drops Approvals; needs no confirm. |
 | `/ref sent` | The full Expansions of the last sent message (section 13). |
 
-**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with Global preselected.
+**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with the Global library first, when it asked for any of the name, kind or target and `in=` was not typed. `edit` and `remove` work on the library of the Visible Ref of that name (the Global library when none is Visible) unless `in=` names one; `edit <name> in=here` scopes that Global Ref to this repository the same way. `in=here` uses the `origin` remote, else the first remote, normalized to `host/path`.
 
 **Name clashes.** A clash inside the target library (names are case-insensitive) is an error that points to `/ref edit`; nothing is overwritten. The same name in another layer, or a Built-in, is allowed because precedence handles it, and the result line says what the new Ref shadows or is shadowed by.
 
-**Project Dynamic Refs.** Adding or editing one with `in=project` shows the exact definition (argv or URL, and cwd); one confirm saves the Ref **and** records an "always" Approval for exactly that definition hash (TUI, or RPC through the client's confirm). A later change, from you or from a pull, asks again. Headless saves the Ref and records no Approval. Removing the Ref drops its Approval. Approving once in the TUI is the way to prepare print-mode use.
+**Project Dynamic Refs.** Adding or editing one with `in=project` shows the exact definition (argv or URL, and cwd); one confirm saves the Ref **and** records an "always" Approval for exactly that definition hash (TUI, or RPC through the client's confirm). A later change, from you or from a pull, asks again. The confirm comes before the save: declining it saves nothing. A Ref whose definition is approved already is saved without a question. Headless saves the Ref and records no Approval. Removing or renaming the Ref drops its Approval. `/ref approve` and `/ref revoke` without a name ask which Ref when there is a UI. Approving once in the TUI is the way to prepare print-mode use.
 
 **Picker overlay.** Besides picking: save a Recent row (a key opens the add flow prefilled with the path, a File or Path choice and a suggested name), and edit or remove a saved row with the same editor and confirm as the commands. Built-ins cannot be edited. There is no shortcut that saves the draft as a Snippet.
 
@@ -315,7 +322,9 @@ src/core/                 pure, no pi imports
 src/pi/                   glue
   input.ts                the input handler: modes, status, cancel, failure handling
   editor.ts               the segment merge, the key handling and the feature check
-  picker.ts               the autocomplete provider and the alt+r overlay
+  picker.ts               the autocomplete provider
+  overlay.ts, overlay-view.ts  the alt+r overlay: its loop, and the component with its filter, list and preview
+  ref-save.ts             saving a Recent row through the add flow
   transcript.ts           the Markdown transformer
   recent-source.ts        tool and input events feeding Recent refs
   commands.ts             /ref
@@ -339,26 +348,32 @@ Runner `node --test` with Node's built-in type stripping, erasable TypeScript, 9
    - Dynamic Refs against hermetic real things: a child started through `process.execPath` (a metacharacter argument proves no shell; a timeout proves the kill; output past 50 KB proves the cap), a `127.0.0.1` `http.createServer` for URL sources, and real `git` in temporary repositories for the Built-in Refs, including hidden outside a repository. No user command and no external network ever runs.
    - A contract test that asserts the private `segment` shape of the installed pi-tui on every run, so a pi upgrade turns CI red instead of silently degrading the Placeholder to plain text.
 3. **Smoke** (`test/smoke/**`, `npm run test:smoke --workspace packages/pi-context-refs`): real pi with `-ne -e`, `PI_OFFLINE`, no credentials and a stub provider that echoes what it received, so the test asserts the model's text. Run in CI as a step beside the account-guard one with `PI_BIN` set to the pinned pi; not part of `npm test`. Covers print mode (a typed ref expands for every kind, a Failure note), RPC (a failed Dynamic Ref becomes a Failure note with a notification, steer and follow-up, an Approval answered only through `extension_ui_response`, never headless) and a few pty flows through `tools/media/run-in-pty.py`: `#` opens the list, a pick inserts a Placeholder, a send collapses the tail blocks while the model got the full text, and a failed Ref restores the draft.
-4. **Assumptions first.** `test/smoke/assumptions.test.ts` is build step 1: one smoke per pi behaviour the design relies on (section 16.1). A failing item amends this design before more code exists.
+4. **Assumptions first.** `test/smoke/assumptions.test.ts` and the tests listed in section 16.1 were build step 1: one test per pi behaviour the design relies on. A failing item amended this design before more code existed.
 
-### 16.1 Assumed pi behaviour, to prove first
+### 16.1 Assumed pi behaviour
 
-| Assumption | Check | Recorded from |
+Every row was proved against pi 1.4.0 before any feature code was written, by the test named in the last column (all under `packages/pi-context-refs/test/`). Smoke tests run real pi and are opt-in (`npm run test:smoke --workspace packages/pi-context-refs`); integration tests run in `npm run test:integration`.
+
+| Assumption | Result | Proved by |
 |---|---|---|
-| An `input` rewrite reaches the model, including steer and follow-up | smoke (print, RPC) | ticket 164, run in pi 1.4.0 |
-| `registerMarkdownTransformer` collapses the tail Context blocks of a user message, and receives `messageType` | smoke (pty) | tickets 164, 173 |
-| `input` returning `handled` plus `ctx.ui.setEditorText` restores the draft | smoke (pty) | pi-account-guard's assumptions suite |
-| `ctx.ui.confirm` is `false` with no UI and reaches the client in RPC | smoke | ticket 170 |
-| `#` autocomplete chains through `addAutocompleteProvider`, and unmatched or numeric tokens fall through | integration, smoke (pty) | ticket 166 |
-| pi-tui's `Editor.prototype.segment` exists and keeps pi's paste markers atomic when merged | contract test | ticket 168 |
-| A typed token of `/` characters (`#src/…`) keeps the picker open while a Recent row matches | integration | ticket 172, not yet checked in pi |
-| Extension commands run in print mode | smoke | ticket 171 |
-| `ctx.isProjectTrusted()` reflects `/trust` | integration | ticket 167 |
-| Tool results carry the path as sent, and `nestedCalls` carry codemode's inner calls | integration | ticket 165 |
+| An `input` rewrite reaches the model, including steer and follow-up | Holds. In RPC the `input` event also fires for a steer and a follow-up, with `streamingBehavior` `steer` or `followUp`. Images returned by the handler reach the model | `smoke/assumptions.test.ts` |
+| `registerMarkdownTransformer` collapses the tail Context blocks of a user message, and receives `messageType` | Holds: `user`, `assistant` and `assistant-thinking`. The live transcript shows the rewritten text; the model got the full text | `smoke/assumptions-tui.test.ts` (pty) |
+| `input` returning `handled` plus `ctx.ui.setEditorText` restores the draft | **Holds only with a repaint.** In the TUI the editor state is restored, but pi does not repaint until the next render, so an empty editor stays on screen. A `ctx.ui.notify` after it (the failure notice of section 12) triggers the repaint. In RPC the client gets a `set_editor_text` request | `smoke/assumptions-tui.test.ts` (pty); RPC from pi-account-guard's suite |
+| `ctx.ui.confirm` is `false` with no UI and reaches the client in RPC | Holds. `ctx.hasUI` is `false` in print mode; in RPC the client answers with `extension_ui_response` (`confirmed`) | `smoke/assumptions.test.ts` |
+| `#` autocomplete chains through `addAutocompleteProvider`, and unmatched or numeric tokens fall through | Holds with pi's own chain: the last provider registered is asked first, and a provider that returns the next one's suggestions hands a token on. `# heading` opens nothing | `integration/autocomplete-chain.test.ts` (real pi-tui `Editor`) |
+| A typed token of `/` characters (`#src/…`) keeps the picker open while a Recent row matches | Holds: with the list open, every key re-asks the provider, so the list stays while a row matches and closes when none does | `integration/autocomplete-chain.test.ts` |
+| pi-tui's `Editor.prototype.segment` exists and keeps pi's paste markers atomic when merged | Holds in both `grapheme` and `word` mode. Backspace, the cursor, Ctrl+W and undo treat a merged `[ref:…]` as one unit, and `[paste #N]` stays atomic beside it. Ctrl+W deletes only the Placeholder because the merged segment is not word-like | `integration/editor-segment-contract.test.ts` (runs on every build) |
+| Extension commands run in print mode | Holds, with no turn sent to the model. **Output does not:** `ctx.ui.notify` prints nothing in print mode, and `process.stdout.write` from an extension is redirected to stderr, so a command's output in print mode goes to stderr (section 14). In RPC, notify arrives as an `extension_ui_request` | `smoke/assumptions.test.ts` |
+| `ctx.isProjectTrusted()` reflects `/trust` | **Differs.** It reflects the decision pi resolved at start: `--approve` or `--no-approve`, then a saved decision for the directory or the nearest parent, then `defaultProjectTrust`. `/trust` saves a decision for the next start and leaves the running session as it was. A project with no trust-requiring resource is trusted without any decision, so a library-only `.pi/pi-context-refs.json` loads (section 5.2) | `integration/project-trust.test.ts` (real pi, print and pty) |
+| Tool results carry the path as sent, and `nestedCalls` carry codemode's inner calls | Holds. The path is as the model wrote it (`@note.txt` keeps its `@`), so the Recent ref resolver strips and resolves it. A codemode result carries `nestedCalls.calls` (`id`, `name`, `arguments.path`, `status` `ok` or `error`); each inner call also raises a `tool_result` event with `parentToolCallId`. `nestedCalls` is on the stored tool result message, not on the `tool_result` event | `integration/tool-results.test.ts` (real pi) |
+
+The test doubles are in `test/support/`: a stub provider that answers locally and echoes the last user message it received, a probe extension (one scenario per run, not package code), a pty runner that reads the screen through xterm.js, and a real pi-tui `Editor` driven by key bytes.
 
 ### 16.2 Manual checklist
 
 Run in a real TUI.
+
+[docs/manual-checklist.md](docs/manual-checklist.md) turns these items into steps and records who ran them.
 
 - The look of the inline list and the `alt+r` overlay at narrow widths, in themes and with wide characters.
 - Fork, resume, export and compaction showing the full text.
@@ -377,6 +392,9 @@ Run in a real TUI.
 - A Placeholder relies on one TS-private pi-tui method (ADR 0001). A pi upgrade can degrade it to plain text; the contract test catches that in CI, and the fallback still expands on send.
 - Stale content is never refreshed: a block already in a resent message stays as it was.
 - Snippets cannot contain Refs.
+- An Approval covers the command line or the URL, not the files a command runs or the page a URL returns, and a command runs with pi's environment (section 10.3).
+- The Built-in Refs run `git` without asking, and a repository's `.git/config` can make git run a program. A Project library Ref silently shadows a Global or Built-in Ref of the same name; the picker's layer mark and `/ref list` are the cues.
+- A text File is read up to 16 MB. A bigger one is cut at its cap from that sample, and its closing line names the lines shown without a total.
 - A `#` in the middle of prose that happens to match a Ref name (`#api`) expands. The match is exact and whole-word, but a Ref named `todo` makes every `#todo` expand.
 
 ## 18. Not yet specified
@@ -411,6 +429,10 @@ Settled while assembling, where closed tickets disagreed (confirmed with the use
 - **`bytes` on the Context block.** The transcript ticket parses blocks by a declared length that the static-kinds frame did not list. The frame gains `bytes`.
 - **RPC failures.** The static-kinds and Dynamic tickets give RPC a Failure note; the testing ticket had the draft restored. RPC gets the Failure note; only the TUI restores the draft.
 
+Settled while building the picker (flag if wrong): a Built-in Ref's row carries the mark ○ and the word "built-in", and sits between the global rows and the Bundles; the Trigger moves only the picker, so a typed `#name` expands whatever the setting says; the picker re-reads both libraries on every key it is asked about, and asks git whether the directory is a work tree when the list opens.
+
+Settled while building Recent refs (flag if wrong): a row matches when its shown path contains the query, and stays in newest-first order (no relevance ranking); a row's note names the latest use, an `edit` or a `write` counting as edited; an `@path` in a sent message counts as a read; pi's temporary files (an entry whose name starts with `pi-` under the temporary directory, outside the session directory) are never kept, so they take no place of the 200; a path that has `]`, `"` or a control character is not kept, because a Placeholder cannot carry it; only regular files are rows, so a directory named by `@src/` is hidden; the text of the Context blocks at the end of a message is not scanned for `@path`; a root file used in the file form is named `./README.md` in its block, so no saved Ref's name can clash with it; a used file that is gone by send time gives a Failure note, and a symlink out of the project leaves the Placeholder as typed.
+
 Derived in this document (not asked, flag if wrong): the module structure (section 15); the exact fields `timeout` and `max_output` and `max_bytes` for per-Ref limits; the `pi-context-refs.schema.json` path; the table of assumptions in section 16.1; the `/ref sent` row in the command table; Built-in Refs ranked below unscoped Global Refs in the precedence line of section 5.4.
 
 ## 20. Sources
@@ -418,3 +440,5 @@ Derived in this document (not asked, flag if wrong): the module structure (secti
 - pi docs (`extensions.md`, `docs/security.md`, `docs/configuration.md`, `docs/rpc-extension-ui.md`) and pi-tui's `editor.js` in the pi 1.4.0 install.
 - pi-account-guard `DESIGN.md` (§3, §11, §17) and pi-switchboard `DESIGN.md` §7 for the shared conventions.
 - Research notes on throwaway branches: `research/context-refs/editor-markers`, `research/context-refs/expansion-hooks`, `research/context-refs/recent-paths`; the editor prototype on `prototype/pi-context-refs/editor`.
+
+Settled while building the overlay (flag if wrong): `alt+r` is registered with `pi.registerShortcut` and does nothing outside the TUI. The overlay shows the same rows as the inline list, under a heading per section, with a filter that starts as the text typed after a typed Trigger (a number such as `#123` is another provider's, so it is neither replaced nor used as the filter). A pick replaces the typed Trigger token with Backspace presses and one insert, through the editor the package put in the slot; when another extension holds the slot, the Placeholders are pasted at the cursor and the typed token stays. Keys: Enter picks, Tab switches a Recent row between path form and file form, Ctrl+S saves a Recent row, Ctrl+E edits and Ctrl+D removes a saved row (a scoped, Project or Global row), Esc closes. Edit, remove and save close the overlay, run the `/ref` flow (the same JSON editor and confirm), then open the overlay again where it was. The preview is the Expansion of what a pick would insert, read through `expandRefs`; it starts 150 ms after a row is selected, so passing over a row does not run its command, and a Project library command or URL Ref runs only when its exact definition is approved already (otherwise the preview shows the Failure note). A saved Recent row goes into the Global library, as `/ref add` does by default; its Path is the path as the row shows it, and the name is asked again until it is valid and free.
