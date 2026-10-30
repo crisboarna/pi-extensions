@@ -8,6 +8,18 @@
 	"properties": {
 		"$schema": { "type": "string", "description": "This schema's URL, so an editor can validate the file." },
 		"version": { "const": 1, "description": "The file format version." },
+		"trigger": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Global library only. The character that opens the picker: one character, not \"/\", \"@\", \"!\" or a space. A change needs /reload. The default is \"#\"."
+		},
+		"builtins": {
+			"oneOf": [
+				{ "type": "boolean" },
+				{ "type": "array", "items": { "type": "string", "enum": ["diff", "staged", "status", "log"] }, "uniqueItems": true }
+			],
+			"description": "Global library only. false turns off the Built-in Refs #diff, #staged, #status and #log; a list of names turns off just those. The default is true."
+		},
 		"refs": {
 			"type": "array",
 			"items": { "$ref": "#/$defs/ref" },
