@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { detectSupportedImageMimeTypeFromFile, type ExtensionAPI, getAgentDir, truncateHead } from "@earendil-works/pi-coding-agent";
 import { registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
 import { readFileBytes, readTextIfPresent, writeTextAtomically } from "./pi/fs.ts";
@@ -13,6 +13,8 @@ export default function extension(pi: ExtensionAPI): void {
 		home: homedir(),
 		readText: readTextIfPresent,
 		readFile: readFileBytes,
+		truncateHead,
+		imageType: detectSupportedImageMimeTypeFromFile,
 		writeStderr: (text) => void process.stderr.write(text),
 	});
 	registerRefCommand(pi, {

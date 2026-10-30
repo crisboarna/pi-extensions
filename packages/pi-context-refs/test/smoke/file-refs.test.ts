@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
+import { crc32, deflateSync } from "node:zlib";
 import { RpcSession, runPrint } from "../support/pi-process.ts";
 import { probeRun } from "../support/probe-run.ts";
 import { PtySession } from "../support/pty-session.ts";
@@ -21,6 +22,28 @@ const API = "export const api = 1;\n";
 const block = (attributes: string, body: string) => `<context-ref ${attributes}>\n${body}\n</context-ref>`;
 const API_BLOCK = block('name="api" kind="file" path="src/api.ts" bytes="22"', API);
 const GONE_NOTE = block('name="gone" kind="file" path="src/gone.ts" bytes="0" error="src/gone.ts does not exist"', "");
+
+/** A valid 1x1 PNG, so pi's own image handling accepts it. */
+function onePixelPng(): Buffer {
+	const chunk = (type: string, data: Buffer) => {
+		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+		const length = Buffer.alloc(4);
+		length.writeUInt32BE(data.length);
+		const crc = Buffer.alloc(4);
+		crc.writeUInt32BE(crc32(body));
+		return Buffer.concat([length, body, crc]);
+	};
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(1, 0);
+	header.writeUInt32BE(1, 4);
+	header.set([8, 2, 0, 0, 0], 8);
+	return Buffer.concat([
+		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+		chunk("IHDR", header),
+		chunk("IDAT", deflateSync(Buffer.from([0, 255, 0, 0]))),
+		chunk("IEND", Buffer.alloc(0)),
+	]);
+}
 
 /** A run of the real extension in a project with `src/api.ts` and `src/empty.txt`, and a library of File Refs in its agent directory. */
 function run(env: Record<string, string> = {}) {
@@ -58,6 +81,41 @@ describe("a File Ref in print mode (DESIGN.md sections 8 and 9)", () => {
 		const result = await runPrint("Look at #dir", probe.options);
 		assert.equal(result.code, 0, result.stderr);
 		assert.match(result.stderr, /^pi-context-refs: #dir: src is a directory; save it as a Path Ref, or as a Dynamic Ref that runs \["ls", \.\.\.\]\n$/);
+	});
+});
+
+describe("a large File Ref in print mode (DESIGN.md section 9.4)", () => {
+	it("reaches the model cut at 2000 lines, marked truncated, with the note that says where to continue", async () => {
+		const probe = run();
+		const lines = Array.from({ length: 2500 }, (_, index) => `line ${index + 1}`);
+		writeFileSync(join(probe.dir, "src", "big.txt"), `${lines.join("\n")}\n`);
+		const agentFile = join(probe.options.env.PI_CODING_AGENT_DIR ?? "", "pi-context-refs.json");
+		writeFileSync(agentFile, JSON.stringify({ version: 1, refs: [{ name: "big", kind: "file", path: "src/big.txt" }] }));
+		const result = await runPrint("Summarise #big", probe.options);
+		assert.equal(result.code, 0, result.stderr);
+		const [received] = probe.received();
+		const kept = lines.slice(0, 2000).join("\n");
+		const note = "[Truncated at 2000 lines: showing lines 1-2000 of 2500. Use the read tool with offset=2001 to read the rest.]";
+		const body = `${kept}\n${note}`;
+		assert.equal(
+			received?.text,
+			`Summarise #big\n\n<context-ref name="big" kind="file" path="src/big.txt" bytes="${Buffer.byteLength(body)}" truncated="2000 lines">\n${body}\n</context-ref>`,
+		);
+		assert.equal(result.stderr, "");
+	});
+});
+
+describe("an image File Ref in print mode (DESIGN.md section 9.4)", () => {
+	it("reaches the model as an image with an empty block naming it", async () => {
+		const probe = run();
+		writeFileSync(join(probe.dir, "src", "shot.png"), onePixelPng());
+		writeFileSync(
+			join(probe.options.env.PI_CODING_AGENT_DIR ?? "", "pi-context-refs.json"),
+			JSON.stringify({ version: 1, refs: [{ name: "shot", kind: "file", path: "src/shot.png" }] }),
+		);
+		const result = await runPrint("Look at #shot", probe.options);
+		assert.equal(result.code, 0, result.stderr);
+		assert.deepEqual(probe.received(), [{ text: `Look at #shot\n\n${block('name="shot" kind="file" path="src/shot.png" bytes="0"', "")}`, images: 1 }]);
 	});
 });
 

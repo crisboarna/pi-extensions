@@ -1,5 +1,6 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { contextBlock, failureNote, namesWithBlock, sanitizeText } from "./context-block.ts";
+import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
+import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { findRefTokens } from "./tokens.ts";
@@ -10,6 +11,10 @@ export interface ExpandEnv {
 	home: string;
 	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
 	readFile: (path: string) => Promise<Uint8Array>;
+	/** Pi's `truncateHead`, which cuts a File at the caps of pi's read tool. */
+	truncateHead: TruncateHead;
+	/** The image type pi supports for the file at this path, or null. */
+	imageType: (path: string) => Promise<string | null>;
 }
 
 /** A File or Dynamic Ref whose Expansion could not be produced. */
@@ -18,9 +23,10 @@ export interface RefFailure {
 	reason: string;
 }
 
-/** The message to send, and the Refs that could not be read. Each failed Ref also has a Failure note in `text`. */
+/** The message to send, the images to attach and the Refs that could not be read. Each failed Ref also has a Failure note in `text`. */
 export interface Expansion {
 	text: string;
+	images: ImageContent[];
 	failures: RefFailure[];
 }
 
@@ -49,7 +55,8 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 
 	const blocks = await Promise.all([...files.values()].map((ref) => fileBlock(ref, env)));
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
-	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), failures };
+	const images = blocks.flatMap((block) => ("image" in block ? [block.image] : []));
+	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
 }
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */
@@ -71,18 +78,26 @@ function absolutePath(ref: PathRef | FileRef, env: ExpandEnv): string {
 	return resolve(env.cwd, expandHome(ref.path, env.home));
 }
 
-type FileBlock = { name: string; text: string } | { name: string; text: string; reason: string };
+type FileBlock = { name: string; text: string } | { name: string; text: string; reason: string } | { name: string; text: string; image: ImageContent };
 
-/** The file's current text as a Context block, or a Failure note and the reason. */
+/** The file's current text as a Context block (or an empty block and an image to attach), or a Failure note and the reason. */
 async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
 	const path = pathText(ref, env);
+	const head = { name: ref.name, kind: "file", path } as const;
 	try {
-		const body = sanitizeText(await env.readFile(absolutePath(ref, env)));
-		return { name: ref.name, text: contextBlock({ name: ref.name, kind: "file", path, body }) };
+		const absolute = absolutePath(ref, env);
+		const bytes = await env.readFile(absolute);
+		const content = fileContent({ bytes, path, mimeType: await env.imageType(absolute), maxBytes: ref.max_bytes }, env.truncateHead);
+		if ("failure" in content) return failed(head, content.failure);
+		if ("image" in content) return { name: ref.name, text: contextBlock({ ...head, body: "" }), image: content.image };
+		return { name: ref.name, text: contextBlock({ ...head, body: content.text, truncated: content.truncated }) };
 	} catch (error) {
-		const reason = readFailure(path, error);
-		return { name: ref.name, text: failureNote({ name: ref.name, kind: "file", path, error: reason }), reason };
+		return failed(head, readFailure(path, error));
 	}
+}
+
+function failed(head: { name: string; kind: "file"; path: string }, reason: string): FileBlock {
+	return { name: head.name, text: failureNote({ ...head, error: reason }), reason };
 }
 
 function readFailure(path: string, error: unknown): string {

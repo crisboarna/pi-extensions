@@ -12,7 +12,7 @@ Save context refs and insert them from a picker as compact placeholders that exp
 
 ## Status
 
-- The design is approved and complete; the feature is built ticket by ticket. Built so far: the atomic Placeholder in the TUI editor, the Global library, typed `#name` and `[ref:name]` expansion of Snippet and Path Refs in every mode, and File Refs as Context blocks (text files, no caps yet) with failures per mode. Dynamic Refs and the File caps, binaries and images, Scoped Refs, the Project library, Built-in Refs, the picker, the editor, `/ref` and Recent refs are not built; until they are, such a token is sent as typed.
+- The design is approved and complete; the feature is built ticket by ticket. Built so far: the atomic Placeholder in the TUI editor, the Global library, typed `#name` and `[ref:name]` expansion of Snippet and Path Refs in every mode, and File Refs as Context blocks (cut at pi's read-tool caps, binary files refused, images attached) with failures per mode. Dynamic Refs, Scoped Refs, the Project library, Built-in Refs, the picker, the editor, `/ref` and Recent refs are not built; until they are, such a token is sent as typed.
 - The pi behaviour the design relies on is proved and recorded in `DESIGN.md` section 16.1. Where pi differs from the first design (trust, the editor repaint, print-mode output), the design was amended; read it before changing anything, and `GLOSSARY.md` for the words to use.
 - `/ref` works on the Global library only: `in=global` is the one library it knows until the Project library and Scoped Refs are built. `approvals`, `approve`, `revoke` and `sent` are not built. Its output goes to `ctx.ui.notify` where there is a UI and to stderr where there is none (print and JSON); the list block is the same text in both.
 
