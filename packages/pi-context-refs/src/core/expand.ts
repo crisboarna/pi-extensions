@@ -6,9 +6,10 @@ import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { bundleMembers, type Layer } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
+import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.ts";
 
-/** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file and a way to run a command. */
-export interface ExpandEnv extends CommandEnv {
+/** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file, to run a command and to fetch a URL. */
+export interface ExpandEnv extends CommandEnv, UrlEnv {
 	cwd: string;
 	home: string;
 	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
@@ -17,9 +18,9 @@ export interface ExpandEnv extends CommandEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
-	/** The layer of each Visible Ref by case-folded name. A command Ref from the Project library is not run, since it cannot be approved yet. */
+	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library is not run, since it cannot be approved yet. */
 	layers?: ReadonlyMap<string, Layer>;
-	/** Cancels the commands that are running. */
+	/** Cancels the commands and fetches that are running. */
 	signal?: AbortSignal;
 }
 
@@ -38,7 +39,7 @@ export interface Expansion {
 
 /**
  * Replaces each ref token that names a Visible Path or Snippet Ref, and each `#tag:<tag>` of a Bundle, by its Expansion, and adds one Context block
- * per File Ref and per command Dynamic Ref after the text, in order of first appearance. Commands run in parallel. Tokens that name a File or a Dynamic Ref
+ * per File Ref and per Dynamic Ref after the text, in order of first appearance. Commands and fetches run in parallel. Tokens that name a File or a Dynamic Ref
  * stay in the text; a File or Dynamic member of a Bundle is only a block. Other tokens stay as typed.
  */
 export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>, env: ExpandEnv): Promise<Expansion> {
@@ -46,8 +47,8 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	// A Bundle leaves out every member the message names itself, and every member an earlier Bundle gave.
 	const given = new Set(tokens.filter((token) => token.form !== "bundle").map((token) => foldName(token.target)));
 	const alreadySent = namesWithBlock(text);
-	const blockRefs = new Map<string, FileRef | CommandRef>();
-	const addBlock = (ref: FileRef | CommandRef): void => {
+	const blockRefs = new Map<string, BlockRef>();
+	const addBlock = (ref: BlockRef): void => {
 		const folded = foldName(ref.name);
 		if (!alreadySent.has(folded)) blockRefs.set(folded, ref);
 	};
@@ -59,7 +60,8 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 			expansion = bundleExpansion(token.target, visible, given, addBlock, env);
 		} else {
 			const ref = visible.get(foldName(token.target));
-			if (ref?.kind === "file" || (ref && isCommandRef(ref))) addBlock(ref);
+			const block = ref && blockRefOf(ref);
+			if (block) addBlock(block);
 			else expansion = ref ? inlineExpansion(ref, env) : undefined;
 		}
 		if (expansion === undefined) continue;
@@ -70,28 +72,31 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all([...blockRefs.values()].map((ref) => (ref.kind === "file" ? fileBlock(ref, env) : commandBlock(ref, env))));
+	const blocks = await Promise.all([...blockRefs.values()].map((ref) => (ref.kind === "file" ? fileBlock(ref, env) : dynamicRefBlock(ref, env))));
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
 }
 
-/** A command Ref's Context block. A Project library command is refused, not run, until its approval exists. */
-function commandBlock(ref: CommandRef, env: ExpandEnv): Promise<BlockResult> | BlockResult {
-	if (env.layers?.get(foldName(ref.name)) === "project")
-		return dynamicFailure(ref, "a Project library command needs your approval, and approvals are not built yet");
+/** A command or URL Ref's Context block. A Project library command or URL is refused, not run, until its approval exists. */
+function dynamicRefBlock(ref: CommandRef | UrlRef, env: ExpandEnv): Promise<BlockResult> | BlockResult {
+	const needsApproval = env.layers?.get(foldName(ref.name)) === "project";
+	if (isUrlRef(ref)) {
+		return needsApproval ? urlFailure(ref, "a Project library URL needs your approval, and approvals are not built yet") : urlBlock(ref, env, env.signal);
+	}
+	if (needsApproval) return dynamicFailure(ref, "a Project library command needs your approval, and approvals are not built yet");
 	return dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal);
 }
 
 /**
- * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File or command member goes to `addBlock` and adds no text.
+ * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File or Dynamic member goes to `addBlock` and adds no text.
  * Undefined when no Visible Ref carries the Tag.
  */
 function bundleExpansion(
 	tag: string,
 	visible: ReadonlyMap<string, Ref>,
 	given: Set<string>,
-	addBlock: (ref: FileRef | CommandRef) => void,
+	addBlock: (ref: BlockRef) => void,
 	env: ExpandEnv,
 ): string | undefined {
 	const members = bundleMembers(visible, tag);
@@ -101,14 +106,22 @@ function bundleExpansion(
 		const folded = foldName(member.name);
 		if (given.has(folded)) continue;
 		given.add(folded);
-		if (member.kind === "file" || isCommandRef(member)) {
-			addBlock(member);
+		const block = blockRefOf(member);
+		if (block) {
+			addBlock(block);
 			continue;
 		}
-		// A Dynamic member with a URL stays a Placeholder until that Source is built.
-		pieces.push(inlineExpansion(member, env) ?? `[ref:${member.name}]`);
+		const inline = inlineExpansion(member, env);
+		if (inline !== undefined) pieces.push(inline);
 	}
 	return pieces.join(" ");
+}
+
+/** A Ref whose Expansion is a Context block: a File, or a Dynamic Ref with a command or a URL. */
+type BlockRef = FileRef | CommandRef | UrlRef;
+
+function blockRefOf(ref: Ref): BlockRef | undefined {
+	return ref.kind === "file" || isCommandRef(ref) || isUrlRef(ref) ? ref : undefined;
 }
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */

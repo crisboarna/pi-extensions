@@ -6,6 +6,7 @@ import type { CommandRequest, CommandResult } from "../../src/core/dynamic.ts";
 import { type ExpandEnv, expandRefs } from "../../src/core/expand.ts";
 import type { Ref } from "../../src/core/library.ts";
 import { resolveRefs, visibleRefs } from "../../src/core/resolve.ts";
+import type { FetchRequest, FetchResult } from "../../src/core/url.ts";
 
 /** A file reader over an in-memory disk; a value that is an Error is thrown, as the file system would. */
 function disk(files: Record<string, string | Uint8Array | Error>): ExpandEnv["readFile"] {
@@ -19,6 +20,9 @@ function disk(files: Record<string, string | Uint8Array | Error>): ExpandEnv["re
 const noCommands = async (): Promise<never> => {
 	throw new Error("no command should run");
 };
+const noPages = async (): Promise<never> => {
+	throw new Error("no page should be fetched");
+};
 const ENV: ExpandEnv = {
 	cwd: "/work/repo",
 	home: "/home/me",
@@ -26,6 +30,7 @@ const ENV: ExpandEnv = {
 	truncateHead,
 	imageType: async () => null,
 	runCommand: noCommands,
+	fetchUrl: noPages,
 	isGitWorkTree: async () => true,
 };
 const snippet = (name: string, text: string): Ref => ({ name, kind: "snippet", text });
@@ -213,7 +218,7 @@ describe("Bundle", async () => {
 		assert.ok(result.text.startsWith('Be brief.\n\n<context-ref name="gone"'), result.text);
 	});
 
-	it("runs a command member once and gives it a Context block, and keeps a URL member as a Placeholder", async () => {
+	it("runs a command member once and gives it a Context block, and fetches a URL member as a block too", async () => {
 		const log: CommandRequest[] = [];
 		const env: ExpandEnv = {
 			...ENV,
@@ -221,6 +226,7 @@ describe("Bundle", async () => {
 				log.push(request);
 				return { stdout: "ok", stderr: "", code: 0, killed: false };
 			},
+			fetchUrl: async () => ({ killed: false, status: 200, contentType: "text/plain", bytes: new TextEncoder().encode("page text") }),
 		};
 		const members = [
 			tagged(snippet("terse", "Be brief."), "ctx"),
@@ -228,7 +234,9 @@ describe("Bundle", async () => {
 			tagged({ name: "page", kind: "dynamic", url: "https://example.com/" }, "ctx"),
 		];
 		const text = await expand("#tag:ctx #tests", members, env);
-		assert.ok(text.startsWith('Be brief. [ref:page] #tests\n\n<context-ref name="tests" kind="dynamic"'), text);
+		// The Bundle comes first in the message, so its URL member's block comes before the block of the command the message names itself.
+		const page = '<context-ref name="page" kind="dynamic" source="https://example.com/" bytes="34">\nGET https://example.com/\npage text\n</context-ref>';
+		assert.ok(text.startsWith(`Be brief. #tests\n\n${page}\n\n<context-ref name="tests" kind="dynamic"`), text);
 		assert.equal(log.length, 1);
 	});
 
@@ -641,9 +649,37 @@ describe("Dynamic command", () => {
 		assert.ok(result.text.includes("$ eslint\nclean"), result.text);
 	});
 
-	it("leaves a Dynamic Ref with a URL as typed", async () => {
-		const url: Ref = { name: "page", kind: "dynamic", url: "https://example.com/" };
-		assert.equal(await expand("see #page", [url]), "see #page");
+	it("fetches a Dynamic Ref with a URL once, however often it is mentioned, in the Ref's own timeout and cap", async () => {
+		const log: FetchRequest[] = [];
+		const env: ExpandEnv = {
+			...ENV,
+			fetchUrl: async (request): Promise<FetchResult> => {
+				log.push(request);
+				return { killed: false, status: 200, contentType: "text/html", bytes: new TextEncoder().encode("<p>hi</p>") };
+			},
+		};
+		const url: Ref = { name: "page", kind: "dynamic", url: "https://example.com/", timeout: 30, max_output: 2048 };
+		const result = await expandRefs("see #page and [ref:page] #page", visibleRefs([url]), env);
+		assert.equal(
+			result.text,
+			'see #page and [ref:page] #page\n\n<context-ref name="page" kind="dynamic" source="https://example.com/" bytes="34">\nGET https://example.com/\n<p>hi</p>\n</context-ref>',
+		);
+		assert.deepEqual(log, [{ name: "page", url: "https://example.com/", timeoutMs: 30_000, maxBytes: 2048 }]);
+		assert.deepEqual(result.failures, []);
+	});
+
+	it("reports a URL that cannot be fetched as a failure and sends the other blocks", async () => {
+		const env: ExpandEnv = {
+			...ENV,
+			fetchUrl: async () => {
+				throw new Error("connect ECONNREFUSED 127.0.0.1:9");
+			},
+			runCommand: runs({ npm: out("ok") }).runCommand,
+		};
+		const page: Ref = { name: "page", kind: "dynamic", url: "http://127.0.0.1:9/" };
+		const result = await expandRefs("#page #tests", visibleRefs([page, tests]), env);
+		assert.deepEqual(result.failures, [{ name: "page", reason: "http://127.0.0.1:9/ cannot be fetched: connect ECONNREFUSED 127.0.0.1:9" }]);
+		assert.ok(result.text.includes("$ npm test\nok"), result.text);
 	});
 
 	it("runs a Built-in Ref that no saved Ref shadows, and lets a saved Ref with its name win", async () => {

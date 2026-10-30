@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
+import type { UrlEnv } from "../core/url.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
 import { trackRun } from "./running.ts";
 
@@ -13,6 +14,8 @@ export interface InputDeps extends LibraryDeps, CommandEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
+	/** Fetches a URL with a plain GET. */
+	fetchUrl: UrlEnv["fetchUrl"];
 	writeStderr: (text: string) => void;
 }
 
@@ -30,10 +33,17 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		if (event.source === "extension") return undefined;
 		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
-		const run = trackRun(ctx, deps.runCommand);
+		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);
 		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
-			expansion = await expandRefs(event.text, visible, { ...deps, cwd: ctx.cwd, layers, runCommand: run.runCommand, signal: run.signal });
+			expansion = await expandRefs(event.text, visible, {
+				...deps,
+				cwd: ctx.cwd,
+				layers,
+				runCommand: run.runCommand,
+				fetchUrl: run.fetchUrl,
+				signal: run.signal,
+			});
 		} finally {
 			run.finish();
 		}

@@ -4,6 +4,7 @@ import { detectSupportedImageMimeTypeFromFile, type ExtensionAPI, getAgentDir, t
 import { registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
+import { urlEnv } from "./pi/fetch.ts";
 import { readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { readRemoteUrls } from "./pi/git-remotes.ts";
 import { registerInput } from "./pi/input.ts";
@@ -21,6 +22,7 @@ export default function extension(pi: ExtensionAPI): void {
 		realpath: realpathIfPresent,
 		readRemotes: readRemoteUrls,
 		...commandEnv((command, args, options) => pi.exec(command, args, options)),
+		...urlEnv(),
 		writeStderr: (text) => void process.stderr.write(text),
 	});
 	registerRefCommand(pi, {

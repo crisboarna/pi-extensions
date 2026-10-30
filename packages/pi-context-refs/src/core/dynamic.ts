@@ -32,9 +32,9 @@ export interface CommandEnv {
 /** A File or Dynamic Ref's Context block, or its Failure note and the reason. */
 export type BlockResult = { name: string; text: string } | { name: string; text: string; reason: string };
 
-const DEFAULT_TIMEOUT_SECONDS = 10;
-const DEFAULT_MAX_OUTPUT = 50 * 1024;
-const BINARY_PROBE_LENGTH = 8192;
+export const DEFAULT_TIMEOUT_SECONDS = 10;
+export const DEFAULT_MAX_OUTPUT = 50 * 1024;
+export const BINARY_PROBE_LENGTH = 8192;
 
 export const isCommandRef = (ref: { kind: string; command?: string[] }): ref is CommandRef => ref.kind === "dynamic" && ref.command !== undefined;
 
@@ -89,8 +89,8 @@ export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv
 }
 
 /** The first `cap` bytes of `text` in UTF-8, ending on a character boundary. */
-function headBytes(text: string, cap: number): { bytes: Uint8Array; cut: boolean } {
-	const all = Buffer.from(text, "utf8");
+export function headBytes(text: string | Uint8Array, cap: number): { bytes: Uint8Array; cut: boolean } {
+	const all = typeof text === "string" ? Buffer.from(text, "utf8") : text;
 	if (all.length <= cap) return { bytes: all, cut: false };
 	let end = cap;
 	// A continuation byte (10xxxxxx) at the cut means the cut splits a character.
@@ -98,7 +98,8 @@ function headBytes(text: string, cap: number): { bytes: Uint8Array; cut: boolean
 	return { bytes: all.subarray(0, end), cut: true };
 }
 
-function sizeText(bytes: number): string {
+/** A size as a Context block names its cap: `50 KB`, `1 MB`, or `55 bytes`. */
+export function sizeText(bytes: number): string {
 	if (bytes % (1024 * 1024) === 0) return `${bytes / (1024 * 1024)} MB`;
 	return bytes % 1024 === 0 ? `${bytes / 1024} KB` : `${bytes} bytes`;
 }
