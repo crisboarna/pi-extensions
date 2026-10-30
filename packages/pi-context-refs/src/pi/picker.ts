@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-tui";
 import { applyPick, type PickerRow, pickerRows } from "../core/picker.ts";
+import type { UsedFiles } from "../core/recent.ts";
 import { readSettings, settingsProblems } from "../core/ref-list.ts";
 import { triggerQuery } from "../core/trigger.ts";
 import { createLibraries, type Libraries, type LibraryDeps } from "./libraries.ts";
@@ -9,6 +10,12 @@ import { createLibraries, type Libraries, type LibraryDeps } from "./libraries.t
 export interface PickerDeps extends LibraryDeps {
 	/** Whether a directory is inside a git work tree. */
 	isGitWorkTree: (cwd: string) => Promise<boolean>;
+	/** The files this session used. */
+	recent: UsedFiles;
+	/** The time the "5 min ago" notes count from, in milliseconds. */
+	now: () => number;
+	/** Whether the path is a file that exists; a Recent row for a file that is gone is hidden. */
+	isFile: (path: string) => boolean;
 }
 
 /** One session's picker: the Trigger it started with and what it has learned about the directory. */
@@ -36,7 +43,8 @@ async function rowsFor(session: PickerSession, query: string, signal: AbortSigna
 		const { visible, layers } = session.libraries.refresh(ctx);
 		if (session.workTree?.cwd !== ctx.cwd || query === "") session.workTree = { cwd: ctx.cwd, answer: await deps.isGitWorkTree(ctx.cwd) };
 		if (signal.aborted || !session.active) return [];
-		return pickerRows({ visible, layers, inWorkTree: session.workTree.answer }, query);
+		const recent = { files: deps.recent.files(), env: { cwd: ctx.cwd, home: deps.home }, now: deps.now(), present: deps.isFile };
+		return pickerRows({ visible, layers, inWorkTree: session.workTree.answer, recent }, query);
 	} catch {
 		return [];
 	}

@@ -1,19 +1,23 @@
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectSupportedImageMimeTypeFromFile, type ExtensionAPI, getAgentDir, truncateHead } from "@earendil-works/pi-coding-agent";
 import { registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { urlEnv } from "./pi/fetch.ts";
-import { readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
+import { isFilePresent, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { readRemoteUrls } from "./pi/git-remotes.ts";
 import { registerInput } from "./pi/input.ts";
 import { registerPicker } from "./pi/picker.ts";
+import { registerRecentSource } from "./pi/recent-source.ts";
 import { registerTranscript } from "./pi/transcript.ts";
 
 /** Save context refs and insert them from a picker as compact placeholders that expand to real content when the message is sent. */
 export default function extension(pi: ExtensionAPI): void {
+	// First, so the input handler below finds the files a message points at already noted.
+	const recent = registerRecentSource(pi, { home: homedir(), tmpdir: tmpdir(), now: Date.now });
 	registerInput(pi, {
+		recent,
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		home: homedir(),
 		readText: readTextIfPresent,
@@ -47,6 +51,9 @@ export default function extension(pi: ExtensionAPI): void {
 		realpath: realpathIfPresent,
 		readRemotes: readRemoteUrls,
 		isGitWorkTree: commandEnv((command, args, options) => pi.exec(command, args, options)).isGitWorkTree,
+		recent,
+		now: Date.now,
+		isFile: isFilePresent,
 	});
 	registerEditor(pi);
 	registerTranscript(pi);

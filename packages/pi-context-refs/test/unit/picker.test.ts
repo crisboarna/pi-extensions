@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { Ref } from "../../src/core/library.ts";
 import { foldName } from "../../src/core/names.ts";
 import { applyPick, type PickerRow, pickerRows } from "../../src/core/picker.ts";
+import type { UsedFile } from "../../src/core/recent.ts";
 import type { Layer } from "../../src/core/resolve.ts";
 
 type Entry = [Layer, Ref];
@@ -184,5 +185,114 @@ describe("applyPick", () => {
 	it("ignores a value that is not one of its rows", () => {
 		assert.equal(applyPick(["#42"], 0, 3, "#42", "#42"), undefined);
 		assert.equal(applyPick(["#42"], 0, 3, "ref:a", "#42"), undefined);
+	});
+});
+
+describe("Recent refs in the picker", () => {
+	const env = { cwd: "/work/app", home: "/home/me" };
+	const NOW = 10_000_000;
+	const MINUTE = 60_000;
+	const recentFile = (path: string, ago: number, use: "read" | "edit" = "read"): UsedFile => ({ path, use, at: NOW - ago });
+	const withRecent = (files: UsedFile[], options: { present?: (path: string) => boolean; entries?: Entry[] } = {}) => ({
+		...source(options.entries ?? []),
+		recent: { files, env, now: NOW, present: options.present ?? (() => true) },
+	});
+
+	it("puts a Recent row after the built-in rows and before the Bundles, marked with ↺, with its note", () => {
+		const rows = pickerRows(
+			withRecent([recentFile("/work/app/src/api.ts", 5 * MINUTE, "edit")], {
+				entries: [
+					["builtin", diff],
+					["global", snippet("terse", "x", { tags: ["style"] })],
+				],
+			}),
+			"",
+		);
+		assert.deepEqual(
+			rows.map((row) => [row.section, row.name]),
+			[
+				["global", "terse"],
+				["builtin", "diff"],
+				["recent", "src/api.ts"],
+				["bundle", "tag:style"],
+			],
+		);
+		const recent = rows[2];
+		assert.equal(recent?.mark, "↺");
+		assert.equal(recent?.kind, "recent");
+		assert.equal(recent?.description, "edited 5 min ago");
+	});
+
+	it("keeps the files in the order given (newest first)", () => {
+		const rows = pickerRows(withRecent([recentFile("/work/app/b.ts", MINUTE), recentFile("/work/app/a.ts", 2 * MINUTE)]), "");
+		assert.deepEqual(names(rows), ["b.ts", "a.ts"]);
+	});
+
+	it("shows only the 10 newest for a bare Trigger and searches all of them for a query", () => {
+		const files = Array.from({ length: 15 }, (_, index) => recentFile(`/work/app/f${index}.ts`, (index + 1) * MINUTE));
+		assert.deepEqual(
+			names(pickerRows(withRecent(files), "")),
+			files.slice(0, 10).map((file) => `f${files.indexOf(file)}.ts`),
+		);
+		assert.deepEqual(names(pickerRows(withRecent(files), "f14")), ["f14.ts"]);
+		assert.equal(pickerRows(withRecent(files), ".ts").length, 15);
+	});
+
+	it("counts the 10 among files that are present, so a missing newest file does not use a place", () => {
+		const files = Array.from({ length: 12 }, (_, index) => recentFile(`/work/app/f${index}.ts`, (index + 1) * MINUTE));
+		const rows = pickerRows(withRecent(files, { present: (path) => !path.endsWith("/f0.ts") }), "");
+		assert.deepEqual(
+			names(rows),
+			files.slice(1, 11).map((file) => file.path.split("/").pop()),
+		);
+	});
+
+	it("hides a file that is missing", () => {
+		const rows = pickerRows(
+			withRecent([recentFile("/work/app/gone.ts", MINUTE), recentFile("/work/app/here.ts", MINUTE)], { present: (path) => path.endsWith("here.ts") }),
+			"",
+		);
+		assert.deepEqual(names(rows), ["here.ts"]);
+	});
+
+	it("hides the target of a saved Path or File Ref, relative to the working directory or with ~", () => {
+		const rows = pickerRows(
+			withRecent([recentFile("/work/app/AGENTS.md", MINUTE), recentFile("/home/me/notes.md", MINUTE), recentFile("/work/app/other.ts", MINUTE)], {
+				entries: [
+					["global", file("agents", "AGENTS.md")],
+					["project", { name: "notes", kind: "path", path: "~/notes.md" }],
+				],
+			}),
+			"",
+		);
+		assert.deepEqual(
+			rows.filter((row) => row.section === "recent").map((row) => row.name),
+			["other.ts"],
+		);
+	});
+
+	it("matches the shown path, case-insensitively, so a typed #src/api.ts finds its row", () => {
+		const rows = pickerRows(withRecent([recentFile("/work/app/src/api.ts", MINUTE), recentFile("/work/app/src/other.ts", MINUTE)]), "SRC/api.ts");
+		assert.deepEqual(names(rows), ["src/api.ts"]);
+		assert.deepEqual(pickerRows(withRecent([recentFile("/work/app/src/api.ts", MINUTE)]), "nothing-like-it"), []);
+	});
+
+	it("gives a row whose value inserts the path Placeholder", () => {
+		const [row] = pickerRows(withRecent([recentFile("/work/app/README.md", MINUTE), recentFile("/work/app/my dir/a b.ts", MINUTE)]), "readme");
+		assert.deepEqual(applyPick(["see #readme"], 0, 11, row?.value ?? "", "#readme"), { lines: ["see [ref:./README.md]"], cursorLine: 0, cursorCol: 21 });
+	});
+
+	it("quotes a path with spaces in the Placeholder", () => {
+		const [row] = pickerRows(withRecent([recentFile("/work/app/my dir/a b.ts", MINUTE)]), "");
+		assert.equal(applyPick(["#"], 0, 1, row?.value ?? "", "#")?.lines[0], '[ref:"my dir/a b.ts"]');
+	});
+
+	it("does not insert a path the draft already has", () => {
+		const [row] = pickerRows(withRecent([recentFile("/work/app/src/a.ts", MINUTE)]), "");
+		assert.deepEqual(applyPick(["[ref:src/a.ts] and #"], 0, 20, row?.value ?? "", "#")?.lines, ["[ref:src/a.ts] and "]);
+	});
+
+	it("shows no Recent rows when the session has none to offer", () => {
+		assert.deepEqual(pickerRows(source([["global", snippet("a", "1")]]), ""), pickerRows(withRecent([], { entries: [["global", snippet("a", "1")]] }), ""));
 	});
 });

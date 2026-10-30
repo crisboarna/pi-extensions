@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -34,5 +34,14 @@ export function realpathIfPresent(path: string): string | undefined {
 		return realpathSync(path);
 	} catch {
 		return undefined;
+	}
+}
+
+/** Whether the path is a regular file, following symlinks; false for a missing file, a directory or anything that cannot be examined. */
+export function isFilePresent(path: string): boolean {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
 	}
 }
