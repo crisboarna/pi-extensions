@@ -67,8 +67,8 @@ describe("extension load", () => {
 		const host = await boot();
 		assert.deepEqual(host.handledEvents().sort(), ["input", "session_start"]);
 		assert.deepEqual(
-			host.calls.filter((call) => call.method !== "on"),
-			[],
+			host.calls.filter((call) => call.method !== "on").map((call) => call.method),
+			["registerCommand"],
 		);
 	});
 

@@ -114,6 +114,12 @@ interface Checked {
 	problems: string[];
 }
 
+/** Checks one Ref the way the loader does. A Ref that fails is described by problems that start with `at`. */
+export function validateRef(entry: unknown, at: string): { ref: Ref } | { problems: string[] } {
+	const checked = checkRef(entry, at);
+	return checked.ref ? { ref: checked.ref } : { problems: checked.problems };
+}
+
 function checkRef(entry: unknown, at: string): Checked {
 	if (!isObject(entry)) return { problems: [`${at}: must be an object`] };
 	const problems: string[] = [];

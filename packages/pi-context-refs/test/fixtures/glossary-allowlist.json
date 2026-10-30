@@ -22,8 +22,20 @@
 		},
 		{
 			"term": "snippet",
-			"files": ["src/core/expand.ts", "src/core/library.ts"],
-			"reason": "Snippet is a Ref kind, and the name of that kind in a library file. The glossary lists it under Ref to say a Ref is not only a Snippet."
+			"files": [
+				"src/core/expand.ts",
+				"src/core/library.ts",
+				"src/core/ref-command.ts",
+				"src/core/ref-edit.ts",
+				"src/core/ref-list.ts",
+				"src/pi/commands.ts"
+			],
+			"reason": "Snippet is a Ref kind, and the name of that kind in a library file. The glossary lists it under Ref to say a Ref is not only a Snippet. /ref reads, prints and writes that name."
+		},
+		{
+			"term": "label",
+			"files": ["src/core/ref-completions.ts"],
+			"reason": "The label field of pi's autocomplete item, the text a completion shows. It is not a Tag."
 		}
 	]
 }
