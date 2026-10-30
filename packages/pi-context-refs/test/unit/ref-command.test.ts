@@ -169,12 +169,22 @@ describe("parseRefArguments: edit and remove", () => {
 	});
 });
 
+describe("parseRefArguments: sent", () => {
+	it("takes no arguments", () => {
+		assert.deepEqual(parse("sent"), { ok: true, command: { name: "sent" } });
+		const result = parse("sent now");
+		assert.equal(result.ok, false);
+		assert.match(result.ok ? "" : result.error, /"now"/);
+		assert.equal(result.ok ? "" : result.usage, "/ref sent");
+	});
+});
+
 describe("parseRefArguments: unknown subcommand", () => {
 	it("names the subcommands that exist", () => {
 		const result = parse("frobnicate");
 		assert.equal(result.ok, false);
 		assert.match(result.ok ? "" : result.error, /unknown subcommand "frobnicate"/);
-		assert.match(result.ok ? "" : (result.usage ?? ""), /list.*add.*edit.*remove/s);
+		assert.match(result.ok ? "" : (result.usage ?? ""), /list.*add.*edit.*remove.*sent/s);
 	});
 });
 

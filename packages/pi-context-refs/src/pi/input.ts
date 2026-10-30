@@ -1,10 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
+import { trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
-export interface InputDeps extends LibraryDeps {
+export interface InputDeps extends LibraryDeps, CommandEnv {
 	/** The bytes of a file; it rejects with the system's error. */
 	readFile: (path: string) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`: cuts a File at the caps of pi's read tool. */
@@ -26,10 +28,17 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return undefined;
-		const { visible, notices } = libraries.refresh(ctx);
+		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
-		const env = { cwd: ctx.cwd, home: deps.home, readFile: deps.readFile, truncateHead: deps.truncateHead, imageType: deps.imageType };
-		const { text, images, failures } = await expandRefs(event.text, visible, env);
+		const run = trackRun(ctx, deps.runCommand);
+		let expansion: Awaited<ReturnType<typeof expandRefs>>;
+		try {
+			expansion = await expandRefs(event.text, visible, { ...deps, cwd: ctx.cwd, layers, runCommand: run.runCommand, signal: run.signal });
+		} finally {
+			run.finish();
+		}
+		if (run.signal.aborted) return cancelSend(event.text, ["cancelled"], ctx);
+		const { text, images, failures } = expansion;
 		if (failures.length > 0) {
 			const reasons = failures.map((failure) => `#${failure.name}: ${failure.reason}`);
 			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);

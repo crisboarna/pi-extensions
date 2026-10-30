@@ -53,6 +53,29 @@ describe("contextBlock", () => {
 	});
 });
 
+describe("a Dynamic block", () => {
+	it("names the source after the kind, then bytes, then exit and truncated", () => {
+		assert.equal(
+			contextBlock({ name: "diff", kind: "dynamic", source: "git diff", body: "$ git diff\nx", exit: 2, truncated: "50 KB" }),
+			'<context-ref name="diff" kind="dynamic" source="git diff" bytes="12" exit="2" truncated="50 KB">\n$ git diff\nx\n</context-ref>',
+		);
+	});
+
+	it("leaves exit and truncated out when they are not given", () => {
+		assert.equal(
+			contextBlock({ name: "diff", kind: "dynamic", source: "git diff", body: "x" }),
+			'<context-ref name="diff" kind="dynamic" source="git diff" bytes="1">\nx\n</context-ref>',
+		);
+	});
+
+	it("has a Failure note with the source and the reason", () => {
+		assert.equal(
+			failureNote({ name: "diff", kind: "dynamic", source: "git diff", error: "not a git repository" }),
+			'<context-ref name="diff" kind="dynamic" source="git diff" bytes="0" error="not a git repository">\n\n</context-ref>',
+		);
+	});
+});
+
 describe("failureNote", () => {
 	it("is an empty block with bytes 0 and the reason in an error attribute after bytes", () => {
 		assert.equal(

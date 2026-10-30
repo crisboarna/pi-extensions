@@ -1,7 +1,9 @@
 import { join } from "node:path";
+import { builtinRefs } from "../core/builtins.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import type { Ref } from "../core/library.ts";
 import { createLibraryState, type LibraryState } from "../core/library-state.ts";
+import { readSettings } from "../core/ref-list.ts";
 import { type Layer, resolveRefs } from "../core/resolve.ts";
 import type { Place } from "../core/scope.ts";
 
@@ -23,7 +25,7 @@ export interface LibraryContext {
 	isProjectTrusted(): boolean;
 }
 
-/** The Refs to use for one send. */
+/** The Refs to use for one send, the Built-in Refs included. */
 export interface VisibleRefs {
 	visible: Map<string, Ref>;
 	layers: Map<string, Layer>;
@@ -44,6 +46,15 @@ export const projectLibraryPath = (cwd: string): string => join(cwd, ".pi", "pi-
 /** The place the session is in, with git asked at most once per call of `remotes`. */
 export function placeOf(ctx: { cwd: string }, deps: Pick<LibraryDeps, "home" | "realpath" | "readRemotes">): Place {
 	return { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
+}
+
+/** The `builtins` setting from the Global library file, read at every refresh so an edit counts at once. */
+function builtinsSetting(deps: Pick<LibraryDeps, "libraryPath" | "readText">): boolean | string[] {
+	try {
+		return readSettings(deps.readText(deps.libraryPath)).builtins;
+	} catch {
+		return true;
+	}
 }
 
 /** The Global and Project libraries as a session sees them: re-read on every refresh, the last good copy kept, precedence applied. */
@@ -77,7 +88,7 @@ export function createLibraries(deps: LibraryDeps): Libraries {
 				projectRefs = projectRead.refs;
 				projectNotices = projectRead.notices;
 			}
-			const { visible, layers } = resolveRefs({ global: globalRead.refs, project: projectRefs }, place);
+			const { visible, layers } = resolveRefs({ global: globalRead.refs, project: projectRefs, builtin: builtinRefs(builtinsSetting(deps)) }, place);
 			return { visible, layers, notices: [...globalRead.notices, ...projectNotices] };
 		},
 	};

@@ -2,9 +2,12 @@ LICENSE
 README.md
 package.json
 schema/pi-context-refs.schema.json
+src/core/builtins.ts
+src/core/collapse.ts
 src/core/config-writer.ts
 src/core/confine.ts
 src/core/context-block.ts
+src/core/dynamic.ts
 src/core/expand.ts
 src/core/file-content.ts
 src/core/glob.ts
@@ -23,8 +26,13 @@ src/core/tokens.ts
 src/index.ts
 src/pi/commands.ts
 src/pi/editor.ts
+src/pi/exec.ts
 src/pi/fs.ts
 src/pi/git-remotes.ts
 src/pi/input.ts
 src/pi/libraries.ts
 src/pi/ref-run.ts
+src/pi/running.ts
+src/pi/sent.ts
+src/pi/text-viewer.ts
+src/pi/transcript.ts

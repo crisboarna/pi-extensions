@@ -26,6 +26,7 @@ import {
 	targetProblem,
 	visibleLibrary,
 } from "./ref-run.ts";
+import { showSent } from "./sent.ts";
 
 export type { CommandDeps } from "./ref-run.ts";
 
@@ -89,6 +90,8 @@ async function dispatch(run: Run, command: RefCommand, sessionTrigger: string): 
 			return edit(run, command);
 		case "remove":
 			return remove(run, command);
+		case "sent":
+			return showSent(run.ctx, run.say);
 	}
 }
 
