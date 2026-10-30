@@ -213,7 +213,7 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 
 ### 10.4 Limits and running
 
-By default a 10 s timeout and a 50 KB output cap per Ref; a Ref can raise them up to 120 s and 1 MB. A cut is marked in the Expansion, control characters are stripped, and binary output is a failure. Dynamic Refs run at every send, with no caching across messages.
+By default a 10 s timeout and a 50 KB output cap per Ref; a Ref can raise them up to 120 s and 1 MB. A cut is marked in the Expansion, control characters are stripped, and binary output is a failure. Dynamic Refs run at every send, with no caching across messages. The output is stdout followed by stderr, so a failing test run shows its errors. `pi.exec` reports a command that cannot start as exit 1 with no output, so only that case is checked: a missing working directory or program becomes "cannot start", and any other exit 1 stays a non-zero exit. `pi.exec` buffers all output before the cap applies; the timeout bounds how much a runaway command can write.
 
 ### 10.5 What counts as a failure
 
