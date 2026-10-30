@@ -320,7 +320,9 @@ src/core/                 pure, no pi imports
 src/pi/                   glue
   input.ts                the input handler: modes, status, cancel, failure handling
   editor.ts               the segment merge, the key handling and the feature check
-  picker.ts               the autocomplete provider and the alt+r overlay
+  picker.ts               the autocomplete provider
+  overlay.ts, overlay-view.ts  the alt+r overlay: its loop, and the component with its filter, list and preview
+  ref-save.ts             saving a Recent row through the add flow
   transcript.ts           the Markdown transformer
   recent-source.ts        tool and input events feeding Recent refs
   commands.ts             /ref
@@ -431,3 +433,5 @@ Derived in this document (not asked, flag if wrong): the module structure (secti
 - pi docs (`extensions.md`, `docs/security.md`, `docs/configuration.md`, `docs/rpc-extension-ui.md`) and pi-tui's `editor.js` in the pi 1.4.0 install.
 - pi-account-guard `DESIGN.md` (§3, §11, §17) and pi-switchboard `DESIGN.md` §7 for the shared conventions.
 - Research notes on throwaway branches: `research/context-refs/editor-markers`, `research/context-refs/expansion-hooks`, `research/context-refs/recent-paths`; the editor prototype on `prototype/pi-context-refs/editor`.
+
+Settled while building the overlay (flag if wrong): `alt+r` is registered with `pi.registerShortcut` and does nothing outside the TUI. The overlay shows the same rows as the inline list, under a heading per section, with a filter that starts as the text typed after a typed Trigger (a number such as `#123` is another provider's, so it is neither replaced nor used as the filter). A pick replaces the typed Trigger token with Backspace presses and one insert, through the editor the package put in the slot; when another extension holds the slot, the Placeholders are pasted at the cursor and the typed token stays. Keys: Enter picks, Tab switches a Recent row between path form and file form, Ctrl+S saves a Recent row, Ctrl+E edits and Ctrl+D removes a saved row (a scoped, Project or Global row), Esc closes. Edit, remove and save close the overlay, run the `/ref` flow (the same JSON editor and confirm), then open the overlay again where it was. The preview is the Expansion of what a pick would insert, read through `expandRefs`; it starts 150 ms after a row is selected, so passing over a row does not run its command, and a Project library command or URL Ref runs only when its exact definition is approved already (otherwise the preview shows the Failure note). A saved Recent row goes into the Global library, as `/ref add` does by default; its Path is the path as the row shows it, and the name is asked again until it is valid and free.
