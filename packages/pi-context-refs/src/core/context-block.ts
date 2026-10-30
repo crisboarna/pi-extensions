@@ -50,9 +50,18 @@ function attributeValue(value: string): string {
 		.replace(/>/g, "&gt;");
 }
 
+/** An attribute value as it was before `attributeValue` escaped it. */
+export function unescapeAttribute(value: string): string {
+	return value
+		.replace(/&quot;/g, '"')
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&amp;/g, "&");
+}
+
 /** The case-folded names of the Context blocks that already open a line of `text`, so a resent message does not get them twice. */
 export function namesWithBlock(text: string): Set<string> {
 	const names = new Set<string>();
-	for (const match of text.matchAll(/^<context-ref name="([^"]*)"/gm)) names.add(foldName(match[1] ?? ""));
+	for (const match of text.matchAll(/^<context-ref name="([^"]*)"/gm)) names.add(foldName(unescapeAttribute(match[1] ?? "")));
 	return names;
 }
