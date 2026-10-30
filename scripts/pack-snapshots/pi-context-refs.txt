@@ -3,8 +3,10 @@ README.md
 package.json
 schema/pi-context-refs.schema.json
 src/core/config-writer.ts
+src/core/confine.ts
 src/core/context-block.ts
 src/core/expand.ts
+src/core/glob.ts
 src/core/library-state.ts
 src/core/library.ts
 src/core/names.ts
@@ -12,11 +14,16 @@ src/core/ref-command.ts
 src/core/ref-completions.ts
 src/core/ref-edit.ts
 src/core/ref-list.ts
+src/core/ref-relations.ts
 src/core/resolve.ts
+src/core/scope.ts
 src/core/segments.ts
 src/core/tokens.ts
 src/index.ts
 src/pi/commands.ts
 src/pi/editor.ts
 src/pi/fs.ts
+src/pi/git-remotes.ts
 src/pi/input.ts
+src/pi/libraries.ts
+src/pi/ref-run.ts
