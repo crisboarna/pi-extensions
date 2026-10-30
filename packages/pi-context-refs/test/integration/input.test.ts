@@ -252,3 +252,38 @@ for (const mode of ["tui", "print", "json", "rpc"] as const) {
 		});
 	});
 }
+
+describe("a send that is running when the session shuts down", () => {
+	const slow = { name: "slow", kind: "dynamic", command: [process.execPath, "-e", "setTimeout(() => {}, 30000)"] };
+
+	it("kills the command, drops the Esc listener and leaves the stale UI alone", async () => {
+		writeLibrary([slow]);
+		const host = await boot();
+		const session = createFakeSession({ cwd: project, mode: "tui" });
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		const started = Date.now();
+		const sending = send(host, session, "#slow");
+		while (!session.statuses.some((status) => status.text?.includes("running #slow"))) await new Promise((resolve) => setTimeout(resolve, 5));
+		const shownBefore = { notices: session.notices.length, drafts: session.editorTexts.length, statuses: session.statuses.length };
+
+		await host.fire("session_shutdown", { type: "session_shutdown", reason: "quit" }, session.ctx);
+		assert.equal(session.pressKey("\x1b"), false, "the Esc listener is gone");
+		assert.deepEqual(await sending, { action: "handled" });
+		assert.ok(Date.now() - started < 10000, "the command was killed, not waited for");
+		assert.deepEqual(
+			{ notices: session.notices.length, drafts: session.editorTexts.length, statuses: session.statuses.length },
+			shownBefore,
+			"nothing is shown on the old session",
+		);
+	});
+
+	it("expands again in the next session", async () => {
+		writeLibrary([snippet("terse", "Be brief.")]);
+		const host = await boot();
+		const session = createFakeSession({ cwd: project, mode: "tui" });
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		await host.fire("session_shutdown", { type: "session_shutdown", reason: "reload" }, session.ctx);
+		await host.fire("session_start", { type: "session_start", reason: "reload" }, session.ctx);
+		assert.deepEqual(await send(host, session, "#terse"), { action: "transform", text: "Be brief." });
+	});
+});

@@ -94,5 +94,8 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 		};
 		ctx.ui.setEditorComponent(installed);
 	});
+	pi.on("session_shutdown", () => {
+		live = undefined;
+	});
 	return { draft: (ctx) => (live !== undefined && installed !== undefined && ctx.ui.getEditorComponent() === installed ? draftOf(live) : undefined) };
 }

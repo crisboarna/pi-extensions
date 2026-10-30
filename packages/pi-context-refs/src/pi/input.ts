@@ -7,7 +7,7 @@ import { printable } from "../core/text.ts";
 import type { UrlEnv } from "../core/url.ts";
 import { type ApprovalDeps, createApprover } from "./approvals.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
-import { trackRun } from "./running.ts";
+import { type CommandRun, trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
 export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
@@ -31,7 +31,16 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 	pi.on("session_start", (_event, ctx) => {
 		// A new session starts with a fresh set of warnings, so each one shows once per session.
 		libraries.start();
+		ended = false;
 		showNotices(libraries.refresh(ctx).notices, ctx, deps);
+	});
+
+	// The send in progress, so shutting the session down can cancel it; `ended` tells the send that its session is gone.
+	let current: CommandRun | undefined;
+	let ended = false;
+	pi.on("session_shutdown", () => {
+		ended = true;
+		current?.abort();
 	});
 
 	pi.on("input", async (event, ctx) => {
@@ -39,6 +48,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
 		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);
+		current = run;
 		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
 			expansion = await expandRefs(event.text, visible, {
@@ -53,7 +63,9 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 			});
 		} finally {
 			run.finish();
+			if (current === run) current = undefined;
 		}
+		if (ended) return { action: "handled" };
 		if (run.signal.aborted) return cancelSend(event.text, ["cancelled"], ctx);
 		const { text, images, failures } = expansion;
 		if (failures.length > 0) {

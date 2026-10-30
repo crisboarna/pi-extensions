@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { Editor, KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { createJiti } from "jiti";
-import { decorateEditor, draftOf, type EditorFactory } from "../../src/pi/editor.ts";
+import { decorateEditor, draftOf, type EditorFactory, registerEditor } from "../../src/pi/editor.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 
 const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
@@ -322,6 +322,31 @@ describe("the extension in a TUI session", () => {
 		await start(booted);
 		assert.equal(booted.writes.length, 0);
 		assert.equal(booted.slot.factory, undefined);
+	});
+});
+
+describe("the editor tap at session shutdown", () => {
+	it("lets go of the editor it built, and finds the draft again once pi builds the next one", async () => {
+		const host = createFakeHost();
+		const tap = registerEditor(host.pi as unknown as Parameters<typeof registerEditor>[0]);
+		const session = createFakeSession({ cwd: project, hasUI: true });
+		const slot: Slot = { factory: undefined };
+		Object.assign(session.ctx.ui, {
+			getEditorComponent: () => slot.factory,
+			setEditorComponent: (next: EditorFactory) => {
+				slot.factory = next;
+			},
+		});
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		build(slot.factory);
+		assert.ok(tap.draft(session.ctx), "the draft of the editor in the slot");
+
+		await host.fire("session_shutdown", { type: "session_shutdown", reason: "new" }, session.ctx);
+		assert.equal(tap.draft(session.ctx), undefined);
+
+		await host.fire("session_start", { type: "session_start", reason: "new" }, session.ctx);
+		build(slot.factory);
+		assert.ok(tap.draft(session.ctx));
 	});
 });
 
