@@ -27,6 +27,7 @@ src/core/ref-relations.ts
 src/core/resolve.ts
 src/core/scope.ts
 src/core/segments.ts
+src/core/suggest-name.ts
 src/core/tokens.ts
 src/core/trigger.ts
 src/core/url.ts
@@ -40,10 +41,13 @@ src/pi/fs.ts
 src/pi/git-remotes.ts
 src/pi/input.ts
 src/pi/libraries.ts
+src/pi/overlay-view.ts
+src/pi/overlay.ts
 src/pi/picker.ts
 src/pi/recent-source.ts
 src/pi/ref-approvals.ts
 src/pi/ref-run.ts
+src/pi/ref-save.ts
 src/pi/running.ts
 src/pi/sent.ts
 src/pi/text-viewer.ts
