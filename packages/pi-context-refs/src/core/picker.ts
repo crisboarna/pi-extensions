@@ -178,7 +178,7 @@ export interface Insertion {
 
 /**
  * The Placeholders a pick inserts where the typed Trigger token (`typed`, which ends at the cursor) stands: one for a Ref, or one per member of
- * a Bundle that the draft does not already have. Returns undefined for a value that is not one of this package's rows.
+ * a Bundle that the draft does not already have. A single Ref is added again even when the draft has it; it expands at every occurrence. Returns undefined for a value that is not one of this package's rows.
  */
 export function pickInsertion(lines: readonly string[], cursorLine: number, cursorCol: number, value: string, typed: string): Insertion | undefined {
 	const names = pickedNames(value);
@@ -192,7 +192,7 @@ export function pickInsertion(lines: readonly string[], cursorLine: number, curs
 			.map((token) => foldName(token.target)),
 	);
 	const text = names
-		.filter((name) => !present.has(foldName(name)))
+		.filter((name) => !value.startsWith(BUNDLE_VALUE) || !present.has(foldName(name)))
 		.map((name) => `[ref:${name}]`)
 		.join(" ");
 	return { text, replace: typed.length };
