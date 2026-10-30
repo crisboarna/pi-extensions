@@ -320,11 +320,3 @@ describe("Built-in Refs", () => {
 		assert.match(stderr.join(""), /#diff: not a git repository/);
 	});
 });
-
-describe("a Dynamic Ref with a URL", () => {
-	it("is not run yet, and its token is sent as typed", async () => {
-		writeLibrary([{ name: "page", kind: "dynamic", url: "http://127.0.0.1:1/" }]);
-		const { send } = await session("print");
-		assert.equal(await send("see #page"), undefined);
-	});
-});

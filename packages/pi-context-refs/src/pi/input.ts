@@ -6,6 +6,7 @@ import type { TruncateHead } from "../core/file-content.ts";
 import { createLibraryState, type LibraryState } from "../core/library-state.ts";
 import { readSettings } from "../core/ref-list.ts";
 import { visibleRefs } from "../core/resolve.ts";
+import type { UrlEnv } from "../core/url.ts";
 import { trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
@@ -20,6 +21,8 @@ export interface InputDeps extends CommandEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
+	/** Fetches a URL with a plain GET. */
+	fetchUrl: UrlEnv["fetchUrl"];
 	writeStderr: (text: string) => void;
 }
 
@@ -42,10 +45,16 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		const { refs, notices } = current().refresh();
 		showNotices(notices, ctx, deps);
 		const visible = addBuiltins(visibleRefs(refs), builtinsSetting(deps));
-		const run = trackRun(ctx, deps.runCommand);
+		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);
 		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
-			expansion = await expandRefs(event.text, visible, { ...deps, cwd: ctx.cwd, runCommand: run.runCommand, signal: run.signal });
+			expansion = await expandRefs(event.text, visible, {
+				...deps,
+				cwd: ctx.cwd,
+				runCommand: run.runCommand,
+				fetchUrl: run.fetchUrl,
+				signal: run.signal,
+			});
 		} finally {
 			run.finish();
 		}
