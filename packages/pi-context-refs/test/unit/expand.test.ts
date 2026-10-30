@@ -33,10 +33,27 @@ const ENV: ExpandEnv = {
 	runCommand: noCommands,
 	fetchUrl: noPages,
 	isGitWorkTree: async () => true,
+	// Most tests are about running, not about approving: they run with everything allowed. Approval tests drop this with `unapproved`.
+	approve: async () => ({ allowed: true }),
+};
+/** The env without an approver, as a caller that cannot ask would give it. */
+const unapproved = (env: ExpandEnv): ExpandEnv => {
+	const { approve: _approve, ...rest } = env;
+	return rest;
 };
 const snippet = (name: string, text: string): Ref => ({ name, kind: "snippet", text });
 const path = (name: string, target: string): Ref => ({ name, kind: "path", path: target });
 const expand = async (text: string, refs: Ref[], env: ExpandEnv = ENV): Promise<string> => (await expandRefs(text, visibleRefs(refs), env)).text;
+
+describe("control characters in an inline Expansion", () => {
+	it("are stripped from a Snippet, keeping tab, line feed and carriage return", async () => {
+		assert.equal(await expand("#x", [snippet("x", "a\u001b[31mred\u0007\tb\r\nc")]), "a[31mred\tb\r\nc");
+	});
+
+	it("are stripped from a Path", async () => {
+		assert.equal(await expand("#x", [path("x", "src/\u001b[2Jdir")]), "src/[2Jdir");
+	});
+});
 
 describe("Snippet", () => {
 	const refs = [snippet("terse", "Be brief."), snippet("loop", "see #terse and [ref:terse]")];
@@ -788,6 +805,26 @@ describe("Dynamic command", () => {
 		assert.ok(shadowed.text.includes("$ npm test\nmine"), shadowed.text);
 	});
 
+	describe("when the caller gives no layers", () => {
+		it("treats a command Ref as coming from the Project library: it asks, and does not run when nothing approves", async () => {
+			const log: CommandRequest[] = [];
+			const result = await expandRefs("#tests", visibleRefs([tests]), unapproved(runs({ npm: out("ok") }, log)));
+			assert.deepEqual(result.failures, [{ name: "tests", reason: "it is not approved" }]);
+			assert.deepEqual(log, []);
+		});
+
+		it("runs it once approve allows it", async () => {
+			const asked: string[] = [];
+			const approve = async ({ ref }: ApprovalRequest): Promise<Verdict> => {
+				asked.push(ref.name);
+				return { allowed: true };
+			};
+			const result = await expandRefs("#tests", visibleRefs([tests]), { ...runs({ npm: out("ok") }), approve });
+			assert.deepEqual(asked, ["tests"]);
+			assert.deepEqual(result.failures, []);
+		});
+	});
+
 	describe("from the Project library", () => {
 		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
 		const lint: Ref = { name: "lint", kind: "dynamic", command: ["eslint"] };
@@ -859,7 +896,7 @@ describe("Dynamic command", () => {
 		it("is not run when nothing can approve it", async () => {
 			const log: CommandRequest[] = [];
 			const { visible, layers } = layered([tests]);
-			const result = await expandRefs("#tests", visible, { ...runs({ npm: out("ok") }, log), layers });
+			const result = await expandRefs("#tests", visible, { ...unapproved(runs({ npm: out("ok") }, log)), layers });
 			assert.deepEqual(result.failures, [{ name: "tests", reason: "it is not approved" }]);
 			assert.deepEqual(log, []);
 		});

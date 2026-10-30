@@ -7,6 +7,7 @@ import {
 	definitionText,
 	hashDefinition,
 	readApprovals,
+	visible,
 } from "../core/approval.ts";
 import { type ApprovalListing, formatApprovals } from "../core/approval-list.ts";
 import { projectRefProblem } from "../core/confine.ts";
@@ -94,7 +95,7 @@ export async function approveRef(run: Run, command: Extract<RefCommand, { name: 
 	const confirmed = await ctx.ui.confirm(
 		`Approve #${ref.name}?`,
 		[
-			`From the Project library ${run.files.project.path}.`,
+			`From the Project library ${visible(run.files.project.path)}.`,
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,
@@ -142,7 +143,7 @@ export async function decideApproval(run: Run, target: Target, ref: Ref): Promis
 	const confirmed = await run.ctx.ui.confirm(
 		`Save #${ref.name} and approve it?`,
 		[
-			`This saves the Ref in the Project library ${run.files.project.path} and approves exactly this definition.`,
+			`This saves the Ref in the Project library ${visible(run.files.project.path)} and approves exactly this definition.`,
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,

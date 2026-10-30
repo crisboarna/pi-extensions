@@ -46,8 +46,9 @@ export function hashDefinition(definition: Definition): string {
 	return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
 
-/** Control characters written as `\u00XX`, so text from a repository cannot move the cursor or recolour a dialog. */
-export const visible = (text: string): string => text.replace(/\p{Cc}/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+/** Control and invisible formatting characters (bidi overrides, zero-width characters, line and paragraph separators) written as `\uXXXX`, so text from a repository cannot move the cursor, recolour a dialog or make a command look like another. */
+export const visible = (text: string): string =>
+	text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (character) => `\\u${(character.codePointAt(0) ?? 0).toString(16).padStart(4, "0")}`);
 
 /** The definition as the lines an Approval dialog shows. */
 export function definitionLines(definition: Definition): string[] {

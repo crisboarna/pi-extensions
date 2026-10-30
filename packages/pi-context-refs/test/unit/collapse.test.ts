@@ -34,6 +34,13 @@ describe("parseTailBlocks", () => {
 		);
 	});
 
+	it("does not take pasted text as a block when its name holds a control character or its kind is neither file nor dynamic", () => {
+		for (const head of ['name="\u001b[2Jx" kind="file"', 'name="x" kind="\u001b[2J"', 'name="x" kind="evil"']) {
+			const text = `prose\n\n<context-ref ${head} path="p" bytes="1">\nx\n</context-ref>`;
+			assert.deepEqual(parseTailBlocks(text), { prose: text, blocks: [] }, head);
+		}
+	});
+
 	it("leaves blocks alone when text that is not a Context block follows them", () => {
 		const text = `prose\n\n${file("api", "x")}\n\nand then I typed more`;
 		assert.deepEqual(parseTailBlocks(text), { prose: text, blocks: [] });

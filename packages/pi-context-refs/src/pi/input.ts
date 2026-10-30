@@ -3,6 +3,7 @@ import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
 import { isUsedProjectFile, type UsedFiles } from "../core/recent.ts";
+import { printable } from "../core/text.ts";
 import type { UrlEnv } from "../core/url.ts";
 import { type ApprovalDeps, createApprover } from "./approvals.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
@@ -69,14 +70,15 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 /** The TUI refuses a send it cannot complete: the draft comes back, then the notice, whose repaint shows the restored draft. */
 function cancelSend(draft: string, reasons: string[], ctx: ExtensionContext): { action: "handled" } {
 	ctx.ui.setEditorText(draft);
-	ctx.ui.notify(`pi-context-refs: ${reasons.join("\n")}`, "error");
+	ctx.ui.notify(printable(`pi-context-refs: ${reasons.join("\n")}`), "error");
 	return { action: "handled" };
 }
 
 /** A warning goes to the notification line where there is a UI (the TUI, and the client in RPC) and to stderr where there is none. */
 function showNotices(notices: string[], ctx: ExtensionContext, deps: InputDeps): void {
 	for (const notice of notices) {
-		if (ctx.hasUI) ctx.ui.notify(`pi-context-refs: ${notice}`, "warning");
-		else deps.writeStderr(`pi-context-refs: ${notice}\n`);
+		const line = printable(`pi-context-refs: ${notice}`);
+		if (ctx.hasUI) ctx.ui.notify(line, "warning");
+		else deps.writeStderr(`${line}\n`);
 	}
 }

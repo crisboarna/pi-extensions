@@ -8,6 +8,7 @@ import { completeArguments } from "../core/ref-completions.ts";
 import { applyFields, buildRef, jsonOf } from "../core/ref-edit.ts";
 import { describeRef, formatList, readSettings, settingsProblems } from "../core/ref-list.ts";
 import { addedConsequence, findPlaced, removalConsequence } from "../core/ref-relations.ts";
+import { printable } from "../core/text.ts";
 import { approvalStateOf, approveRef, decideApproval, forgetApproval, recordDecided, revokeApproval, showApprovals } from "./ref-approvals.ts";
 import {
 	type CommandDeps,
@@ -73,9 +74,9 @@ export function registerRefCommand(pi: ExtensionAPI, deps: CommandDeps): void {
 			};
 			const run = createRun(ctx, deps, say);
 			const parsed = parseRefArguments(args);
-			if (!parsed.ok) return say(parsed.usage === undefined ? parsed.error : `${parsed.error}\n${parsed.usage}`, "error");
+			if (!parsed.ok) return run.say(parsed.usage === undefined ? parsed.error : `${parsed.error}\n${parsed.usage}`, "error");
 			const unknownLibrary = libraryProblem(parsed.command);
-			if (unknownLibrary !== undefined) return say(unknownLibrary, "error");
+			if (unknownLibrary !== undefined) return run.say(unknownLibrary, "error");
 			await dispatch(run, parsed.command, sessionTrigger);
 		},
 	});
@@ -333,7 +334,8 @@ export async function remove(run: Run, command: Extract<RefCommand, { name: "rem
 	if (!entries.ok) return run.say(entries.error, "error");
 	const found = findEntry(entries.entries, name);
 	if (!found) return run.say(noRef(name, target), "error");
-	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${found.name}"?`, removalText(run, target, found)))) return run.say(`Kept "${found.name}"`);
+	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${found.name}"?`, printable(removalText(run, target, found)))))
+		return run.say(`Kept "${found.name}"`);
 	const result = updateLibraryFile(target.file, (current) => {
 		const again = findEntry(current, found.name);
 		return again ? { refs: current.filter((_entry, index) => index !== again.index) } : { error: noRef(found.name, target) };

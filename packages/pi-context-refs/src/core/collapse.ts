@@ -17,7 +17,7 @@ export interface TailParse {
 const OPENING = Buffer.from('<context-ref name="');
 const CLOSING = Buffer.from("\n</context-ref>");
 const HEAD =
-	/^<context-ref name="([^"]*)" kind="([^"]*)"(?: (?:path|source)="[^"]*")? bytes="(\d+)"(?: exit="[^"]*")?(?: truncated="[^"]*")?( error="[^"]*")?>$/;
+	/^<context-ref name="([^"\p{Cc}]*)" kind="(file|dynamic)"(?: (?:path|source)="[^"]*")? bytes="(\d+)"(?: exit="[^"]*")?(?: truncated="[^"]*")?( error="[^"]*")?>$/u;
 const LINE_FEED = 0x0a;
 const WHITESPACE = [0x20, 0x09, LINE_FEED, 0x0d];
 

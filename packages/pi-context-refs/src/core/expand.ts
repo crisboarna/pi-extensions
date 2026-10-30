@@ -7,6 +7,7 @@ import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { parseRecentTarget } from "./recent.ts";
 import { bundleMembers, type Layer } from "./resolve.ts";
+import { stripControl } from "./text.ts";
 import { findRefTokens } from "./tokens.ts";
 import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.ts";
 
@@ -20,7 +21,7 @@ export interface ExpandEnv extends CommandEnv, UrlEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
-	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library runs only when `approve` allows it. */
+	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library runs only when `approve` allows it; without `layers` every one counts as the Project library's. */
 	layers?: ReadonlyMap<string, Layer>;
 	/** Decides whether a Project library command or URL Ref may run. It is asked one Ref at a time, before any Ref of the message runs. Without it none may. */
 	approve?: (request: ApprovalRequest) => Promise<Verdict>;
@@ -124,7 +125,9 @@ export const refDefinition = (ref: CommandRef | UrlRef, where: { cwd: string; ho
 async function askApprovals(refs: BlockRef[], env: ExpandEnv): Promise<Map<BlockRef, string>> {
 	const refused = new Map<BlockRef, string>();
 	for (const ref of refs) {
-		if (ref.kind === "file" || env.layers?.get(foldName(ref.name)) !== "project") continue;
+		const layer = env.layers?.get(foldName(ref.name));
+		// Without layers every command or URL Ref counts as the Project library's, so a caller that forgets them fails closed.
+		if (ref.kind === "file" || (env.layers !== undefined && layer !== "project")) continue;
 		const verdict = env.approve ? await env.approve({ ref, definition: refDefinition(ref, env) }) : undefined;
 		if (!verdict?.allowed) refused.set(ref, verdict?.reason ?? "it is not approved");
 	}
@@ -172,8 +175,8 @@ function blockRefOf(ref: Ref): BlockRef | undefined {
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */
 function inlineExpansion(ref: Ref, env: ExpandEnv): string | undefined {
-	if (ref.kind === "snippet") return ref.text;
-	if (ref.kind === "path") return pathText(ref, env);
+	if (ref.kind === "snippet") return stripControl(ref.text);
+	if (ref.kind === "path") return stripControl(pathText(ref, env));
 	return undefined;
 }
 

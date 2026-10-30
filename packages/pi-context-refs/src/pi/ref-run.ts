@@ -7,6 +7,7 @@ import { type ListedLibrary, UNTRUSTED } from "../core/ref-list.ts";
 import { type LibraryName, libraryOf } from "../core/ref-relations.ts";
 import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
+import { printable } from "../core/text.ts";
 import type { ApprovalDeps } from "./approvals.ts";
 import { projectLibraryPath } from "./libraries.ts";
 
@@ -68,7 +69,7 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 
 export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
 	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
-	return { ctx, deps, say, place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
+	return { ctx, deps, say: (text, level) => say(printable(text), level), place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }
 
 /** Why the Project library is not available in this session. */
