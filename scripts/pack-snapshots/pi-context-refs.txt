@@ -15,6 +15,7 @@ src/core/library-state.ts
 src/core/library.ts
 src/core/names.ts
 src/core/picker.ts
+src/core/recent.ts
 src/core/ref-command.ts
 src/core/ref-completions.ts
 src/core/ref-edit.ts
@@ -36,6 +37,7 @@ src/pi/git-remotes.ts
 src/pi/input.ts
 src/pi/libraries.ts
 src/pi/picker.ts
+src/pi/recent-source.ts
 src/pi/ref-run.ts
 src/pi/running.ts
 src/pi/sent.ts
