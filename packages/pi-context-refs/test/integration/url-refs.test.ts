@@ -42,7 +42,8 @@ beforeEach(async () => {
 	routes = {};
 	server = createServer((request, response) => {
 		requests.push(request);
-		const route = routes[request.url ?? ""];
+		const url = request.url ?? "";
+		const route = Object.hasOwn(routes, url) ? routes[url] : undefined;
 		if (route) route(request, response);
 		else {
 			response.statusCode = 404;

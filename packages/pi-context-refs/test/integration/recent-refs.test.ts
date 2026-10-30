@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 import { createJiti } from "jiti";
@@ -162,13 +162,13 @@ describe("what counts as a Recent ref (sent messages)", () => {
 	it("ignores a message sent by an extension, and pi's clipboard and temporary files", async () => {
 		const { send, recentRows } = await start();
 		await send("@src/api.ts", { source: "extension" });
-		const temporary = join(tmpdir(), "pi-clipboard-0000.png");
+		const temporary = join(mkdtempSync(join(tmpdir(), "context-refs-clipboard-")), "pi-clipboard-0000.png");
 		writeFileSync(temporary, "png");
 		try {
 			await send(`look at @${temporary}`);
 			assert.deepEqual(await recentRows(), []);
 		} finally {
-			rmSync(temporary, { force: true });
+			rmSync(dirname(temporary), { recursive: true, force: true });
 		}
 	});
 
