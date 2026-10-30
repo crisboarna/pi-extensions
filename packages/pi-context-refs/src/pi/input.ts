@@ -1,20 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { addBuiltins } from "../core/builtins.ts";
 import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
-import { createLibraryState, type LibraryState } from "../core/library-state.ts";
-import { readSettings } from "../core/ref-list.ts";
-import { visibleRefs } from "../core/resolve.ts";
 import type { UrlEnv } from "../core/url.ts";
+import { createLibraries, type LibraryDeps } from "./libraries.ts";
 import { trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
-export interface InputDeps extends CommandEnv {
-	/** The Global library file. */
-	libraryPath: string;
-	home: string;
-	readText: (path: string) => string | undefined;
+export interface InputDeps extends LibraryDeps, CommandEnv {
 	/** The bytes of a file; it rejects with the system's error. */
 	readFile: (path: string) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`: cuts a File at the caps of pi's read tool. */
@@ -28,29 +21,25 @@ export interface InputDeps extends CommandEnv {
 
 /** Expands typed refs and Placeholders in each message that is sent, in every mode. */
 export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
-	let library: LibraryState | undefined;
-	const current = (): LibraryState => {
-		library ??= createLibraryState(deps.libraryPath, () => deps.readText(deps.libraryPath));
-		return library;
-	};
+	const libraries = createLibraries(deps);
 
 	pi.on("session_start", (_event, ctx) => {
 		// A new session starts with a fresh set of warnings, so each one shows once per session.
-		library = undefined;
-		showNotices(current().refresh().notices, ctx, deps);
+		libraries.start();
+		showNotices(libraries.refresh(ctx).notices, ctx, deps);
 	});
 
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return undefined;
-		const { refs, notices } = current().refresh();
+		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
-		const visible = addBuiltins(visibleRefs(refs), builtinsSetting(deps));
 		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);
 		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
 			expansion = await expandRefs(event.text, visible, {
 				...deps,
 				cwd: ctx.cwd,
+				layers,
 				runCommand: run.runCommand,
 				fetchUrl: run.fetchUrl,
 				signal: run.signal,
@@ -69,15 +58,6 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		const attached = [...(event.images ?? []), ...images];
 		return attached.length > 0 ? { action: "transform", text, images: attached } : { action: "transform", text };
 	});
-}
-
-/** The `builtins` setting from the Global library file, read at every send so an edit counts at once. */
-function builtinsSetting(deps: InputDeps): boolean | string[] {
-	try {
-		return readSettings(deps.readText(deps.libraryPath)).builtins;
-	} catch {
-		return true;
-	}
 }
 
 /** The TUI refuses a send it cannot complete: the draft comes back, then the notice, whose repaint shows the restored draft. */

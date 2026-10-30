@@ -277,7 +277,7 @@ Every command works with full arguments; the TUI dialogs only fill in what is mi
 | `/ref revoke <name\|all>` | Drops Approvals; needs no confirm. |
 | `/ref sent` | The full Expansions of the last sent message (section 13). |
 
-**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with Global preselected.
+**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with Global preselected. `edit` and `remove` work on the library of the Visible Ref of that name (the Global library when none is Visible) unless `in=` names one; `edit <name> in=here` scopes that Global Ref to this repository the same way. `in=here` uses the `origin` remote, else the first remote, normalized to `host/path`.
 
 **Name clashes.** A clash inside the target library (names are case-insensitive) is an error that points to `/ref edit`; nothing is overwritten. The same name in another layer, or a Built-in, is allowed because precedence handles it, and the result line says what the new Ref shadows or is shadowed by.
 

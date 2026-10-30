@@ -27,10 +27,15 @@ export const isUrlRef = (ref: { kind: string; url?: string }): ref is UrlRef => 
 // Types whose body is text although they are not `text/*`.
 const TEXT_TYPE = /^(text\/|application\/(json|xml|javascript|ecmascript|x-ndjson|yaml|x-yaml|toml)$|.+\+(json|xml|yaml)$)/;
 
+/** A URL Ref's Failure note and the reason. */
+export function urlFailure(ref: UrlRef, reason: string): BlockResult {
+	return { name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source: ref.url, error: reason }) };
+}
+
 /** GETs the Ref's URL and builds its Context block. A cut is marked in the block; the other ways to fail give a Failure note. */
 export async function urlBlock(ref: UrlRef, env: UrlEnv, signal?: AbortSignal): Promise<BlockResult> {
 	const source = ref.url;
-	const fail = (reason: string): BlockResult => ({ name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source, error: reason }) });
+	const fail = (reason: string): BlockResult => urlFailure(ref, reason);
 
 	const timeout = ref.timeout ?? DEFAULT_TIMEOUT_SECONDS;
 	const cap = ref.max_output ?? DEFAULT_MAX_OUTPUT;

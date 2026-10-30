@@ -402,3 +402,36 @@ describe("the TUI while a page is fetched", () => {
 		while (!closed) await new Promise((resolve) => setTimeout(resolve, 10));
 	});
 });
+
+describe("a URL Dynamic Ref from the Project library", () => {
+	const writeProject = (refs: unknown[]) => {
+		mkdirSync(join(project, ".pi"), { recursive: true });
+		writeFileSync(join(project, ".pi", "pi-context-refs.json"), JSON.stringify({ version: 1, $schema: "x", refs }));
+	};
+
+	it("is not fetched: the send fails with a note that approvals are not built", async () => {
+		serve("/n", "text/plain", "x");
+		writeProject([page("n", "/n")]);
+		const { s, send } = await session("tui");
+		assert.deepEqual(await send("#n"), { action: "handled" });
+		assert.match(s.notices.at(-1)?.message ?? "", /#n: a Project library URL needs your approval, and approvals are not built yet/);
+		assert.equal(requests.length, 0);
+	});
+
+	it("is not fetched through a Bundle either, and a Global URL Ref of the same message still is", async () => {
+		serve("/mine", "text/plain", "mine");
+		serve("/theirs", "text/plain", "theirs");
+		writeLibrary([page("mine", "/mine")]);
+		writeProject([{ ...page("theirs", "/theirs"), tags: ["ci"] }]);
+		const { send } = await session("print");
+		const sent = await send("#tag:ci #mine");
+		assert.match(
+			sent?.text ?? "",
+			new RegExp(`name="theirs" kind="dynamic" source="${base}/theirs" bytes="0" error="a Project library URL needs your approval`),
+		);
+		assert.deepEqual(
+			requests.map((request) => request.url),
+			["/mine"],
+		);
+	});
+});

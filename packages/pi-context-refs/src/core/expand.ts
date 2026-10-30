@@ -1,12 +1,12 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
-import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, isCommandRef } from "./dynamic.ts";
+import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
-import { bundleMembers } from "./resolve.ts";
+import { bundleMembers, type Layer } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
-import { isUrlRef, type UrlEnv, type UrlRef, urlBlock } from "./url.ts";
+import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.ts";
 
 /** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file, to run a command and to fetch a URL. */
 export interface ExpandEnv extends CommandEnv, UrlEnv {
@@ -18,6 +18,8 @@ export interface ExpandEnv extends CommandEnv, UrlEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
+	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library is not run, since it cannot be approved yet. */
+	layers?: ReadonlyMap<string, Layer>;
 	/** Cancels the commands and fetches that are running. */
 	signal?: AbortSignal;
 }
@@ -70,15 +72,20 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all(
-		[...blockRefs.values()].map((ref) => {
-			if (ref.kind === "file") return fileBlock(ref, env);
-			return isUrlRef(ref) ? urlBlock(ref, env, env.signal) : dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal);
-		}),
-	);
+	const blocks = await Promise.all([...blockRefs.values()].map((ref) => (ref.kind === "file" ? fileBlock(ref, env) : dynamicRefBlock(ref, env))));
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
+}
+
+/** A command or URL Ref's Context block. A Project library command or URL is refused, not run, until its approval exists. */
+function dynamicRefBlock(ref: CommandRef | UrlRef, env: ExpandEnv): Promise<BlockResult> | BlockResult {
+	const needsApproval = env.layers?.get(foldName(ref.name)) === "project";
+	if (isUrlRef(ref)) {
+		return needsApproval ? urlFailure(ref, "a Project library URL needs your approval, and approvals are not built yet") : urlBlock(ref, env, env.signal);
+	}
+	if (needsApproval) return dynamicFailure(ref, "a Project library command needs your approval, and approvals are not built yet");
+	return dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal);
 }
 
 /**

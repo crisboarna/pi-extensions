@@ -1,5 +1,7 @@
 import type { Ref } from "./library.ts";
 import { foldName } from "./names.ts";
+import { LAYER_PHRASE, type Layer, resolveRefs } from "./resolve.ts";
+import type { Place } from "./scope.ts";
 
 /** The settings the Global library file holds next to its Refs. */
 export interface Settings {
@@ -60,31 +62,67 @@ function targetSummary(ref: Ref): string {
 	return ref.command ? ref.command.join(" ") : (ref.url ?? "");
 }
 
-/** What `/ref list` shows. */
-export interface ListInput {
+/** A library file as `/ref list` shows it. */
+export interface ListedLibrary {
 	file: string;
-	settings: Settings;
-	/** The Trigger this session started with; a different one in the file needs `/reload`. */
-	sessionTrigger: string;
 	refs: readonly Ref[];
 	warnings: string[];
 	/** Set when the file cannot be used at all. */
 	error?: string;
-	filter: { tag?: string };
 }
 
-/** The plain-text block of `/ref list`: settings, Refs and load warnings. It is the same text in the TUI, RPC and print mode. */
+/** What `/ref list` shows. */
+export interface ListInput extends ListedLibrary {
+	settings: Settings;
+	/** The Trigger this session started with; a different one in the file needs `/reload`. */
+	sessionTrigger: string;
+	/** The Project library: its Refs when the project is trusted, `untrusted` when it is not loaded for that reason. */
+	project: (ListedLibrary & { untrusted?: never }) | { file: string; untrusted: true };
+	place: Place;
+	filter: { tag?: string; library?: "global" | "project" };
+}
+
+/** The plain-text block of `/ref list`: settings, Refs by layer, Shadowed Refs and load warnings. It is the same text in the TUI, RPC and print mode. */
 export function formatList(input: ListInput): string {
-	const { settings, filter } = input;
+	const { settings, filter, project } = input;
 	const tag = filter.tag === undefined ? undefined : foldName(filter.tag);
-	const shown = tag === undefined ? input.refs : input.refs.filter((ref) => ref.tags?.some((candidate) => foldName(candidate) === tag));
-	const lines = ["pi-context-refs", triggerLine(settings.trigger, input.sessionTrigger), `builtins: ${builtinsText(settings.builtins)}`, ""];
-	lines.push(`Global library ${input.file} (${countText(shown.length, input.refs.length, filter.tag)})`);
-	for (const ref of shown) lines.push(`  ${describeRef(ref)}`);
-	const warnings = input.error === undefined ? input.warnings : [...input.warnings, `${input.error}; no Refs are loaded`];
+	const tagged = (refs: readonly Ref[]): Ref[] =>
+		tag === undefined ? [...refs] : refs.filter((ref) => ref.tags?.some((candidate) => foldName(candidate) === tag));
+	const layered = resolveRefs({ global: input.refs, project: project.untrusted ? [] : project.refs }, input.place);
+	const inLayer = (layer: Layer) => layered.applicable.filter((entry) => entry.layer === layer).map((entry) => entry.ref);
+	const lines = ["pi-context-refs", triggerLine(settings.trigger, input.sessionTrigger), `builtins: ${builtinsText(settings.builtins)}`];
+	const showGlobal = filter.library !== "project";
+	const showProject = filter.library !== "global";
+	const section = (title: string, refs: readonly Ref[]): void => {
+		const shown = tagged(refs);
+		lines.push("", `${title} (${countText(shown.length, refs.length, filter.tag)})`, ...shown.map((ref) => `  ${describeRef(ref)}`));
+	};
+	if (showGlobal && inLayer("scoped").length > 0) section(`Scoped Refs that apply here, in ${input.file}`, inLayer("scoped"));
+	if (showProject) {
+		if (project.untrusted) lines.push("", `Project library ${project.file}: not loaded. ${UNTRUSTED}`);
+		else section(`Project library ${project.file}`, project.refs);
+	}
+	if (showGlobal) section(`Global library ${input.file}`, inLayer("global"));
+	if (showGlobal && layered.scopedElsewhere.length > 0) section(`Scoped Refs that do not apply here, in ${input.file}`, layered.scopedElsewhere);
+	const hidden = layered.shadowed.filter((entry) => tagged([entry.ref]).length > 0 && (entry.layer === "project" ? showProject : showGlobal));
+	if (hidden.length > 0) {
+		lines.push(
+			"",
+			"Shadowed Refs:",
+			...hidden.map((entry) => `  ${plain(entry.ref.name)}  in ${LAYER_PHRASE[entry.layer]}, hidden by ${LAYER_PHRASE[entry.by.layer]}`),
+		);
+	}
+	const warnings = [...(showGlobal ? libraryWarnings(input) : []), ...(showProject && !project.untrusted ? libraryWarnings(project) : [])];
 	if (warnings.length > 0) lines.push("", "Warnings:", ...warnings.map((warning) => `  ${plain(warning)}`));
 	return lines.join("\n");
 }
+
+/** Why the Project library is not loaded, and what to do about it. */
+export const UNTRUSTED =
+	"pi does not trust this project. Run /trust, then restart pi: a saved decision applies from the next start, because /trust does not change a running session.";
+
+const libraryWarnings = (library: ListedLibrary): string[] =>
+	library.error === undefined ? library.warnings : [...library.warnings, `${library.error}; no Refs are loaded`];
 
 function triggerLine(trigger: string, sessionTrigger: string): string {
 	return trigger === sessionTrigger

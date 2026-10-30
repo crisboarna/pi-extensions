@@ -320,3 +320,38 @@ describe("Built-in Refs", () => {
 		assert.match(stderr.join(""), /#diff: not a git repository/);
 	});
 });
+
+describe("a Dynamic Ref from the Project library", () => {
+	const writeProject = (refs: unknown[]) => {
+		mkdirSync(join(project, ".pi"), { recursive: true });
+		writeFileSync(join(project, ".pi", "pi-context-refs.json"), JSON.stringify({ version: 1, $schema: "x", refs }));
+	};
+	const marker = () => join(project, "ran.txt");
+	const touching = (name: string) => node(name, "require('node:fs').writeFileSync(process.argv[1], 'ran')", marker());
+
+	it("is not run: the send fails with a note that approvals are not built", async () => {
+		writeProject([touching("setup")]);
+		const { s, send } = await session("tui");
+		assert.deepEqual(await send("#setup"), { action: "handled" });
+		assert.match(s.notices.at(-1)?.message ?? "", /#setup: a Project library command needs your approval, and approvals are not built yet/);
+		assert.equal(existsSync(marker()), false);
+	});
+
+	it("sends a Failure note in print mode and still runs the Global Refs of the same message", async () => {
+		writeLibrary([node("global", "console.log('ok')")]);
+		writeProject([touching("setup")]);
+		const { send } = await session("print");
+		const sent = await send("#setup #global");
+		assert.match(sent?.text ?? "", /name="setup" kind="dynamic" source=".*" bytes="0" error="a Project library command needs your approval/);
+		assert.equal(blocksOf(sent).filter((block) => lastLine(block) === "ok").length, 1);
+		assert.equal(existsSync(marker()), false);
+	});
+
+	it("is not run through a Bundle either, and it shadows the Built-in Ref of its name", async () => {
+		writeProject([{ ...touching("setup"), tags: ["ci"] }, { ...touching("diff") }]);
+		const { send } = await session("print");
+		assert.match((await send("#tag:ci"))?.text ?? "", /error="a Project library command needs your approval/);
+		assert.match((await send("#diff"))?.text ?? "", /error="a Project library command needs your approval/);
+		assert.equal(existsSync(marker()), false);
+	});
+});
