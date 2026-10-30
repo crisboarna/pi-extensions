@@ -47,7 +47,7 @@ export function hashDefinition(definition: Definition): string {
 }
 
 /** Control characters written as `\u00XX`, so text from a repository cannot move the cursor or recolour a dialog. */
-const visible = (text: string): string => text.replace(/\p{Cc}/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+export const visible = (text: string): string => text.replace(/\p{Cc}/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 
 /** The definition as the lines an Approval dialog shows. */
 export function definitionLines(definition: Definition): string[] {

@@ -179,12 +179,37 @@ describe("parseRefArguments: sent", () => {
 	});
 });
 
+describe("parseRefArguments: approvals, approve and revoke", () => {
+	it("reads approvals with no arguments", () => {
+		assert.deepEqual(parse("approvals"), { ok: true, command: { name: "approvals" } });
+		const result = parse("approvals now");
+		assert.equal(result.ok, false);
+		assert.equal(result.ok ? "" : result.usage, "/ref approvals");
+	});
+
+	it("reads the name to approve or revoke, which may be left out for a dialog to ask", () => {
+		assert.deepEqual(parse("approve tests"), { ok: true, command: { name: "approve", refName: "tests" } });
+		assert.deepEqual(parse("approve"), { ok: true, command: { name: "approve" } });
+		assert.deepEqual(parse("revoke tests"), { ok: true, command: { name: "revoke", refName: "tests" } });
+		assert.deepEqual(parse("revoke all"), { ok: true, command: { name: "revoke", refName: "all" } });
+		assert.deepEqual(parse("revoke"), { ok: true, command: { name: "revoke" } });
+	});
+
+	it("has no form that approves everything or takes a library", () => {
+		for (const line of ["approve a b", "approve in=project", "revoke a b", "revoke in=project"]) {
+			const result = parse(line);
+			assert.equal(result.ok, false, line);
+			assert.match(result.ok ? "" : (result.usage ?? ""), /^\/ref (approve <name>|revoke <name\|all>)$/, line);
+		}
+	});
+});
+
 describe("parseRefArguments: unknown subcommand", () => {
 	it("names the subcommands that exist", () => {
 		const result = parse("frobnicate");
 		assert.equal(result.ok, false);
 		assert.match(result.ok ? "" : result.error, /unknown subcommand "frobnicate"/);
-		assert.match(result.ok ? "" : (result.usage ?? ""), /list.*add.*edit.*remove.*sent/s);
+		assert.match(result.ok ? "" : (result.usage ?? ""), /list.*add.*edit.*remove.*approvals.*approve.*revoke.*sent/s);
 	});
 });
 

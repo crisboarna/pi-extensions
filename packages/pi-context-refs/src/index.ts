@@ -32,6 +32,8 @@ export default function extension(pi: ExtensionAPI): void {
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		readText: readTextIfPresent,
 		writeText: writeTextAtomically,
+		approvalsPath: join(getAgentDir(), "pi-context-refs-approvals.json"),
+		now: () => new Date(),
 		writeStderr: (text) => void process.stderr.write(text),
 		home: homedir(),
 		realpath: realpathIfPresent,

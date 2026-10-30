@@ -25,6 +25,8 @@ export function completeArguments(typed: string, refNames: readonly string[]): C
 	if (last.startsWith("in=")) return completeLibrary(last, before, librariesFor(words[0] ?? ""));
 	const [subcommand] = words;
 	if ((subcommand === "edit" || subcommand === "remove") && words.length === 2) return complete(refNames);
+	if (subcommand === "approve" && words.length === 2) return complete(refNames);
+	if (subcommand === "revoke" && words.length === 2) return complete([...refNames, "all"]);
 	if (subcommand === "add" && words.length === 3) return complete(KINDS);
 	return null;
 }

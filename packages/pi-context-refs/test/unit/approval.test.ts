@@ -122,6 +122,20 @@ describe("readApprovals", () => {
 		assert.match(result.ok ? "" : result.error, /pi-context-refs-approvals\.json does not parse/);
 	});
 
+	it("says when the file cannot be read, is not an object, or has no list of Approvals", () => {
+		const unreadable = rig();
+		unreadable.file.read = () => {
+			throw new Error("EACCES");
+		};
+		const reasons = [unreadable.file, rig("[]").file, rig(JSON.stringify({ version: 1, approvals: {} })).file].map((file) => {
+			const result = readApprovals(file);
+			return result.ok ? "" : result.error;
+		});
+		assert.match(reasons[0] ?? "", /could not be read: EACCES/);
+		assert.match(reasons[1] ?? "", /must be a JSON object/);
+		assert.match(reasons[2] ?? "", /\$\.approvals must be a list/);
+	});
+
 	it("refuses a file of another version", () => {
 		const result = readApprovals(rig(JSON.stringify({ version: 2, approvals: [] })).file);
 		assert.equal(result.ok, false);

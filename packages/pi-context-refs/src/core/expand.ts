@@ -1,5 +1,5 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { type ApprovalRequest, definitionOf, type Verdict } from "./approval.ts";
+import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
@@ -90,17 +90,23 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 
 /** A command or URL Ref's Context block. */
 function dynamicRefBlock(ref: CommandRef | UrlRef, env: ExpandEnv): Promise<BlockResult> {
-	return isUrlRef(ref) ? urlBlock(ref, env, env.signal) : dynamicBlock(ref, dynamicCwd(ref, env), env, env.signal);
+	return isUrlRef(ref) ? urlBlock(ref, env, env.signal) : dynamicBlock(ref, commandCwd(ref, env), env, env.signal);
 }
 
-const dynamicCwd = (ref: CommandRef, env: ExpandEnv): string => absolutePath({ path: ref.cwd ?? "." }, env);
+/** The absolute directory a command Ref runs in: its `cwd` (a `~` expands to the home directory) resolved against the session's working directory. */
+export const commandCwd = (ref: Pick<CommandRef, "cwd">, where: { cwd: string; home: string }): string =>
+	resolve(where.cwd, expandHome(ref.cwd ?? ".", where.home));
+
+/** The definition an Approval of a command or URL Ref covers, with a command's directory resolved the way the command runs. */
+export const refDefinition = (ref: CommandRef | UrlRef, where: { cwd: string; home: string }): Definition =>
+	definitionOf(ref, isUrlRef(ref) ? where.cwd : commandCwd(ref, where));
 
 /** The reason each Project library command or URL Ref may not run, asked in order and one at a time so only one dialog is open. */
 async function askApprovals(refs: BlockRef[], env: ExpandEnv): Promise<Map<BlockRef, string>> {
 	const refused = new Map<BlockRef, string>();
 	for (const ref of refs) {
 		if (ref.kind === "file" || env.layers?.get(foldName(ref.name)) !== "project") continue;
-		const verdict = env.approve ? await env.approve({ ref, definition: definitionOf(ref, isUrlRef(ref) ? env.cwd : dynamicCwd(ref, env)) }) : undefined;
+		const verdict = env.approve ? await env.approve({ ref, definition: refDefinition(ref, env) }) : undefined;
 		if (!verdict?.allowed) refused.set(ref, verdict?.reason ?? "it is not approved");
 	}
 	return refused;

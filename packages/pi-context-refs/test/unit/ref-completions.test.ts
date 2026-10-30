@@ -7,9 +7,10 @@ const values = (prefix: string) => completeArguments(prefix, names)?.map((item) 
 
 describe("completeArguments", () => {
 	it("completes the subcommand while it is the first word", () => {
-		assert.deepEqual(values(""), ["list", "add", "edit", "remove", "sent"]);
+		assert.deepEqual(values(""), ["list", "add", "edit", "remove", "approvals", "approve", "revoke", "sent"]);
 		assert.deepEqual(values("e"), ["edit"]);
-		assert.deepEqual(values("r"), ["remove"]);
+		assert.deepEqual(values("r"), ["remove", "revoke"]);
+		assert.deepEqual(values("a"), ["add", "approvals", "approve"]);
 		assert.equal(values("zzz"), null);
 	});
 
@@ -18,6 +19,12 @@ describe("completeArguments", () => {
 		assert.deepEqual(values("remove a"), ["remove api", "remove Agents"]);
 		assert.deepEqual(values("edit ag"), ["edit Agents"]);
 		assert.equal(values("edit nothing"), null);
+	});
+
+	it("completes Ref names for approve and revoke, and all for revoke", () => {
+		assert.deepEqual(values("approve t"), ["approve terse"]);
+		assert.deepEqual(values("revoke a"), ["revoke api", "revoke Agents", "revoke all"]);
+		assert.equal(values("approve a b"), null);
 	});
 
 	it("completes the kind of add as the third word", () => {
