@@ -65,6 +65,24 @@ describe("scopeMatches: path", () => {
 		assert.equal(scopeMatches({ path: "/link" }, place("/work/app", [], { "/link": "/work/app" })), true);
 	});
 
+	it("matches everything for the root directory, and the home directory for ~", () => {
+		assert.equal(scopeMatches({ path: "/" }, place("/work/app")), true);
+		assert.equal(scopeMatches({ path: "~" }, place("/home/me/work")), true);
+		assert.equal(scopeMatches({ path: "~" }, place("/work/app")), false);
+	});
+
+	it("resolves the glob-free leading directories of a glob, so a symlinked prefix still matches", () => {
+		const real = { "/link": "/work", "/rootlink": "/" };
+		assert.equal(scopeMatches({ path: "/link/*" }, place("/work/app", [], real)), true);
+		assert.equal(scopeMatches({ path: "/rootlink/*" }, place("/work", [], real)), true);
+		assert.equal(scopeMatches({ path: "/missing/*" }, place("/missing/app")), true, "a prefix that does not exist is matched as written");
+	});
+
+	it("takes a brace that never closes as text", () => {
+		assert.equal(scopeMatches({ path: "/work/{app" }, place("/work/{app")), true);
+		assert.equal(scopeMatches({ path: "/work/{app" }, place("/work/app")), false);
+	});
+
 	it("never asks git for a path-only scope", () => {
 		const here = place("/work/app");
 		scopeMatches({ path: "/work/app" }, here);
