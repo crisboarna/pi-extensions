@@ -1,13 +1,14 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
+import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { bundleMembers } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
 
-/** What an Expansion needs from outside: the session's working directory, the home directory and a way to read a file. */
-export interface ExpandEnv {
+/** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file and a way to run a command. */
+export interface ExpandEnv extends CommandEnv {
 	cwd: string;
 	home: string;
 	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
@@ -16,6 +17,8 @@ export interface ExpandEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
+	/** Cancels the commands that are running. */
+	signal?: AbortSignal;
 }
 
 /** A File or Dynamic Ref whose Expansion could not be produced. */
@@ -33,28 +36,28 @@ export interface Expansion {
 
 /**
  * Replaces each ref token that names a Visible Path or Snippet Ref, and each `#tag:<tag>` of a Bundle, by its Expansion, and adds one Context block
- * per File Ref after the text, in order of first appearance. Tokens that name a File stay in the text; a File member of a Bundle is only a block.
- * Other tokens stay as typed.
+ * per File Ref and per command Dynamic Ref after the text, in order of first appearance. Commands run in parallel. Tokens that name a File or a Dynamic Ref
+ * stay in the text; a File or Dynamic member of a Bundle is only a block. Other tokens stay as typed.
  */
 export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>, env: ExpandEnv): Promise<Expansion> {
 	const tokens = findRefTokens(text);
 	// A Bundle leaves out every member the message names itself, and every member an earlier Bundle gave.
 	const given = new Set(tokens.filter((token) => token.form !== "bundle").map((token) => foldName(token.target)));
 	const alreadySent = namesWithBlock(text);
-	const files = new Map<string, FileRef>();
-	const addFile = (ref: FileRef): void => {
+	const blockRefs = new Map<string, FileRef | CommandRef>();
+	const addBlock = (ref: FileRef | CommandRef): void => {
 		const folded = foldName(ref.name);
-		if (!alreadySent.has(folded)) files.set(folded, ref);
+		if (!alreadySent.has(folded)) blockRefs.set(folded, ref);
 	};
 	let prose = "";
 	let copiedUpTo = 0;
 	for (const token of tokens) {
 		let expansion: string | undefined;
 		if (token.form === "bundle") {
-			expansion = bundleExpansion(token.target, visible, given, addFile, env);
+			expansion = bundleExpansion(token.target, visible, given, addBlock, env);
 		} else {
 			const ref = visible.get(foldName(token.target));
-			if (ref?.kind === "file") addFile(ref);
+			if (ref?.kind === "file" || (ref && isCommandRef(ref))) addBlock(ref);
 			else expansion = ref ? inlineExpansion(ref, env) : undefined;
 		}
 		if (expansion === undefined) continue;
@@ -65,21 +68,25 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all([...files.values()].map((ref) => fileBlock(ref, env)));
+	const blocks = await Promise.all(
+		[...blockRefs.values()].map((ref) =>
+			ref.kind === "file" ? fileBlock(ref, env) : dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal),
+		),
+	);
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
-	const images = blocks.flatMap((block) => ("image" in block ? [block.image] : []));
+	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
 }
 
 /**
- * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File member goes to `addFile` and adds no text.
+ * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File or command member goes to `addBlock` and adds no text.
  * Undefined when no Visible Ref carries the Tag.
  */
 function bundleExpansion(
 	tag: string,
 	visible: ReadonlyMap<string, Ref>,
 	given: Set<string>,
-	addFile: (ref: FileRef) => void,
+	addBlock: (ref: FileRef | CommandRef) => void,
 	env: ExpandEnv,
 ): string | undefined {
 	const members = bundleMembers(visible, tag);
@@ -89,11 +96,11 @@ function bundleExpansion(
 		const folded = foldName(member.name);
 		if (given.has(folded)) continue;
 		given.add(folded);
-		if (member.kind === "file") {
-			addFile(member);
+		if (member.kind === "file" || isCommandRef(member)) {
+			addBlock(member);
 			continue;
 		}
-		// A Dynamic member stays a Placeholder until Dynamic Refs are built.
+		// A Dynamic member with a URL stays a Placeholder until that Source is built.
 		pieces.push(inlineExpansion(member, env) ?? `[ref:${member.name}]`);
 	}
 	return pieces.join(" ");
@@ -114,11 +121,14 @@ function pathText(ref: PathRef | FileRef, env: ExpandEnv): string {
 	return inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside) ? absolute : inside;
 }
 
-function absolutePath(ref: PathRef | FileRef, env: ExpandEnv): string {
+function absolutePath(ref: Pick<PathRef, "path">, env: ExpandEnv): string {
 	return resolve(env.cwd, expandHome(ref.path, env.home));
 }
 
-type FileBlock = { name: string; text: string } | { name: string; text: string; reason: string } | { name: string; text: string; image: ImageContent };
+type ImageBlock = { name: string; text: string; image: ImageContent };
+type FileBlock = BlockResult | ImageBlock;
+
+const hasImage = (block: FileBlock): block is ImageBlock => "image" in block;
 
 /** The file's current text as a Context block (or an empty block and an image to attach), or a Failure note and the reason. */
 async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
