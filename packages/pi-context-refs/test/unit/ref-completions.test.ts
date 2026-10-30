@@ -7,7 +7,7 @@ const values = (prefix: string) => completeArguments(prefix, names)?.map((item) 
 
 describe("completeArguments", () => {
 	it("completes the subcommand while it is the first word", () => {
-		assert.deepEqual(values(""), ["list", "add", "edit", "remove"]);
+		assert.deepEqual(values(""), ["list", "add", "edit", "remove", "sent"]);
 		assert.deepEqual(values("e"), ["edit"]);
 		assert.deepEqual(values("r"), ["remove"]);
 		assert.equal(values("zzz"), null);
