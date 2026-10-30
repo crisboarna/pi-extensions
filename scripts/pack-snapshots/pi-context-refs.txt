@@ -1,0 +1,5 @@
+LICENSE
+README.md
+package.json
+src/greeting.ts
+src/index.ts
