@@ -2,6 +2,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	type Approval,
 	type ApprovalRequest,
+	approvalCoverage,
 	approvalState,
 	type Definition,
 	definitionLines,
@@ -76,7 +77,13 @@ export function isApproved(deps: ApprovalDeps, project: string, name: string, de
 /** The question an Approval dialog asks: the Ref, then the exact definition. */
 export function approvalQuestion(name: string, project: string, definition: Definition): string {
 	const verb = definition.source === "command" ? "run" : "fetch";
-	return [`Allow the Project library Ref #${name} to ${verb} this?`, ...definitionLines(definition), `project: ${visible(project)}`].join("\n");
+	return [
+		`Allow the Project library Ref #${name} to ${verb} this?`,
+		...definitionLines(definition),
+		`project: ${visible(project)}`,
+		"",
+		approvalCoverage(definition),
+	].join("\n");
 }
 
 /** Why a Ref is not approved where nothing can ask: print and JSON mode. The reason also reaches stderr as the warning for the failed Ref. */

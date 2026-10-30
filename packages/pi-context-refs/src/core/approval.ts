@@ -50,6 +50,13 @@ export function hashDefinition(definition: Definition): string {
 export const visible = (text: string): string =>
 	text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (character) => `\\u${(character.codePointAt(0) ?? 0).toString(16).padStart(4, "0")}`);
 
+/** What an Approval does not cover, for every dialog that asks for one: a changed script or page, and the environment a command inherits. */
+export function approvalCoverage(definition: Definition): string {
+	return definition.source === "url"
+		? "This approves the URL only, not the page it returns: the page can change without asking again."
+		: "This approves the command line only, not the files it runs: a changed script, Makefile or package.json runs without asking again. It runs with your environment.";
+}
+
 /** The definition as the lines an Approval dialog shows. */
 export function definitionLines(definition: Definition): string[] {
 	if (definition.source === "url") return ["source: url", `url: ${visible(definition.url)}`];

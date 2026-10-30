@@ -101,6 +101,7 @@ describe("Approval dialogs", () => {
 		await started(host, session);
 		await host.fire("input", { type: "input", text: "#tests", source: "interactive" }, session.ctx);
 		assert.equal(questions.length, 1);
+		assert.match(questions[0] ?? "", /command line only, not the files it runs/);
 		noEscape(questions[0] ?? "");
 		assert.ok((questions[0] ?? "").includes("\\u001b"), JSON.stringify(questions));
 	});
@@ -117,6 +118,7 @@ describe("Approval dialogs", () => {
 		await started(host, session);
 		await host.commands.get("ref")?.handler("approve tests", session.ctx);
 		assert.equal(messages.length, 1);
+		assert.match(messages[0] ?? "", /command line only, not the files it runs/);
 		noEscape(messages[0] ?? "");
 		assert.ok((messages[0] ?? "").includes("\\u001b"), JSON.stringify(messages));
 	});

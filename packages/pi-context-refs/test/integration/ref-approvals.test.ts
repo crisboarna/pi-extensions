@@ -401,6 +401,7 @@ describe("/ref add in=project", () => {
 		assert.equal(dialog.questions.length, 1);
 		assert.equal(dialog.questions[0]?.title, "Save #lint and approve it?");
 		assert.match(dialog.questions[0]?.message ?? "", /source: command\nargv: eslint --max-warnings 0\ncwd: /);
+		assert.match(dialog.questions[0]?.message ?? "", /command line only, not the files it runs.*your environment/s);
 		assert.deepEqual(
 			readRefs().map((entry) => entry.name),
 			["lint"],

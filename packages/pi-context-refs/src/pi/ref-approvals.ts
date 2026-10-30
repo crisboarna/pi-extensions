@@ -1,6 +1,7 @@
 import {
 	type Approval,
 	type ApprovalState,
+	approvalCoverage,
 	approvalState,
 	approvalsFor,
 	definitionLines,
@@ -99,6 +100,7 @@ export async function approveRef(run: Run, command: Extract<RefCommand, { name: 
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,
+			approvalCoverage(definition),
 		].join("\n"),
 	);
 	if (!confirmed) return run.say(`Did not approve "${ref.name}"`);
@@ -152,6 +154,7 @@ export async function decideApproval(run: Run, target: Target, ref: Ref): Promis
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,
+			approvalCoverage(definition),
 		].join("\n"),
 	);
 	return confirmed ? { save: true, approve: ref } : { save: false };
