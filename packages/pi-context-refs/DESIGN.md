@@ -371,6 +371,8 @@ The test doubles are in `test/support/`: a stub provider that answers locally an
 
 Run in a real TUI.
 
+[docs/manual-checklist.md](docs/manual-checklist.md) turns these items into steps and records who ran them.
+
 - The look of the inline list and the `alt+r` overlay at narrow widths, in themes and with wide characters.
 - Fork, resume, export and compaction showing the full text.
 - `ctrl+o` expansion.
