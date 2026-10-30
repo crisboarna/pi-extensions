@@ -19,4 +19,5 @@ Pi's project trust says the project may load config; it does not say each comman
 
 - Print and JSON modes never prompt: an unapproved Ref becomes a Failure note with a stderr hint.
 - `/ref approve` needs a UI confirm and has no headless form; adding a Project Dynamic Ref from `/ref add in=project` approves its exact definition in the same confirm.
-- Built-in Refs and Global library Refs run without asking; they are the user's own.
+- Built-in Refs and Global library Refs run without asking; they are the user's own. A Built-in runs `git` in the project, and a repository's `.git/config` can make git run a program.
+- An Approval covers the definition only. A pull that rewrites a script, Makefile or `package.json` that an approved argv runs is not seen, and a command inherits pi's environment. The dialogs say so; the hash cannot cover files it does not name.

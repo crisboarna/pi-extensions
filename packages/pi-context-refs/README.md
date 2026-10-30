@@ -45,7 +45,7 @@ Two settings sit beside `refs` in your own file. `/ref list` shows them; there i
 | Setting | Effect | Default |
 |---|---|---|
 | `trigger` | The character that opens the picker. One character; not `/`, `@`, `!` or a space. A change needs `/reload`. | `#` |
-| `builtins` | `false` turns off `#diff`, `#staged`, `#status` and `#log`; a list of names keeps only those. | all four on |
+| `builtins` | `false` turns off `#diff`, `#staged`, `#status` and `#log`; a list of names turns off just those. | all four on |
 
 Limits per ref: `max_bytes` for a File (default 50 KB, up to 1 MB); `timeout` (default 10 s, up to 120 s) and `max_output` (default 50 KB, up to 1 MB) for a Dynamic ref. A saved ref with the name of a built-in replaces it.
 
@@ -95,6 +95,11 @@ Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that ta
 - Images are attached at their original size.
 - Content is never refreshed after the message is sent: a resent message keeps the block it had.
 - A snippet cannot contain refs.
+- Approving a project command or URL approves the command line or the address only. A changed script, Makefile, `package.json` or page runs without asking again, and a command runs with your environment.
+- The built-in refs run `git` without asking, in a repository whose `.git/config` can be hostile.
+- A project ref silently hides a global or built-in ref of the same name; `/ref list` names the hidden ones.
+- A text file is read up to 16 MB; a bigger one is cut at its cap and the closing line gives no line total.
+- `@` completions only see files that appeared in sent text, and each extension gets one Markdown transformer.
 - A `#word` in prose that matches a ref name expands, so a ref named `todo` makes every `#todo` expand.
 - Another extension that reads the user message (a classifier, a guard) sees the full expansion.
 - Not yet checked by a person in a real terminal: the look of the list and the overlay at narrow widths and in themes, fork, resume, export and compaction, `ctrl+o`, the wording of the approval prompt, and living beside pi-image-view, pi-up-history, pi-cc-steer, pi-multi-pass and pi-powerline-footer. The list is in [docs/manual-checklist.md](docs/manual-checklist.md).
