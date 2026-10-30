@@ -39,12 +39,12 @@ export interface LayeredRefs {
 	scopedElsewhere: Ref[];
 }
 
-/** The first Ref of each name, in list order, by case-folded name. */
+/** The unscoped Refs of one list by case-folded name, the first of each name winning. A Scoped Ref is left out: `resolveRefs` decides it. */
 export function visibleRefs(refs: readonly Ref[]): Map<string, Ref> {
 	const visible = new Map<string, Ref>();
 	for (const ref of refs) {
 		const folded = foldName(ref.name);
-		if (!visible.has(folded)) visible.set(folded, ref);
+		if (ref.scope === undefined && !visible.has(folded)) visible.set(folded, ref);
 	}
 	return visible;
 }
@@ -90,4 +90,10 @@ export function resolveRefs(sources: LayerSources, place: Place): LayeredRefs {
 		shadowed,
 		scopedElsewhere,
 	};
+}
+
+/** The Bundle of `tag`: every Visible Ref that carries it, in the order of `visible`, which is scoped, project, global, then file order. */
+export function bundleMembers(visible: ReadonlyMap<string, Ref>, tag: string): Ref[] {
+	const folded = foldName(tag);
+	return [...visible.values()].filter((ref) => ref.tags?.some((candidate) => foldName(candidate) === folded));
 }

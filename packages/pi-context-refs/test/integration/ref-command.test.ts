@@ -170,6 +170,17 @@ describe("/ref list", () => {
 		assert.match(await ref(host, session(), "list in=elsewhere"), /unknown library "elsewhere"; the libraries are: global, project/);
 	});
 
+	it("refuses a tag that is not a tag, and lists nothing for it", async () => {
+		writeLibrary({ refs });
+		const host = await boot();
+		for (const bad of ["tag=do!cs", "tag=", "tag=docs.", "tag=a:b"]) {
+			const stderr = await ref(host, session(), `list ${bad}`);
+			assert.match(stderr, /a tag (cannot be empty|uses only letters|cannot end in)/, bad);
+			assert.match(stderr, /^\/ref list /m, bad);
+			assert.doesNotMatch(stderr, /^ {2}api /m, bad);
+		}
+	});
+
 	it("lists load warnings, and a file that does not parse", async () => {
 		writeLibrary({ refs: [{ name: "bad name", kind: "snippet", text: "x" }, ...refs] });
 		const host = await boot();
@@ -203,6 +214,15 @@ describe("/ref add", () => {
 			{ name: "page", kind: "dynamic", url: "https://example.com/status" },
 		]);
 		assert.deepEqual(readdirSync(agentDir), ["pi-context-refs.json"], "no temporary file is left");
+	});
+
+	it("refuses a tag that is not a tag and saves nothing", async () => {
+		const host = await boot();
+		const stderr = await ref(host, session(), 'add terse snippet "Be brief." tags=style,bad!');
+		assert.match(stderr, /tags\[1\]: a tag uses only letters, digits/);
+		assert.equal(existsSync(libraryFile()), false);
+		assert.match(await ref(host, session(), "add terse snippet x tags=a,,b"), /Added snippet Ref "terse"/);
+		assert.deepEqual(readLibrary().refs[0]?.tags, ["a", "b"]);
 	});
 
 	it("reports what it saved, to stderr in print mode and through notify in the TUI", async () => {
@@ -336,6 +356,25 @@ describe("/ref edit", () => {
 		assert.equal(document.trigger, "$");
 		assert.deepEqual(document.refs[0], { name: "api", kind: "file", path: "src/v2.ts", tags: ["a", "b"] });
 		assert.deepEqual(document.refs[1], refs()[1]);
+	});
+
+	it("refuses a tag that is not a tag and leaves the file as it was", async () => {
+		writeLibrary({ refs: refs() });
+		const before = readFileSync(libraryFile(), "utf8");
+		const host = await boot();
+		assert.match(await ref(host, session(), "edit api tags=ok,bad!"), /tags\[1\]: a tag uses only letters, digits/);
+		assert.match(await ref(host, session(), "edit api tags=a:b"), /tags\[0\]: a tag uses only letters, digits/);
+		assert.match(await ref(host, session(), "edit api tags=docs."), /tags\[0\]: a tag cannot end in "\."/);
+		assert.equal(readFileSync(libraryFile(), "utf8"), before);
+	});
+
+	it("sets tags that differ only in case, and clears them with an empty value", async () => {
+		writeLibrary({ refs: refs() });
+		const host = await boot();
+		await ref(host, session(), "edit api tags=Docs,docs.v2");
+		assert.deepEqual(readLibrary().refs[0]?.tags, ["Docs", "docs.v2"]);
+		await ref(host, session(), "edit api tags=");
+		assert.equal("tags" in (readLibrary().refs[0] ?? {}), false);
 	});
 
 	it("renames a Ref unless the new name clashes with another, whatever its case", async () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Ref } from "../../src/core/library.ts";
-import { type Layer, resolveRefs, visibleRefs } from "../../src/core/resolve.ts";
+import { bundleMembers, type Layer, resolveRefs, visibleRefs } from "../../src/core/resolve.ts";
 import type { Place } from "../../src/core/scope.ts";
 
 const snippet = (name: string, text: string, scope?: Ref["scope"]): Ref => ({ name, kind: "snippet", text, ...(scope && { scope }) });
@@ -155,10 +155,44 @@ describe("resolveRefs: precedence", () => {
 	});
 });
 
-describe("visibleRefs", () => {
-	it("keeps the first Ref of a name, compared case-insensitively", () => {
-		const visible = visibleRefs([snippet("Api", "first"), snippet("api", "second")]);
-		assert.equal(visible.size, 1);
-		assert.deepEqual(visible.get("api"), snippet("Api", "first"));
+const member = (name: string, tags?: string[]): Ref => ({ name, kind: "snippet", text: name, ...(tags ? { tags } : {}) });
+const names = (refs: Ref[]): string[] => refs.map((ref) => ref.name);
+
+describe("bundleMembers", () => {
+	it("is every Visible Ref that carries the Tag, in file order", () => {
+		const visible = visibleRefs([member("c", ["docs"]), member("a", ["docs", "ops"]), member("b", ["ops"]), member("d")]);
+		assert.deepEqual(names(bundleMembers(visible, "docs")), ["c", "a"]);
+		assert.deepEqual(names(bundleMembers(visible, "ops")), ["a", "b"]);
+	});
+
+	it("compares tags without regard to case, on both sides", () => {
+		const visible = visibleRefs([member("a", ["Docs"]), member("b", ["DOCS"]), member("c", ["other"])]);
+		assert.deepEqual(names(bundleMembers(visible, "dOcS")), ["a", "b"]);
+	});
+
+	it("is empty for a Tag no Visible Ref carries, and for Refs without tags", () => {
+		const visible = visibleRefs([member("a", ["docs"]), member("b")]);
+		assert.deepEqual(bundleMembers(visible, "nope"), []);
+		assert.deepEqual(bundleMembers(visibleRefs([member("b")]), "docs"), []);
+	});
+
+	it("lists a Ref once, however often it repeats a Tag", () => {
+		assert.deepEqual(names(bundleMembers(visibleRefs([member("a", ["x", "X", "x"])]), "x")), ["a"]);
+	});
+
+	it("leaves out a Ref that another Ref of the same name shadows, and a Scoped Ref until its scope matches", () => {
+		const scoped: Ref = { ...member("a", ["docs"]), scope: { path: "/work/*" } };
+		const visible = visibleRefs([scoped, member("a", ["docs"]), member("b", ["docs"])]);
+		assert.deepEqual(names(bundleMembers(visible, "docs")), ["a", "b"]);
+		assert.equal(bundleMembers(visible, "docs")[0]?.scope, undefined);
+	});
+
+	it("follows the order of the Visible Refs, which are built scoped, project, global, then file order", () => {
+		const scoped = member("scoped", ["t"]);
+		const project = member("project", ["t"]);
+		const global1 = member("global-1", ["t"]);
+		const global2 = member("global-2", ["t"]);
+		const visible = new Map([scoped, project, global1, global2].map((ref) => [ref.name, ref]));
+		assert.deepEqual(names(bundleMembers(visible, "t")), ["scoped", "project", "global-1", "global-2"]);
 	});
 });

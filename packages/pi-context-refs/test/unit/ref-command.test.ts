@@ -48,6 +48,15 @@ describe("parseRefArguments: list", () => {
 		assert.deepEqual(parse("list tag=Docs in=global"), { ok: true, command: { name: "list", tag: "Docs", library: "global" } });
 	});
 
+	it("rejects a tag that is not a tag, with the list usage", () => {
+		for (const bad of ["tag=", "tag=a!b", "tag=docs.", "tag=a:b"]) {
+			const result = parse(`list ${bad}`);
+			assert.equal(result.ok, false, bad);
+			assert.match(result.ok ? "" : result.error, /^tag: a tag /, bad);
+			assert.match(result.ok ? "" : (result.usage ?? ""), /^\/ref list /, bad);
+		}
+	});
+
 	it("rejects anything else with the usage", () => {
 		const result = parse("list nonsense");
 		assert.equal(result.ok, false);
