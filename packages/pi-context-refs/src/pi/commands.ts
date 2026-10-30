@@ -6,7 +6,7 @@ import { foldName } from "../core/names.ts";
 import { type Field, KINDS, libraryProblem, parseRefArguments, type RefCommand, splitWords } from "../core/ref-command.ts";
 import { completeArguments } from "../core/ref-completions.ts";
 import { applyFields, buildRef, jsonOf } from "../core/ref-edit.ts";
-import { describeRef, formatList, readSettings } from "../core/ref-list.ts";
+import { describeRef, formatList, readSettings, settingsProblems } from "../core/ref-list.ts";
 import { addedConsequence, findPlaced, removalConsequence } from "../core/ref-relations.ts";
 import {
 	type CommandDeps,
@@ -103,6 +103,7 @@ function list(run: Run, command: Extract<RefCommand, { name: "list" }>, sessionT
 	run.say(
 		formatList({
 			...global.listed,
+			warnings: [...global.listed.warnings, ...settingsProblems(global.text)],
 			settings: readSettings(global.text),
 			sessionTrigger,
 			project,
