@@ -2,6 +2,7 @@ LICENSE
 README.md
 package.json
 schema/pi-context-refs.schema.json
+src/core/context-block.ts
 src/core/expand.ts
 src/core/library-state.ts
 src/core/library.ts

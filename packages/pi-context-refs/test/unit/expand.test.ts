@@ -1,117 +1,231 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { expandRefs } from "../../src/core/expand.ts";
+import { type ExpandEnv, expandRefs } from "../../src/core/expand.ts";
 import type { Ref } from "../../src/core/library.ts";
 import { visibleRefs } from "../../src/core/resolve.ts";
 
-const ENV = { cwd: "/work/repo", home: "/home/me" };
+/** A file reader over an in-memory disk; a value that is an Error is thrown, as the file system would. */
+function disk(files: Record<string, string | Uint8Array | Error>): ExpandEnv["readFile"] {
+	return async (path) => {
+		const content = files[path];
+		if (content === undefined) throw Object.assign(new Error("not found"), { code: "ENOENT" });
+		if (content instanceof Error) throw content;
+		return typeof content === "string" ? new TextEncoder().encode(content) : content;
+	};
+}
+const ENV: ExpandEnv = { cwd: "/work/repo", home: "/home/me", readFile: disk({}) };
 const snippet = (name: string, text: string): Ref => ({ name, kind: "snippet", text });
 const path = (name: string, target: string): Ref => ({ name, kind: "path", path: target });
-const expand = (text: string, refs: Ref[]): string => expandRefs(text, visibleRefs(refs), ENV);
+const expand = async (text: string, refs: Ref[], env: ExpandEnv = ENV): Promise<string> => (await expandRefs(text, visibleRefs(refs), env)).text;
 
 describe("Snippet", () => {
 	const refs = [snippet("terse", "Be brief."), snippet("loop", "see #terse and [ref:terse]")];
 
-	it("replaces a typed #name and a Placeholder by its saved text", () => {
-		assert.equal(expand("please #terse", refs), "please Be brief.");
-		assert.equal(expand("please [ref:terse]", refs), "please Be brief.");
+	it("replaces a typed #name and a Placeholder by its saved text", async () => {
+		assert.equal(await expand("please #terse", refs), "please Be brief.");
+		assert.equal(await expand("please [ref:terse]", refs), "please Be brief.");
 	});
 
-	it("is sent literally, never scanned again for more refs", () => {
-		assert.equal(expand("go #loop", refs), "go see #terse and [ref:terse]");
+	it("is sent literally, never scanned again for more refs", async () => {
+		assert.equal(await expand("go #loop", refs), "go see #terse and [ref:terse]");
 	});
 
-	it("expands at every occurrence", () => {
-		assert.equal(expand("#terse #terse", refs), "Be brief. Be brief.");
+	it("expands at every occurrence", async () => {
+		assert.equal(await expand("#terse #terse", refs), "Be brief. Be brief.");
 	});
 
-	it("keeps multi-line text and replacement markers as written", () => {
-		assert.equal(expand("a #x b", [snippet("x", "line1\nline2 $& $1 $$")]), "a line1\nline2 $& $1 $$ b");
+	it("keeps multi-line text and replacement markers as written", async () => {
+		assert.equal(await expand("a #x b", [snippet("x", "line1\nline2 $& $1 $$")]), "a line1\nline2 $& $1 $$ b");
 	});
 
-	it("leaves the punctuation after a typed token in place", () => {
-		assert.equal(expand("be #terse, then #terse.", refs), "be Be brief., then Be brief..");
+	it("leaves the punctuation after a typed token in place", async () => {
+		assert.equal(await expand("be #terse, then #terse.", refs), "be Be brief., then Be brief..");
 	});
 });
 
 describe("Path", () => {
-	it("prints a path inside the working directory relative to it", () => {
-		assert.equal(expand("see #a", [path("a", "src/api.ts")]), "see src/api.ts");
-		assert.equal(expand("see #a", [path("a", "./src/../src/api.ts")]), "see src/api.ts");
-		assert.equal(expand("see #a", [path("a", "/work/repo/src/api.ts")]), "see src/api.ts");
+	it("prints a path inside the working directory relative to it", async () => {
+		assert.equal(await expand("see #a", [path("a", "src/api.ts")]), "see src/api.ts");
+		assert.equal(await expand("see #a", [path("a", "./src/../src/api.ts")]), "see src/api.ts");
+		assert.equal(await expand("see #a", [path("a", "/work/repo/src/api.ts")]), "see src/api.ts");
 	});
 
-	it("prints the working directory itself as a dot", () => {
-		assert.equal(expand("in #a", [path("a", ".")]), "in .");
-		assert.equal(expand("in #a", [path("a", "/work/repo")]), "in .");
+	it("prints the working directory itself as a dot", async () => {
+		assert.equal(await expand("in #a", [path("a", ".")]), "in .");
+		assert.equal(await expand("in #a", [path("a", "/work/repo")]), "in .");
 	});
 
-	it("prints a path outside the working directory in full", () => {
-		assert.equal(expand("see #a", [path("a", "/etc/hosts")]), "see /etc/hosts");
-		assert.equal(expand("see #a", [path("a", "../other/x.md")]), "see /work/other/x.md");
-		assert.equal(expand("see #a", [path("a", "/work/repo-other/x")]), "see /work/repo-other/x");
+	it("prints a path outside the working directory in full", async () => {
+		assert.equal(await expand("see #a", [path("a", "/etc/hosts")]), "see /etc/hosts");
+		assert.equal(await expand("see #a", [path("a", "../other/x.md")]), "see /work/other/x.md");
+		assert.equal(await expand("see #a", [path("a", "/work/repo-other/x")]), "see /work/repo-other/x");
 	});
 
-	it("expands ~ to the home directory", () => {
-		assert.equal(expand("see #a", [path("a", "~/notes/todo.md")]), "see /home/me/notes/todo.md");
-		assert.equal(expand("see #a", [path("a", "~")]), "see /home/me");
+	it("expands ~ to the home directory", async () => {
+		assert.equal(await expand("see #a", [path("a", "~/notes/todo.md")]), "see /home/me/notes/todo.md");
+		assert.equal(await expand("see #a", [path("a", "~")]), "see /home/me");
 	});
 
-	it("prints a path inside the working directory relative even when it was written with ~", () => {
-		assert.equal(expand("see #a", [path("a", "~/../../work/repo/src")]), "see src");
+	it("prints a path inside the working directory relative even when it was written with ~", async () => {
+		assert.equal(await expand("see #a", [path("a", "~/../../work/repo/src")]), "see src");
 	});
 
-	it("treats a name that merely starts with two dots as inside the working directory", () => {
-		assert.equal(expand("see #a", [path("a", "..cache/x")]), "see ..cache/x");
+	it("treats a name that merely starts with two dots as inside the working directory", async () => {
+		assert.equal(await expand("see #a", [path("a", "..cache/x")]), "see ..cache/x");
 	});
 
-	it("does not check that the path exists", () => {
-		assert.equal(expand("create #a", [path("a", "not/yet/there.ts")]), "create not/yet/there.ts");
+	it("does not check that the path exists", async () => {
+		assert.equal(await expand("create #a", [path("a", "not/yet/there.ts")]), "create not/yet/there.ts");
 	});
 
-	it("keeps a ~name path that is not the home directory as a relative path", () => {
-		assert.equal(expand("see #a", [path("a", "~other/x")]), "see ~other/x");
+	it("keeps a ~name path that is not the home directory as a relative path", async () => {
+		assert.equal(await expand("see #a", [path("a", "~other/x")]), "see ~other/x");
 	});
 });
 
 describe("what does not expand", () => {
 	const refs = [snippet("terse", "Be brief."), path("agents", "AGENTS.md")];
 
-	it("passes through a name that matches no Ref", () => {
+	it("passes through a name that matches no Ref", async () => {
 		const text = "#1 priority, issue #42, #unknown, # heading, [ref:unknown]";
-		assert.equal(expand(text, refs), text);
+		assert.equal(await expand(text, refs), text);
 	});
 
-	it("matches the whole name only", () => {
-		assert.equal(expand("#ters #terse2 #terse-x", refs), "#ters #terse2 #terse-x");
+	it("matches the whole name only", async () => {
+		assert.equal(await expand("#ters #terse2 #terse-x", refs), "#ters #terse2 #terse-x");
 	});
 
-	it("matches case-insensitively", () => {
-		assert.equal(expand("#TERSE [ref:Agents]", refs), "Be brief. AGENTS.md");
+	it("matches case-insensitively", async () => {
+		assert.equal(await expand("#TERSE [ref:Agents]", refs), "Be brief. AGENTS.md");
 	});
 
-	it("leaves File and Dynamic refs as typed", () => {
-		const others: Ref[] = [
-			{ name: "api", kind: "file", path: "src/api.ts" },
-			{ name: "diff", kind: "dynamic", command: ["git", "diff"] },
-		];
-		assert.equal(expand("#api and [ref:diff]", others), "#api and [ref:diff]");
+	it("leaves a Dynamic ref as typed until Dynamic refs are built", async () => {
+		const others: Ref[] = [{ name: "diff", kind: "dynamic", command: ["git", "diff"] }];
+		assert.equal(await expand("#diff and [ref:diff]", others), "#diff and [ref:diff]");
 	});
 
-	it("leaves a Scoped Ref as typed until its scope is matched", () => {
+	it("leaves a Scoped Ref as typed until its scope is matched", async () => {
 		const scoped: Ref = { name: "here", kind: "snippet", text: "x", scope: { path: "/work/repo" } };
-		assert.equal(expand("#here", [scoped]), "#here");
+		assert.equal(await expand("#here", [scoped]), "#here");
 	});
 
-	it("returns text with no ref tokens unchanged", () => {
-		assert.equal(expand("plain words", refs), "plain words");
+	it("returns text with no ref tokens unchanged", async () => {
+		assert.equal(await expand("plain words", refs), "plain words");
 	});
 });
 
 describe("visibleRefs", () => {
-	it("keeps the first Ref of a name, compared case-insensitively", () => {
+	it("keeps the first Ref of a name, compared case-insensitively", async () => {
 		const visible = visibleRefs([snippet("Api", "first"), snippet("api", "second")]);
 		assert.equal(visible.size, 1);
 		assert.deepEqual(visible.get("api"), snippet("Api", "first"));
+	});
+});
+
+describe("File", () => {
+	const api: Ref = { name: "api", kind: "file", path: "src/api.ts" };
+	const env = (files: Record<string, string | Uint8Array | Error>): ExpandEnv => ({ ...ENV, readFile: disk(files) });
+	const block = (attributes: string, body: string) => `<context-ref ${attributes}>\n${body}\n</context-ref>`;
+
+	it("keeps the token in the prose and adds one Context block after a blank line", async () => {
+		const text = await expand("read #api and [ref:api] now", [api], env({ "/work/repo/src/api.ts": "export {};\n" }));
+		assert.equal(text, `read #api and [ref:api] now\n\n${block('name="api" kind="file" path="src/api.ts" bytes="11"', "export {};\n")}`);
+	});
+
+	it("gives one block for a File used twice, and one per File in order of first appearance", async () => {
+		const refs: Ref[] = [api, { name: "b", kind: "file", path: "/etc/b.txt" }, { name: "c", kind: "file", path: "c.txt" }];
+		const files = { "/work/repo/src/api.ts": "A", "/etc/b.txt": "B", "/work/repo/c.txt": "C" };
+		const text = await expand("#c #api #c [ref:b] #api", refs, env(files));
+		const names = [...text.matchAll(/<context-ref name="([^"]+)"/g)].map((match) => match[1]);
+		assert.deepEqual(names, ["c", "api", "b"]);
+		assert.ok(text.startsWith('#c #api #c [ref:b] #api\n\n<context-ref name="c"'));
+		assert.ok(text.includes('</context-ref>\n\n<context-ref name="api"'));
+	});
+
+	it("resolves the path against the working directory and expands ~, and shows an outside path in full", async () => {
+		const refs: Ref[] = [
+			{ name: "rel", kind: "file", path: "./src/../src/api.ts" },
+			{ name: "home", kind: "file", path: "~/notes.md" },
+			{ name: "abs", kind: "file", path: "/etc/hosts" },
+		];
+		const files = { "/work/repo/src/api.ts": "1", "/home/me/notes.md": "2", "/etc/hosts": "3" };
+		const text = await expand("#rel #home #abs", refs, env(files));
+		assert.ok(text.includes('name="rel" kind="file" path="src/api.ts" bytes="1"'), text);
+		assert.ok(text.includes('name="home" kind="file" path="/home/me/notes.md" bytes="1"'), text);
+		assert.ok(text.includes('name="abs" kind="file" path="/etc/hosts" bytes="1"'), text);
+	});
+
+	it("measures bytes as UTF-8, removes the BOM and control characters, and leaves a closing tag in the content alone", async () => {
+		const content = new TextEncoder().encode("\u{feff}é\x1b[0m世</context-ref>\r\n");
+		const text = await expand("#api", [api], env({ "/work/repo/src/api.ts": content }));
+		assert.ok(text.endsWith(`bytes="24">\né[0m世</context-ref>\r\n\n</context-ref>`), JSON.stringify(text));
+	});
+
+	it("gives an empty file an empty block with bytes 0", async () => {
+		const text = await expand("#api", [api], env({ "/work/repo/src/api.ts": "" }));
+		assert.equal(text, `#api\n\n${block('name="api" kind="file" path="src/api.ts" bytes="0"', "")}`);
+	});
+
+	it("does not expand a File whose block is already in the message, and still expands the others", async () => {
+		const refs: Ref[] = [api, { name: "b", kind: "file", path: "b.txt" }];
+		const sent = `see [ref:api] and [ref:b]\n\n${block('name="API" kind="file" path="src/api.ts" bytes="3"', "old")}`;
+		const text = await expand(sent, refs, env({ "/work/repo/src/api.ts": "new", "/work/repo/b.txt": "B" }));
+		assert.ok(text.startsWith(sent), "the message is kept as it was");
+		assert.equal(text.match(/<context-ref name="api"/gi)?.length, 1);
+		assert.ok(text.endsWith(block('name="b" kind="file" path="b.txt" bytes="1"', "B")));
+	});
+
+	it("returns the message unchanged when every block it needs is already there", async () => {
+		const sent = `see [ref:api]\n\n${block('name="api" kind="file" path="src/api.ts" bytes="3"', "old")}`;
+		const result = await expandRefs(sent, visibleRefs([api]), env({}));
+		assert.equal(result.text, sent);
+		assert.deepEqual(result.failures, []);
+	});
+
+	describe("when the file cannot be read", () => {
+		const fails = async (error: Error | undefined, files: Record<string, string | Uint8Array | Error> = {}) => {
+			const result = await expandRefs("see #api", visibleRefs([api]), env(error ? { "/work/repo/src/api.ts": error, ...files } : files));
+			assert.equal(result.failures.length, 1);
+			return result;
+		};
+
+		it("reports a missing file and puts a Failure note in the text", async () => {
+			const result = await fails(undefined);
+			assert.deepEqual(result.failures, [{ name: "api", reason: "src/api.ts does not exist" }]);
+			assert.equal(
+				result.text,
+				`see #api\n\n<context-ref name="api" kind="file" path="src/api.ts" bytes="0" error="src/api.ts does not exist">\n\n</context-ref>`,
+			);
+		});
+
+		it("reports a directory and suggests a Path Ref or a Dynamic ls Ref", async () => {
+			const result = await fails(Object.assign(new Error("EISDIR"), { code: "EISDIR" }));
+			assert.match(result.failures[0]?.reason ?? "", /^src\/api\.ts is a directory; save it as a Path Ref, or as a Dynamic Ref that runs \["ls", /);
+		});
+
+		it("reports an unreadable file with the system's reason", async () => {
+			const result = await fails(Object.assign(new Error("EACCES: permission denied, open '/work/repo/src/api.ts'"), { code: "EACCES" }));
+			assert.equal(result.failures[0]?.reason, "src/api.ts cannot be read (EACCES)");
+		});
+
+		it("reports an error without a code", async () => {
+			const result = await fails(new Error("boom"));
+			assert.equal(result.failures[0]?.reason, "src/api.ts cannot be read (boom)");
+		});
+
+		it("still reads the other Files and fails each bad one on its own", async () => {
+			const refs: Ref[] = [api, { name: "b", kind: "file", path: "b.txt" }];
+			const result = await expandRefs("#api #b", visibleRefs(refs), env({ "/work/repo/b.txt": "B" }));
+			assert.deepEqual(
+				result.failures.map((failure) => failure.name),
+				["api"],
+			);
+			assert.ok(result.text.includes('name="b" kind="file" path="b.txt" bytes="1">\nB\n'));
+		});
+	});
+
+	it("never fails on a token that matches nothing", async () => {
+		const result = await expandRefs("#1 #unknown [ref:nope]", visibleRefs([api]), env({}));
+		assert.deepEqual(result, { text: "#1 #unknown [ref:nope]", failures: [] });
 	});
 });
