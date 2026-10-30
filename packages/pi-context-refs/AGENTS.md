@@ -4,11 +4,14 @@ Save context refs and insert them from a picker as compact placeholders that exp
 
 ## Code map
 
-- `src/index.ts` registers the command; behaviour lives in named modules under `src/`.
+- `src/index.ts` only wires; behaviour lives in named modules under `src/`.
+- `src/core/` is pure: `names.ts`, `library.ts` (parse and validate a library file), `library-state.ts` (the session's copy: re-read, last good copy, each warning once), `resolve.ts`, `tokens.ts`, `expand.ts`.
+- `src/pi/` is the glue: `input.ts` (the `input` handler and where warnings show), `fs.ts`.
+- `schema/pi-context-refs.schema.json` describes the library files; `test/unit/schema.test.ts` keeps it in step with the loader.
 
 ## Status
 
-- The design is approved and complete; the feature code is not written. `src/` holds only the scaffold's stub, replaced when the feature is built.
+- The design is approved and complete; the feature is built ticket by ticket. Built so far: the Global library, and typed `#name` and `[ref:name]` expansion of Snippet and Path Refs in every mode. File and Dynamic Refs, Scoped Refs, the Project library, Built-in Refs, the picker, the editor, `/ref` and Recent refs are not built; until they are, such a token is sent as typed.
 - The pi behaviour the design relies on is proved and recorded in `DESIGN.md` section 16.1. Where pi differs from the first design (trust, the editor repaint, print-mode output), the design was amended; read it before changing anything, and `GLOSSARY.md` for the words to use.
 
 ## Tests
@@ -16,6 +19,7 @@ Save context refs and insert them from a picker as compact placeholders that exp
 - `test/unit` (`npm test`), `test/integration` (`npm run test:integration`) and `test/smoke` (`npm run test:smoke`, opt-in). Coverage counts unit plus integration.
 - Anything that runs real pi finds it through `PI_BIN`, else the repository's pinned `node_modules/.bin/pi`. The pty flows need `python3` and use `tools/media/run-in-pty.py` with xterm.js as the terminal.
 - `test/support` holds the doubles: `stub-provider.ts` (answers locally and echoes the last user message it got, so a test asserts what the model received), `probe-extension.ts` (one scenario per run; test code, not package code), `pi-process.ts`, `pty-session.ts`, `editor-harness.ts` (a real pi-tui `Editor` with no terminal) and `segment-merge.ts` (the merge technique of ADR 0001, used by the contract test).
+- `test/integration/input.test.ts` loads `src/index.ts` through jiti into the fake pi host (`test/support/fake-pi.ts`) with `PI_CODING_AGENT_DIR` in a temporary directory; the coverage run sets `CONTEXT_REFS_NATIVE_IMPORT=1` so V8 can map the source.
 - `test/integration/editor-segment-contract.test.ts` guards ADR 0001 against pi upgrades. Never weaken it to make an upgrade pass.
 
 ## Rules from the design
