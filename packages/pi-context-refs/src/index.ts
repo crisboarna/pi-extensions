@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { registerRefCommand } from "./pi/commands.ts";
+import { registerEditor } from "./pi/editor.ts";
 import { readFileBytes, readTextIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { registerInput } from "./pi/input.ts";
 
@@ -20,4 +21,5 @@ export default function extension(pi: ExtensionAPI): void {
 		writeText: writeTextAtomically,
 		writeStderr: (text) => void process.stderr.write(text),
 	});
+	registerEditor(pi);
 }

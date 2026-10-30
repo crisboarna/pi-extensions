@@ -12,8 +12,8 @@
 	"allowedUses": [
 		{
 			"term": "token",
-			"files": ["src/core/expand.ts", "src/core/names.ts", "src/core/tokens.ts"],
-			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token."
+			"files": ["src/core/expand.ts", "src/core/names.ts", "src/core/segments.ts", "src/core/tokens.ts"],
+			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token. segments.ts only imports tokens.ts to find where Placeholders sit."
 		},
 		{
 			"term": "mode",

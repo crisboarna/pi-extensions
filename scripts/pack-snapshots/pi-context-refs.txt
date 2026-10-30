@@ -13,8 +13,10 @@ src/core/ref-completions.ts
 src/core/ref-edit.ts
 src/core/ref-list.ts
 src/core/resolve.ts
+src/core/segments.ts
 src/core/tokens.ts
 src/index.ts
 src/pi/commands.ts
+src/pi/editor.ts
 src/pi/fs.ts
 src/pi/input.ts
