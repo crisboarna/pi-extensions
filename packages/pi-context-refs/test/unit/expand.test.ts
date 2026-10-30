@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { truncateHead } from "@earendil-works/pi-coding-agent";
+import type { ApprovalRequest, Verdict } from "../../src/core/approval.ts";
 import { BUILTIN_REFS } from "../../src/core/builtins.ts";
 import type { CommandRequest, CommandResult } from "../../src/core/dynamic.ts";
 import { type ExpandEnv, expandRefs } from "../../src/core/expand.ts";
@@ -787,26 +788,151 @@ describe("Dynamic command", () => {
 		assert.ok(shadowed.text.includes("$ npm test\nmine"), shadowed.text);
 	});
 
-	it("refuses a Project library command with a Failure note instead of running it", async () => {
-		const log: CommandRequest[] = [];
+	describe("from the Project library", () => {
 		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
-		const { visible, layers } = resolveRefs({ global: [{ ...tests, name: "lint", command: ["eslint"] }], project: [tests] }, place);
-		const result = await expandRefs("#tests #lint", visible, { ...runs({ npm: out("ok"), eslint: out("clean") }, log), layers });
-		assert.deepEqual(result.failures, [{ name: "tests", reason: "a Project library command needs your approval, and approvals are not built yet" }]);
-		assert.ok(result.text.includes('name="tests" kind="dynamic" source="npm test"'), result.text);
-		assert.ok(result.text.includes("$ eslint\nclean"), result.text);
-		assert.deepEqual(
-			log.map((request) => request.argv),
-			[["eslint"]],
-		);
-	});
+		const lint: Ref = { name: "lint", kind: "dynamic", command: ["eslint"] };
+		const page: Ref = { name: "page", kind: "dynamic", url: "https://example.com/spec" };
+		const layered = (project: Ref[], global: Ref[] = []) => resolveRefs({ global, project, builtin: BUILTIN_REFS }, place);
+		const allow: Verdict = { allowed: true };
 
-	it("refuses a Project library command that comes in through a Bundle", async () => {
-		const log: CommandRequest[] = [];
-		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
-		const { visible, layers } = resolveRefs({ global: [], project: [{ ...tests, tags: ["ci"] }] }, place);
-		const result = await expandRefs("#tag:ci", visible, { ...runs({ npm: out("ok") }, log), layers });
-		assert.equal(result.failures.length, 1);
-		assert.deepEqual(log, []);
+		it("asks about the exact definition of a command before running it, and runs it once approved", async () => {
+			const log: CommandRequest[] = [];
+			const asked: ApprovalRequest[] = [];
+			const { visible, layers } = layered([{ ...tests, cwd: "sub" }]);
+			const result = await expandRefs("#tests", visible, {
+				...runs({ npm: out("ok") }, log),
+				layers,
+				approve: async (request) => {
+					asked.push(request);
+					return allow;
+				},
+			});
+			assert.deepEqual(asked, [{ ref: { ...tests, cwd: "sub" }, definition: { source: "command", argv: ["npm", "test"], cwd: "/work/repo/sub" } }]);
+			assert.ok(result.text.includes("$ npm test\nok"), result.text);
+			assert.equal(log[0]?.cwd, "/work/repo/sub");
+		});
+
+		it("asks about the URL of a URL Ref before fetching it", async () => {
+			const asked: ApprovalRequest[] = [];
+			const fetched: string[] = [];
+			const { visible, layers } = layered([page]);
+			const result = await expandRefs("#page", visible, {
+				...ENV,
+				layers,
+				approve: async (request) => {
+					asked.push(request);
+					return allow;
+				},
+				fetchUrl: async (request): Promise<FetchResult> => {
+					fetched.push(request.url);
+					return { killed: false, status: 200, contentType: "text/plain", bytes: new TextEncoder().encode("spec") };
+				},
+			});
+			assert.deepEqual(
+				asked.map((request) => request.definition),
+				[{ source: "url", url: "https://example.com/spec" }],
+			);
+			assert.deepEqual(fetched, ["https://example.com/spec"]);
+			assert.ok(result.text.includes("GET https://example.com/spec\nspec"), result.text);
+		});
+
+		it("does not run a command that is refused, and gives the reason in a Failure note", async () => {
+			const log: CommandRequest[] = [];
+			const { visible, layers } = layered([tests]);
+			const result = await expandRefs("#tests", visible, {
+				...runs({ npm: out("ok") }, log),
+				layers,
+				approve: async () => ({ allowed: false, reason: "you denied it" }),
+			});
+			assert.deepEqual(result.failures, [{ name: "tests", reason: "you denied it" }]);
+			assert.ok(result.text.includes('name="tests" kind="dynamic" source="npm test" bytes="0" error="you denied it"'), result.text);
+			assert.deepEqual(log, []);
+		});
+
+		it("does not fetch a URL that is refused", async () => {
+			const { visible, layers } = layered([page]);
+			const result = await expandRefs("#page", visible, { ...ENV, layers, approve: async () => ({ allowed: false, reason: "no" }) });
+			assert.deepEqual(result.failures, [{ name: "page", reason: "no" }]);
+			assert.ok(result.text.includes('source="https://example.com/spec" bytes="0" error="no"'), result.text);
+		});
+
+		it("is not run when nothing can approve it", async () => {
+			const log: CommandRequest[] = [];
+			const { visible, layers } = layered([tests]);
+			const result = await expandRefs("#tests", visible, { ...runs({ npm: out("ok") }, log), layers });
+			assert.deepEqual(result.failures, [{ name: "tests", reason: "it is not approved" }]);
+			assert.deepEqual(log, []);
+		});
+
+		it("asks one Ref at a time, before any Ref of the message runs, and still runs the Refs that were approved", async () => {
+			const log: string[] = [];
+			let asking = 0;
+			const { visible, layers } = layered([tests, lint]);
+			const base = runs({ npm: out("ok"), eslint: out("clean") });
+			const result = await expandRefs("#tests #lint", visible, {
+				...base,
+				layers,
+				runCommand: async (request) => {
+					log.push(`run ${request.name}`);
+					return base.runCommand(request);
+				},
+				approve: async ({ ref }) => {
+					asking += 1;
+					assert.equal(asking, 1, "two questions at once");
+					log.push(`ask ${ref.name}`);
+					await new Promise((resolve) => setTimeout(resolve, 5));
+					asking -= 1;
+					return ref.name === "tests" ? allow : { allowed: false, reason: "denied" };
+				},
+			});
+			assert.deepEqual(log, ["ask tests", "ask lint", "run tests"]);
+			assert.deepEqual(result.failures, [{ name: "lint", reason: "denied" }]);
+		});
+
+		it("asks about a command that comes in through a Bundle", async () => {
+			const log: CommandRequest[] = [];
+			const asked: string[] = [];
+			const { visible, layers } = layered([{ ...tests, tags: ["ci"] }]);
+			const result = await expandRefs("#tag:ci", visible, {
+				...runs({ npm: out("ok") }, log),
+				layers,
+				approve: async ({ ref }) => {
+					asked.push(ref.name);
+					return { allowed: false, reason: "denied" };
+				},
+			});
+			assert.deepEqual(asked, ["tests"]);
+			assert.equal(result.failures.length, 1);
+			assert.deepEqual(log, []);
+		});
+
+		it("asks about a Project Ref that shadows a Built-in Ref", async () => {
+			const asked: string[] = [];
+			const { visible, layers } = layered([{ ...tests, name: "diff" }]);
+			await expandRefs("#diff", visible, {
+				...runs({ npm: out("ok") }),
+				layers,
+				approve: async ({ ref }) => {
+					asked.push(ref.name);
+					return allow;
+				},
+			});
+			assert.deepEqual(asked, ["diff"]);
+		});
+
+		it("never asks about a Global library Ref or a Built-in Ref", async () => {
+			const asked: string[] = [];
+			const { visible, layers } = layered([], [lint]);
+			const result = await expandRefs("#lint #status", visible, {
+				...runs({ eslint: out("clean"), git: out("") }),
+				layers,
+				approve: async ({ ref }) => {
+					asked.push(ref.name);
+					return allow;
+				},
+			});
+			assert.deepEqual(asked, []);
+			assert.deepEqual(result.failures, []);
+		});
 	});
 });

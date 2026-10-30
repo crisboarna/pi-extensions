@@ -210,7 +210,8 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 - Built-ins and Global library Refs run without asking.
 - A Project library Dynamic Ref runs only after you approve its exact definition (source, argv or URL, and cwd). The choices are: once, always for this definition, or deny.
 - "Always" is saved in `~/.pi/agent/pi-context-refs-approvals.json`, keyed by canonical project path, Ref name and a hash of the definition. A changed definition (after a pull, for example) asks again. Approvals are never stored in the project, so a repository cannot approve itself.
-- RPC asks through the client's confirm dialog. In print and JSON modes an unapproved Ref does not run: it becomes a failure note, and a hint on stderr says how to approve it. There is no approve-all flag.
+- The question is a `ctx.ui.select` with three choices (run once, always for this definition, deny) whose title shows the Ref and its exact definition. The TUI shows it as a dialog and an RPC client gets it as an `extension_ui_request` that it answers with `extension_ui_response`; a dismissed dialog is a deny. All questions of a message are asked one at a time, before any Ref of the message runs. In print and JSON modes an unapproved Ref does not run: it becomes a failure note, and a hint on stderr says how to approve it. There is no approve-all flag.
+- The definition is hashed as source plus argv and the absolute directory a command runs in, or source plus the URL. The name, limits and description are not part of it, so changing only those keeps the Approval. An Approval is replaced, never added to, when the same Ref is approved again.
 - A Bundle never skips an Approval.
 
 ### 10.4 Limits and running
@@ -283,7 +284,7 @@ Every command works with full arguments; the TUI dialogs only fill in what is mi
 
 **Name clashes.** A clash inside the target library (names are case-insensitive) is an error that points to `/ref edit`; nothing is overwritten. The same name in another layer, or a Built-in, is allowed because precedence handles it, and the result line says what the new Ref shadows or is shadowed by.
 
-**Project Dynamic Refs.** Adding or editing one with `in=project` shows the exact definition (argv or URL, and cwd); one confirm saves the Ref **and** records an "always" Approval for exactly that definition hash (TUI, or RPC through the client's confirm). A later change, from you or from a pull, asks again. Headless saves the Ref and records no Approval. Removing the Ref drops its Approval. Approving once in the TUI is the way to prepare print-mode use.
+**Project Dynamic Refs.** Adding or editing one with `in=project` shows the exact definition (argv or URL, and cwd); one confirm saves the Ref **and** records an "always" Approval for exactly that definition hash (TUI, or RPC through the client's confirm). A later change, from you or from a pull, asks again. The confirm comes before the save: declining it saves nothing. A Ref whose definition is approved already is saved without a question. Headless saves the Ref and records no Approval. Removing or renaming the Ref drops its Approval. `/ref approve` and `/ref revoke` without a name ask which Ref when there is a UI. Approving once in the TUI is the way to prepare print-mode use.
 
 **Picker overlay.** Besides picking: save a Recent row (a key opens the add flow prefilled with the path, a File or Path choice and a suggested name), and edit or remove a saved row with the same editor and confirm as the commands. Built-ins cannot be edited. There is no shortcut that saves the draft as a Snippet.
 

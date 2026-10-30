@@ -17,6 +17,9 @@ export type RefCommand =
 	| { name: "add"; refName?: string; kind?: string; target: string[]; fields: Field[]; library?: string }
 	| { name: "edit"; refName?: string; fields: Field[]; library?: string }
 	| { name: "remove"; refName?: string; library?: string }
+	| { name: "approvals" }
+	| { name: "approve"; refName?: string }
+	| { name: "revoke"; refName?: string }
 	| { name: "sent" };
 
 export type ParsedArguments = { ok: true; command: RefCommand } | { ok: false; error: string; usage?: string };
@@ -26,6 +29,9 @@ export const USAGE = {
 	add: "/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>] [key=value…]",
 	edit: "/ref edit <name> [key=value…] [in=<library>]",
 	remove: "/ref remove <name> [in=<library>]",
+	approvals: "/ref approvals",
+	approve: "/ref approve <name>",
+	revoke: "/ref revoke <name|all>",
 	sent: "/ref sent",
 } as const;
 
@@ -36,6 +42,9 @@ export const SUBCOMMAND_HELP: Record<string, string> = {
 	add: "Save a Ref: /ref add <name> <kind> <target…>",
 	edit: "Edit a Ref in the JSON editor, or with key=value",
 	remove: "Remove a Ref",
+	approvals: "Show this project's Approvals and the Refs waiting for one",
+	approve: "Approve a Project Dynamic Ref as it is defined now",
+	revoke: "Drop the Approval of a Ref, or of all of them",
 	sent: "Show the full text of the last message sent",
 };
 
@@ -132,6 +141,11 @@ export function parseRefArguments(args: string): ParsedArguments {
 			return parseEdit(rest);
 		case "remove":
 			return parseRemove(rest);
+		case "approvals":
+			return rest[0] === undefined ? { ok: true, command: { name: "approvals" } } : failure("approvals", `unexpected "${rest[0].text}"`);
+		case "approve":
+		case "revoke":
+			return parseApproval(subcommand, rest);
 		case "sent":
 			return rest[0] === undefined ? { ok: true, command: { name: "sent" } } : failure("sent", `unexpected "${rest[0].text}"`);
 		default:
@@ -212,6 +226,13 @@ function parseEdit(words: Word[]): ParsedArguments {
 			);
 	}
 	return { ok: true, command: { name: "edit", ...(first !== undefined && { refName: first.text }), fields, ...(library !== undefined && { library }) } };
+}
+
+/** `approve` and `revoke` take one Ref name and nothing else: there is no library to pick and no form that covers every Ref. */
+function parseApproval(subcommand: "approve" | "revoke", words: Word[]): ParsedArguments {
+	const [first, extra] = words;
+	if (extra !== undefined || (first !== undefined && keyOf(first) !== undefined)) return failure(subcommand, `unexpected "${(extra ?? first)?.text}"`);
+	return { ok: true, command: { name: subcommand, ...(first !== undefined && { refName: first.text }) } };
 }
 
 function parseRemove(words: Word[]): ParsedArguments {

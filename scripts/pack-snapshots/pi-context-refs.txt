@@ -1,7 +1,10 @@
 LICENSE
 README.md
 package.json
+schema/pi-context-refs-approvals.schema.json
 schema/pi-context-refs.schema.json
+src/core/approval-list.ts
+src/core/approval.ts
 src/core/builtins.ts
 src/core/collapse.ts
 src/core/config-writer.ts
@@ -28,6 +31,7 @@ src/core/tokens.ts
 src/core/trigger.ts
 src/core/url.ts
 src/index.ts
+src/pi/approvals.ts
 src/pi/commands.ts
 src/pi/editor.ts
 src/pi/exec.ts
@@ -38,6 +42,7 @@ src/pi/input.ts
 src/pi/libraries.ts
 src/pi/picker.ts
 src/pi/recent-source.ts
+src/pi/ref-approvals.ts
 src/pi/ref-run.ts
 src/pi/running.ts
 src/pi/sent.ts

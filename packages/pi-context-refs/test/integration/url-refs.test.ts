@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -84,12 +84,19 @@ async function boot() {
 
 type Mode = "tui" | "print" | "json" | "rpc";
 
-async function session(mode: Mode) {
+async function session(mode: Mode, answer?: (question: string) => string | undefined) {
 	const host = await boot();
 	const s = createFakeSession({ cwd: project, mode });
+	const questions: string[] = [];
+	if (answer) {
+		s.ctx.ui.select = async (question: string) => {
+			questions.push(question);
+			return answer(question);
+		};
+	}
 	await host.fire("session_start", { type: "session_start", reason: "startup" }, s.ctx);
 	const send = (text: string) => host.fire("input", { type: "input", text, source: mode === "rpc" ? "rpc" : "interactive" }, s.ctx);
-	return { s, send };
+	return { s, send, questions };
 }
 
 /** The Context blocks of a sent message, with the attributes and the body of each. */
@@ -409,26 +416,64 @@ describe("a URL Dynamic Ref from the Project library", () => {
 		writeFileSync(join(project, ".pi", "pi-context-refs.json"), JSON.stringify({ version: 1, $schema: "x", refs }));
 	};
 
-	it("is not fetched: the send fails with a note that approvals are not built", async () => {
+	const approvalsFile = () => join(agentDir, "pi-context-refs-approvals.json");
+
+	it("asks about the exact URL first, and fetches it once the answer is once", async () => {
 		serve("/n", "text/plain", "x");
 		writeProject([page("n", "/n")]);
-		const { s, send } = await session("tui");
+		const { send, questions } = await session("tui", () => "Run once");
+		assert.equal(blocksOf(await send("#n")).length, 1);
+		assert.equal(questions.length, 1);
+		assert.match(questions[0] ?? "", /^Allow the Project library Ref #n to fetch this\?\nsource: url\nurl: /);
+		assert.ok(questions[0]?.includes(`url: ${base}/n`));
+		assert.equal(existsSync(approvalsFile()), false);
+	});
+
+	it("is not fetched when the answer is deny: the send is cancelled in the TUI", async () => {
+		serve("/n", "text/plain", "x");
+		writeProject([page("n", "/n")]);
+		const { s, send } = await session("tui", () => "Deny");
 		assert.deepEqual(await send("#n"), { action: "handled" });
-		assert.match(s.notices.at(-1)?.message ?? "", /#n: a Project library URL needs your approval, and approvals are not built yet/);
+		assert.match(s.notices.at(-1)?.message ?? "", /#n: you denied it/);
 		assert.equal(requests.length, 0);
 	});
 
-	it("is not fetched through a Bundle either, and a Global URL Ref of the same message still is", async () => {
+	it("is remembered by an answer of always, asks again when the URL changes, and is fetched in print mode without asking", async () => {
+		serve("/n", "text/plain", "x");
+		serve("/m", "text/plain", "y");
+		writeProject([page("n", "/n")]);
+		await (await session("tui", () => "Always for this definition")).send("#n");
+		const print = await session("print");
+		assert.equal(blocksOf(await print.send("#n")).length, 1);
+		writeProject([page("n", "/m")]);
+		const again = await session("tui", () => "Deny");
+		assert.deepEqual(await again.send("#n"), { action: "handled" });
+		assert.equal(again.questions.length, 1);
+	});
+
+	it("is not fetched in print or JSON mode: a Failure note and a hint on stderr", async () => {
+		serve("/n", "text/plain", "x");
+		writeProject([page("n", "/n")]);
+		for (const mode of ["print", "json"] as const) {
+			stderr = [];
+			const { send } = await session(mode);
+			const sent = await send("#n");
+			assert.match(sent?.text ?? "", /error="it is not approved; approve it in pi with \/ref approve n"/);
+			assert.match(stderr.join(""), /#n: it is not approved; approve it in pi with \/ref approve n/);
+		}
+		assert.equal(requests.length, 0);
+	});
+
+	it("is asked about in RPC through the client, and a Global URL Ref of the same message is fetched without asking, also through a Bundle", async () => {
 		serve("/mine", "text/plain", "mine");
 		serve("/theirs", "text/plain", "theirs");
 		writeLibrary([page("mine", "/mine")]);
 		writeProject([{ ...page("theirs", "/theirs"), tags: ["ci"] }]);
-		const { send } = await session("print");
+		const { send, questions, s } = await session("rpc", () => "Deny");
 		const sent = await send("#tag:ci #mine");
-		assert.match(
-			sent?.text ?? "",
-			new RegExp(`name="theirs" kind="dynamic" source="${base}/theirs" bytes="0" error="a Project library URL needs your approval`),
-		);
+		assert.equal(questions.length, 1);
+		assert.match(sent?.text ?? "", new RegExp(`name="theirs" kind="dynamic" source="${base}/theirs" bytes="0" error="you denied it"`));
+		assert.match(s.notices.at(-1)?.message ?? "", /#theirs: you denied it/);
 		assert.deepEqual(
 			requests.map((request) => request.url),
 			["/mine"],

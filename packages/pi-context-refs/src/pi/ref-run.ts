@@ -7,19 +7,15 @@ import { type ListedLibrary, UNTRUSTED } from "../core/ref-list.ts";
 import { type LibraryName, libraryOf } from "../core/ref-relations.ts";
 import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
+import type { ApprovalDeps } from "./approvals.ts";
 import { projectLibraryPath } from "./libraries.ts";
 
 /** What `/ref` needs from outside pi, so tests can stand in for the machine. */
-export interface CommandDeps {
+export interface CommandDeps extends ApprovalDeps {
 	/** The Global library file. */
 	libraryPath: string;
 	home: string;
-	readText: (path: string) => string | undefined;
-	/** Replaces the file atomically. */
-	writeText: (path: string, text: string) => void;
 	writeStderr: (text: string) => void;
-	/** The real path of an existing path, or undefined when it does not exist. */
-	realpath: (path: string) => string | undefined;
 	/** The fetch URLs of the remotes of the repository that holds a directory, or undefined when git cannot tell. */
 	readRemotes: (cwd: string) => string[] | undefined;
 }
@@ -29,6 +25,7 @@ export type Level = "info" | "error";
 /** One run of `/ref`: where its output goes, where the session is, and the two library files. */
 export interface Run {
 	ctx: ExtensionCommandContext;
+	deps: CommandDeps;
 	say(text: string, level?: Level): void;
 	place: Place;
 	trusted: boolean;
@@ -71,7 +68,7 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 
 export function createRun(ctx: ExtensionCommandContext, deps: CommandDeps, say: Run["say"]): Run {
 	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
-	return { ctx, say, place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
+	return { ctx, deps, say, place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }
 
 /** Why the Project library is not available in this session. */
