@@ -134,6 +134,8 @@ Same ticket as section 6.
 - **Overlay on `alt+r`.** A sectioned overlay with a filter and a preview of the selected Ref's Expansion. Picking from it after a typed `#` replaces that `#`. In the overlay you can also save a Recent row and edit or remove a saved row (section 14).
 - **Tags** group and narrow the rows. Picking a Bundle inserts one Placeholder per member (section 5.6).
 - Built-in Refs are hidden outside a git work tree.
+- **Matching.** A row answers `#text` when the text is part of its Ref name or one of its Tags, or part of a Bundle's Tag (`#tag:<tag>` asks for Bundles only). Better matches (the whole name, then its start, then any part of it, then a Tag) come first within a section.
+- **Config errors.** A `trigger` that is not one character, or is `/`, `@`, `!` or whitespace, is reported as a warning at session start and in `/ref list`, and the picker uses `#`.
 
 ## 8. Sending: the `input` handler
 
@@ -416,6 +418,8 @@ Settled while assembling, where closed tickets disagreed (confirmed with the use
 - **Bracket boundary.** The static-kinds ticket ends a `[ref:<name>]` at the first non-name character, but the Recent refs ticket puts `/` and `:` inside it. Only `]` ends a bracketed Placeholder; the name-character rule is for typed `#name` tokens.
 - **`bytes` on the Context block.** The transcript ticket parses blocks by a declared length that the static-kinds frame did not list. The frame gains `bytes`.
 - **RPC failures.** The static-kinds and Dynamic tickets give RPC a Failure note; the testing ticket had the draft restored. RPC gets the Failure note; only the TUI restores the draft.
+
+Settled while building the picker (flag if wrong): a Built-in Ref's row carries the mark ○ and the word "built-in", and sits between the global rows and the Bundles; the Trigger moves only the picker, so a typed `#name` expands whatever the setting says; the picker re-reads both libraries on every key it is asked about, and asks git whether the directory is a work tree when the list opens.
 
 Derived in this document (not asked, flag if wrong): the module structure (section 15); the exact fields `timeout` and `max_output` and `max_bytes` for per-Ref limits; the `pi-context-refs.schema.json` path; the table of assumptions in section 16.1; the `/ref sent` row in the command table; Built-in Refs ranked below unscoped Global Refs in the precedence line of section 5.4.
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Ref } from "../../src/core/library.ts";
-import { describeRef, formatList, readSettings } from "../../src/core/ref-list.ts";
+import { describeRef, formatList, readSettings, settingsProblems } from "../../src/core/ref-list.ts";
 import type { Place } from "../../src/core/scope.ts";
 
 describe("readSettings", () => {
@@ -19,6 +19,26 @@ describe("readSettings", () => {
 	it("ignores values of the wrong type", () => {
 		assert.deepEqual(readSettings('{"trigger":5,"builtins":"yes"}'), { trigger: "#", builtins: true });
 		assert.deepEqual(readSettings('{"trigger":"","builtins":[1,"log"]}'), { trigger: "#", builtins: true });
+	});
+});
+
+describe("a Trigger that is not allowed", () => {
+	it("is a config error, and the default Trigger stays in use", () => {
+		for (const trigger of ["/", "@", "!", " ", "", "##", 5]) {
+			const text = JSON.stringify({ version: 1, trigger });
+			assert.equal(readSettings(text).trigger, "#", String(trigger));
+			assert.equal(settingsProblems(text).length, 1, String(trigger));
+		}
+	});
+
+	it("says which setting is wrong and what is used instead", () => {
+		assert.deepEqual(settingsProblems('{"trigger":"@"}'), ['trigger "@": the Trigger cannot be "@", which pi uses itself; using "#"']);
+		assert.deepEqual(settingsProblems('{"trigger":"ab"}'), ['trigger "ab": the Trigger is one character; using "#"']);
+		assert.deepEqual(settingsProblems('{"trigger":5}'), ['trigger 5: the Trigger is one character; using "#"']);
+	});
+
+	it("reports nothing for a valid or absent Trigger, or a file that is not an object", () => {
+		for (const text of [undefined, "{ not json", "[]", "{}", '{"trigger":"$"}']) assert.deepEqual(settingsProblems(text), [], String(text));
 	});
 });
 

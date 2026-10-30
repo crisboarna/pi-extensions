@@ -12,8 +12,14 @@
 	"allowedUses": [
 		{
 			"term": "token",
-			"files": ["src/core/expand.ts", "src/core/names.ts", "src/core/segments.ts", "src/core/tokens.ts"],
-			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token. segments.ts only imports tokens.ts to find where Placeholders sit."
+			"files": [
+				"src/core/expand.ts",
+				"src/core/names.ts",
+				"src/core/picker.ts",
+				"src/core/segments.ts",
+				"src/core/tokens.ts"
+			],
+			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token. segments.ts only imports tokens.ts to find where Placeholders sit. picker.ts finds the Placeholders and typed names already in the draft with findRefTokens."
 		},
 		{
 			"term": "mode",
@@ -34,13 +40,23 @@
 		},
 		{
 			"term": "label",
-			"files": ["src/core/ref-completions.ts"],
+			"files": ["src/core/ref-completions.ts", "src/pi/picker.ts"],
 			"reason": "The label field of pi's autocomplete item, the text a completion shows. It is not a Tag."
 		},
 		{
 			"term": "trust",
 			"files": ["src/core/ref-list.ts"],
 			"reason": "Pi's project trust: the /trust command and whether pi trusts the project. GLOSSARY.md (Approval) says it is a different thing. /ref list tells the user what to run."
+		},
+		{
+			"term": "provider",
+			"files": ["src/pi/picker.ts"],
+			"reason": "Pi's autocomplete API names its extension point AutocompleteProvider and addAutocompleteProvider. A Dynamic Ref's Source is never called a provider."
+		},
+		{
+			"term": "prefix",
+			"files": ["src/pi/picker.ts"],
+			"reason": "The prefix field of pi's autocomplete suggestions: the typed text a pick replaces. It is not the Trigger."
 		}
 	]
 }
