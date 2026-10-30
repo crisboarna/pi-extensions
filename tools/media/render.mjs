@@ -16,6 +16,9 @@
 // start the program), so the video begins at window.play(). An animation or
 // terminal item with a `narration` file gets a spoken voice over a music bed
 // and a .vtt next to its MP4 (see narration.mjs); its page calls stage.say().
+// A "loop" item joins the MP4s of other items (`from`, in order) into one
+// silent GIF sped up by `speed`, for a README header that plays by itself:
+// GitHub autoplays GIFs but not MP4s. List it after the items it joins.
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -157,9 +160,25 @@ async function animation(item, url = pageUrl(item), prepare = async () => {}) {
 	rmSync(videos, { recursive: true, force: true });
 }
 
+function loop(item) {
+	const { width = 720, fps = 8, colors = 64 } = item.gif ?? {};
+	const inputs = item.from.flatMap((name) => ["-i", join(dir, `${name}.mp4`)]);
+	const scaled = item.from.map((_, i) => `[${i}:v]setpts=PTS/${item.speed},fps=${fps},scale=${width}:-1:flags=lanczos[v${i}];`).join("");
+	const joined = item.from.map((_, i) => `[v${i}]`).join("");
+	const filters = `${scaled}${joined}concat=n=${item.from.length}:v=1:a=0,split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`;
+	execFileSync("ffmpeg", ["-loglevel", "error", "-y", ...inputs, "-filter_complex", filters, "-loop", "0", join(dir, `${item.out}.gif`)]);
+}
+
 for (const item of manifest.items) {
 	if (only.length > 0 && !only.includes(item.out)) continue;
 	const started = Date.now();
+	if (item.kind === "loop") {
+		loop(item);
+		console.log(
+			`media: ${item.out}.gif ${Math.round(statSync(join(dir, `${item.out}.gif`)).size / 1024)} KB (${((Date.now() - started) / 1000).toFixed(1)}s)`,
+		);
+		continue;
+	}
 	if (item.kind === "png") await still(item);
 	else if (item.kind === "animation") await animation(item, pageUrl(item), (page) => exposeStill(page, item));
 	else if (item.kind === "terminal") await terminal(item);
