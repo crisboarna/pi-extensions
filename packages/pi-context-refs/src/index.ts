@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
+import { commandEnv } from "./pi/exec.ts";
 import { readFileBytes, readTextIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { registerInput } from "./pi/input.ts";
 
@@ -13,6 +14,7 @@ export default function extension(pi: ExtensionAPI): void {
 		home: homedir(),
 		readText: readTextIfPresent,
 		readFile: readFileBytes,
+		...commandEnv((command, args, options) => pi.exec(command, args, options)),
 		writeStderr: (text) => void process.stderr.write(text),
 	});
 	registerRefCommand(pi, {
