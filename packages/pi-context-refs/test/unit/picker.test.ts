@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Ref } from "../../src/core/library.ts";
 import { foldName } from "../../src/core/names.ts";
-import { applyPick, type PickerRow, pickerRows } from "../../src/core/picker.ts";
+import { applyPick, type PickerRow, pickerRows, pickInsertion, placeholderText, withFileForm } from "../../src/core/picker.ts";
 import type { UsedFile } from "../../src/core/recent.ts";
 import type { Layer } from "../../src/core/resolve.ts";
 
@@ -294,5 +294,69 @@ describe("Recent refs in the picker", () => {
 
 	it("shows no Recent rows when the session has none to offer", () => {
 		assert.deepEqual(pickerRows(source([["global", snippet("a", "1")]]), ""), pickerRows(withRecent([], { entries: [["global", snippet("a", "1")]] }), ""));
+	});
+});
+
+describe("a Recent row in file form", () => {
+	const env = { cwd: "/work/app", home: "/home/me" };
+	const rowFor = (path: string): PickerRow => {
+		const recent = { files: [{ path, use: "read" as const, at: 0 }], env, now: 60_000, present: () => true };
+		const [row] = pickerRows({ ...source([]), recent }, "");
+		if (!row) throw new Error("no row");
+		return row;
+	};
+
+	it("inserts [ref:file:<path>] where the path form inserts [ref:<path>]", () => {
+		const row = rowFor("/work/app/src/api.ts");
+		assert.equal(applyPick(["#"], 0, 1, row.value, "#")?.lines[0], "[ref:src/api.ts]");
+		assert.equal(applyPick(["#"], 0, 1, withFileForm(row).value, "#")?.lines[0], "[ref:file:src/api.ts]");
+	});
+
+	it("keeps a root file's ./ and quotes a path with spaces", () => {
+		assert.equal(applyPick(["#"], 0, 1, withFileForm(rowFor("/work/app/README.md")).value, "#")?.lines[0], "[ref:file:./README.md]");
+		assert.equal(applyPick(["#"], 0, 1, withFileForm(rowFor("/work/app/my dir/a b.ts")).value, "#")?.lines[0], '[ref:file:"my dir/a b.ts"]');
+	});
+
+	it("says in the description that the contents are sent, and keeps the rest of the row", () => {
+		const row = rowFor("/work/app/src/api.ts");
+		const switched = withFileForm(row);
+		assert.equal(switched.description, `sends its contents · ${row.description}`);
+		assert.deepEqual([switched.section, switched.name, switched.mark, switched.path], [row.section, row.name, row.mark, "/work/app/src/api.ts"]);
+	});
+
+	it("leaves a row that is not a Recent row as it is", () => {
+		const [row] = pickerRows(source([["global", snippet("a", "1")]]), "");
+		assert.deepEqual(withFileForm(row as PickerRow), row);
+	});
+});
+
+describe("pickInsertion", () => {
+	const [row] = pickerRows(source([["global", snippet("a", "1")]]), "");
+	const value = row?.value ?? "";
+
+	it("gives the Placeholder text and how many characters before the cursor it replaces", () => {
+		assert.deepEqual(pickInsertion(["see #a"], 0, 6, value, "#a"), { text: "[ref:a]", replace: 2 });
+		assert.deepEqual(pickInsertion(["see "], 0, 4, value, ""), { text: "[ref:a]", replace: 0 });
+	});
+
+	it("is empty text when the draft has every member", () => {
+		assert.deepEqual(pickInsertion(["[ref:a] #"], 0, 9, value, "#"), { text: "", replace: 1 });
+	});
+
+	it("ignores a value that is not one of its rows", () => {
+		assert.equal(pickInsertion(["#"], 0, 1, "other", "#"), undefined);
+	});
+});
+
+describe("placeholderText", () => {
+	it("is what a pick of the row inserts into an empty draft", () => {
+		const entries: Entry[] = [
+			["global", snippet("a", "1", { tags: ["t"] })],
+			["global", snippet("b", "2", { tags: ["t"] })],
+		];
+		const rows = pickerRows(source(entries), "");
+		const text = (name: string) => placeholderText(rows.find((row) => row.name === name) as PickerRow);
+		assert.equal(text("a"), "[ref:a]");
+		assert.equal(text("tag:t"), "[ref:a] [ref:b]");
 	});
 });
