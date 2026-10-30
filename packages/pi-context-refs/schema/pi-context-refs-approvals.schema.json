@@ -1,0 +1,35 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/schema/pi-context-refs-approvals.schema.json",
+	"title": "pi-context-refs approvals",
+	"description": "The Approvals of Project Dynamic Refs: ~/.pi/agent/pi-context-refs-approvals.json. See DESIGN.md section 10.3. The file lives in the agent directory and never in a project, so a repository cannot approve itself. Edit it with /ref approve and /ref revoke.",
+	"type": "object",
+	"required": ["version"],
+	"properties": {
+		"$schema": { "type": "string", "description": "This schema's URL, so an editor can validate the file." },
+		"version": { "const": 1, "description": "The file format version." },
+		"approvals": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/approval" },
+			"description": "One Approval for each Project Dynamic Ref that has one. A new Approval of the same project and Ref name replaces the old one."
+		}
+	},
+	"$defs": {
+		"approval": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["project", "name", "hash", "definition", "approvedAt"],
+			"properties": {
+				"project": { "type": "string", "minLength": 1, "description": "The canonical path of the project (symlinks followed)." },
+				"name": { "type": "string", "minLength": 1, "description": "The Ref's name. Names are case-insensitive." },
+				"hash": {
+					"type": "string",
+					"pattern": "^[0-9a-f]{64}$",
+					"description": "The SHA-256 of the approved definition: source, argv or URL, and the directory a command runs in."
+				},
+				"definition": { "type": "string", "description": "The approved definition as one line, for /ref approvals. The hash decides, not this text." },
+				"approvedAt": { "type": "string", "format": "date-time", "description": "When the Approval was given." }
+			}
+		}
+	}
+}
