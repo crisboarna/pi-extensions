@@ -125,13 +125,18 @@ function renderMarkdown(markdown: string): string {
 	// Badges point at npm and GitHub; the site says the same in its own words.
 	const withoutBadges = markdown.replace(/^\[!\[[^\]]*\]\(https:\/\/img\.shields\.io[^\n]*\n/m, "");
 	// A poster that links to its video becomes the video itself, with the narration's subtitles when they exist.
-	const withVideos = withoutBadges.replace(/\[!\[([^\]]*)\]\(([^)\s]+\.png)\)\]\(([^)\s]+\.mp4)\)/g, (_all, alt: string, poster: string, video: string) => {
-		const src = video.replace("/blob/main/", "/raw/main/");
-		const subtitles = src.replace(/\.mp4$/, ".vtt");
-		const local = subtitles.startsWith(`${REPO_URL}/raw/main/`) ? subtitles.slice(`${REPO_URL}/raw/main/`.length) : undefined;
-		const track = local && existsSync(join(ROOT, local)) ? `<track kind="captions" srclang="en" label="Narration" src="${subtitles}" default>` : "";
-		return `<video controls preload="none" poster="${poster}" src="${src}" aria-label="${alt.replace(/"/g, "&quot;")}">${track}</video>`;
-	});
+	// The README may show an animated loop (GitHub plays GIFs, not MP4s); the site's player uses the video's own still.
+	const withVideos = withoutBadges.replace(
+		/\[!\[([^\]]*)\]\(([^)\s]+\.(?:png|gif))\)\]\(([^)\s]+\.mp4)\)/g,
+		(_all, alt: string, image: string, video: string) => {
+			const poster = image.endsWith(".gif") ? video.replace(/\.mp4$/, ".png") : image;
+			const src = video.replace("/blob/main/", "/raw/main/");
+			const subtitles = src.replace(/\.mp4$/, ".vtt");
+			const local = subtitles.startsWith(`${REPO_URL}/raw/main/`) ? subtitles.slice(`${REPO_URL}/raw/main/`.length) : undefined;
+			const track = local && existsSync(join(ROOT, local)) ? `<track kind="captions" srclang="en" label="Narration" src="${subtitles}" default>` : "";
+			return `<video controls preload="none" poster="${poster}" src="${src}" aria-label="${alt.replace(/"/g, "&quot;")}">${track}</video>`;
+		},
+	);
 	return marked.parse(withVideos, { async: false });
 }
 
