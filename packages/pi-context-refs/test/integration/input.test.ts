@@ -68,7 +68,7 @@ describe("extension load", () => {
 		assert.deepEqual(host.handledEvents().sort(), ["input", "session_shutdown", "session_start", "session_tree", "tool_result"]);
 		assert.deepEqual(
 			host.calls.filter((call) => call.method !== "on").map((call) => call.method),
-			["registerCommand", "registerMarkdownTransformer"],
+			["registerCommand", "registerShortcut", "registerMarkdownTransformer"],
 		);
 	});
 

@@ -26,6 +26,8 @@ export interface PickerRow {
 	description: string;
 	mark: string;
 	value: string;
+	/** The absolute path of a Recent row's file. */
+	path?: string;
 }
 
 /** The files the session used, as the picker needs them. */
@@ -118,6 +120,7 @@ function recentRows(source: PickerSource, recent: RecentSource, query: string): 
 			description: ageNote(file, recent.now),
 			mark: MARK.recent,
 			value: `${RECENT_VALUE}${placeholderTarget(file.path, recent.env)}`,
+			path: file.path,
 		});
 	}
 	return rows;
@@ -156,6 +159,45 @@ function pickedNames(value: string): string[] | undefined {
 	return value.startsWith(BUNDLE_VALUE) ? value.slice(BUNDLE_VALUE.length).split(",") : undefined;
 }
 
+/** A Recent row in file form: a pick inserts `[ref:file:<path>]`, which sends the file's contents, instead of the path text. Any other row is returned as it is. */
+export function withFileForm(row: PickerRow): PickerRow {
+	if (row.section !== "recent") return row;
+	return { ...row, value: `${RECENT_VALUE}file:${row.value.slice(RECENT_VALUE.length)}`, description: `sends its contents · ${row.description}` };
+}
+
+/** The Placeholders a pick of the row inserts into an empty draft, space-joined. */
+export function placeholderText(row: PickerRow): string {
+	return (pickedNames(row.value) ?? []).map((name) => `[ref:${name}]`).join(" ");
+}
+
+/** What a pick puts in the draft: `text` in place of the `replace` characters before the cursor (the typed Trigger token). */
+export interface Insertion {
+	text: string;
+	replace: number;
+}
+
+/**
+ * The Placeholders a pick inserts where the typed Trigger token (`typed`, which ends at the cursor) stands: one for a Ref, or one per member of
+ * a Bundle that the draft does not already have. Returns undefined for a value that is not one of this package's rows.
+ */
+export function pickInsertion(lines: readonly string[], cursorLine: number, cursorCol: number, value: string, typed: string): Insertion | undefined {
+	const names = pickedNames(value);
+	if (names === undefined) return undefined;
+	const rest = [...lines];
+	const line = lines[cursorLine] ?? "";
+	rest[cursorLine] = line.slice(0, cursorCol - typed.length) + line.slice(cursorCol);
+	const present = new Set(
+		findRefTokens(rest.join("\n"))
+			.filter((token) => token.form !== "bundle")
+			.map((token) => foldName(token.target)),
+	);
+	const text = names
+		.filter((name) => !present.has(foldName(name)))
+		.map((name) => `[ref:${name}]`)
+		.join(" ");
+	return { text, replace: typed.length };
+}
+
 /** The editor's text after a pick. */
 export interface Completion {
 	lines: string[];
@@ -163,26 +205,13 @@ export interface Completion {
 	cursorCol: number;
 }
 
-/**
- * Replaces the typed Trigger token (`typed`, which ends at the cursor) with the Placeholder of a Ref, or one Placeholder per member of
- * a Bundle that the draft does not already have. Returns undefined for a value that is not one of this package's rows.
- */
+/** Replaces the typed Trigger token with what `pickInsertion` gives. Returns undefined for a value that is not one of this package's rows. */
 export function applyPick(lines: readonly string[], cursorLine: number, cursorCol: number, value: string, typed: string): Completion | undefined {
-	const names = pickedNames(value);
-	if (names === undefined) return undefined;
+	const insertion = pickInsertion(lines, cursorLine, cursorCol, value, typed);
+	if (insertion === undefined) return undefined;
 	const line = lines[cursorLine] ?? "";
-	const start = cursorCol - typed.length;
+	const start = cursorCol - insertion.replace;
 	const rest = [...lines];
-	rest[cursorLine] = line.slice(0, start) + line.slice(cursorCol);
-	const present = new Set(
-		findRefTokens(rest.join("\n"))
-			.filter((token) => token.form !== "bundle")
-			.map((token) => foldName(token.target)),
-	);
-	const inserted = names
-		.filter((name) => !present.has(foldName(name)))
-		.map((name) => `[ref:${name}]`)
-		.join(" ");
-	rest[cursorLine] = line.slice(0, start) + inserted + line.slice(cursorCol);
-	return { lines: rest, cursorLine, cursorCol: start + inserted.length };
+	rest[cursorLine] = line.slice(0, start) + insertion.text + line.slice(cursorCol);
+	return { lines: rest, cursorLine, cursorCol: start + insertion.text.length };
 }

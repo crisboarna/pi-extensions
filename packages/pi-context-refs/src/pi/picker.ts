@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-tui";
-import { applyPick, type PickerRow, pickerRows } from "../core/picker.ts";
+import { applyPick, type PickerRow, type PickerSource, pickerRows } from "../core/picker.ts";
 import type { UsedFiles } from "../core/recent.ts";
 import { readSettings, settingsProblems } from "../core/ref-list.ts";
-import { triggerQuery } from "../core/trigger.ts";
+import { isNumber, triggerQuery } from "../core/trigger.ts";
 import { createLibraries, type Libraries, type LibraryDeps } from "./libraries.ts";
 
 /** What the picker needs from outside pi, so tests can stand in for the machine. */
@@ -30,21 +30,29 @@ interface PickerSession {
 	workTree?: { cwd: string; answer: boolean };
 }
 
-const isNumber = (query: string): boolean => /^\d+$/.test(query);
-
 function toItem(row: PickerRow): AutocompleteItem {
 	return { value: row.value, label: `${row.mark} ${row.name}`, description: `${row.kind} · ${row.description}` };
+}
+
+/** What the picker and the overlay offer at one moment: the Visible Refs, the Recent refs and whether Built-in Refs apply here. */
+export function pickerSourceOf(
+	ctx: ExtensionContext,
+	libraries: Libraries,
+	deps: Pick<PickerDeps, "home" | "recent" | "isFile">,
+	now: number,
+	inWorkTree: boolean,
+): PickerSource {
+	const { visible, layers } = libraries.refresh(ctx);
+	return { visible, layers, inWorkTree, recent: { files: deps.recent.files(), env: { cwd: ctx.cwd, home: deps.home }, now, present: deps.isFile } };
 }
 
 /** The rows for a typed query, or none when the session is over, the libraries or git cannot be read, or nothing matches. */
 async function rowsFor(session: PickerSession, query: string, signal: AbortSignal): Promise<PickerRow[]> {
 	const { ctx, deps } = session;
 	try {
-		const { visible, layers } = session.libraries.refresh(ctx);
 		if (session.workTree?.cwd !== ctx.cwd || query === "") session.workTree = { cwd: ctx.cwd, answer: await deps.isGitWorkTree(ctx.cwd) };
 		if (signal.aborted || !session.active) return [];
-		const recent = { files: deps.recent.files(), env: { cwd: ctx.cwd, home: deps.home }, now: deps.now(), present: deps.isFile };
-		return pickerRows({ visible, layers, inWorkTree: session.workTree.answer, recent }, query);
+		return pickerRows(pickerSourceOf(ctx, session.libraries, deps, deps.now(), session.workTree.answer), query);
 	} catch {
 		return [];
 	}

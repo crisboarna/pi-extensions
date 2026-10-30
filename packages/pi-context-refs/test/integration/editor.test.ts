@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { Editor, KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { createJiti } from "jiti";
-import { decorateEditor, type EditorFactory } from "../../src/pi/editor.ts";
+import { decorateEditor, draftOf, type EditorFactory } from "../../src/pi/editor.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 
 const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
@@ -160,6 +160,46 @@ describe("the feature check", () => {
 		const editor = { segment: "not a function" };
 		assert.equal(decorateEditor(asEditor(editor)), false);
 		assert.equal(editor.segment, "not a function");
+	});
+});
+
+describe("draftOf", () => {
+	it("reads the lines and the cursor of the editor", async () => {
+		const editor = decoratedEditor();
+		await typeText(editor, "first");
+		await press(editor, "\n");
+		await typeText(editor, "second #a");
+		const draft = draftOf(editor);
+		assert.deepEqual(draft?.lines(), ["first", "second #a"]);
+		assert.deepEqual(draft?.cursor(), { line: 1, col: 9 });
+	});
+
+	it("replaces the typed token before the cursor, whatever follows it", async () => {
+		const editor = decoratedEditor();
+		await typeText(editor, "see #sr and more");
+		await press(editor, ...Array.from({ length: 9 }, () => KEYS.left));
+		draftOf(editor)?.replaceBeforeCursor("#sr", "[ref:a]");
+		assert.equal(editor.getText(), "see [ref:a] and more");
+		assert.deepEqual(draftOf(editor)?.cursor(), { line: 0, col: 11 });
+	});
+
+	it("deletes a token of wide characters one character at a time", async () => {
+		const editor = decoratedEditor();
+		await typeText(editor, "x #é👍");
+		draftOf(editor)?.replaceBeforeCursor("#é👍", "[ref:a]");
+		assert.equal(editor.getText(), "x [ref:a]");
+	});
+
+	it("only deletes the token when the pick adds nothing", async () => {
+		const editor = decoratedEditor();
+		await typeText(editor, "[ref:a] #");
+		draftOf(editor)?.replaceBeforeCursor("#", "");
+		assert.equal(editor.getText(), "[ref:a] ");
+	});
+
+	it("is undefined for an editor that cannot report its lines and cursor or insert text", () => {
+		assert.equal(draftOf(asEditor({ handleInput() {}, getText: () => "" })), undefined);
+		assert.equal(draftOf(asEditor({ handleInput() {}, getLines: () => [], getCursor: () => ({ line: 0, col: 0 }) })), undefined);
 	});
 });
 

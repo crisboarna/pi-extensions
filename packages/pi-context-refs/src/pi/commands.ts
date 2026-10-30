@@ -169,8 +169,12 @@ async function add(run: Run, command: Extract<RefCommand, { name: "add" }>): Pro
 	if (!target) return;
 	const typed = await addArguments(run, command);
 	if (!typed) return;
-	const { refName, kind, words } = typed;
-	const built = buildRef({ refName, kind, target: words, fields: withScope(run, target, command.fields) });
+	await saveNewRef(run, target, { refName: typed.refName, kind: typed.kind, target: typed.words, fields: withScope(run, target, command.fields) });
+}
+
+/** Builds a Ref, checks it against the library it goes to (and asks the Approval a Project command or URL Ref needs), saves it and says what happened. */
+export async function saveNewRef(run: Run, target: Target, input: { refName: string; kind: string; target: string[]; fields: Field[] }): Promise<void> {
+	const built = buildRef(input);
 	if (!built.ok) return run.say(built.error, "error");
 	const problem = targetProblem(run, target, built.ref);
 	if (problem) return run.say(problem, "error");
@@ -227,7 +231,7 @@ function chooseTargetFor(run: Run, command: { refName?: string; library?: string
 	return chooseTarget(run, command.library, command.refName === undefined || !run.trusted ? "global" : visibleLibrary(run, command.refName));
 }
 
-async function edit(run: Run, command: Extract<RefCommand, { name: "edit" }>): Promise<void> {
+export async function edit(run: Run, command: Extract<RefCommand, { name: "edit" }>): Promise<void> {
 	if (command.refName === undefined && command.fields.length > 0)
 		return run.say("a name is needed before key=value\n/ref edit <name> [key=value…] [in=<library>]", "error");
 	const target = chooseTargetFor(run, command);
@@ -320,7 +324,7 @@ async function trySave(run: Run, target: Target, name: string, edited: string): 
 	return undefined;
 }
 
-async function remove(run: Run, command: Extract<RefCommand, { name: "remove" }>): Promise<void> {
+export async function remove(run: Run, command: Extract<RefCommand, { name: "remove" }>): Promise<void> {
 	const target = chooseTargetFor(run, command);
 	if (!target) return;
 	const name = await chooseName(run, target, command.refName, "Remove which Ref?", "/ref remove <name> [in=<library>]");

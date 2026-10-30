@@ -25,3 +25,6 @@ export function triggerQuery(beforeCursor: string, trigger: string): string | un
 	if (before !== undefined && (before === trigger || BEFORE_A_WORD.test(before))) return undefined;
 	return query;
 }
+
+/** Whether the text typed after the Trigger is a number (`#123`), which is another provider's, as an issue number is. */
+export const isNumber = (query: string): boolean => /^\d+$/.test(query);

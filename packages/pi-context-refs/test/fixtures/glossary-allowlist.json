@@ -23,7 +23,7 @@
 		},
 		{
 			"term": "mode",
-			"files": ["src/pi/input.ts", "src/pi/running.ts", "src/pi/sent.ts"],
+			"files": ["src/pi/input.ts", "src/pi/overlay.ts", "src/pi/running.ts", "src/pi/sent.ts"],
 			"reason": "ctx.mode is pi's run mode (tui, rpc, json, print). A Ref kind is never called a mode."
 		},
 		{
@@ -52,6 +52,11 @@
 			"term": "provider",
 			"files": ["src/pi/picker.ts"],
 			"reason": "Pi's autocomplete API names its extension point AutocompleteProvider and addAutocompleteProvider. A Dynamic Ref's Source is never called a provider."
+		},
+		{
+			"term": "shortcut",
+			"files": ["src/pi/overlay.ts"],
+			"reason": "Pi's API registers a key binding with registerShortcut. The alt+r overlay key is that; a Ref is never called a shortcut."
 		},
 		{
 			"term": "prefix",
