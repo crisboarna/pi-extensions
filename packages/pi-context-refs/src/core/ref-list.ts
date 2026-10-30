@@ -1,4 +1,5 @@
 import type { ApprovalState } from "./approval.ts";
+import { builtinRefs } from "./builtins.ts";
 import type { Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { LAYER_PHRASE, type Layer, resolveRefs } from "./resolve.ts";
@@ -108,7 +109,8 @@ export function formatList(input: ListInput): string {
 	const tag = filter.tag === undefined ? undefined : foldName(filter.tag);
 	const tagged = (refs: readonly Ref[]): Ref[] =>
 		tag === undefined ? [...refs] : refs.filter((ref) => ref.tags?.some((candidate) => foldName(candidate) === tag));
-	const layered = resolveRefs({ global: input.refs, project: project.untrusted ? [] : project.refs }, input.place);
+	const builtin = builtinRefs(settings.builtins);
+	const layered = resolveRefs({ global: input.refs, project: project.untrusted ? [] : project.refs, builtin }, input.place);
 	const inLayer = (layer: Layer) => layered.applicable.filter((entry) => entry.layer === layer).map((entry) => entry.ref);
 	const lines = ["pi-context-refs", triggerLine(settings.trigger, input.sessionTrigger), `builtins: ${builtinsText(settings.builtins)}`];
 	const showGlobal = filter.library !== "project";
@@ -128,6 +130,7 @@ export function formatList(input: ListInput): string {
 	}
 	if (showGlobal) section(`Global library ${input.file}`, inLayer("global"));
 	if (showGlobal && layered.scopedElsewhere.length > 0) section(`Scoped Refs that do not apply here, in ${input.file}`, layered.scopedElsewhere);
+	if (filter.library === undefined && builtin.length > 0) section("Built-in Refs", inLayer("builtin"));
 	const hidden = layered.shadowed.filter((entry) => tagged([entry.ref]).length > 0 && (entry.layer === "project" ? showProject : showGlobal));
 	if (hidden.length > 0) {
 		lines.push(

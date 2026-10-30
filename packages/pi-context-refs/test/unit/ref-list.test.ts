@@ -99,6 +99,12 @@ describe("formatList", () => {
 				"",
 				"Global library /agent/pi-context-refs.json (1 Ref)",
 				"  api  file  a.ts",
+				"",
+				"Built-in Refs (4 Refs)",
+				"  diff  dynamic  git diff",
+				"  staged  dynamic  git diff --staged",
+				"  status  dynamic  git status --short",
+				"  log  dynamic  git log --oneline -20",
 			].join("\n"),
 		);
 	});
@@ -203,6 +209,35 @@ describe("formatList: layers", () => {
 			"  b  in the Project library, hidden by the Global library, scoped to here",
 			"  a  in the Global library, hidden by the Project library",
 		]);
+	});
+
+	describe("Built-in Refs", () => {
+		const builtinsOf = (text: string) => sectionOf(text, /^Built-in Refs \(/).map((line) => line.trim().split("  ")[0]);
+
+		it("have a section after the Global library", () => {
+			const text = formatList({ ...base, refs: [snippet("g", "1")] });
+			assert.deepEqual(builtinsOf(text), ["diff", "staged", "status", "log"]);
+			assert.ok(text.indexOf("Built-in Refs (") > text.indexOf("Global library"));
+		});
+
+		it("leave out the ones the builtins setting turns off, and the whole section when it is false", () => {
+			assert.deepEqual(builtinsOf(formatList({ ...base, settings: { trigger: "#", builtins: ["log", "Diff"] } })), ["staged", "status"]);
+			assert.doesNotMatch(formatList({ ...base, settings: { trigger: "#", builtins: false } }), /Built-in Refs/);
+		});
+
+		it("are not part of a library, so in= leaves them out", () => {
+			assert.doesNotMatch(formatList({ ...base, filter: { library: "global" } }), /Built-in Refs/);
+			assert.doesNotMatch(formatList({ ...base, filter: { library: "project" } }), /Built-in Refs/);
+		});
+
+		it("are listed as Shadowed when a saved Ref has their name", () => {
+			const text = formatList({ ...base, refs: [snippet("log", "mine")], project: project([snippet("diff", "mine")]) });
+			assert.deepEqual(sectionOf(text, /^Shadowed Refs:$/), [
+				"  diff  in the Built-in Refs, hidden by the Project library",
+				"  log  in the Built-in Refs, hidden by the Global library",
+			]);
+			assert.deepEqual(builtinsOf(text), ["diff", "staged", "status", "log"]);
+		});
 	});
 
 	it("has no Shadowed Refs section when nothing is hidden", () => {
