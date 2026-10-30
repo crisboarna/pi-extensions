@@ -1,4 +1,4 @@
-import { foldName, nameProblem } from "./names.ts";
+import { foldName, nameProblem, tagProblem } from "./names.ts";
 
 export type RefKind = "path" | "file" | "snippet" | "dynamic";
 
@@ -157,7 +157,7 @@ function checkTags(tags: unknown, problem: Report): void {
 		return;
 	}
 	for (const [index, tag] of tags.entries()) {
-		const bad = typeof tag === "string" ? nameProblem(tag) : "must be text";
+		const bad = typeof tag === "string" ? tagProblem(tag) : "must be text";
 		if (bad) problem(`tags[${index}]`, bad);
 	}
 }
