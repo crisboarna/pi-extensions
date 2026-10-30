@@ -115,6 +115,113 @@ describe("what does not expand", () => {
 	});
 });
 
+describe("Bundle", async () => {
+	const tagged = (ref: Ref, ...tags: string[]): Ref => ({ ...ref, tags });
+	const refs = [
+		tagged(snippet("terse", "Be brief."), "style"),
+		tagged(path("agents", "AGENTS.md"), "docs", "Style"),
+		tagged(path("readme", "README.md"), "docs"),
+		snippet("loose", "Untagged."),
+	];
+
+	it("expands #tag:<tag> to every member, each as it would be on its own, in order", async () => {
+		assert.equal(await expand("read #tag:docs now", refs), "read AGENTS.md README.md now");
+		assert.equal(await expand("#tag:style", refs), "Be brief. AGENTS.md");
+	});
+
+	it("matches the tag case-insensitively, as a typed token", async () => {
+		assert.equal(await expand("#TAG:DOCS", refs), "AGENTS.md README.md");
+	});
+
+	it("ends the token like a name, so the sentence can go on", async () => {
+		assert.equal(await expand("read #tag:docs, then #tag:style.", refs), "read AGENTS.md README.md, then Be brief..");
+	});
+
+	it("passes an unknown tag through unchanged", async () => {
+		assert.equal(await expand("see #tag:nope and #tag:", refs), "see #tag:nope and #tag:");
+	});
+
+	it("leaves a [ref:tag:<tag>] Placeholder alone, because only a typed token is a Bundle", async () => {
+		assert.equal(await expand("[ref:tag:docs]", refs), "[ref:tag:docs]");
+	});
+
+	it("does not repeat a member that the message already names, wherever it sits", async () => {
+		assert.equal(await expand("#tag:docs #agents", refs), "README.md AGENTS.md");
+		assert.equal(await expand("#agents #tag:docs", refs), "AGENTS.md README.md");
+		assert.equal(await expand("[ref:readme] #tag:docs", refs), "README.md AGENTS.md");
+	});
+
+	it("does not repeat a member that an earlier Bundle gave", async () => {
+		assert.equal(await expand("#tag:style then #tag:docs", refs), "Be brief. AGENTS.md then README.md");
+	});
+
+	it("drops a Bundle that has nothing left to add, with the space before it", async () => {
+		assert.equal(await expand("#tag:docs and #tag:docs", refs), "AGENTS.md README.md and");
+		assert.equal(await expand("#agents #readme #tag:docs", refs), "AGENTS.md README.md");
+		assert.equal(await expand("#tag:docs\n#tag:docs", refs), "AGENTS.md README.md\n");
+	});
+
+	it("still expands a member named twice outside the Bundle at every occurrence", async () => {
+		assert.equal(await expand("#terse #terse #tag:style", refs), "Be brief. Be brief. AGENTS.md");
+	});
+
+	it("leaves a Ref named tag to the plain #name rule", async () => {
+		assert.equal(await expand("#tag", [snippet("tag", "T")]), "T");
+	});
+
+	it("gives a File member as a Context block after the text, not as a Placeholder", async () => {
+		const members = [
+			tagged({ name: "api", kind: "file", path: "src/api.ts" }, "ctx"),
+			tagged(snippet("terse", "Be brief."), "ctx"),
+			tagged({ name: "notes", kind: "file", path: "notes.md" }, "ctx"),
+		];
+		const files = disk({ "/work/repo/src/api.ts": "export {};\n", "/work/repo/notes.md": "N" });
+		const result = await expandRefs("see #tag:ctx now", visibleRefs(members), { ...ENV, readFile: files });
+		assert.equal(
+			result.text,
+			[
+				"see Be brief. now",
+				'<context-ref name="api" kind="file" path="src/api.ts" bytes="11">\nexport {};\n\n</context-ref>',
+				'<context-ref name="notes" kind="file" path="notes.md" bytes="1">\nN\n</context-ref>',
+			].join("\n\n"),
+		);
+		assert.deepEqual(result.failures, []);
+	});
+
+	it("gives one block for a File member the message also names, and none for one already sent", async () => {
+		const members = [tagged({ name: "api", kind: "file", path: "src/api.ts" }, "ctx"), tagged({ name: "old", kind: "file", path: "old.md" }, "ctx")];
+		const env = { ...ENV, readFile: disk({ "/work/repo/src/api.ts": "A", "/work/repo/old.md": "new" }) };
+		const sent = '<context-ref name="old" kind="file" path="old.md" bytes="3">\nold\n</context-ref>';
+		const { text } = await expandRefs(`#api #tag:ctx\n\n${sent}`, visibleRefs(members), env);
+		assert.equal(text.match(/<context-ref name="api"/g)?.length, 1);
+		assert.equal(text.match(/<context-ref name="old"/g)?.length, 1);
+		assert.ok(text.startsWith("#api \n\n") || text.startsWith("#api\n\n"), text);
+	});
+
+	it("reports a File member that cannot be read, and sends the others", async () => {
+		const members = [tagged({ name: "gone", kind: "file", path: "gone.md" }, "ctx"), tagged(snippet("terse", "Be brief."), "ctx")];
+		const result = await expandRefs("#tag:ctx", visibleRefs(members), ENV);
+		assert.deepEqual(result.failures, [{ name: "gone", reason: "gone.md does not exist" }]);
+		assert.ok(result.text.startsWith('Be brief.\n\n<context-ref name="gone"'), result.text);
+	});
+
+	it("keeps a Dynamic member as a Placeholder until Dynamic Refs are built", async () => {
+		const members = [tagged(snippet("terse", "Be brief."), "ctx"), tagged({ name: "diff", kind: "dynamic", command: ["git", "diff"] }, "ctx")];
+		assert.equal(await expand("#tag:ctx", members), "Be brief. [ref:diff]");
+	});
+
+	it("does not expand the text of a Snippet member again", async () => {
+		const members = [tagged(snippet("a", "see #b and #tag:t"), "t"), tagged(snippet("b", "B"), "t")];
+		assert.equal(await expand("#tag:t", members), "see #b and #tag:t B");
+	});
+
+	it("leaves a Scoped Ref out of the Bundle until its scope is matched", async () => {
+		const scoped: Ref = { ...tagged(snippet("here", "x"), "t"), scope: { path: "/work/repo" } };
+		assert.equal(await expand("#tag:t", [scoped, tagged(snippet("b", "B"), "t")]), "B");
+		assert.equal(await expand("#tag:t", [scoped]), "#tag:t");
+	});
+});
+
 describe("visibleRefs", () => {
 	it("keeps the first Ref of a name, compared case-insensitively", async () => {
 		const visible = visibleRefs([snippet("Api", "first"), snippet("api", "second")]);

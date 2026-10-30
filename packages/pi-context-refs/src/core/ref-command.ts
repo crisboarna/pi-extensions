@@ -1,3 +1,5 @@
+import { tagProblem } from "./names.ts";
+
 /** One word of a `/ref` line after shell-style quoting. `quoted` is true when the word starts with a quote, so `"desc=x"` is text and `desc="x"` is a field. */
 export interface Word {
 	text: string;
@@ -130,8 +132,12 @@ function parseList(words: Word[]): ParsedArguments {
 	const command: RefCommand = { name: "list" };
 	for (const word of words) {
 		const key = keyOf(word);
-		if (key === "tag") command.tag = valueAfter(word, key);
-		else if (key === "in") command.library = valueAfter(word, key);
+		if (key === "tag") {
+			const value = valueAfter(word, key);
+			const bad = tagProblem(value);
+			if (bad) return failure("list", `tag: ${bad}`);
+			command.tag = value;
+		} else if (key === "in") command.library = valueAfter(word, key);
 		else return failure("list", `unexpected "${word.text}"`);
 	}
 	return { ok: true, command };
