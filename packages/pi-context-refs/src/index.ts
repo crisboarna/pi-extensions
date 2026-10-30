@@ -23,6 +23,9 @@ export default function extension(pi: ExtensionAPI): void {
 		readText: readTextIfPresent,
 		writeText: writeTextAtomically,
 		writeStderr: (text) => void process.stderr.write(text),
+		home: homedir(),
+		realpath: realpathIfPresent,
+		readRemotes: readRemoteUrls,
 	});
 	registerEditor(pi);
 }

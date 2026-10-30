@@ -31,10 +31,12 @@ describe("completeArguments", () => {
 	});
 
 	it("completes in= values for list, add, edit and remove", () => {
-		assert.deepEqual(values("list in="), ["list in=global"]);
+		assert.deepEqual(values("list in="), ["list in=global", "list in=project"]);
 		assert.deepEqual(values("add x path a in=g"), ["add x path a in=global"]);
-		assert.deepEqual(values("edit api desc=x in="), ["edit api desc=x in=global"]);
-		assert.deepEqual(values("remove api in=gl"), ["remove api in=global"]);
+		assert.deepEqual(values("add x path a in="), ["add x path a in=global", "add x path a in=project", "add x path a in=here"]);
+		assert.deepEqual(values("edit api desc=x in=h"), ["edit api desc=x in=here"]);
+		assert.deepEqual(values("remove api in=pr"), ["remove api in=project"]);
+		assert.equal(values("remove api in=h"), null, "here removes nothing, so remove does not offer it");
 		assert.equal(values("remove api in=zzz"), null);
 	});
 

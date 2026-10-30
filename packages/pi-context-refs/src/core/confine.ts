@@ -57,3 +57,9 @@ function isInside(root: string, path: string): boolean {
 	const inside = relative(root, path);
 	return inside === "" || (inside !== ".." && !inside.startsWith("../") && !isAbsolute(inside));
 }
+
+/** Every rule of the Project library for one Ref: no scope (that belongs to the Global library), and the confinement rule. */
+export function projectRefProblem(ref: Ref, env: ConfineEnv): ConfinementProblem | undefined {
+	if (ref.scope !== undefined) return { field: "scope", message: "is only used in the Global library; a Project library Ref applies to its own project" };
+	return confinementProblem(ref, env);
+}

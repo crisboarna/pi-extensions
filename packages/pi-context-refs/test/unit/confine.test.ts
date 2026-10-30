@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { confinementProblem } from "../../src/core/confine.ts";
+import { confinementProblem, projectRefProblem } from "../../src/core/confine.ts";
 import type { Ref } from "../../src/core/library.ts";
 import { parseLibrary } from "../../src/core/library.ts";
 
@@ -105,5 +105,18 @@ describe("parseLibrary with a check", () => {
 		const result = parseLibrary(both, "f.json", (ref) => confinementProblem(ref, files()));
 		assert.equal(result.ok && result.refs.length, 1);
 		assert.equal(result.ok && result.refs[0]?.name, "X");
+	});
+});
+
+describe("projectRefProblem", () => {
+	it("refuses a scope, which belongs to the Global library", () => {
+		const found = projectRefProblem({ name: "a", kind: "snippet", text: "x", scope: { path: "/work" } }, files());
+		assert.equal(found?.field, "scope");
+		assert.match(found?.message ?? "", /only used in the Global library/);
+	});
+
+	it("applies the confinement rule", () => {
+		assert.equal(projectRefProblem({ name: "a", kind: "file", path: "../x" }, files())?.field, "path");
+		assert.equal(projectRefProblem({ name: "a", kind: "file", path: "x" }, files()), undefined);
 	});
 });

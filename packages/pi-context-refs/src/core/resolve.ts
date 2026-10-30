@@ -5,6 +5,14 @@ import { type Place, scopeMatches } from "./scope.ts";
 /** Where a Visible Ref comes from, highest precedence first (ADR 0002). */
 export type Layer = "scoped" | "project" | "global" | "builtin";
 
+/** How a layer reads in a sentence. */
+export const LAYER_PHRASE: Record<Layer, string> = {
+	scoped: "the Global library, scoped to here",
+	project: "the Project library",
+	global: "the Global library",
+	builtin: "the Built-in Refs",
+};
+
 /** A Ref and the layer it sits in. */
 export interface PlacedRef {
 	ref: Ref;

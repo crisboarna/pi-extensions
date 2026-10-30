@@ -36,6 +36,11 @@
 			"term": "label",
 			"files": ["src/core/ref-completions.ts"],
 			"reason": "The label field of pi's autocomplete item, the text a completion shows. It is not a Tag."
+		},
+		{
+			"term": "trust",
+			"files": ["src/core/ref-list.ts"],
+			"reason": "Pi's project trust: the /trust command and whether pi trusts the project. GLOSSARY.md (Approval) says it is a different thing. /ref list tells the user what to run."
 		}
 	]
 }

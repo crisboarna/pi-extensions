@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { confinementProblem } from "../core/confine.ts";
+import { projectRefProblem } from "../core/confine.ts";
 import type { Ref } from "../core/library.ts";
 import { createLibraryState, type LibraryState } from "../core/library-state.ts";
 import { type Layer, resolveRefs } from "../core/resolve.ts";
@@ -69,7 +69,7 @@ export function createLibraries(deps: LibraryDeps): Libraries {
 						state: createLibraryState(
 							file,
 							() => deps.readText(file),
-							(ref) => confinementProblem(ref, place),
+							(ref) => projectRefProblem(ref, place),
 						),
 					};
 				}

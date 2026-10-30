@@ -24,11 +24,15 @@ export function readRemoteUrls(cwd: string): string[] | undefined {
 	}
 }
 
+/** The fetch URLs, `origin` first, each once. */
 function fetchUrls(output: string): string[] {
 	const urls = new Set<string>();
+	let origin: string | undefined;
 	for (const line of output.split("\n")) {
-		const match = /^\S+\s+(.+) \(fetch\)$/.exec(line.trimEnd());
-		if (match?.[1]) urls.add(match[1]);
+		const match = /^(\S+)\s+(.+) \(fetch\)$/.exec(line.trimEnd());
+		if (!match?.[2]) continue;
+		if (match[1] === "origin") origin = match[2];
+		else urls.add(match[2]);
 	}
-	return [...urls];
+	return origin === undefined ? [...urls] : [origin, ...[...urls].filter((url) => url !== origin)];
 }

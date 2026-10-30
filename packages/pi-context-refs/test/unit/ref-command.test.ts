@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseRefArguments, splitWords } from "../../src/core/ref-command.ts";
+import { libraryProblem, parseRefArguments, splitWords } from "../../src/core/ref-command.ts";
 
 const words = (line: string) => {
 	const result = splitWords(line);
@@ -166,5 +166,46 @@ describe("parseRefArguments: unknown subcommand", () => {
 		assert.equal(result.ok, false);
 		assert.match(result.ok ? "" : result.error, /unknown subcommand "frobnicate"/);
 		assert.match(result.ok ? "" : (result.usage ?? ""), /list.*add.*edit.*remove/s);
+	});
+});
+
+describe("a command with no name", () => {
+	it("reads in= and key=value as options, not as the name", () => {
+		assert.deepEqual(parse("edit in=project"), { ok: true, command: { name: "edit", fields: [], library: "project" } });
+		assert.deepEqual(parse("remove in=global"), { ok: true, command: { name: "remove", library: "global" } });
+		assert.deepEqual(parse("edit desc=x"), { ok: true, command: { name: "edit", fields: [{ key: "description", value: "x" }] } });
+	});
+
+	it("still reads a quoted word that looks like an option as the name", () => {
+		assert.deepEqual(parse('edit "in=x"'), { ok: true, command: { name: "edit", refName: "in=x", fields: [] } });
+	});
+});
+
+describe("libraryProblem", () => {
+	const problem = (args: string) => {
+		const parsed = parse(args);
+		assert.equal(parsed.ok, true, args);
+		return parsed.ok ? libraryProblem(parsed.command) : undefined;
+	};
+
+	it("accepts the libraries each subcommand can use", () => {
+		for (const args of [
+			"list in=global",
+			"list in=project",
+			"add a path x in=here",
+			"add a path x in=project",
+			"edit a in=here",
+			"remove a in=project",
+			"remove a",
+			"list",
+		]) {
+			assert.equal(problem(args), undefined, args);
+		}
+	});
+
+	it("refuses an unknown library, and here where it cannot apply, naming the libraries that can", () => {
+		assert.equal(problem("list in=elsewhere"), 'unknown library "elsewhere"; the libraries are: global, project');
+		assert.equal(problem("remove a in=here"), 'unknown library "here"; the libraries are: global, project');
+		assert.equal(problem("add a path x in=nope"), 'unknown library "nope"; the libraries are: global, project, here');
 	});
 });
