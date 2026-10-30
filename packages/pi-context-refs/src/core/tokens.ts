@@ -34,3 +34,10 @@ export function findRefTokens(text: string): RefToken[] {
 	}
 	return tokens;
 }
+
+/** Where each Placeholder sits in `text`, as offsets. */
+export function placeholderSpans(text: string): Array<{ start: number; end: number }> {
+	return findRefTokens(text)
+		.filter((token) => token.form === "placeholder")
+		.map(({ start, end }) => ({ start, end }));
+}

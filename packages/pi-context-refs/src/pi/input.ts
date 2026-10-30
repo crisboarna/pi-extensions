@@ -9,6 +9,8 @@ export interface InputDeps {
 	libraryPath: string;
 	home: string;
 	readText: (path: string) => string | undefined;
+	/** The bytes of a file; it rejects with the system's error. */
+	readFile: (path: string) => Promise<Uint8Array>;
 	writeStderr: (text: string) => void;
 }
 
@@ -26,14 +28,26 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		showNotices(current().refresh().notices, ctx, deps);
 	});
 
-	pi.on("input", (event, ctx) => {
+	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return undefined;
 		const { refs, notices } = current().refresh();
 		showNotices(notices, ctx, deps);
-		const text = expandRefs(event.text, visibleRefs(refs), { cwd: ctx.cwd, home: deps.home });
+		const { text, failures } = await expandRefs(event.text, visibleRefs(refs), { cwd: ctx.cwd, home: deps.home, readFile: deps.readFile });
+		if (failures.length > 0) {
+			const reasons = failures.map((failure) => `#${failure.name}: ${failure.reason}`);
+			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);
+			showNotices(reasons, ctx, deps);
+		}
 		if (text === event.text) return undefined;
 		return event.images ? { action: "transform", text, images: event.images } : { action: "transform", text };
 	});
+}
+
+/** The TUI refuses a send it cannot complete: the draft comes back, then the notice, whose repaint shows the restored draft. */
+function cancelSend(draft: string, reasons: string[], ctx: ExtensionContext): { action: "handled" } {
+	ctx.ui.setEditorText(draft);
+	ctx.ui.notify(`pi-context-refs: ${reasons.join("\n")}`, "error");
+	return { action: "handled" };
 }
 
 /** A warning goes to the notification line where there is a UI (the TUI, and the client in RPC) and to stderr where there is none. */
