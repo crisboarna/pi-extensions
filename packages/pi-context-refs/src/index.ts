@@ -1,13 +1,14 @@
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectSupportedImageMimeTypeFromFile, type ExtensionAPI, getAgentDir, truncateHead } from "@earendil-works/pi-coding-agent";
-import { registerRefCommand } from "./pi/commands.ts";
+import { type CommandDeps, registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { urlEnv } from "./pi/fetch.ts";
 import { isFilePresent, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { readRemoteUrls } from "./pi/git-remotes.ts";
-import { registerInput } from "./pi/input.ts";
+import { type InputDeps, registerInput } from "./pi/input.ts";
+import { registerOverlay } from "./pi/overlay.ts";
 import { registerPicker } from "./pi/picker.ts";
 import { registerRecentSource } from "./pi/recent-source.ts";
 import { registerTranscript } from "./pi/transcript.ts";
@@ -16,7 +17,7 @@ import { registerTranscript } from "./pi/transcript.ts";
 export default function extension(pi: ExtensionAPI): void {
 	// First, so the input handler below finds the files a message points at already noted.
 	const recent = registerRecentSource(pi, { home: homedir(), tmpdir: tmpdir(), now: Date.now });
-	registerInput(pi, {
+	const inputDeps: InputDeps = {
 		recent,
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		home: homedir(),
@@ -32,8 +33,9 @@ export default function extension(pi: ExtensionAPI): void {
 		...commandEnv((command, args, options) => pi.exec(command, args, options)),
 		...urlEnv(),
 		writeStderr: (text) => void process.stderr.write(text),
-	});
-	registerRefCommand(pi, {
+	};
+	registerInput(pi, inputDeps);
+	const commandDeps: CommandDeps = {
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		readText: readTextIfPresent,
 		writeText: writeTextAtomically,
@@ -43,7 +45,8 @@ export default function extension(pi: ExtensionAPI): void {
 		home: homedir(),
 		realpath: realpathIfPresent,
 		readRemotes: readRemoteUrls,
-	});
+	};
+	registerRefCommand(pi, commandDeps);
 	registerPicker(pi, {
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		home: homedir(),
@@ -55,6 +58,7 @@ export default function extension(pi: ExtensionAPI): void {
 		now: Date.now,
 		isFile: isFilePresent,
 	});
-	registerEditor(pi);
+	const editors = registerEditor(pi);
+	registerOverlay(pi, { ...inputDeps, ...commandDeps, isFile: isFilePresent }, editors);
 	registerTranscript(pi);
 }

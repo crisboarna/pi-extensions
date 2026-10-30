@@ -95,3 +95,11 @@ export function createApprover(ctx: ExtensionContext, deps: ApprovalDeps): (requ
 		return { allowed: true };
 	};
 }
+
+/** Like `createApprover`, but never asks and never records: a preview runs a Project library Ref only when its exact definition is approved already. */
+export function createPreviewApprover(ctx: Pick<ExtensionContext, "cwd">, deps: ApprovalDeps): (request: ApprovalRequest) => Promise<Verdict> {
+	return async ({ ref, definition }) =>
+		isApproved(deps, projectKey(deps, ctx.cwd), ref.name, definition)
+			? { allowed: true }
+			: { allowed: false, reason: `it is not approved yet; sending asks for your approval, or approve it with /ref approve ${ref.name}` };
+}

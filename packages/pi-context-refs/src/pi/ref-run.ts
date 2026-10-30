@@ -1,4 +1,4 @@
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type LibraryFile, readLibraryEntries } from "../core/config-writer.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import { parseLibrary, type Ref, type RefCheck } from "../core/library.ts";
@@ -24,7 +24,7 @@ export type Level = "info" | "error";
 
 /** One run of `/ref`: where its output goes, where the session is, and the two library files. */
 export interface Run {
-	ctx: ExtensionCommandContext;
+	ctx: ExtensionContext;
 	deps: CommandDeps;
 	say(text: string, level?: Level): void;
 	place: Place;
@@ -66,7 +66,7 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 	project: libraryFile(deps, projectLibraryPath(cwd)),
 });
 
-export function createRun(ctx: ExtensionCommandContext, deps: CommandDeps, say: Run["say"]): Run {
+export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
 	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
 	return { ctx, deps, say, place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }

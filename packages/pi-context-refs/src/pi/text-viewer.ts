@@ -1,16 +1,16 @@
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const CHROME_ROWS = 4;
 const MIN_TEXT_ROWS = 3;
 
 /** Text safe to draw: control characters other than a line feed are dropped and a tab becomes spaces. */
-function drawable(text: string): string {
+export function drawable(text: string): string {
 	return text.replace(/\t/g, "    ").replace(/(?![\n])\p{Cc}/gu, "");
 }
 
 /** Shows `text` in a read-only dialog that scrolls; it resolves when the person closes it. */
-export function showReadOnlyText(ctx: ExtensionCommandContext, title: string, text: string): Promise<void> {
+export function showReadOnlyText(ctx: ExtensionContext, title: string, text: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		const source = drawable(text);
 		let top = 0;

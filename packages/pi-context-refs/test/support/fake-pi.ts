@@ -47,6 +47,8 @@ function exec(command: string, args: string[], options: { cwd?: string; timeout?
 export interface FakeHost {
 	pi: Record<string, unknown>;
 	commands: Map<string, { handler(args: string, ctx: unknown): Promise<void> }>;
+	/** The shortcuts the extension registered, by key. */
+	shortcuts: Map<string, { handler(ctx: unknown): Promise<void> | void }>;
 	/** Every call made on the extension API, by method name, in call order. */
 	calls: Array<{ method: string; args: unknown[] }>;
 	/** Runs every handler for an event; the last defined result wins. */
@@ -61,6 +63,7 @@ export function createFakeHost(): FakeHost {
 	const host: FakeHost = {
 		pi: {},
 		commands: new Map(),
+		shortcuts: new Map(),
 		calls,
 		async fire(event, payload, ctx) {
 			let result: unknown;
@@ -75,6 +78,7 @@ export function createFakeHost(): FakeHost {
 	const known: Record<string, (...args: any[]) => unknown> = {
 		on: (event: string, handler: Handler) => handlers.set(event, [...(handlers.get(event) ?? []), handler]),
 		registerCommand: (name: string, def: { handler(args: string, ctx: unknown): Promise<void> }) => host.commands.set(name, def),
+		registerShortcut: (key: string, def: { handler(ctx: unknown): Promise<void> | void }) => host.shortcuts.set(key, def),
 		exec,
 	};
 	// Any other API method is accepted and recorded, so an extension that registers
@@ -101,6 +105,19 @@ export interface FakeSession {
 	autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider>;
 	/** Sends raw terminal input to the extension's listeners, as the TUI does; true when one consumed it. */
 	pressKey(data: string): boolean;
+	/** The components shown with `ui.custom`, in the order they were opened. */
+	customs: ShownComponent[];
+}
+
+/** A component the extension showed with `ui.custom`, with the `options` it asked for. */
+export interface ShownComponent {
+	component: { render(width: number): string[]; handleInput?(data: string): void; dispose?(): void };
+	options: unknown;
+	closed: boolean;
+	/** What the component passed to `done`. */
+	result: unknown;
+	/** Renders and counts the repaints the component asked for. */
+	renders: { requested: number };
 }
 
 /** A session context. `mode` is pi's run mode; `hasUI` is true for the TUI and RPC, false for print and JSON mode, and gives the mode when `mode` is not set. `trusted` is what `isProjectTrusted()` answers (true by default). */
@@ -109,12 +126,14 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 	const editorTexts: string[] = [];
 	const statuses: FakeSession["statuses"] = [];
 	const autocompleteProviders: FakeSession["autocompleteProviders"] = [];
+	const customs: FakeSession["customs"] = [];
 	const keyListeners = new Set<(data: string) => { consume?: boolean } | undefined>();
 	return {
 		notices,
 		editorTexts,
 		statuses,
 		autocompleteProviders,
+		customs,
 		pressKey: (data) => [...keyListeners].some((listener) => listener(data)?.consume === true),
 		ctx: {
 			cwd: options.cwd,
@@ -130,6 +149,25 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 					return () => keyListeners.delete(listener);
 				},
 				addAutocompleteProvider: (factory: FakeSession["autocompleteProviders"][number]) => autocompleteProviders.push(factory),
+				custom: (factory: (...args: unknown[]) => unknown, customOptions: unknown) =>
+					new Promise((resolve) => {
+						const renders = { requested: 0 };
+						const tui = { requestRender: () => void renders.requested++, terminal: { rows: 50, columns: 100 } };
+						const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+						const finish = (result: unknown) => {
+							const shown = customs.find((candidate) => candidate.component === component);
+							if (!shown || shown.closed) return;
+							shown.closed = true;
+							shown.result = result;
+							shown.component.dispose?.();
+							resolve(result);
+						};
+						let component: ShownComponent["component"] | undefined;
+						Promise.resolve(factory(tui, theme, {}, finish)).then((made) => {
+							component = made as ShownComponent["component"];
+							customs.push({ component, options: customOptions, closed: false, result: undefined, renders });
+						});
+					}),
 				// The editor slot: nothing is installed unless a test overrides these.
 				getEditorComponent: () => undefined,
 				setEditorComponent: () => {},
