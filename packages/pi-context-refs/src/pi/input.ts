@@ -3,11 +3,12 @@ import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
 import type { UrlEnv } from "../core/url.ts";
+import { type ApprovalDeps, createApprover } from "./approvals.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
 import { trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
-export interface InputDeps extends LibraryDeps, CommandEnv {
+export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
 	/** The bytes of a file; it rejects with the system's error. */
 	readFile: (path: string) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`: cuts a File at the caps of pi's read tool. */
@@ -40,6 +41,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 				...deps,
 				cwd: ctx.cwd,
 				layers,
+				approve: createApprover(ctx, deps),
 				runCommand: run.runCommand,
 				fetchUrl: run.fetchUrl,
 				signal: run.signal,

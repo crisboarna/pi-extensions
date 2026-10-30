@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -64,12 +64,23 @@ async function boot() {
 
 type Mode = "tui" | "print" | "json" | "rpc";
 
-async function session(mode: Mode, cwd = project) {
+/** The answer a fake select dialog gives to each question; it records every question it was asked. */
+type Answers = { questions: string[]; options: string[][] };
+
+async function session(mode: Mode, cwd = project, answer?: (question: string) => string | undefined) {
 	const host = await boot();
 	const s = createFakeSession({ cwd, mode });
+	const asked: Answers = { questions: [], options: [] };
+	if (answer) {
+		s.ctx.ui.select = async (question: string, options: string[]) => {
+			asked.questions.push(question);
+			asked.options.push(options);
+			return answer(question);
+		};
+	}
 	await host.fire("session_start", { type: "session_start", reason: "startup" }, s.ctx);
 	const send = (text: string) => host.fire("input", { type: "input", text, source: mode === "rpc" ? "rpc" : "interactive" }, s.ctx);
-	return { s, send };
+	return { s, send, asked };
 }
 
 /** The Context blocks of a sent message, with the attributes and the body of each. */
@@ -328,30 +339,188 @@ describe("a Dynamic Ref from the Project library", () => {
 	};
 	const marker = () => join(project, "ran.txt");
 	const touching = (name: string) => node(name, "require('node:fs').writeFileSync(process.argv[1], 'ran')", marker());
+	const approvalsFile = () => join(agentDir, "pi-context-refs-approvals.json");
+	const approvals = () => (JSON.parse(readFileSync(approvalsFile(), "utf8")) as { approvals: Array<Record<string, string>> }).approvals;
+	const ONCE = "Run once";
+	const ALWAYS = "Always for this definition";
+	const DENY = "Deny";
 
-	it("is not run: the send fails with a note that approvals are not built", async () => {
+	it("asks first, showing the exact definition, and runs once when the answer is once; nothing is stored", async () => {
 		writeProject([touching("setup")]);
-		const { s, send } = await session("tui");
+		const { s, send, asked } = await session("tui", project, () => ONCE);
+		const sent = await send("#setup");
+		assert.equal(blocksOf(sent).length, 1);
+		assert.equal(existsSync(marker()), true);
+		assert.equal(asked.questions.length, 1);
+		assert.match(asked.questions[0] ?? "", /^Allow the Project library Ref #setup to run this\?\nsource: command\nargv: /);
+		assert.ok(asked.questions[0]?.includes(`cwd: ${project}`));
+		assert.deepEqual(asked.options[0], [ONCE, ALWAYS, DENY]);
+		assert.equal(existsSync(approvalsFile()), false);
+		assert.deepEqual(s.notices, []);
+	});
+
+	it("asks again at the next message after an answer of once", async () => {
+		writeProject([touching("setup")]);
+		const { send, asked } = await session("tui", project, () => ONCE);
+		await send("#setup");
+		await send("#setup");
+		assert.equal(asked.questions.length, 2);
+	});
+
+	it("stores an answer of always by project path, Ref name and definition hash, in the agent directory only", async () => {
+		writeProject([touching("setup")]);
+		const { send, asked } = await session("tui", project, () => ALWAYS);
+		await send("#setup");
+		assert.equal(existsSync(marker()), true);
+		const [approval] = approvals();
+		assert.equal(approval?.project, project);
+		assert.equal(approval?.name, "setup");
+		assert.match(approval?.hash ?? "", /^[0-9a-f]{64}$/);
+		assert.match(approval?.approvedAt ?? "", /^\d{4}-\d\d-\d\dT/);
+		assert.deepEqual(readdirSync(join(project, ".pi")), ["pi-context-refs.json"]);
+		rmSync(marker());
+		await send("#setup");
+		assert.equal(asked.questions.length, 1, "asked again after always");
+		assert.equal(existsSync(marker()), true);
+	});
+
+	it("keeps an always across sessions, and runs it in print mode without asking", async () => {
+		writeProject([touching("setup")]);
+		await (await session("tui", project, () => ALWAYS)).send("#setup");
+		rmSync(marker());
+		const { send, s } = await session("print");
+		assert.equal(blocksOf(await send("#setup")).length, 1);
+		assert.equal(existsSync(marker()), true);
+		assert.deepEqual(stderr, []);
+		assert.deepEqual(s.notices, []);
+	});
+
+	it("asks again when the definition changes, and the old Approval does not carry over", async () => {
+		writeProject([touching("setup")]);
+		await (await session("tui", project, () => ALWAYS)).send("#setup");
+		writeProject([node("setup", "require('node:fs').writeFileSync(process.argv[1], 'changed')", marker())]);
+		const { send, asked } = await session("tui", project, () => DENY);
 		assert.deepEqual(await send("#setup"), { action: "handled" });
-		assert.match(s.notices.at(-1)?.message ?? "", /#setup: a Project library command needs your approval, and approvals are not built yet/);
+		assert.equal(asked.questions.length, 1);
+	});
+
+	it("asks again when only the Ref's working directory changes", async () => {
+		mkdirSync(join(project, "sub"));
+		writeProject([touching("setup")]);
+		await (await session("tui", project, () => ALWAYS)).send("#setup");
+		writeProject([{ ...touching("setup"), cwd: "sub" }]);
+		const { send, asked } = await session("tui", project, () => ONCE);
+		await send("#setup");
+		assert.equal(asked.questions.length, 1);
+		assert.ok(asked.questions[0]?.includes(`cwd: ${join(project, "sub")}`));
+	});
+
+	it("does not share an Approval with the same Ref in another project", async () => {
+		writeProject([touching("setup")]);
+		await (await session("tui", project, () => ALWAYS)).send("#setup");
+		const other = join(root, "other");
+		mkdirSync(join(other, ".pi"), { recursive: true });
+		cpSync(join(project, ".pi"), join(other, ".pi"), { recursive: true });
+		const { send, asked } = await session("tui", other, () => DENY);
+		await send("#setup");
+		assert.equal(asked.questions.length, 1);
+	});
+
+	it("keys the Approval by the canonical project path when pi starts in a symlink to it", async () => {
+		writeProject([touching("setup")]);
+		const link = join(root, "link");
+		symlinkSync(project, link);
+		await (await session("tui", link, () => ALWAYS)).send("#setup");
+		assert.equal(approvals()[0]?.project, project);
+		const { send, asked } = await session("tui", link, () => DENY);
+		await send("#setup");
+		assert.equal(asked.questions.length, 0);
+	});
+
+	it("cancels the send in the TUI when the answer is deny, and the command does not run", async () => {
+		writeProject([touching("setup")]);
+		const { s, send } = await session("tui", project, () => DENY);
+		assert.deepEqual(await send("#setup"), { action: "handled" });
+		assert.equal(s.notices.at(-1)?.message, "pi-context-refs: #setup: you denied it");
+		assert.equal(existsSync(marker()), false);
+		assert.equal(existsSync(approvalsFile()), false);
+	});
+
+	it("treats a dismissed dialog as a deny", async () => {
+		writeProject([touching("setup")]);
+		const { s, send } = await session("tui", project, () => undefined);
+		assert.deepEqual(await send("#setup"), { action: "handled" });
+		assert.match(s.notices.at(-1)?.message ?? "", /#setup: you did not approve it/);
 		assert.equal(existsSync(marker()), false);
 	});
 
-	it("sends a Failure note in print mode and still runs the Global Refs of the same message", async () => {
+	it("asks through the client in RPC, and a deny becomes a Failure note and a notification", async () => {
+		writeProject([touching("setup")]);
+		const { s, send, asked } = await session("rpc", project, () => DENY);
+		const sent = await send("#setup");
+		assert.equal(asked.questions.length, 1);
+		assert.match(sent?.text ?? "", /name="setup" kind="dynamic" source=".*" bytes="0" error="you denied it"/);
+		assert.match(s.notices.at(-1)?.message ?? "", /#setup: you denied it/);
+		assert.equal(existsSync(marker()), false);
+	});
+
+	it("runs in RPC when the client answers once", async () => {
+		writeProject([touching("setup")]);
+		const { send } = await session("rpc", project, () => ONCE);
+		assert.equal(blocksOf(await send("#setup")).length, 1);
+		assert.equal(existsSync(marker()), true);
+	});
+
+	it("never asks in print or JSON mode: the Ref fails with a Failure note and a hint on stderr, and the Global Refs still run", async () => {
 		writeLibrary([node("global", "console.log('ok')")]);
 		writeProject([touching("setup")]);
-		const { send } = await session("print");
-		const sent = await send("#setup #global");
-		assert.match(sent?.text ?? "", /name="setup" kind="dynamic" source=".*" bytes="0" error="a Project library command needs your approval/);
-		assert.equal(blocksOf(sent).filter((block) => lastLine(block) === "ok").length, 1);
+		for (const mode of ["print", "json"] as const) {
+			stderr = [];
+			const { send, s } = await session(mode, project, () => {
+				throw new Error("a dialog opened");
+			});
+			const sent = await send("#setup #global");
+			assert.match(
+				sent?.text ?? "",
+				/name="setup" kind="dynamic" source=".*" bytes="0" error="it is not approved; approve it in pi with \/ref approve setup"/,
+			);
+			assert.equal(blocksOf(sent).filter((block) => lastLine(block) === "ok").length, 1);
+			assert.match(stderr.join(""), /pi-context-refs: #setup: it is not approved; approve it in pi with \/ref approve setup/);
+			assert.deepEqual(s.notices, []);
+			assert.equal(existsSync(marker()), false);
+		}
+	});
+
+	it("asks for a command that comes in through a Bundle, and for one that shadows a Built-in Ref", async () => {
+		writeProject([{ ...touching("setup"), tags: ["ci"] }, { ...touching("diff") }]);
+		const { send, asked } = await session("tui", project, () => DENY);
+		await send("#tag:ci");
+		await send("#diff");
+		assert.deepEqual(
+			asked.questions.map((question) => /#(\w+)/.exec(question)?.[1]),
+			["setup", "diff"],
+		);
 		assert.equal(existsSync(marker()), false);
 	});
 
-	it("is not run through a Bundle either, and it shadows the Built-in Ref of its name", async () => {
-		writeProject([{ ...touching("setup"), tags: ["ci"] }, { ...touching("diff") }]);
-		const { send } = await session("print");
-		assert.match((await send("#tag:ci"))?.text ?? "", /error="a Project library command needs your approval/);
-		assert.match((await send("#diff"))?.text ?? "", /error="a Project library command needs your approval/);
-		assert.equal(existsSync(marker()), false);
+	it("asks one Ref at a time before anything of the message runs, and never for a Global Ref or a Built-in Ref", async () => {
+		git("init", "-q");
+		writeLibrary([node("global", "console.log('ok')")]);
+		writeProject([touching("setup"), node("lint", "console.log('lint')")]);
+		const { send, asked } = await session("tui", project, () => ONCE);
+		const sent = await send("#setup #lint #global #status");
+		assert.deepEqual(
+			asked.questions.map((question) => /#(\w+)/.exec(question)?.[1]),
+			["setup", "lint"],
+		);
+		assert.equal(blocksOf(sent).length, 4);
+	});
+
+	it("shows control characters in the definition as escapes", async () => {
+		writeProject([node("odd", "console.log(1)", "\u001b[2J")]);
+		const { send, asked } = await session("tui", project, () => DENY);
+		await send("#odd");
+		assert.equal(/\p{Cc}/u.test((asked.questions[0] ?? "").replace(/\n/g, "")), false);
+		assert.ok(asked.questions[0]?.includes("\\u001b[2J"));
 	});
 });
