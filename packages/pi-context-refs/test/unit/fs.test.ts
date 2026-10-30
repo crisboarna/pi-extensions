@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { readTextIfPresent, writeTextAtomically } from "../../src/pi/fs.ts";
+import { isFilePresent, readTextIfPresent, writeTextAtomically } from "../../src/pi/fs.ts";
 
 describe("readTextIfPresent", () => {
 	const dir = mkdtempSync(join(tmpdir(), "context-refs-fs-"));
@@ -40,5 +40,23 @@ describe("writeTextAtomically", () => {
 		assert.throws(() => writeTextAtomically(join(dir, "blocked"), "new"), { code: "EISDIR" });
 		assert.deepEqual(readdirSync(dir).sort(), ["a.json", "blocked"]);
 		assert.equal(readFileSync(path, "utf8"), "old");
+	});
+});
+
+describe("isFilePresent", () => {
+	const dir = mkdtempSync(join(tmpdir(), "context-refs-file-"));
+	writeFileSync(join(dir, "a.txt"), "x");
+	symlinkSync(join(dir, "a.txt"), join(dir, "link.txt"));
+	symlinkSync(join(dir, "nowhere"), join(dir, "dangling"));
+
+	it("is true for a file and for a symlink to one", () => {
+		assert.equal(isFilePresent(join(dir, "a.txt")), true);
+		assert.equal(isFilePresent(join(dir, "link.txt")), true);
+	});
+
+	it("is false for a missing path, a dangling symlink and a directory", () => {
+		assert.equal(isFilePresent(join(dir, "missing")), false);
+		assert.equal(isFilePresent(join(dir, "dangling")), false);
+		assert.equal(isFilePresent(dir), false);
 	});
 });

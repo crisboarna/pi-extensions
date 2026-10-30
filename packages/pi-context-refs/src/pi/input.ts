@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
+import { isUsedProjectFile, type UsedFiles } from "../core/recent.ts";
 import type { UrlEnv } from "../core/url.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
 import { trackRun } from "./running.ts";
@@ -16,6 +17,8 @@ export interface InputDeps extends LibraryDeps, CommandEnv {
 	imageType: (path: string) => Promise<string | null>;
 	/** Fetches a URL with a plain GET. */
 	fetchUrl: UrlEnv["fetchUrl"];
+	/** The files this session used; a `[ref:file:<path>]` Placeholder reads only one of them. */
+	recent: UsedFiles;
 	writeStderr: (text: string) => void;
 }
 
@@ -39,6 +42,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 			expansion = await expandRefs(event.text, visible, {
 				...deps,
 				cwd: ctx.cwd,
+				usedFile: (path) => isUsedProjectFile(path, ctx.cwd, deps.recent, deps.realpath),
 				layers,
 				runCommand: run.runCommand,
 				fetchUrl: run.fetchUrl,

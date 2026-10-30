@@ -4,6 +4,7 @@ import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynam
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
+import { parseRecentTarget } from "./recent.ts";
 import { bundleMembers, type Layer } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
 import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.ts";
@@ -22,6 +23,8 @@ export interface ExpandEnv extends CommandEnv, UrlEnv {
 	layers?: ReadonlyMap<string, Layer>;
 	/** Cancels the commands and fetches that are running. */
 	signal?: AbortSignal;
+	/** Whether this session used the file and it lies inside the working directory after following symlinks. A `[ref:file:<path>]` Placeholder is read only when this says yes; without it, never. */
+	usedFile?: (absolutePath: string) => boolean;
 }
 
 /** A File or Dynamic Ref whose Expansion could not be produced. */
@@ -61,8 +64,10 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 		} else {
 			const ref = visible.get(foldName(token.target));
 			const block = ref && blockRefOf(ref);
+			const recent = token.form === "placeholder" && !ref ? recentExpansion(token.target, env) : undefined;
 			if (block) addBlock(block);
-			else expansion = ref ? inlineExpansion(ref, env) : undefined;
+			else if (recent?.block) addBlock(recent.block);
+			else expansion = ref ? inlineExpansion(ref, env) : recent?.text;
 		}
 		if (expansion === undefined) continue;
 		// A Bundle with nothing left to add takes the space before it along, so no gap is left in the prose.
@@ -76,6 +81,20 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
+}
+
+/**
+ * What a Placeholder that carries a path stands for: its path text, or for `file:<path>` the file as a block when the session used it (a root file is
+ * named `./README.md`, so no saved Ref's name can clash with it). Undefined for a target that is not a path, or a file the session did not use.
+ */
+function recentExpansion(target: string, env: ExpandEnv): { text?: string; block?: FileRef } | undefined {
+	const recent = parseRecentTarget(target);
+	if (recent === undefined) return undefined;
+	const ref = { path: recent.path };
+	if (recent.form === "path") return { text: pathText(ref, env) };
+	if (!env.usedFile?.(absolutePath(ref, env))) return undefined;
+	const shown = pathText(ref, env);
+	return { block: { name: shown.includes("/") ? shown : `./${shown}`, kind: "file", path: absolutePath(ref, env) } };
 }
 
 /** A command or URL Ref's Context block. A Project library command or URL is refused, not run, until its approval exists. */
@@ -132,7 +151,7 @@ function inlineExpansion(ref: Ref, env: ExpandEnv): string | undefined {
 }
 
 /** The target relative to the working directory when it lies inside it, absolute otherwise. */
-function pathText(ref: PathRef | FileRef, env: ExpandEnv): string {
+function pathText(ref: Pick<PathRef, "path">, env: ExpandEnv): string {
 	const absolute = absolutePath(ref, env);
 	const inside = relative(env.cwd, absolute);
 	if (inside === "") return ".";

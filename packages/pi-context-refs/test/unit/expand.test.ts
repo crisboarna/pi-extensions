@@ -368,6 +368,100 @@ describe("File", () => {
 	});
 });
 
+describe("Recent refs", () => {
+	const block = (attributes: string, body: string) => `<context-ref ${attributes}>\n${body}\n</context-ref>`;
+	const used =
+		(...paths: string[]): ExpandEnv["usedFile"] =>
+		(path) =>
+			paths.includes(path);
+	const env = (files: Record<string, string | Uint8Array | Error>, usedFile?: ExpandEnv["usedFile"]): ExpandEnv => ({
+		...ENV,
+		readFile: disk(files),
+		...(usedFile ? { usedFile } : {}),
+	});
+
+	describe("a path Placeholder", () => {
+		it("prints the path, relative inside the working directory and absolute outside, with no saved Ref and no check", async () => {
+			assert.equal(await expand("see [ref:src/api.ts] and [ref:./README.md]", []), "see src/api.ts and README.md");
+			assert.equal(await expand("see [ref:/etc/hosts] and [ref:~/notes/a.md]", []), "see /etc/hosts and /home/me/notes/a.md");
+		});
+
+		it("reads a quoted path with spaces", async () => {
+			assert.equal(await expand('see [ref:"my dir/a b.ts"]', []), "see my dir/a b.ts");
+		});
+
+		it("never reads the file", async () => {
+			const result = await expandRefs("[ref:src/api.ts]", visibleRefs([]), env({}));
+			assert.deepEqual(result, { text: "src/api.ts", images: [], failures: [] });
+		});
+
+		it("does not change a Placeholder that names a saved Ref", async () => {
+			assert.equal(await expand("[ref:api]", [path("api", "docs/api.md")]), "docs/api.md");
+		});
+
+		it("does not expand a typed #src/api.ts", async () => {
+			assert.equal(await expand("see #src/api.ts and #./README.md", []), "see #src/api.ts and #./README.md");
+		});
+
+		it("prints the path for a Placeholder at every occurrence", async () => {
+			assert.equal(await expand("[ref:a/b.ts] [ref:a/b.ts]", []), "a/b.ts a/b.ts");
+		});
+	});
+
+	describe("a file Placeholder", () => {
+		const files = { "/work/repo/src/api.ts": "export {};\n", "/work/repo/README.md": "# hi\n" };
+
+		it("sends the file as a Context block named by its path when the session used it", async () => {
+			const text = await expand("read [ref:file:src/api.ts]", [], env(files, used("/work/repo/src/api.ts")));
+			assert.equal(text, `read [ref:file:src/api.ts]\n\n${block('name="src/api.ts" kind="file" path="src/api.ts" bytes="11"', "export {};\n")}`);
+		});
+
+		it("names a root file with ./ so its name never clashes with a saved Ref", async () => {
+			const text = await expand("[ref:file:./README.md]", [], env(files, used("/work/repo/README.md")));
+			assert.ok(text.includes('<context-ref name="./README.md" kind="file" path="README.md" bytes="5">'), text);
+		});
+
+		it("reads a quoted path with spaces", async () => {
+			const text = await expand('[ref:file:"my dir/a b.ts"]', [], env({ "/work/repo/my dir/a b.ts": "x" }, used("/work/repo/my dir/a b.ts")));
+			assert.ok(text.includes('name="my dir/a b.ts" kind="file" path="my dir/a b.ts" bytes="1"'), text);
+		});
+
+		it("leaves the Placeholder as typed, and reads nothing, when the session did not use the file", async () => {
+			const result = await expandRefs("[ref:file:src/api.ts]", visibleRefs([]), env(files, used("/work/repo/other.ts")));
+			assert.deepEqual(result, { text: "[ref:file:src/api.ts]", images: [], failures: [] });
+		});
+
+		it("leaves the Placeholder as typed when the environment has no record of used files", async () => {
+			assert.equal(await expand("[ref:file:src/api.ts]", [], env(files)), "[ref:file:src/api.ts]");
+		});
+
+		it("asks about the absolute path the Placeholder means, however it is written", async () => {
+			const asked: string[] = [];
+			await expand("[ref:file:./src/../src/api.ts] [ref:file:~/x.md] [ref:file:/etc/hosts]", [], {
+				...env(files),
+				usedFile: (path) => {
+					asked.push(path);
+					return false;
+				},
+			});
+			assert.deepEqual(asked, ["/work/repo/src/api.ts", "/home/me/x.md", "/etc/hosts"]);
+		});
+
+		it("gives one block for a file used twice, and none when the message already carries it", async () => {
+			const twice = await expand("[ref:file:src/api.ts] [ref:file:src/api.ts]", [], env(files, used("/work/repo/src/api.ts")));
+			assert.equal(twice.match(/<context-ref /g)?.length, 1);
+			const sent = `see [ref:file:src/api.ts]\n\n${block('name="src/api.ts" kind="file" path="src/api.ts" bytes="3"', "old")}`;
+			assert.equal(await expand(sent, [], env(files, used("/work/repo/src/api.ts"))), sent);
+		});
+
+		it("reports a used file that is gone now as a failure, with a Failure note", async () => {
+			const result = await expandRefs("[ref:file:src/gone.ts]", visibleRefs([]), env({}, used("/work/repo/src/gone.ts")));
+			assert.deepEqual(result.failures, [{ name: "src/gone.ts", reason: "src/gone.ts does not exist" }]);
+			assert.ok(result.text.includes('name="src/gone.ts" kind="file" path="src/gone.ts" bytes="0" error="src/gone.ts does not exist"'), result.text);
+		});
+	});
+});
+
 describe("File limits", () => {
 	const api: Ref = { name: "api", kind: "file", path: "src/api.ts" };
 	const file = "/work/repo/src/api.ts";

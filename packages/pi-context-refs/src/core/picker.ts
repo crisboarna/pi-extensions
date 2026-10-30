@@ -1,18 +1,22 @@
 import type { Ref } from "./library.ts";
 import { foldName } from "./names.ts";
+import { ageNote, matchRecent, type PathEnv, placeholderTarget, resolveUsedPath, rowPath, type UsedFile } from "./recent.ts";
 import { plain, targetSummary } from "./ref-list.ts";
 import { bundleMembers, type Layer } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
 
-/** Where a picker row sits: its layer, or the Bundles at the end. Rows are kept together by section, in this order. */
-type Section = Layer | "bundle";
+/** Where a picker row sits: its layer, the Recent refs, or the Bundles at the end. Rows are kept together by section, in this order. */
+type Section = Layer | "recent" | "bundle";
 
-const SECTION_ORDER: readonly Section[] = ["scoped", "project", "global", "builtin", "bundle"];
+const SECTION_ORDER: readonly Section[] = ["scoped", "project", "global", "builtin", "recent", "bundle"];
 
 /** The mark in front of each row's name. A Built-in Ref's row also says "built-in" in its description. */
-const MARK: Record<Section, string> = { scoped: "◆", project: "■", global: "●", builtin: "○", bundle: "⧉" };
+const MARK: Record<Section, string> = { scoped: "◆", project: "■", global: "●", builtin: "○", recent: "↺", bundle: "⧉" };
 
 const DESCRIPTION_LIMIT = 60;
+
+/** A bare Trigger shows this many Recent refs; a query searches all of them. */
+const BARE_RECENT_ROWS = 10;
 
 /** One line of the picker. `value` says what a pick inserts (see `applyPick`). */
 export interface PickerRow {
@@ -24,16 +28,30 @@ export interface PickerRow {
 	value: string;
 }
 
+/** The files the session used, as the picker needs them. */
+export interface RecentSource {
+	/** Newest use first. */
+	files: readonly UsedFile[];
+	env: Pick<PathEnv, "cwd" | "home">;
+	/** The time the notes ("5 min ago") count from. */
+	now: number;
+	/** Whether the file exists; a missing one is hidden. Asked only of files that answer the query. */
+	present: (path: string) => boolean;
+}
+
 export interface PickerSource {
 	/** The Visible Refs, in the order scoped, project, global, Built-in. */
 	visible: ReadonlyMap<string, Ref>;
 	layers: ReadonlyMap<string, Layer>;
 	/** Whether the session's directory is in a git work tree; the Built-in Refs are hidden when it is not. */
 	inWorkTree: boolean;
+	/** The session's Recent refs; none when it has not used any file. */
+	recent?: RecentSource;
 }
 
 const REF_VALUE = "pi-context-refs:ref:";
 const BUNDLE_VALUE = "pi-context-refs:bundle:";
+const RECENT_VALUE = "pi-context-refs:recent:";
 
 /** How well `name` answers `query`, 0 being best, or undefined for no match. Both are case-folded. */
 function closeness(name: string, query: string): number | undefined {
@@ -76,6 +94,35 @@ function bundleRow(tag: string, members: readonly Ref[]): PickerRow {
 	};
 }
 
+/** The absolute paths that saved Path and File Refs point at, so their files are not offered a second time. */
+function savedTargets(visible: ReadonlyMap<string, Ref>, env: Pick<PathEnv, "cwd" | "home">): Set<string> {
+	const targets = new Set<string>();
+	for (const ref of visible.values()) {
+		const target = ref.kind === "path" || ref.kind === "file" ? resolveUsedPath(ref.path, env) : undefined;
+		if (target !== undefined) targets.add(target);
+	}
+	return targets;
+}
+
+/** The Recent rows for `query`, newest use first: a bare Trigger gets the newest few, a query every file that answers it. Missing files and saved Refs' targets are left out. */
+function recentRows(source: PickerSource, recent: RecentSource, query: string): PickerRow[] {
+	const saved = savedTargets(source.visible, recent.env);
+	const rows: PickerRow[] = [];
+	for (const file of matchRecent(recent.files, query, recent.env)) {
+		if (query === "" && rows.length === BARE_RECENT_ROWS) break;
+		if (saved.has(file.path) || !recent.present(file.path)) continue;
+		rows.push({
+			section: "recent",
+			name: rowPath(file.path, recent.env),
+			kind: "recent",
+			description: ageNote(file, recent.now),
+			mark: MARK.recent,
+			value: `${RECENT_VALUE}${placeholderTarget(file.path, recent.env)}`,
+		});
+	}
+	return rows;
+}
+
 /** The Tags of the Visible Refs, each once under its first spelling, in order of first appearance. */
 function tagsOf(visible: ReadonlyMap<string, Ref>): string[] {
 	const seen = new Map<string, string>();
@@ -97,13 +144,15 @@ export function pickerRows(source: PickerSource, query: string): PickerRow[] {
 		const score = bundleCloseness(tag, folded);
 		if (score !== undefined) scored.push({ row: bundleRow(tag, bundleMembers(source.visible, tag)), score, at: scored.length });
 	}
+	if (source.recent) for (const row of recentRows(source, source.recent, query)) scored.push({ row, score: 0, at: scored.length });
 	const section = (row: PickerRow) => SECTION_ORDER.indexOf(row.section);
 	return scored.sort((a, b) => section(a.row) - section(b.row) || a.score - b.score || a.at - b.at).map(({ row }) => row);
 }
 
-/** The Ref names a row's `value` stands for, or undefined when the value is not one of this package's rows. */
+/** What a row's `value` puts between `[ref:` and `]`: Ref names, or a Recent ref's path. Undefined when the value is not one of this package's rows. */
 function pickedNames(value: string): string[] | undefined {
 	if (value.startsWith(REF_VALUE)) return [value.slice(REF_VALUE.length)];
+	if (value.startsWith(RECENT_VALUE)) return [value.slice(RECENT_VALUE.length)];
 	return value.startsWith(BUNDLE_VALUE) ? value.slice(BUNDLE_VALUE.length).split(",") : undefined;
 }
 
