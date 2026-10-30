@@ -176,7 +176,7 @@ One XML-style element for every block kind, after pi's own `<file name="…">` t
 
 ### 9.3 Duplicates
 
-- Picking a Bundle inserts Placeholders only for the members not already in the draft.
+- Picking a Bundle inserts Placeholders only for the members not already in the draft. Picking a single Ref always inserts its Placeholder, even when the draft has it, because a Path or Snippet expands at every occurrence.
 - At send, a File or Dynamic Ref used more than once gives one block (a Dynamic Ref also runs once).
 - Path and Snippet are inline text, so they expand at every occurrence.
 
@@ -185,6 +185,7 @@ One XML-style element for every block kind, after pi's own `<file name="…">` t
 - By default a File is cut at 50 KB or 2000 lines, whichever comes first. These are pi's read-tool caps (exported `truncateHead`, `DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). The block is marked `truncated`, and a closing line tells the model it can read the rest with the read tool from line N. The closing line reads `[Truncated at 2000 lines: showing lines 1-2000 of 2500. Use the read tool with offset=2001 to read the rest.]` (the cap that was hit is `50 KB` or `2000 lines`, and it is also the value of `truncated`). A per-Ref `max_bytes` replaces the byte cap, up to 1 MB, and lifts the line cap. A cut never blocks the send.
 - An image of a type pi supports (`detectSupportedImageMimeTypeFromFile`, exported) is attached through the `input` event's `images`, with an empty block naming it. It is not resized, because pi's `processImage` is not exported. Over 5 MB is a failure that suggests resizing.
 - Any other binary file (a NUL byte in the first 8 KB) is a failure, never mojibake.
+- At most 16 MB of a text File is read, so a huge file cannot fill memory. Past that sample the cut note says `showing lines 1-N` with no total.
 - A missing or unreadable file, a directory, or a target outside the project after following symlinks is a failure (section 12). A directory's message suggests a Path Ref or a Dynamic `["ls", …]` Ref.
 
 ### 9.5 Typed tokens
@@ -198,7 +199,7 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 ### 10.1 Sources
 
 - **command**: an argv array (`"command": ["git", "diff", "--staged"]`), run through `pi.exec` with no shell. A pipe needs an explicit `["sh", "-c", "…"]`, so a reader can see that a shell runs. It runs in the session cwd, or in an optional per-Ref `cwd` that resolves like Ref paths (confined to the project for Project library Refs). It inherits pi's environment; there is no `env` field.
-- **url**: a plain GET over http or https, following up to 5 redirects. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure: a `Content-Type` that is not text, JSON, XML, YAML, JavaScript or TOML, or a NUL byte in the first 8 KB, makes a body binary. A status outside 200 to 299 is a fetch error. The timeout and the output cap of section 10.4 apply (the cap cuts the body; the fetcher stops reading there), and the block's first line is `GET <url>`. No custom headers (no secrets in config files) and no templating.
+- **url**: a plain GET over http or https, following up to 5 redirects. A redirect from a public host to a loopback, private or link-local address (a local service, the cloud metadata address) is refused; a Ref whose own URL is local follows its own redirects. Host names are not resolved. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure: a `Content-Type` that is not text, JSON, XML, YAML, JavaScript or TOML, or a NUL byte in the first 8 KB, makes a body binary. A status outside 200 to 299 is a fetch error. The timeout and the output cap of section 10.4 apply (the cap cuts the body; the fetcher stops reading there), and the block's first line is `GET <url>`. No custom headers (no secrets in config files) and no templating.
 - No parameters: every Dynamic Ref is fixed.
 
 ### 10.2 Built-in Refs
@@ -207,11 +208,12 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 
 ### 10.3 Approval
 
-- Built-ins and Global library Refs run without asking.
+- Built-ins and Global library Refs run without asking. A Built-in runs `git` in the project, and git reads that repository's `.git/config`, which a hostile repository controls (for example `core.fsmonitor`).
 - A Project library Dynamic Ref runs only after you approve its exact definition (source, argv or URL, and cwd). The choices are: once, always for this definition, or deny.
 - "Always" is saved in `~/.pi/agent/pi-context-refs-approvals.json`, keyed by canonical project path, Ref name and a hash of the definition. A changed definition (after a pull, for example) asks again. Approvals are never stored in the project, so a repository cannot approve itself.
 - The question is a `ctx.ui.select` with three choices (run once, always for this definition, deny) whose title shows the Ref and its exact definition. The TUI shows it as a dialog and an RPC client gets it as an `extension_ui_request` that it answers with `extension_ui_response`; a dismissed dialog is a deny. All questions of a message are asked one at a time, before any Ref of the message runs. In print and JSON modes an unapproved Ref does not run: it becomes a failure note, and a hint on stderr says how to approve it. There is no approve-all flag.
 - The definition is hashed as source plus argv and the absolute directory a command runs in, or source plus the URL. The name, limits and description are not part of it, so changing only those keeps the Approval. An Approval is replaced, never added to, when the same Ref is approved again.
+- An Approval covers the definition only: the argv and directory, or the URL. It does not cover the files a command runs, so a pull that rewrites `./scripts/x.sh`, a Makefile or `package.json` runs under the old Approval, and a URL's page can change. A command also inherits pi's whole environment. Every Approval dialog says so.
 - A Bundle never skips an Approval.
 
 ### 10.4 Limits and running
@@ -277,10 +279,10 @@ Every command works with full arguments; the TUI dialogs only fill in what is mi
 | `/ref remove <name> [in=<library>]` | Removes the Visible Ref. With a UI it confirms first, showing kind, library and target (Snippet text is lost for good) and any Ref it was shadowing; with no UI it runs as typed. `in=` removes a Shadowed Ref from a named library. A Built-in cannot be removed (turn it off with `builtins`). Placeholders already in drafts or history stop resolving and are sent unchanged. |
 | `/ref approvals` | This project's Approvals (Ref, definition, date) and any pending Project Dynamic Refs. |
 | `/ref approve <name>` | Shows the exact definition and needs a UI confirm. With no UI it refuses and says to run it in pi, so a script cannot approve a hostile repository's Refs. There is no headless or approve-all form. |
-| `/ref revoke <name\|all>` | Drops Approvals; needs no confirm. |
+| `/ref revoke <name\|*>` | Drops Approvals; needs no confirm. |
 | `/ref sent` | The full Expansions of the last sent message (section 13). |
 
-**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with Global preselected. `edit` and `remove` work on the library of the Visible Ref of that name (the Global library when none is Visible) unless `in=` names one; `edit <name> in=here` scopes that Global Ref to this repository the same way. `in=here` uses the `origin` remote, else the first remote, normalized to `host/path`.
+**Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with the Global library first, when it asked for any of the name, kind or target and `in=` was not typed. `edit` and `remove` work on the library of the Visible Ref of that name (the Global library when none is Visible) unless `in=` names one; `edit <name> in=here` scopes that Global Ref to this repository the same way. `in=here` uses the `origin` remote, else the first remote, normalized to `host/path`.
 
 **Name clashes.** A clash inside the target library (names are case-insensitive) is an error that points to `/ref edit`; nothing is overwritten. The same name in another layer, or a Built-in, is allowed because precedence handles it, and the result line says what the new Ref shadows or is shadowed by.
 
@@ -390,6 +392,9 @@ Run in a real TUI.
 - A Placeholder relies on one TS-private pi-tui method (ADR 0001). A pi upgrade can degrade it to plain text; the contract test catches that in CI, and the fallback still expands on send.
 - Stale content is never refreshed: a block already in a resent message stays as it was.
 - Snippets cannot contain Refs.
+- An Approval covers the command line or the URL, not the files a command runs or the page a URL returns, and a command runs with pi's environment (section 10.3).
+- The Built-in Refs run `git` without asking, and a repository's `.git/config` can make git run a program. A Project library Ref silently shadows a Global or Built-in Ref of the same name; the picker's layer mark and `/ref list` are the cues.
+- A text File is read up to 16 MB. A bigger one is cut at its cap from that sample, and its closing line names the lines shown without a total.
 - A `#` in the middle of prose that happens to match a Ref name (`#api`) expands. The match is exact and whole-word, but a Ref named `todo` makes every `#todo` expand.
 
 ## 18. Not yet specified

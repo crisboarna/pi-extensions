@@ -14,6 +14,8 @@ export interface CommandRun {
 	fetchUrl: UrlEnv["fetchUrl"];
 	/** Aborted when the user presses Esc while a command runs or a page is fetched. */
 	signal: AbortSignal;
+	/** Cancels the commands and fetches, stops listening to the keyboard and never touches the UI again: for a session that is shutting down. */
+	abort(): void;
 	/** Clears the status and stops listening to the keyboard. */
 	finish(): void;
 }
@@ -24,15 +26,16 @@ export function trackRun(ctx: ExtensionContext, runCommand: CommandEnv["runComma
 	const running = new Map<string, number>();
 	let stopListening: (() => void) | undefined;
 	const inTui = ctx.mode === "tui";
+	let released = false;
 
 	const showStatus = (): void => {
-		if (!inTui) return;
+		if (!inTui || released) return;
 		ctx.ui.setStatus(STATUS_KEY, running.size === 0 ? undefined : `running ${[...running.keys()].map((name) => `#${name}`).join(" ")}… (esc cancels)`);
 	};
 
 	/** Runs `call` as the Ref `name`, with the status shown and Esc listened to for as long as it takes. */
 	const tracked = async <Result>(name: string, call: (signal: AbortSignal) => Promise<Result>): Promise<Result> => {
-		if (inTui) {
+		if (inTui && !released) {
 			stopListening ??= ctx.ui.onTerminalInput((data) => {
 				if (!ESCAPE_KEYS.has(data)) return undefined;
 				controller.abort();
@@ -55,6 +58,12 @@ export function trackRun(ctx: ExtensionContext, runCommand: CommandEnv["runComma
 		signal: controller.signal,
 		runCommand: (request) => tracked(request.name, (signal) => runCommand({ ...request, signal })),
 		fetchUrl: (request) => tracked(request.name, (signal) => fetchUrl({ ...request, signal })),
+		abort() {
+			released = true;
+			controller.abort();
+			stopListening?.();
+			stopListening = undefined;
+		},
 		finish() {
 			stopListening?.();
 			stopListening = undefined;

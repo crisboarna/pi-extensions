@@ -1,12 +1,14 @@
 import {
 	type Approval,
 	type ApprovalState,
+	approvalCoverage,
 	approvalState,
 	approvalsFor,
 	definitionLines,
 	definitionText,
 	hashDefinition,
 	readApprovals,
+	visible,
 } from "../core/approval.ts";
 import { type ApprovalListing, formatApprovals } from "../core/approval-list.ts";
 import { projectRefProblem } from "../core/confine.ts";
@@ -94,10 +96,11 @@ export async function approveRef(run: Run, command: Extract<RefCommand, { name: 
 	const confirmed = await ctx.ui.confirm(
 		`Approve #${ref.name}?`,
 		[
-			`From the Project library ${run.files.project.path}.`,
+			`From the Project library ${visible(run.files.project.path)}.`,
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,
+			approvalCoverage(definition),
 		].join("\n"),
 	);
 	if (!confirmed) return run.say(`Did not approve "${ref.name}"`);
@@ -105,23 +108,28 @@ export async function approveRef(run: Run, command: Extract<RefCommand, { name: 
 	run.say(saved.ok ? `Approved "${ref.name}"` : saved.error, saved.ok ? "info" : "error");
 }
 
-/** `/ref revoke <name|all>`: drops Approvals of this project. It needs no confirm. */
+const ALL = "*";
+/** The menu entry that revokes every Approval; a Ref name cannot hold parentheses. */
+const EVERY_APPROVAL = "(all of them)";
+
+/** `/ref revoke <name|*>`: drops Approvals of this project; `*` is every one, which no Ref name can be. It needs no confirm. */
 export async function revokeApproval(run: Run, command: Extract<RefCommand, { name: "revoke" }>): Promise<void> {
 	const { ctx } = run;
 	const project = projectKey(run.deps, ctx.cwd);
 	let name = command.refName;
 	if (name === undefined) {
-		if (!ctx.hasUI) return run.say("a name is needed when there is no UI\n/ref revoke <name|all>", "error");
+		if (!ctx.hasUI) return run.say("a name is needed when there is no UI\n/ref revoke <name|*>", "error");
 		const read = readApprovals(approvalsFile(run.deps));
 		if (!read.ok) return run.say(read.error, "error");
 		const approved = approvalsFor(read.approvals, project).map((approval) => approval.name);
 		if (approved.length === 0) return run.say("This project has no Approvals");
-		name = await ctx.ui.select("Revoke which Approval?", [...approved, "all"]);
-		if (name === undefined) return run.say("Cancelled");
+		const chosen = await ctx.ui.select("Revoke which Approval?", [...approved, EVERY_APPROVAL]);
+		if (chosen === undefined) return run.say("Cancelled");
+		name = chosen === EVERY_APPROVAL ? ALL : chosen;
 	}
-	const dropped = dropApprovals(run.deps, project, name === "all" ? undefined : name);
+	const dropped = dropApprovals(run.deps, project, name === ALL ? undefined : name);
 	if (!dropped.ok) return run.say(dropped.error, "error");
-	if (name === "all")
+	if (name === ALL)
 		return run.say(dropped.dropped === 0 ? "This project has no Approvals" : `Revoked ${dropped.dropped} Approval${dropped.dropped === 1 ? "" : "s"}`);
 	run.say(dropped.dropped === 0 ? `"${name}" has no Approval in this project` : `Revoked the Approval of "${name}"`);
 }
@@ -142,10 +150,11 @@ export async function decideApproval(run: Run, target: Target, ref: Ref): Promis
 	const confirmed = await run.ctx.ui.confirm(
 		`Save #${ref.name} and approve it?`,
 		[
-			`This saves the Ref in the Project library ${run.files.project.path} and approves exactly this definition.`,
+			`This saves the Ref in the Project library ${visible(run.files.project.path)} and approves exactly this definition.`,
 			...definitionLines(definition),
 			"",
 			`It will ${verb} this at every send, without asking, until the definition changes.`,
+			approvalCoverage(definition),
 		].join("\n"),
 	);
 	return confirmed ? { save: true, approve: ref } : { save: false };

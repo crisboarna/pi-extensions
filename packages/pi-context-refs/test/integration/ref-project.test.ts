@@ -287,6 +287,19 @@ describe("/ref add: what the new Ref shadows or is shadowed by", () => {
 		assert.match(text, /it shadows "rules" in the Project library/);
 	});
 
+	it("says a saved Ref shadows the Built-in Ref of that name, and lists it as a Shadowed Ref", async () => {
+		const host = await boot();
+		const text = await ref(host, session(), "add log snippet mine");
+		assert.match(text, /Added snippet Ref "log" to the Global library; it shadows "log" in the Built-in Refs/);
+		assert.match(await ref(host, session(), "list"), /^ {2}log {2}in the Built-in Refs, hidden by the Global library$/m);
+	});
+
+	it("says nothing about the Built-in Ref when its name is turned off", async () => {
+		globalLibrary([], { builtins: ["log"] });
+		const host = await boot();
+		assert.equal(await ref(host, session(), "add log snippet mine"), 'Added snippet Ref "log" to the Global library\n');
+	});
+
 	it("says nothing about shadowing when the name is new", async () => {
 		const host = await boot();
 		const text = await ref(host, session(), "add rules snippet x");

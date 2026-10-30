@@ -287,9 +287,14 @@ describe("Recent refs in the picker", () => {
 		assert.equal(applyPick(["#"], 0, 1, row?.value ?? "", "#")?.lines[0], '[ref:"my dir/a b.ts"]');
 	});
 
-	it("does not insert a path the draft already has", () => {
+	it("inserts a path the draft already has, because a single pick always adds its Placeholder", () => {
 		const [row] = pickerRows(withRecent([recentFile("/work/app/src/a.ts", MINUTE)]), "");
-		assert.deepEqual(applyPick(["[ref:src/a.ts] and #"], 0, 20, row?.value ?? "", "#")?.lines, ["[ref:src/a.ts] and "]);
+		assert.deepEqual(applyPick(["[ref:src/a.ts] and #"], 0, 20, row?.value ?? "", "#")?.lines, ["[ref:src/a.ts] and [ref:src/a.ts]"]);
+	});
+
+	it("inserts a saved Ref the draft already has", () => {
+		const [row] = pickerRows(source([["global", snippet("a", "1")]]), "");
+		assert.deepEqual(applyPick(["[ref:a] and #"], 0, 13, row?.value ?? "", "#")?.lines, ["[ref:a] and [ref:a]"]);
 	});
 
 	it("shows no Recent rows when the session has none to offer", () => {
@@ -339,8 +344,9 @@ describe("pickInsertion", () => {
 		assert.deepEqual(pickInsertion(["see "], 0, 4, value, ""), { text: "[ref:a]", replace: 0 });
 	});
 
-	it("is empty text when the draft has every member", () => {
-		assert.deepEqual(pickInsertion(["[ref:a] #"], 0, 9, value, "#"), { text: "", replace: 1 });
+	it("is empty text when the draft has every member of a Bundle", () => {
+		const [bundle] = pickerRows(source([["global", { ...snippet("a", "1"), tags: ["t"] }]]), "tag:t");
+		assert.deepEqual(pickInsertion(["[ref:a] #"], 0, 9, bundle?.value ?? "", "#"), { text: "", replace: 1 });
 	});
 
 	it("ignores a value that is not one of its rows", () => {

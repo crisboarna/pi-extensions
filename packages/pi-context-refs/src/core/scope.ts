@@ -8,6 +8,8 @@ export interface Place {
 	home: string;
 	/** The real path of an existing path, or undefined when it does not exist. */
 	realpath(path: string): string | undefined;
+	/** Where a symlink points, as written, or undefined when the path is not a symlink. */
+	linkTarget?(path: string): string | undefined;
 	/** The fetch URLs of the repository's remotes, or undefined when git cannot tell. Called only when a scope has a remote. */
 	remotes(): readonly string[] | undefined;
 }

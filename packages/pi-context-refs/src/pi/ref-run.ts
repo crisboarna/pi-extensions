@@ -1,12 +1,14 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { builtinRefs } from "../core/builtins.ts";
 import { type LibraryFile, readLibraryEntries } from "../core/config-writer.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import { parseLibrary, type Ref, type RefCheck } from "../core/library.ts";
 import { foldName } from "../core/names.ts";
-import { type ListedLibrary, UNTRUSTED } from "../core/ref-list.ts";
+import { type ListedLibrary, readSettings, UNTRUSTED } from "../core/ref-list.ts";
 import { type LibraryName, libraryOf } from "../core/ref-relations.ts";
 import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
+import { printable } from "../core/text.ts";
 import type { ApprovalDeps } from "./approvals.ts";
 import { projectLibraryPath } from "./libraries.ts";
 
@@ -67,8 +69,8 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 });
 
 export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
-	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
-	return { ctx, deps, say, place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
+	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };
+	return { ctx, deps, say: (text, level) => say(printable(text), level), place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }
 
 /** Why the Project library is not available in this session. */
@@ -108,9 +110,10 @@ export function readListed(file: LibraryFile, refCheck?: RefCheck): { listed: Li
 
 /** Both libraries as they are on disk right now, with precedence applied. */
 export function currentLayers(run: Run): LayeredRefs {
-	const global = readListed(run.files.global).listed;
+	const globalRead = readListed(run.files.global);
+	const global = globalRead.listed;
 	const project = run.trusted ? readListed(run.files.project, (ref) => projectRefProblem(ref, run.place)).listed : undefined;
-	return resolveRefs({ global: global.refs, project: project?.refs ?? [] }, run.place);
+	return resolveRefs({ global: global.refs, project: project?.refs ?? [], builtin: builtinRefs(readSettings(globalRead.text).builtins) }, run.place);
 }
 
 /** The library of the Visible Ref called `name`, or the Global library when no Ref of that name is Visible. */

@@ -2,6 +2,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	type Approval,
 	type ApprovalRequest,
+	approvalCoverage,
 	approvalState,
 	type Definition,
 	definitionLines,
@@ -10,10 +11,12 @@ import {
 	readApprovals,
 	updateApprovals,
 	type Verdict,
+	visible,
 	withApproval,
 	withoutApprovals,
 } from "../core/approval.ts";
 import type { LibraryFile, WriteResult } from "../core/config-writer.ts";
+import { printable } from "../core/text.ts";
 
 /** What the Approvals need from outside pi, so tests can stand in for the machine. */
 export interface ApprovalDeps {
@@ -24,6 +27,8 @@ export interface ApprovalDeps {
 	writeText: (path: string, text: string) => void;
 	/** The real path of an existing path, or undefined when it does not exist. */
 	realpath: (path: string) => string | undefined;
+	/** Where a symlink points, as written, or undefined when the path is not a symlink. */
+	linkTarget: (path: string) => string | undefined;
 	now: () => Date;
 }
 
@@ -72,7 +77,13 @@ export function isApproved(deps: ApprovalDeps, project: string, name: string, de
 /** The question an Approval dialog asks: the Ref, then the exact definition. */
 export function approvalQuestion(name: string, project: string, definition: Definition): string {
 	const verb = definition.source === "command" ? "run" : "fetch";
-	return [`Allow the Project library Ref #${name} to ${verb} this?`, ...definitionLines(definition), `project: ${project}`].join("\n");
+	return [
+		`Allow the Project library Ref #${name} to ${verb} this?`,
+		...definitionLines(definition),
+		`project: ${visible(project)}`,
+		"",
+		approvalCoverage(definition),
+	].join("\n");
 }
 
 /** Why a Ref is not approved where nothing can ask: print and JSON mode. The reason also reaches stderr as the warning for the failed Ref. */
@@ -91,7 +102,7 @@ export function createApprover(ctx: ExtensionContext, deps: ApprovalDeps): (requ
 		if (choice === ONCE) return { allowed: true };
 		if (choice !== ALWAYS) return { allowed: false, reason: choice === DENY ? "you denied it" : "you did not approve it" };
 		const saved = recordApproval(deps, project, ref.name, definition);
-		if (!saved.ok) ctx.ui.notify(`pi-context-refs: ${saved.error}; this definition runs once and will ask again`, "warning");
+		if (!saved.ok) ctx.ui.notify(printable(`pi-context-refs: ${saved.error}; this definition runs once and will ask again`), "warning");
 		return { allowed: true };
 	};
 }

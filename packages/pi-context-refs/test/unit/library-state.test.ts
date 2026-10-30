@@ -16,6 +16,27 @@ function rig(initial: string | undefined) {
 
 const names = (refs: readonly { name: string }[]) => refs.map((ref) => ref.name);
 
+describe("library state with a check on each Ref", () => {
+	it("checks the last good copy again while the file does not parse, so a Ref that stopped passing is dropped", () => {
+		let allowed = true;
+		const disk = { text: library("a", "b") };
+		const state = createLibraryState(
+			FILE,
+			() => disk.text,
+			(ref) => (ref.name === "b" && !allowed ? { field: "path", message: "now outside the project" } : undefined),
+		);
+		assert.deepEqual(names(state.refresh().refs), ["a", "b"]);
+		disk.text = "{ not json";
+		allowed = false;
+		const result = state.refresh();
+		assert.deepEqual(names(result.refs), ["a"]);
+		assert.ok(
+			result.notices.some((notice) => /b.*now outside the project/.test(notice)),
+			result.notices.join("\n"),
+		);
+	});
+});
+
 describe("library state", () => {
 	it("is an empty library when the file is missing, with nothing to report", () => {
 		const { state } = rig(undefined);

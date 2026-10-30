@@ -2,11 +2,12 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
-import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
+import { fileContent, type ImageContent, MAX_IMAGE_BYTES, MAX_READ_BYTES, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { parseRecentTarget } from "./recent.ts";
 import { bundleMembers, type Layer } from "./resolve.ts";
+import { stripControl } from "./text.ts";
 import { findRefTokens } from "./tokens.ts";
 import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.ts";
 
@@ -14,13 +15,13 @@ import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.
 export interface ExpandEnv extends CommandEnv, UrlEnv {
 	cwd: string;
 	home: string;
-	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
-	readFile: (path: string) => Promise<Uint8Array>;
+	/** The first `limit` bytes of a file, or all of it when it is shorter. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
+	readFile: (path: string, limit: number) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`, which cuts a File at the caps of pi's read tool. */
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
-	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library runs only when `approve` allows it. */
+	/** The layer of each Visible Ref by case-folded name. A command or URL Ref from the Project library runs only when `approve` allows it; without `layers` every one counts as the Project library's. */
 	layers?: ReadonlyMap<string, Layer>;
 	/** Decides whether a Project library command or URL Ref may run. It is asked one Ref at a time, before any Ref of the message runs. Without it none may. */
 	approve?: (request: ApprovalRequest) => Promise<Verdict>;
@@ -124,7 +125,9 @@ export const refDefinition = (ref: CommandRef | UrlRef, where: { cwd: string; ho
 async function askApprovals(refs: BlockRef[], env: ExpandEnv): Promise<Map<BlockRef, string>> {
 	const refused = new Map<BlockRef, string>();
 	for (const ref of refs) {
-		if (ref.kind === "file" || env.layers?.get(foldName(ref.name)) !== "project") continue;
+		const layer = env.layers?.get(foldName(ref.name));
+		// Without layers every command or URL Ref counts as the Project library's, so a caller that forgets them fails closed.
+		if (ref.kind === "file" || (env.layers !== undefined && layer !== "project")) continue;
 		const verdict = env.approve ? await env.approve({ ref, definition: refDefinition(ref, env) }) : undefined;
 		if (!verdict?.allowed) refused.set(ref, verdict?.reason ?? "it is not approved");
 	}
@@ -172,8 +175,8 @@ function blockRefOf(ref: Ref): BlockRef | undefined {
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */
 function inlineExpansion(ref: Ref, env: ExpandEnv): string | undefined {
-	if (ref.kind === "snippet") return ref.text;
-	if (ref.kind === "path") return pathText(ref, env);
+	if (ref.kind === "snippet") return stripControl(ref.text);
+	if (ref.kind === "path") return stripControl(pathText(ref, env));
 	return undefined;
 }
 
@@ -200,8 +203,11 @@ async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
 	const head = { name: ref.name, kind: "file", path } as const;
 	try {
 		const absolute = absolutePath(ref, env);
-		const bytes = await env.readFile(absolute);
-		const content = fileContent({ bytes, path, mimeType: await env.imageType(absolute), maxBytes: ref.max_bytes }, env.truncateHead);
+		const mimeType = await env.imageType(absolute).catch(() => null);
+		const read = await env.readFile(absolute, (mimeType === null ? MAX_READ_BYTES : MAX_IMAGE_BYTES) + 1);
+		const partial = mimeType === null && read.length > MAX_READ_BYTES;
+		const bytes = partial ? read.subarray(0, MAX_READ_BYTES) : read;
+		const content = fileContent({ bytes, path, mimeType, maxBytes: ref.max_bytes, partial }, env.truncateHead);
 		if ("failure" in content) return failed(head, content.failure);
 		if ("image" in content) return { name: ref.name, text: contextBlock({ ...head, body: "" }), image: content.image };
 		return { name: ref.name, text: contextBlock({ ...head, body: content.text, truncated: content.truncated }) };

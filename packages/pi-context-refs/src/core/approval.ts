@@ -46,8 +46,16 @@ export function hashDefinition(definition: Definition): string {
 	return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
 
-/** Control characters written as `\u00XX`, so text from a repository cannot move the cursor or recolour a dialog. */
-export const visible = (text: string): string => text.replace(/\p{Cc}/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+/** Control and invisible formatting characters (bidi overrides, zero-width characters, line and paragraph separators) written as `\uXXXX`, so text from a repository cannot move the cursor, recolour a dialog or make a command look like another. */
+export const visible = (text: string): string =>
+	text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (character) => `\\u${(character.codePointAt(0) ?? 0).toString(16).padStart(4, "0")}`);
+
+/** What an Approval does not cover, for every dialog that asks for one: a changed script or page, and the environment a command inherits. */
+export function approvalCoverage(definition: Definition): string {
+	return definition.source === "url"
+		? "This approves the URL only, not the page it returns: the page can change without asking again."
+		: "This approves the command line only, not the files it runs: a changed Makefile, package.json or shell file runs without asking again. It runs with your environment.";
+}
 
 /** The definition as the lines an Approval dialog shows. */
 export function definitionLines(definition: Definition): string[] {

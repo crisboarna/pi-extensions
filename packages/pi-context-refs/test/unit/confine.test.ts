@@ -60,6 +60,40 @@ describe("confinementProblem", () => {
 		assert.ok(confinementProblem({ name: "a", kind: "file", path: "/link/other" }, env));
 	});
 
+	describe("a dangling symlink", () => {
+		/** `/work/app/dangling` is a link to a missing target; nothing under a missing target exists. */
+		const env = (target: string) => ({
+			cwd: "/work/app",
+			home: "/home/me",
+			realpath: (path: string): string | undefined => (path === "/work/app/dangling" || path.startsWith(`${target}`) ? undefined : path),
+			linkTarget: (path: string): string | undefined => (path === "/work/app/dangling" ? target : undefined),
+		});
+
+		it("is judged by where it points, so a link to a missing file outside the project is refused", () => {
+			const found = confinementProblem({ name: "a", kind: "file", path: "dangling" }, env("/home/me/.ssh/new_key"));
+			assert.equal(found?.field, "path");
+			assert.match(found?.message ?? "", /\/home\/me\/\.ssh\/new_key/);
+		});
+
+		it("follows a relative link target from the directory of the link", () => {
+			assert.ok(confinementProblem({ name: "a", kind: "file", path: "dangling" }, env("../../etc/passwd")));
+		});
+
+		it("is accepted when it points to a missing file inside the project", () => {
+			assert.equal(confinementProblem({ name: "a", kind: "file", path: "dangling" }, env("real/new.txt")), undefined);
+		});
+
+		it("is refused, without looping, when the links form a cycle", () => {
+			const cycle = {
+				cwd: "/work/app",
+				home: "/home/me",
+				realpath: (path: string): string | undefined => (path.startsWith("/work/app/a") || path.startsWith("/work/app/b") ? undefined : path),
+				linkTarget: (path: string): string | undefined => (path === "/work/app/a" ? "/work/app/b" : path === "/work/app/b" ? "/work/app/a" : undefined),
+			};
+			assert.ok(confinementProblem({ name: "x", kind: "file", path: "a" }, cycle));
+		});
+	});
+
 	it("applies to a Dynamic command's cwd and to nothing else of a Dynamic Ref", () => {
 		assert.equal(problem({ name: "a", kind: "dynamic", command: ["ls"], cwd: "sub" }), undefined);
 		assert.equal(problem({ name: "a", kind: "dynamic", command: ["ls"] }), undefined);

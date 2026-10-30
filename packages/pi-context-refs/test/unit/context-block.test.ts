@@ -91,6 +91,11 @@ describe("namesWithBlock", () => {
 		assert.deepEqual([...namesWithBlock(text)].sort(), ["api", "log"]);
 	});
 
+	it("reads a name that was escaped as an attribute back to the name it had", () => {
+		const text = contextBlock({ name: 'a&b<c>"d".ts', kind: "file", path: 'a&b<c>"d".ts', body: "x" });
+		assert.deepEqual([...namesWithBlock(text)], ['a&b<c>"d".ts']);
+	});
+
 	it("ignores a block tag in the middle of a line", () => {
 		assert.deepEqual([...namesWithBlock('see <context-ref name="api" kind="file"> in the docs')], []);
 	});

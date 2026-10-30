@@ -1,4 +1,5 @@
 import { foldName } from "./names.ts";
+import { stripControl } from "./text.ts";
 
 /** The attributes every Context block starts with: a File names its path, a Dynamic Ref its source. */
 type BlockHead = { name: string; kind: "file"; path: string } | { name: string; kind: "dynamic"; source: string };
@@ -19,7 +20,7 @@ export type FailureContent = BlockHead & {
 /** The text of a file: a byte order mark at the start is dropped and control characters are stripped, except tab, newline and carriage return. */
 export function sanitizeText(bytes: Uint8Array): string {
 	// TextDecoder drops a leading byte order mark by default; invalid UTF-8 becomes U+FFFD.
-	return new TextDecoder().decode(bytes).replace(/(?![\t\n\r])\p{Cc}/gu, "");
+	return stripControl(new TextDecoder().decode(bytes));
 }
 
 /** `<context-ref>` with the body raw between a newline after the opening tag and a newline before the closing tag. `bytes` is the body's length in UTF-8. */
@@ -49,9 +50,18 @@ function attributeValue(value: string): string {
 		.replace(/>/g, "&gt;");
 }
 
+/** An attribute value as it was before `attributeValue` escaped it. */
+export function unescapeAttribute(value: string): string {
+	return value
+		.replace(/&quot;/g, '"')
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&amp;/g, "&");
+}
+
 /** The case-folded names of the Context blocks that already open a line of `text`, so a resent message does not get them twice. */
 export function namesWithBlock(text: string): Set<string> {
 	const names = new Set<string>();
-	for (const match of text.matchAll(/^<context-ref name="([^"]*)"/gm)) names.add(foldName(match[1] ?? ""));
+	for (const match of text.matchAll(/^<context-ref name="([^"]*)"/gm)) names.add(foldName(unescapeAttribute(match[1] ?? "")));
 	return names;
 }

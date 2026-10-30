@@ -5,7 +5,7 @@ import { type CommandDeps, registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { urlEnv } from "./pi/fetch.ts";
-import { isFilePresent, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
+import { isFilePresent, linkTargetIfSymlink, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { readRemoteUrls } from "./pi/git-remotes.ts";
 import { type InputDeps, registerInput } from "./pi/input.ts";
 import { registerOverlay } from "./pi/overlay.ts";
@@ -26,6 +26,7 @@ export default function extension(pi: ExtensionAPI): void {
 		truncateHead,
 		imageType: detectSupportedImageMimeTypeFromFile,
 		realpath: realpathIfPresent,
+		linkTarget: linkTargetIfSymlink,
 		readRemotes: readRemoteUrls,
 		approvalsPath: join(getAgentDir(), "pi-context-refs-approvals.json"),
 		writeText: writeTextAtomically,
@@ -44,6 +45,7 @@ export default function extension(pi: ExtensionAPI): void {
 		writeStderr: (text) => void process.stderr.write(text),
 		home: homedir(),
 		realpath: realpathIfPresent,
+		linkTarget: linkTargetIfSymlink,
 		readRemotes: readRemoteUrls,
 	};
 	registerRefCommand(pi, commandDeps);
@@ -52,6 +54,7 @@ export default function extension(pi: ExtensionAPI): void {
 		home: homedir(),
 		readText: readTextIfPresent,
 		realpath: realpathIfPresent,
+		linkTarget: linkTargetIfSymlink,
 		readRemotes: readRemoteUrls,
 		isGitWorkTree: commandEnv((command, args, options) => pi.exec(command, args, options)).isGitWorkTree,
 		recent,

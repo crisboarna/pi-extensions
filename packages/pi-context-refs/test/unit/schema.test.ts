@@ -97,6 +97,12 @@ describe("schema/pi-context-refs.schema.json, the file", () => {
 		assert.equal(schemaAccepts({ version: 1, trigger: "#", builtins: false, refs: [] }), true);
 	});
 
+	it("describes the trigger and builtins settings", () => {
+		assert.equal(schemaAccepts({ version: 1, trigger: "$", builtins: ["log", "diff"] }), true);
+		for (const settings of [{ trigger: 5 }, { trigger: "" }, { builtins: "yes" }, { builtins: ["nope"] }, { builtins: ["log", "log"] }])
+			assert.equal(schemaAccepts({ version: 1, ...settings }), false, JSON.stringify(settings));
+	});
+
 	it("rejects a missing or different version", () => {
 		for (const file of [{ refs: [] }, { version: 2 }, { version: "1" }]) assert.equal(schemaAccepts(file), false, JSON.stringify(file));
 	});

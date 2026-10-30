@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
 	APPROVALS_SCHEMA_URL,
+	approvalCoverage,
 	approvalState,
 	approvalsFor,
 	definitionLines,
@@ -102,6 +103,30 @@ describe("the definition as text", () => {
 	it("is one line in a list", () => {
 		assert.equal(definitionText({ source: "command", argv: ["git", "log"], cwd: PROJECT }), `command git log (in ${PROJECT})`);
 		assert.equal(definitionText({ source: "url", url: "https://example.com/x" }), "url https://example.com/x");
+	});
+});
+
+describe("the definition shown in a dialog", () => {
+	it("writes control and invisible formatting characters as \\u escapes, so a repository cannot disguise the command", () => {
+		const lines = definitionLines({ source: "command", argv: ["foo\u202ebar", "zero\u200bwidth", "line\u2028break", "esc\u001b[2J"], cwd: "/work/app" });
+		assert.equal(lines[1], 'argv: foo\\u202ebar zero\\u200bwidth "line\\u2028break" "esc\\u001b[2J"');
+	});
+
+	it("does the same to a URL and to the list text", () => {
+		assert.equal(definitionLines({ source: "url", url: "https://a\u2066.example/" })[1], "url: https://a\\u2066.example/");
+		assert.equal(definitionText({ source: "url", url: "https://a\u200f.example/" }), "url https://a\\u200f.example/");
+	});
+});
+
+describe("approvalCoverage", () => {
+	it("says a command Approval covers the command line and not the files it runs, and that it runs with pi's environment", () => {
+		const text = approvalCoverage({ source: "command", argv: ["make"], cwd: "/work/app" });
+		assert.match(text, /command line only, not the files it runs/);
+		assert.match(text, /your environment/);
+	});
+
+	it("says a URL Approval covers the address and not the page it returns", () => {
+		assert.match(approvalCoverage({ source: "url", url: "https://example.com/" }), /URL only, not the page/);
 	});
 });
 

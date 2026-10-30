@@ -21,9 +21,10 @@ describe("completeArguments", () => {
 		assert.equal(values("edit nothing"), null);
 	});
 
-	it("completes Ref names for approve and revoke, and all for revoke", () => {
+	it("completes Ref names for approve and revoke, and * for revoke", () => {
 		assert.deepEqual(values("approve t"), ["approve terse"]);
-		assert.deepEqual(values("revoke a"), ["revoke api", "revoke Agents", "revoke all"]);
+		assert.deepEqual(values("revoke a"), ["revoke api", "revoke Agents"]);
+		assert.ok(values("revoke ")?.includes("revoke *"));
 		assert.equal(values("approve a b"), null);
 	});
 

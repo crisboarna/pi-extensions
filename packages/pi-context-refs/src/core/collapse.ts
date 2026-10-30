@@ -1,3 +1,5 @@
+import { unescapeAttribute } from "./context-block.ts";
+
 /** A Context block read from the tail of a message. */
 export interface TailBlock {
 	name: string;
@@ -17,7 +19,7 @@ export interface TailParse {
 const OPENING = Buffer.from('<context-ref name="');
 const CLOSING = Buffer.from("\n</context-ref>");
 const HEAD =
-	/^<context-ref name="([^"]*)" kind="([^"]*)"(?: (?:path|source)="[^"]*")? bytes="(\d+)"(?: exit="[^"]*")?(?: truncated="[^"]*")?( error="[^"]*")?>$/;
+	/^<context-ref name="([^"\p{Cc}]*)" kind="(file|dynamic)"(?: (?:path|source)="[^"]*")? bytes="(\d+)"(?: exit="[^"]*")?(?: truncated="[^"]*")?( error="[^"]*")?>$/u;
 const LINE_FEED = 0x0a;
 const WHITESPACE = [0x20, 0x09, LINE_FEED, 0x0d];
 
@@ -62,14 +64,6 @@ function readBlock(bytes: Buffer, at: number): { block: TailBlock; end: number }
 		block: { name: unescapeAttribute(head[1] ?? ""), kind: head[2] ?? "", bytes: Number(head[3]), failed: head[4] !== undefined },
 		end: bodyEnd + CLOSING.length,
 	};
-}
-
-function unescapeAttribute(value: string): string {
-	return value
-		.replace(/&quot;/g, '"')
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&amp;/g, "&");
 }
 
 /** A size as people read it: bytes below 1 KB, then KB and MB with one decimal. */

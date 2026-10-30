@@ -24,6 +24,17 @@ export function createLibraryState(file: string, read: () => string | undefined,
 		return fresh;
 	};
 
+	/** Applies the check again to the kept copy, because what it checks (a symlink) can change while the file stays as it was. Returns a warning for each Ref dropped. */
+	const recheckCopy = (): string[] => {
+		const warnings: string[] = [];
+		refs = refs.filter((ref) => {
+			const refused = refCheck?.(ref);
+			if (refused) warnings.push(`${file} ${ref.name}.${refused.field}: ${refused.message}; left out of the last good copy`);
+			return !refused;
+		});
+		return warnings;
+	};
+
 	return {
 		refresh() {
 			const fileRead = readFile(file, read);
@@ -39,7 +50,8 @@ export function createLibraryState(file: string, read: () => string | undefined,
 				return { refs, notices: unreported(loaded.warnings) };
 			}
 			const outcome = hasGoodCopy ? "keeping the last good copy" : "no Refs are loaded";
-			return { refs, notices: unreported([`${loaded.error}; ${outcome}`]) };
+			const dropped = recheckCopy();
+			return { refs, notices: unreported([`${loaded.error}; ${outcome}`, ...dropped]) };
 		},
 	};
 }

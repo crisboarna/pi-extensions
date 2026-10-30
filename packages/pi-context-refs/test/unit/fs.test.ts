@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { isFilePresent, readTextIfPresent, writeTextAtomically } from "../../src/pi/fs.ts";
+import { isFilePresent, linkTargetIfSymlink, readFileBytes, readTextIfPresent, writeTextAtomically } from "../../src/pi/fs.ts";
 
 describe("readTextIfPresent", () => {
 	const dir = mkdtempSync(join(tmpdir(), "context-refs-fs-"));
@@ -58,5 +58,40 @@ describe("isFilePresent", () => {
 		assert.equal(isFilePresent(join(dir, "missing")), false);
 		assert.equal(isFilePresent(join(dir, "dangling")), false);
 		assert.equal(isFilePresent(dir), false);
+	});
+});
+
+describe("linkTargetIfSymlink", () => {
+	const dir = mkdtempSync(join(tmpdir(), "context-refs-link-"));
+
+	it("is where a symlink points, as written, even when nothing is there", () => {
+		symlinkSync("../nowhere/x", join(dir, "dangling"));
+		assert.equal(linkTargetIfSymlink(join(dir, "dangling")), "../nowhere/x");
+	});
+
+	it("is undefined for a file, a directory and a path that does not exist", () => {
+		writeFileSync(join(dir, "file"), "x");
+		assert.equal(linkTargetIfSymlink(join(dir, "file")), undefined);
+		assert.equal(linkTargetIfSymlink(dir), undefined);
+		assert.equal(linkTargetIfSymlink(join(dir, "missing")), undefined);
+	});
+});
+
+describe("readFileBytes", () => {
+	const dir = mkdtempSync(join(tmpdir(), "context-refs-bytes-"));
+
+	it("reads a whole file that is under the limit", async () => {
+		writeFileSync(join(dir, "small"), "héllo");
+		assert.equal(Buffer.from(await readFileBytes(join(dir, "small"), 100)).toString("utf8"), "héllo");
+	});
+
+	it("reads no more than the limit of a larger file", async () => {
+		writeFileSync(join(dir, "big"), "x".repeat(1000));
+		assert.equal((await readFileBytes(join(dir, "big"), 11)).length, 11);
+	});
+
+	it("rejects with the system's error for a missing file and a directory", async () => {
+		await assert.rejects(readFileBytes(join(dir, "missing"), 10), { code: "ENOENT" });
+		await assert.rejects(readFileBytes(dir, 10), { code: "EISDIR" });
 	});
 });

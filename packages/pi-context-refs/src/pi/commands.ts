@@ -8,6 +8,7 @@ import { completeArguments } from "../core/ref-completions.ts";
 import { applyFields, buildRef, jsonOf } from "../core/ref-edit.ts";
 import { describeRef, formatList, readSettings, settingsProblems } from "../core/ref-list.ts";
 import { addedConsequence, findPlaced, removalConsequence } from "../core/ref-relations.ts";
+import { printable } from "../core/text.ts";
 import { approvalStateOf, approveRef, decideApproval, forgetApproval, recordDecided, revokeApproval, showApprovals } from "./ref-approvals.ts";
 import {
 	type CommandDeps,
@@ -73,9 +74,9 @@ export function registerRefCommand(pi: ExtensionAPI, deps: CommandDeps): void {
 			};
 			const run = createRun(ctx, deps, say);
 			const parsed = parseRefArguments(args);
-			if (!parsed.ok) return say(parsed.usage === undefined ? parsed.error : `${parsed.error}\n${parsed.usage}`, "error");
+			if (!parsed.ok) return run.say(parsed.usage === undefined ? parsed.error : `${parsed.error}\n${parsed.usage}`, "error");
 			const unknownLibrary = libraryProblem(parsed.command);
-			if (unknownLibrary !== undefined) return say(unknownLibrary, "error");
+			if (unknownLibrary !== undefined) return run.say(unknownLibrary, "error");
 			await dispatch(run, parsed.command, sessionTrigger);
 		},
 	});
@@ -141,8 +142,23 @@ function chooseTarget(run: Run, library: string | undefined, fallback: "global" 
 	return target;
 }
 
-/** The name, kind and target words of `/ref add`: those typed, and the missing ones asked for when there is a UI. Undefined once the command has said why it stops. */
-async function addArguments(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<{ refName: string; kind: string; words: string[] } | undefined> {
+const GLOBAL_CHOICE = "Global library";
+const HERE_CHOICE = "Global library, scoped to this repository";
+const PROJECT_CHOICE = "Project library";
+
+/** What `/ref add` was given, and the library the wizard chose when it asked for any of it (an `in=` value; undefined when nothing was asked). */
+interface AddArguments {
+	refName: string;
+	kind: string;
+	words: string[];
+	asked?: { library: string };
+}
+
+/**
+ * The name, kind and target words of `/ref add`: those typed, and the missing ones asked for when there is a UI, then where to save it
+ * (the Global library first) unless `in=` said. Undefined once the command has said why it stops.
+ */
+async function addArguments(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<AddArguments | undefined> {
 	const { ctx } = run;
 	let { refName, kind, target: words } = command;
 	if (refName !== undefined && kind !== undefined && words.length > 0) return { refName, kind, words };
@@ -161,14 +177,17 @@ async function addArguments(run: Run, command: Extract<RefCommand, { name: "add"
 		const split = splitWords(answer);
 		words = kind === "dynamic" && "words" in split ? split.words.map((word) => word.text) : [answer];
 	}
-	return { refName, kind, words };
+	if (command.library !== undefined) return { refName, kind, words };
+	const where = await ctx.ui.select("Save in", [GLOBAL_CHOICE, HERE_CHOICE, ...(run.trusted ? [PROJECT_CHOICE] : [])]);
+	if (!where) return cancelled();
+	return { refName, kind, words, asked: { library: where === PROJECT_CHOICE ? "project" : where === HERE_CHOICE ? "here" : "global" } };
 }
 
 async function add(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<void> {
-	const target = chooseTarget(run, command.library, "global");
-	if (!target) return;
 	const typed = await addArguments(run, command);
 	if (!typed) return;
+	const target = chooseTarget(run, command.library ?? typed.asked?.library, "global");
+	if (!target) return;
 	await saveNewRef(run, target, { refName: typed.refName, kind: typed.kind, target: typed.words, fields: withScope(run, target, command.fields) });
 }
 
@@ -333,7 +352,8 @@ export async function remove(run: Run, command: Extract<RefCommand, { name: "rem
 	if (!entries.ok) return run.say(entries.error, "error");
 	const found = findEntry(entries.entries, name);
 	if (!found) return run.say(noRef(name, target), "error");
-	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${found.name}"?`, removalText(run, target, found)))) return run.say(`Kept "${found.name}"`);
+	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${found.name}"?`, printable(removalText(run, target, found)))))
+		return run.say(`Kept "${found.name}"`);
 	const result = updateLibraryFile(target.file, (current) => {
 		const again = findEntry(current, found.name);
 		return again ? { refs: current.filter((_entry, index) => index !== again.index) } : { error: noRef(found.name, target) };

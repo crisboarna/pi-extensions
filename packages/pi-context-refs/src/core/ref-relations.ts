@@ -9,7 +9,7 @@ export const libraryOf = (layer: Layer): LibraryName => (layer === "project" ? "
 /** The Ref called `name` in a library, as it applies here; undefined when it is not there or its scope does not match here. */
 export function findPlaced(layered: LayeredRefs, library: LibraryName, name: string): PlacedRef | undefined {
 	const wanted = foldName(name);
-	return layered.applicable.find((entry) => libraryOf(entry.layer) === library && foldName(entry.ref.name) === wanted);
+	return layered.applicable.find((entry) => entry.layer !== "builtin" && libraryOf(entry.layer) === library && foldName(entry.ref.name) === wanted);
 }
 
 const where = (entry: PlacedRef): string => `"${entry.ref.name}" in ${LAYER_PHRASE[entry.layer]}`;
