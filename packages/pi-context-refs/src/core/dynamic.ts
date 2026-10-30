@@ -43,10 +43,15 @@ export function commandText(argv: readonly string[]): string {
 	return argv.map((argument) => (argument === "" || /[\s"'\\|&;<>$`*?()[\]{}~#]/.test(argument) ? JSON.stringify(argument) : argument)).join(" ");
 }
 
+/** A Failure note for a command Ref that was not run, or did not finish, and the reason. */
+export function dynamicFailure(ref: CommandRef, reason: string): BlockResult {
+	return { name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source: commandText(ref.command), error: reason }) };
+}
+
 /** Runs the Ref's command in `cwd` and builds its Context block. A non-zero exit and a cut are marked in the block; the other ways to fail give a Failure note. */
 export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv, signal?: AbortSignal): Promise<BlockResult> {
 	const source = commandText(ref.command);
-	const fail = (reason: string): BlockResult => ({ name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source, error: reason }) });
+	const fail = (reason: string): BlockResult => dynamicFailure(ref, reason);
 	if (isBuiltin(ref) && !(await env.isGitWorkTree(cwd))) return fail("not a git repository");
 
 	const timeout = ref.timeout ?? DEFAULT_TIMEOUT_SECONDS;

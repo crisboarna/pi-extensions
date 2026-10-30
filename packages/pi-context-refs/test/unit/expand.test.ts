@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { truncateHead } from "@earendil-works/pi-coding-agent";
-import { addBuiltins } from "../../src/core/builtins.ts";
+import { BUILTIN_REFS } from "../../src/core/builtins.ts";
 import type { CommandRequest, CommandResult } from "../../src/core/dynamic.ts";
 import { type ExpandEnv, expandRefs } from "../../src/core/expand.ts";
 import type { Ref } from "../../src/core/library.ts";
-import { visibleRefs } from "../../src/core/resolve.ts";
+import { resolveRefs, visibleRefs } from "../../src/core/resolve.ts";
 
 /** A file reader over an in-memory disk; a value that is an Error is thrown, as the file system would. */
 function disk(files: Record<string, string | Uint8Array | Error>): ExpandEnv["readFile"] {
@@ -649,10 +649,34 @@ describe("Dynamic command", () => {
 	it("runs a Built-in Ref that no saved Ref shadows, and lets a saved Ref with its name win", async () => {
 		const log: CommandRequest[] = [];
 		const env = runs({ git: out("+x\n"), npm: out("mine") }, log);
-		const withBuiltins = (refs: Ref[]) => addBuiltins(visibleRefs(refs), true);
+		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
+		const withBuiltins = (refs: Ref[]) => resolveRefs({ global: refs, project: [], builtin: BUILTIN_REFS }, place).visible;
 		const plain = await expandRefs("#diff", withBuiltins([]), env);
 		assert.ok(plain.text.includes("$ git diff\n+x"), plain.text);
 		const shadowed = await expandRefs("#diff", withBuiltins([{ ...tests, name: "diff" }]), env);
 		assert.ok(shadowed.text.includes("$ npm test\nmine"), shadowed.text);
+	});
+
+	it("refuses a Project library command with a Failure note instead of running it", async () => {
+		const log: CommandRequest[] = [];
+		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
+		const { visible, layers } = resolveRefs({ global: [{ ...tests, name: "lint", command: ["eslint"] }], project: [tests] }, place);
+		const result = await expandRefs("#tests #lint", visible, { ...runs({ npm: out("ok"), eslint: out("clean") }, log), layers });
+		assert.deepEqual(result.failures, [{ name: "tests", reason: "a Project library command needs your approval, and approvals are not built yet" }]);
+		assert.ok(result.text.includes('name="tests" kind="dynamic" source="npm test"'), result.text);
+		assert.ok(result.text.includes("$ eslint\nclean"), result.text);
+		assert.deepEqual(
+			log.map((request) => request.argv),
+			[["eslint"]],
+		);
+	});
+
+	it("refuses a Project library command that comes in through a Bundle", async () => {
+		const log: CommandRequest[] = [];
+		const place = { cwd: "/work/repo", home: "/home/me", realpath: (path: string) => path, remotes: () => [] };
+		const { visible, layers } = resolveRefs({ global: [], project: [{ ...tests, tags: ["ci"] }] }, place);
+		const result = await expandRefs("#tag:ci", visible, { ...runs({ npm: out("ok") }, log), layers });
+		assert.equal(result.failures.length, 1);
+		assert.deepEqual(log, []);
 	});
 });

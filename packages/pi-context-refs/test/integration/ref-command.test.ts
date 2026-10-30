@@ -104,7 +104,7 @@ describe("/ref registration", () => {
 		);
 		assert.deepEqual(
 			command.getArgumentCompletions("remove api in=")?.map((item) => item.value),
-			["remove api in=global"],
+			["remove api in=global", "remove api in=project"],
 		);
 	});
 
@@ -167,7 +167,7 @@ describe("/ref list", () => {
 		assert.match(tagged, /^ {2}api /m);
 		assert.doesNotMatch(tagged, /^ {2}terse /m);
 		assert.match(await ref(host, session(), "list in=global"), /^ {2}terse /m);
-		assert.match(await ref(host, session(), "list in=elsewhere"), /unknown library "elsewhere"; the libraries are: global/);
+		assert.match(await ref(host, session(), "list in=elsewhere"), /unknown library "elsewhere"; the libraries are: global, project/);
 	});
 
 	it("refuses a tag that is not a tag, and lists nothing for it", async () => {
@@ -290,10 +290,10 @@ describe("/ref add", () => {
 		assert.equal(existsSync(libraryFile()), false);
 	});
 
-	it("rejects a library other than the Global one", async () => {
+	it("rejects a library that does not exist", async () => {
 		const host = await boot();
-		const stderr = await ref(host, session(), "add a path x in=project");
-		assert.match(stderr, /unknown library "project"; the libraries are: global/);
+		const stderr = await ref(host, session(), "add a path x in=nowhere");
+		assert.match(stderr, /unknown library "nowhere"; the libraries are: global, project, here/);
 		assert.equal(existsSync(libraryFile()), false);
 	});
 

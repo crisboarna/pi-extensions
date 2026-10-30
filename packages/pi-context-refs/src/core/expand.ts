@@ -1,10 +1,10 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
-import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, isCommandRef } from "./dynamic.ts";
+import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
-import { bundleMembers } from "./resolve.ts";
+import { bundleMembers, type Layer } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
 
 /** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file and a way to run a command. */
@@ -17,6 +17,8 @@ export interface ExpandEnv extends CommandEnv {
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
 	imageType: (path: string) => Promise<string | null>;
+	/** The layer of each Visible Ref by case-folded name. A command Ref from the Project library is not run, since it cannot be approved yet. */
+	layers?: ReadonlyMap<string, Layer>;
 	/** Cancels the commands that are running. */
 	signal?: AbortSignal;
 }
@@ -68,14 +70,17 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all(
-		[...blockRefs.values()].map((ref) =>
-			ref.kind === "file" ? fileBlock(ref, env) : dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal),
-		),
-	);
+	const blocks = await Promise.all([...blockRefs.values()].map((ref) => (ref.kind === "file" ? fileBlock(ref, env) : commandBlock(ref, env))));
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	const images = blocks.flatMap((block) => (hasImage(block) ? [block.image] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), images, failures };
+}
+
+/** A command Ref's Context block. A Project library command is refused, not run, until its approval exists. */
+function commandBlock(ref: CommandRef, env: ExpandEnv): Promise<BlockResult> | BlockResult {
+	if (env.layers?.get(foldName(ref.name)) === "project")
+		return dynamicFailure(ref, "a Project library command needs your approval, and approvals are not built yet");
+	return dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal);
 }
 
 /**

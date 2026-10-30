@@ -24,7 +24,7 @@ export type ParsedArguments = { ok: true; command: RefCommand } | { ok: false; e
 export const USAGE = {
 	list: "/ref list [tag=<tag>] [in=<library>]",
 	add: "/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>] [key=value…]",
-	edit: "/ref edit <name> [key=value…]",
+	edit: "/ref edit <name> [key=value…] [in=<library>]",
 	remove: "/ref remove <name> [in=<library>]",
 	sent: "/ref sent",
 } as const;
@@ -41,8 +41,25 @@ export const SUBCOMMAND_HELP: Record<string, string> = {
 
 export const KINDS = ["path", "file", "snippet", "dynamic"];
 
-/** The libraries `in=` can name. */
-export const LIBRARY_NAMES = ["global"];
+/** The libraries `in=` can name. `here` is the Global library scoped to this repository's remote, or to the directory when there is none. */
+export const LIBRARY_NAMES = ["global", "project", "here"];
+
+const LIBRARIES_BY_SUBCOMMAND: Record<string, readonly string[]> = {
+	list: ["global", "project"],
+	add: LIBRARY_NAMES,
+	edit: LIBRARY_NAMES,
+	remove: ["global", "project"],
+};
+
+/** The libraries `in=` can name for a subcommand. */
+export const librariesFor = (subcommand: string): readonly string[] => LIBRARIES_BY_SUBCOMMAND[subcommand] ?? [];
+
+/** Why the `in=` of a command is refused, or undefined when it is fine or absent. */
+export function libraryProblem(command: RefCommand): string | undefined {
+	if (!("library" in command) || command.library === undefined) return undefined;
+	const allowed = librariesFor(command.name);
+	return allowed.includes(command.library) ? undefined : `unknown library "${command.library}"; the libraries are: ${allowed.join(", ")}`;
+}
 
 /** Fields `/ref add` and `/ref edit` take as `key=value`. A word with another key before the `=` is target text in `/ref add`. */
 export const ADD_KEYS = ["desc", "description", "tags", "cwd", "max_bytes", "timeout", "max_output", "scope.path", "scope.remote"];
@@ -172,8 +189,14 @@ function parseAdd(words: Word[]): ParsedArguments {
 	};
 }
 
-function parseEdit(words: Word[]): ParsedArguments {
+/** The leading word when it is a name: a word of the form `key=value` is an option, because no name contains `=`. */
+function splitName(words: Word[]): { name: Word | undefined; rest: Word[] } {
 	const [first, ...rest] = words;
+	return first !== undefined && keyOf(first) === undefined ? { name: first, rest } : { name: undefined, rest: words };
+}
+
+function parseEdit(words: Word[]): ParsedArguments {
+	const { name: first, rest } = splitName(words);
 	const fields: Field[] = [];
 	let library: string | undefined;
 	for (const word of rest) {
@@ -192,7 +215,7 @@ function parseEdit(words: Word[]): ParsedArguments {
 }
 
 function parseRemove(words: Word[]): ParsedArguments {
-	const [first, ...rest] = words;
+	const { name: first, rest } = splitName(words);
 	let library: string | undefined;
 	for (const word of rest) {
 		const key = keyOf(word);

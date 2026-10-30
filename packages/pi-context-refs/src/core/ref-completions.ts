@@ -1,5 +1,5 @@
 import { foldName } from "./names.ts";
-import { KINDS, LIBRARY_NAMES, SUBCOMMAND_HELP } from "./ref-command.ts";
+import { KINDS, librariesFor, SUBCOMMAND_HELP } from "./ref-command.ts";
 
 export interface Completion {
 	/** The whole argument text with the last word completed. */
@@ -22,17 +22,19 @@ export function completeArguments(typed: string, refNames: readonly string[]): C
 		return items.length > 0 ? items : null;
 	};
 	if (words.length === 1) return complete(Object.keys(SUBCOMMAND_HELP), (name) => SUBCOMMAND_HELP[name] ?? "");
-	if (last.startsWith("in=")) return completeLibrary(last, before);
+	if (last.startsWith("in=")) return completeLibrary(last, before, librariesFor(words[0] ?? ""));
 	const [subcommand] = words;
 	if ((subcommand === "edit" || subcommand === "remove") && words.length === 2) return complete(refNames);
 	if (subcommand === "add" && words.length === 3) return complete(KINDS);
 	return null;
 }
 
-function completeLibrary(last: string, before: string[]): Completion[] | null {
-	const items = LIBRARY_NAMES.filter((name) => `in=${name}`.startsWith(last)).map((name) => ({
-		value: [...before, `in=${name}`].join(" "),
-		label: `in=${name}`,
-	}));
+function completeLibrary(last: string, before: string[], libraries: readonly string[]): Completion[] | null {
+	const items = libraries
+		.filter((name) => `in=${name}`.startsWith(last))
+		.map((name) => ({
+			value: [...before, `in=${name}`].join(" "),
+			label: `in=${name}`,
+		}));
 	return items.length > 0 ? items : null;
 }
