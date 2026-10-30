@@ -337,12 +337,28 @@ describe("/ref revoke", () => {
 		const host = await boot();
 		await approveAll(host, ["tests", "spec"]);
 		await ref(host, session({ dialogs: ask(true), cwd: other }), "approve tests");
-		assert.match(await ref(host, session(), "revoke all"), /Revoked 2 Approvals/);
+		assert.match(await ref(host, session(), "revoke *"), /Revoked 2 Approvals/);
 		assert.deepEqual(
 			approvals().map((approval) => approval.project),
 			[other],
 		);
-		assert.match(await ref(host, session(), "revoke all"), /This project has no Approvals/);
+		assert.match(await ref(host, session(), "revoke *"), /This project has no Approvals/);
+	});
+
+	it("revokes a Ref that is called all by that name alone, and everything only with *", async () => {
+		projectLibrary([touching("all"), page("spec")]);
+		const host = await boot();
+		await approveAll(host, ["all", "spec"]);
+		assert.match(await ref(host, session(), "revoke all"), /Revoked the Approval of "all"/);
+		assert.deepEqual(approvedNames(), ["spec"]);
+	});
+
+	it("revokes everything when the menu answer is the all-of-them entry", async () => {
+		projectLibrary([touching("all"), page("spec")]);
+		const host = await boot();
+		await approveAll(host, ["all", "spec"]);
+		await ref(host, session({ dialogs: { select: async (_title, list) => list.at(-1) } }), "revoke");
+		assert.deepEqual(approvals(), []);
 	});
 
 	it("says when the Ref has no Approval", async () => {
@@ -368,9 +384,9 @@ describe("/ref revoke", () => {
 			}),
 			"revoke",
 		);
-		assert.deepEqual(options, [["tests", "spec", "all"]]);
+		assert.deepEqual(options, [["tests", "spec", "(all of them)"]]);
 		assert.deepEqual(approvedNames(), ["tests"]);
-		assert.match(await ref(host, session(), "revoke"), /a name is needed when there is no UI\n\/ref revoke <name\|all>/);
+		assert.match(await ref(host, session(), "revoke"), /a name is needed when there is no UI\n\/ref revoke <name\|\*>/);
 	});
 });
 

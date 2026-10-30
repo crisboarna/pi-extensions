@@ -59,7 +59,7 @@ When two refs share a name, the order is: scoped ref, project library, your unsc
 | `/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>]` | Kind is `path`, `file`, `snippet` or `dynamic`; `in=` is `global` (default), `project` or `here` (your library, scoped to this repository) |
 | `/ref edit <name> [key=value…]` | With no pairs, opens the ref as JSON in an editor |
 | `/ref remove <name>` | Removes the ref after a confirm |
-| `/ref approvals`, `/ref approve <name>`, `/ref revoke <name\|all>` | Show, grant or drop approvals of project commands and URLs (granting needs the TUI) |
+| `/ref approvals`, `/ref approve <name>`, `/ref revoke <name\|*>` | Show, grant or drop approvals of project commands and URLs (granting needs the TUI) |
 | `/ref sent` | The full expansions of the last message you sent |
 
 Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that tag, and picking a bundle in the list inserts one placeholder per member.

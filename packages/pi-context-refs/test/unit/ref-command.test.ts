@@ -192,6 +192,7 @@ describe("parseRefArguments: approvals, approve and revoke", () => {
 		assert.deepEqual(parse("approve"), { ok: true, command: { name: "approve" } });
 		assert.deepEqual(parse("revoke tests"), { ok: true, command: { name: "revoke", refName: "tests" } });
 		assert.deepEqual(parse("revoke all"), { ok: true, command: { name: "revoke", refName: "all" } });
+		assert.deepEqual(parse("revoke *"), { ok: true, command: { name: "revoke", refName: "*" } });
 		assert.deepEqual(parse("revoke"), { ok: true, command: { name: "revoke" } });
 	});
 
@@ -199,7 +200,7 @@ describe("parseRefArguments: approvals, approve and revoke", () => {
 		for (const line of ["approve a b", "approve in=project", "revoke a b", "revoke in=project"]) {
 			const result = parse(line);
 			assert.equal(result.ok, false, line);
-			assert.match(result.ok ? "" : (result.usage ?? ""), /^\/ref (approve <name>|revoke <name\|all>)$/, line);
+			assert.match(result.ok ? "" : (result.usage ?? ""), /^\/ref (approve <name>|revoke <name\|\*>)$/, line);
 		}
 	});
 });

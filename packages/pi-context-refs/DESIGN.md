@@ -277,7 +277,7 @@ Every command works with full arguments; the TUI dialogs only fill in what is mi
 | `/ref remove <name> [in=<library>]` | Removes the Visible Ref. With a UI it confirms first, showing kind, library and target (Snippet text is lost for good) and any Ref it was shadowing; with no UI it runs as typed. `in=` removes a Shadowed Ref from a named library. A Built-in cannot be removed (turn it off with `builtins`). Placeholders already in drafts or history stop resolving and are sent unchanged. |
 | `/ref approvals` | This project's Approvals (Ref, definition, date) and any pending Project Dynamic Refs. |
 | `/ref approve <name>` | Shows the exact definition and needs a UI confirm. With no UI it refuses and says to run it in pi, so a script cannot approve a hostile repository's Refs. There is no headless or approve-all form. |
-| `/ref revoke <name\|all>` | Drops Approvals; needs no confirm. |
+| `/ref revoke <name\|*>` | Drops Approvals; needs no confirm. |
 | `/ref sent` | The full Expansions of the last sent message (section 13). |
 
 **Which library.** `in=` picks the library. The default is the **Global library, unscoped**, so nothing shared or committed is written by accident. `in=here` writes a Global Ref scoped to this repository (its git remote when there is one, else the directory). `in=project` writes the Project library, in a trusted project only. The TUI wizard asks with Global preselected. `edit` and `remove` work on the library of the Visible Ref of that name (the Global library when none is Visible) unless `in=` names one; `edit <name> in=here` scopes that Global Ref to this repository the same way. `in=here` uses the `origin` remote, else the first remote, normalized to `host/path`.

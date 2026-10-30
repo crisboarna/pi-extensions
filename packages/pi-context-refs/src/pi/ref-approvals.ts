@@ -106,23 +106,28 @@ export async function approveRef(run: Run, command: Extract<RefCommand, { name: 
 	run.say(saved.ok ? `Approved "${ref.name}"` : saved.error, saved.ok ? "info" : "error");
 }
 
-/** `/ref revoke <name|all>`: drops Approvals of this project. It needs no confirm. */
+const ALL = "*";
+/** The menu entry that revokes every Approval; a Ref name cannot hold parentheses. */
+const EVERY_APPROVAL = "(all of them)";
+
+/** `/ref revoke <name|*>`: drops Approvals of this project; `*` is every one, which no Ref name can be. It needs no confirm. */
 export async function revokeApproval(run: Run, command: Extract<RefCommand, { name: "revoke" }>): Promise<void> {
 	const { ctx } = run;
 	const project = projectKey(run.deps, ctx.cwd);
 	let name = command.refName;
 	if (name === undefined) {
-		if (!ctx.hasUI) return run.say("a name is needed when there is no UI\n/ref revoke <name|all>", "error");
+		if (!ctx.hasUI) return run.say("a name is needed when there is no UI\n/ref revoke <name|*>", "error");
 		const read = readApprovals(approvalsFile(run.deps));
 		if (!read.ok) return run.say(read.error, "error");
 		const approved = approvalsFor(read.approvals, project).map((approval) => approval.name);
 		if (approved.length === 0) return run.say("This project has no Approvals");
-		name = await ctx.ui.select("Revoke which Approval?", [...approved, "all"]);
-		if (name === undefined) return run.say("Cancelled");
+		const chosen = await ctx.ui.select("Revoke which Approval?", [...approved, EVERY_APPROVAL]);
+		if (chosen === undefined) return run.say("Cancelled");
+		name = chosen === EVERY_APPROVAL ? ALL : chosen;
 	}
-	const dropped = dropApprovals(run.deps, project, name === "all" ? undefined : name);
+	const dropped = dropApprovals(run.deps, project, name === ALL ? undefined : name);
 	if (!dropped.ok) return run.say(dropped.error, "error");
-	if (name === "all")
+	if (name === ALL)
 		return run.say(dropped.dropped === 0 ? "This project has no Approvals" : `Revoked ${dropped.dropped} Approval${dropped.dropped === 1 ? "" : "s"}`);
 	run.say(dropped.dropped === 0 ? `"${name}" has no Approval in this project` : `Revoked the Approval of "${name}"`);
 }

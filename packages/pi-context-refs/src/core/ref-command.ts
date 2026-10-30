@@ -31,7 +31,7 @@ export const USAGE = {
 	remove: "/ref remove <name> [in=<library>]",
 	approvals: "/ref approvals",
 	approve: "/ref approve <name>",
-	revoke: "/ref revoke <name|all>",
+	revoke: "/ref revoke <name|*>",
 	sent: "/ref sent",
 } as const;
 
