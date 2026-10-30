@@ -107,3 +107,35 @@ describe("[ref:...] placeholders", () => {
 		assert.deepEqual(found("#a [ref:b] #c"), ["typed:a", "placeholder:b", "typed:c"]);
 	});
 });
+
+describe("#tag:<tag> bundle tokens", () => {
+	it("finds a bundle and gives its tag", () => {
+		assert.deepEqual(found("send #tag:docs now"), ["bundle:docs"]);
+	});
+
+	it("matches the word tag in any case and keeps the case of the tag", () => {
+		assert.deepEqual(found("#TAG:Docs #Tag:x"), ["bundle:Docs", "bundle:x"]);
+	});
+
+	it("ends at the same characters as a name, and drops trailing dots", () => {
+		assert.deepEqual(found("#tag:a.b-c_d, #tag:docs."), ["bundle:a.b-c_d", "bundle:docs"]);
+	});
+
+	it("takes the span of the whole token without the dropped dots", () => {
+		const text = "see #tag:docs. ok";
+		const [token] = findRefTokens(text);
+		assert.equal(token && text.slice(token.start, token.end), "#tag:docs");
+	});
+
+	it("is a plain #tag for a Ref named tag when nothing follows the colon", () => {
+		assert.deepEqual(found("#tag #tag: #tag:."), ["typed:tag", "typed:tag", "typed:tag"]);
+	});
+
+	it("does not start inside a word, like any typed token", () => {
+		assert.deepEqual(found("page#tag:docs"), []);
+	});
+
+	it("does not read a bundle inside a placeholder", () => {
+		assert.deepEqual(found("[ref:#tag:docs]"), ["placeholder:#tag:docs"]);
+	});
+});
