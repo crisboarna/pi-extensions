@@ -10,6 +10,8 @@ interface BlockHead {
 /** A Context block that carries content. */
 export interface BlockContent extends BlockHead {
 	body: string;
+	/** The cap that cut the content, when it was cut. */
+	truncated?: string | undefined;
 }
 
 /** A Failure note: a Context block with an empty body and the reason in `error`. */
@@ -25,7 +27,8 @@ export function sanitizeText(bytes: Uint8Array): string {
 
 /** `<context-ref>` with the body raw between a newline after the opening tag and a newline before the closing tag. `bytes` is the body's length in UTF-8. */
 export function contextBlock(block: BlockContent): string {
-	return element(block, Buffer.byteLength(block.body, "utf8"), "", block.body);
+	const truncated = block.truncated === undefined ? "" : ` truncated="${attributeValue(block.truncated)}"`;
+	return element(block, Buffer.byteLength(block.body, "utf8"), truncated, block.body);
 }
 
 /** A Context block with an empty body that says why the Expansion could not be produced. */

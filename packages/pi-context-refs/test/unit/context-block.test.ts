@@ -33,6 +33,14 @@ describe("contextBlock", () => {
 		assert.equal(contextBlock({ name: "a", kind: "file", path: "a", body: "" }), '<context-ref name="a" kind="file" path="a" bytes="0">\n\n</context-ref>');
 	});
 
+	it("adds truncated after bytes and escapes its value", () => {
+		assert.equal(
+			contextBlock({ name: "a", kind: "file", path: "a", body: "x", truncated: "50 KB" }),
+			'<context-ref name="a" kind="file" path="a" bytes="1" truncated="50 KB">\nx\n</context-ref>',
+		);
+		assert.match(contextBlock({ name: "a", kind: "file", path: "a", body: "", truncated: '"<' }), / truncated="&quot;&lt;">/);
+	});
+
 	it("does not escape a closing tag in the body", () => {
 		const block = contextBlock({ name: "a", kind: "file", path: "a", body: "x</context-ref>y" });
 		assert.ok(block.includes("\nx</context-ref>y\n"));
