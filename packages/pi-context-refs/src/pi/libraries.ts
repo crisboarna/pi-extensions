@@ -15,6 +15,8 @@ export interface LibraryDeps {
 	readText: (path: string) => string | undefined;
 	/** The real path of an existing path, or undefined when it does not exist. */
 	realpath: (path: string) => string | undefined;
+	/** Where a symlink points, as written, or undefined when the path is not a symlink. */
+	linkTarget: (path: string) => string | undefined;
 	/** The fetch URLs of the remotes of the repository that holds a directory, or undefined when git cannot tell. */
 	readRemotes: (cwd: string) => string[] | undefined;
 }
@@ -44,8 +46,8 @@ export interface Libraries {
 export const projectLibraryPath = (cwd: string): string => join(cwd, ".pi", "pi-context-refs.json");
 
 /** The place the session is in, with git asked at most once per call of `remotes`. */
-export function placeOf(ctx: { cwd: string }, deps: Pick<LibraryDeps, "home" | "realpath" | "readRemotes">): Place {
-	return { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
+export function placeOf(ctx: { cwd: string }, deps: Pick<LibraryDeps, "home" | "realpath" | "linkTarget" | "readRemotes">): Place {
+	return { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };
 }
 
 /** The `builtins` setting from the Global library file, read at every refresh so an edit counts at once. */

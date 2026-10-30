@@ -68,7 +68,7 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 });
 
 export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
-	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, remotes: () => deps.readRemotes(ctx.cwd) };
+	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };
 	return { ctx, deps, say: (text, level) => say(printable(text), level), place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }
 

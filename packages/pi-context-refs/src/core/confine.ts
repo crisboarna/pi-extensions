@@ -8,6 +8,8 @@ export interface ConfineEnv {
 	home: string;
 	/** The real path of an existing path, or undefined when it does not exist. */
 	realpath(path: string): string | undefined;
+	/** Where a symlink points, as written, or undefined when the path is not a symlink. It finds a link that points at nothing, which `realpath` cannot resolve. */
+	linkTarget?(path: string): string | undefined;
 }
 
 /** Why a Ref of the Project library is refused, and the field it concerns. */
@@ -26,7 +28,9 @@ export function confinementProblem(ref: Ref, env: ConfineEnv): ConfinementProble
 				: undefined;
 	if (!target) return undefined;
 	const root = env.realpath(env.cwd) ?? env.cwd;
-	const real = resolveThroughSymlinks(resolve(env.cwd, expandHome(target.path, env.home)), env);
+	const real = resolveThroughSymlinks(resolve(env.cwd, expandHome(target.path, env.home)), env, 0);
+	if (real === undefined)
+		return { field: target.field, message: `${target.path} follows symlinks that never end; a Project library Ref must stay inside the project` };
 	if (isInside(root, real)) return undefined;
 	return {
 		field: target.field,
@@ -39,13 +43,24 @@ function expandHome(path: string, home: string): string {
 	return path.startsWith("~/") ? `${home}/${path.slice(2)}` : path;
 }
 
-/** The real path of `path`, or when it does not exist, the real path of its nearest existing directory with the rest put back. */
-function resolveThroughSymlinks(path: string, env: ConfineEnv): string {
+const MAX_LINKS = 40;
+
+/**
+ * The real path of `path`, or when it does not exist, the real path of its nearest existing directory with the rest put back. A symlink that points at
+ * nothing is followed to where it points. Undefined when the links never end.
+ */
+function resolveThroughSymlinks(path: string, env: ConfineEnv, links: number): string | undefined {
 	let existing = path;
 	let rest = "";
 	for (;;) {
 		const real = env.realpath(existing);
 		if (real !== undefined) return rest === "" ? real : resolve(real, rest);
+		const pointsTo = env.linkTarget?.(existing);
+		if (pointsTo !== undefined) {
+			if (links >= MAX_LINKS) return undefined;
+			const next = resolve(dirname(existing), pointsTo);
+			return resolveThroughSymlinks(rest === "" ? next : resolve(next, rest), env, links + 1);
+		}
 		const parent = dirname(existing);
 		if (parent === existing) return path;
 		rest = rest === "" ? existing.slice(parent.length).replace(/^\/+/, "") : `${existing.slice(parent.length).replace(/^\/+/, "")}/${rest}`;

@@ -135,6 +135,13 @@ describe("Project library confinement", () => {
 		assert.match(stderr[0] ?? "", /\$\.refs\[0\]\.path: .*outside the project/);
 	});
 
+	it("skips a Ref whose path is a symlink that points at nothing, outside the project", async () => {
+		symlinkSync(join(root, "not-there", "key"), join(project, "dangling"));
+		projectLibrary([{ name: "key", kind: "file", path: "dangling" }]);
+		assert.equal(await expansion("#key"), "#key");
+		assert.match(stderr[0] ?? "", /\$\.refs\[0\]\.path: .*outside the project/);
+	});
+
 	it("skips a Dynamic Ref whose cwd is outside the project", async () => {
 		projectLibrary([{ name: "out", kind: "dynamic", command: ["ls"], cwd: ".." }]);
 		await expansion("#out");

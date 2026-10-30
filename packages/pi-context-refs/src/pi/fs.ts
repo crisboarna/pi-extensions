@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -32,6 +32,15 @@ export function writeTextAtomically(path: string, text: string): void {
 export function realpathIfPresent(path: string): string | undefined {
 	try {
 		return realpathSync(path);
+	} catch {
+		return undefined;
+	}
+}
+
+/** Where the symlink at `path` points, as written, or undefined when the path is not a symlink. A link that points at nothing still answers. */
+export function linkTargetIfSymlink(path: string): string | undefined {
+	try {
+		return readlinkSync(path);
 	} catch {
 		return undefined;
 	}

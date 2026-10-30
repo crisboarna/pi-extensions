@@ -26,6 +26,8 @@ export interface ApprovalDeps {
 	writeText: (path: string, text: string) => void;
 	/** The real path of an existing path, or undefined when it does not exist. */
 	realpath: (path: string) => string | undefined;
+	/** Where a symlink points, as written, or undefined when the path is not a symlink. */
+	linkTarget: (path: string) => string | undefined;
 	now: () => Date;
 }
 
