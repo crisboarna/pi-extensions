@@ -18,7 +18,7 @@ export interface LayerSources {
 	builtin?: readonly Ref[];
 }
 
-export interface Resolution {
+export interface LayeredRefs {
 	/** The Visible Refs by case-folded name. */
 	visible: Map<string, Ref>;
 	/** The layer of each Visible Ref, by case-folded name. */
@@ -42,7 +42,7 @@ export function visibleRefs(refs: readonly Ref[]): Map<string, Ref> {
 }
 
 /** Applies precedence: Scoped Ref, then Project library, then unscoped Global Ref, then Built-in Ref. Within one layer the first Ref of a name wins. */
-export function resolveRefs(sources: LayerSources, place: Place): Resolution {
+export function resolveRefs(sources: LayerSources, place: Place): LayeredRefs {
 	let remotes: readonly string[] | undefined;
 	let asked = false;
 	const once: Place = {
@@ -68,7 +68,7 @@ export function resolveRefs(sources: LayerSources, place: Place): Resolution {
 		...(sources.builtin ?? []).map((ref) => ({ ref, layer: "builtin" as const })),
 	];
 	const winners = new Map<string, PlacedRef>();
-	const shadowed: Resolution["shadowed"] = [];
+	const shadowed: LayeredRefs["shadowed"] = [];
 	for (const placed of applicable) {
 		const folded = foldName(placed.ref.name);
 		const winning = winners.get(folded);

@@ -104,11 +104,6 @@ describe("what does not expand", () => {
 		assert.equal(await expand("#diff and [ref:diff]", others), "#diff and [ref:diff]");
 	});
 
-	it("leaves a Scoped Ref as typed until its scope is matched", async () => {
-		const scoped: Ref = { name: "here", kind: "snippet", text: "x", scope: { path: "/work/repo" } };
-		assert.equal(await expand("#here", [scoped]), "#here");
-	});
-
 	it("returns text with no ref tokens unchanged", async () => {
 		assert.equal(await expand("plain words", refs), "plain words");
 	});

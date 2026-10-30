@@ -75,8 +75,11 @@ const isText = (value: unknown): value is string => typeof value === "string" &&
 /** A key from the file, safe to put in a warning that a terminal will show. */
 const safeKey = (key: string): string => key.replace(/\p{Cc}/gu, "?");
 
-/** Reads library file text. A file that does not parse is unusable; a Ref that does not validate is skipped with a warning. */
-export function parseLibrary(text: string, file: string): LoadedLibrary | UnusableLibrary {
+/** An extra rule a library applies to each valid Ref: the field and the reason the Ref is refused, or undefined to accept it. */
+export type RefCheck = (ref: Ref) => { field: string; message: string } | undefined;
+
+/** Reads library file text. A file that does not parse is unusable; a Ref that does not validate, or that `refCheck` refuses, is skipped with a warning. */
+export function parseLibrary(text: string, file: string, refCheck?: RefCheck): LoadedLibrary | UnusableLibrary {
 	let data: unknown;
 	try {
 		data = JSON.parse(text);
@@ -91,7 +94,9 @@ export function parseLibrary(text: string, file: string): LoadedLibrary | Unusab
 	const firstByName = new Map<string, { index: number; name: string }>();
 	for (const [index, entry] of (data.refs ?? []).entries()) {
 		const checked = checkRef(entry, `$.refs[${index}]`);
-		if (!checked.ref) {
+		const refused = checked.ref && refCheck?.(checked.ref);
+		if (refused) checked.problems.push(`$.refs[${index}].${refused.field}: ${refused.message}`);
+		if (!checked.ref || refused) {
 			warnings.push(`${file} ${checked.problems.join("; ")}`);
 			continue;
 		}

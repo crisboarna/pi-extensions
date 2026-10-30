@@ -64,8 +64,8 @@ function trimTrailingSlashes(path: string): string {
 function realLeadingDirectory(glob: string, place: Place): string {
 	const segments = glob.split("/");
 	const firstGlob = segments.findIndex((segment) => GLOB_CHARACTERS.test(segment));
-	const prefix = segments.slice(0, firstGlob).join("/");
-	if (prefix === "") return glob;
-	const real = place.realpath(prefix);
+	const leading = segments.slice(0, firstGlob).join("/");
+	if (leading === "") return glob;
+	const real = place.realpath(leading);
 	return real === undefined ? glob : [trimTrailingSlashes(real) === "/" ? "" : trimTrailingSlashes(real), ...segments.slice(firstGlob)].join("/");
 }

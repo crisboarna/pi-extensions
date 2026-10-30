@@ -1,4 +1,4 @@
-import { parseLibrary, type Ref } from "./library.ts";
+import { parseLibrary, type Ref, type RefCheck } from "./library.ts";
 
 /** The library as the session sees it after one look at the file. */
 export interface LibraryRefresh {
@@ -13,7 +13,7 @@ export interface LibraryState {
 }
 
 /** A library file as the session sees it: re-read on every refresh, the last good copy kept while the file does not load, each warning reported once. */
-export function createLibraryState(file: string, read: () => string | undefined): LibraryState {
+export function createLibraryState(file: string, read: () => string | undefined, refCheck?: RefCheck): LibraryState {
 	let refs: readonly Ref[] = [];
 	let hasGoodCopy = false;
 	const reported = new Set<string>();
@@ -32,7 +32,7 @@ export function createLibraryState(file: string, read: () => string | undefined)
 				hasGoodCopy = false;
 				return { refs, notices: [] };
 			}
-			const loaded = fileRead.text === undefined ? { ok: false as const, error: fileRead.error } : parseLibrary(fileRead.text, file);
+			const loaded = fileRead.text === undefined ? { ok: false as const, error: fileRead.error } : parseLibrary(fileRead.text, file, refCheck);
 			if (loaded.ok) {
 				refs = loaded.refs;
 				hasGoodCopy = true;
