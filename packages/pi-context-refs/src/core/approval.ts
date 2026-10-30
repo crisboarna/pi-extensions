@@ -54,7 +54,7 @@ export const visible = (text: string): string =>
 export function approvalCoverage(definition: Definition): string {
 	return definition.source === "url"
 		? "This approves the URL only, not the page it returns: the page can change without asking again."
-		: "This approves the command line only, not the files it runs: a changed script, Makefile or package.json runs without asking again. It runs with your environment.";
+		: "This approves the command line only, not the files it runs: a changed Makefile, package.json or shell file runs without asking again. It runs with your environment.";
 }
 
 /** The definition as the lines an Approval dialog shows. */
