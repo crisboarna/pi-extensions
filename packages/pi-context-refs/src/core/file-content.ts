@@ -1,4 +1,5 @@
 import { sanitizeText } from "./context-block.ts";
+import { sizeText } from "./dynamic.ts";
 
 /** An image to attach to the message, in the shape pi's `input` event takes. */
 export interface ImageContent {
@@ -53,7 +54,7 @@ export function fileContent(source: FileSource, truncateHead: TruncateHead): Fil
 	if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { failure: `${path} is a binary file and cannot be sent as text` };
 	const cut = truncateHead(sanitizeText(bytes), maxBytes === undefined ? undefined : { maxBytes, maxLines: Number.POSITIVE_INFINITY });
 	if (!cut.truncated) return { text: cut.content };
-	const cap = cut.truncatedBy === "lines" ? `${cut.maxLines} lines` : capSize(cut.maxBytes);
+	const cap = cut.truncatedBy === "lines" ? `${cut.maxLines} lines` : sizeText(cut.maxBytes);
 	return { text: `${cut.content}${cutNote(cut, cap, partial)}`, truncated: cap };
 }
 
@@ -63,9 +64,4 @@ function cutNote(cut: HeadCut, cap: string, partial: boolean): string {
 	const shown = partial ? `1-${cut.outputLines}` : `1-${cut.outputLines} of ${cut.totalLines}`;
 	const note = `[Truncated at ${cap}: showing lines ${shown}. Use the read tool with offset=${cut.outputLines + 1} to read the rest.]`;
 	return `\n${note}`;
-}
-
-function capSize(bytes: number): string {
-	if (bytes % (1024 * 1024) === 0) return `${bytes / (1024 * 1024)} MB`;
-	return bytes % 1024 === 0 ? `${bytes / 1024} KB` : `${bytes} bytes`;
 }
