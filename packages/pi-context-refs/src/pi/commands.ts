@@ -142,8 +142,23 @@ function chooseTarget(run: Run, library: string | undefined, fallback: "global" 
 	return target;
 }
 
-/** The name, kind and target words of `/ref add`: those typed, and the missing ones asked for when there is a UI. Undefined once the command has said why it stops. */
-async function addArguments(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<{ refName: string; kind: string; words: string[] } | undefined> {
+const GLOBAL_CHOICE = "Global library";
+const HERE_CHOICE = "Global library, scoped to this repository";
+const PROJECT_CHOICE = "Project library";
+
+/** What `/ref add` was given, and the library the wizard chose when it asked for any of it (an `in=` value; undefined when nothing was asked). */
+interface AddArguments {
+	refName: string;
+	kind: string;
+	words: string[];
+	asked?: { library: string };
+}
+
+/**
+ * The name, kind and target words of `/ref add`: those typed, and the missing ones asked for when there is a UI, then where to save it
+ * (the Global library first) unless `in=` said. Undefined once the command has said why it stops.
+ */
+async function addArguments(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<AddArguments | undefined> {
 	const { ctx } = run;
 	let { refName, kind, target: words } = command;
 	if (refName !== undefined && kind !== undefined && words.length > 0) return { refName, kind, words };
@@ -162,14 +177,17 @@ async function addArguments(run: Run, command: Extract<RefCommand, { name: "add"
 		const split = splitWords(answer);
 		words = kind === "dynamic" && "words" in split ? split.words.map((word) => word.text) : [answer];
 	}
-	return { refName, kind, words };
+	if (command.library !== undefined) return { refName, kind, words };
+	const where = await ctx.ui.select("Save in", [GLOBAL_CHOICE, HERE_CHOICE, ...(run.trusted ? [PROJECT_CHOICE] : [])]);
+	if (!where) return cancelled();
+	return { refName, kind, words, asked: { library: where === PROJECT_CHOICE ? "project" : where === HERE_CHOICE ? "here" : "global" } };
 }
 
 async function add(run: Run, command: Extract<RefCommand, { name: "add" }>): Promise<void> {
-	const target = chooseTarget(run, command.library, "global");
-	if (!target) return;
 	const typed = await addArguments(run, command);
 	if (!typed) return;
+	const target = chooseTarget(run, command.library ?? typed.asked?.library, "global");
+	if (!target) return;
 	await saveNewRef(run, target, { refName: typed.refName, kind: typed.kind, target: typed.words, fields: withScope(run, target, command.fields) });
 }
 

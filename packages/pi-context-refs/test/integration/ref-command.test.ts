@@ -330,14 +330,70 @@ describe("/ref add", () => {
 			},
 			select: async (title, options) => {
 				asked.push(`${title}: ${options.join(",")}`);
-				return "dynamic";
+				return title === "Kind" ? "dynamic" : options[0];
 			},
 		});
 		const host = await boot();
 		await ref(host, fake, "add");
 		assert.deepEqual(readLibrary().refs, [{ name: "log", kind: "dynamic", command: ["git", "log", "--oneline", "-5"] }]);
-		assert.equal(asked.length, 3);
+		assert.equal(asked.length, 4);
 		assert.match(asked[1] ?? "", /^Kind: path,file,snippet,dynamic$/);
+	});
+
+	describe("the wizard asks where to save, with the Global library first", () => {
+		const wizard = (where: (options: string[]) => string | undefined) => {
+			const options: string[][] = [];
+			const fake = session({
+				input: async (title) => (title.startsWith("Name") ? "rules" : "Use tabs."),
+				select: async (title, list) => {
+					if (title !== "Save in") return "snippet";
+					options.push(list);
+					return where(list);
+				},
+			});
+			return { fake, options };
+		};
+
+		it("offers the Global library, this repository and, in a trusted project, the Project library", async () => {
+			const { fake, options } = wizard((list) => list[0]);
+			const host = await boot();
+			await ref(host, fake, "add");
+			assert.deepEqual(options, [["Global library", "Global library, scoped to this repository", "Project library"]]);
+			assert.deepEqual(readLibrary().refs, [{ name: "rules", kind: "snippet", text: "Use tabs." }]);
+		});
+
+		it("saves in the Project library when that is the answer", async () => {
+			const { fake } = wizard((list) => list.at(-1));
+			const host = await boot();
+			await ref(host, fake, "add");
+			assert.equal(existsSync(libraryFile()), false);
+			assert.deepEqual(JSON.parse(readFileSync(join(project, ".pi", "pi-context-refs.json"), "utf8")).refs, [
+				{ name: "rules", kind: "snippet", text: "Use tabs." },
+			]);
+		});
+
+		it("scopes the Ref to this repository when that is the answer", async () => {
+			const { fake } = wizard((list) => list[1]);
+			const host = await boot();
+			await ref(host, fake, "add");
+			assert.equal(readLibrary().refs[0]?.scope !== undefined, true);
+		});
+
+		it("does not ask when in= is typed or the line was complete", async () => {
+			const { fake, options } = wizard((list) => list[0]);
+			const host = await boot();
+			await ref(host, fake, "add a snippet one in=global");
+			await ref(host, fake, "add b snippet two");
+			assert.deepEqual(options, []);
+		});
+
+		it("stops quietly when the question is cancelled", async () => {
+			const { fake } = wizard(() => undefined);
+			const host = await boot();
+			await ref(host, fake, "add");
+			assert.equal(existsSync(libraryFile()), false);
+			assert.deepEqual(last(fake), { message: "Cancelled; nothing was saved", type: "info" });
+		});
 	});
 
 	it("stops quietly when a dialog is cancelled", async () => {
