@@ -56,8 +56,8 @@ export interface FakeSession {
 	editorTexts: string[];
 }
 
-/** A session context. `mode` is pi's run mode; `hasUI` is true for the TUI and RPC, false for print and JSON mode, and gives the mode when `mode` is not set. */
-export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?: "tui" | "rpc" | "json" | "print" }): FakeSession {
+/** A session context. `mode` is pi's run mode; `hasUI` is true for the TUI and RPC, false for print and JSON mode, and gives the mode when `mode` is not set. `trusted` is what `isProjectTrusted()` answers (true by default). */
+export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?: "tui" | "rpc" | "json" | "print"; trusted?: boolean }): FakeSession {
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
 	return {
@@ -65,6 +65,7 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 		editorTexts,
 		ctx: {
 			cwd: options.cwd,
+			isProjectTrusted: () => options.trusted ?? true,
 			mode: options.mode ?? (options.hasUI ? "tui" : "print"),
 			hasUI: options.hasUI ?? (options.mode === "tui" || options.mode === "rpc"),
 			ui: {

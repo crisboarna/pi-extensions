@@ -1,14 +1,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { expandRefs } from "../core/expand.ts";
-import { createLibraryState, type LibraryState } from "../core/library-state.ts";
-import { visibleRefs } from "../core/resolve.ts";
+import { createLibraries, type LibraryDeps } from "./libraries.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
-export interface InputDeps {
-	/** The Global library file. */
-	libraryPath: string;
-	home: string;
-	readText: (path: string) => string | undefined;
+export interface InputDeps extends LibraryDeps {
 	/** The bytes of a file; it rejects with the system's error. */
 	readFile: (path: string) => Promise<Uint8Array>;
 	writeStderr: (text: string) => void;
@@ -16,23 +11,19 @@ export interface InputDeps {
 
 /** Expands typed refs and Placeholders in each message that is sent, in every mode. */
 export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
-	let library: LibraryState | undefined;
-	const current = (): LibraryState => {
-		library ??= createLibraryState(deps.libraryPath, () => deps.readText(deps.libraryPath));
-		return library;
-	};
+	const libraries = createLibraries(deps);
 
 	pi.on("session_start", (_event, ctx) => {
 		// A new session starts with a fresh set of warnings, so each one shows once per session.
-		library = undefined;
-		showNotices(current().refresh().notices, ctx, deps);
+		libraries.start();
+		showNotices(libraries.refresh(ctx).notices, ctx, deps);
 	});
 
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return undefined;
-		const { refs, notices } = current().refresh();
+		const { visible, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
-		const { text, failures } = await expandRefs(event.text, visibleRefs(refs), { cwd: ctx.cwd, home: deps.home, readFile: deps.readFile });
+		const { text, failures } = await expandRefs(event.text, visible, { cwd: ctx.cwd, home: deps.home, readFile: deps.readFile });
 		if (failures.length > 0) {
 			const reasons = failures.map((failure) => `#${failure.name}: ${failure.reason}`);
 			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);

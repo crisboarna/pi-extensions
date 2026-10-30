@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -25,5 +25,14 @@ export function writeTextAtomically(path: string, text: string): void {
 	} catch (error) {
 		rmSync(temporary, { force: true });
 		throw error;
+	}
+}
+
+/** The real path of an existing path, following symlinks, or undefined when it cannot be resolved. */
+export function realpathIfPresent(path: string): string | undefined {
+	try {
+		return realpathSync(path);
+	} catch {
+		return undefined;
 	}
 }
