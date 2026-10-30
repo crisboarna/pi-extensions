@@ -56,8 +56,8 @@ export interface FakeSession {
 	editorTexts: string[];
 }
 
-/** A session context. `hasUI` is true for the TUI and RPC, false for print and JSON mode. */
-export function createFakeSession(options: { cwd: string; hasUI?: boolean }): FakeSession {
+/** A session context. `mode` is pi's run mode; `hasUI` is true for the TUI and RPC, false for print and JSON mode, and gives the mode when `mode` is not set. */
+export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?: "tui" | "rpc" | "json" | "print" }): FakeSession {
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
 	return {
@@ -65,7 +65,8 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean }): Fa
 		editorTexts,
 		ctx: {
 			cwd: options.cwd,
-			hasUI: options.hasUI ?? false,
+			mode: options.mode ?? (options.hasUI ? "tui" : "print"),
+			hasUI: options.hasUI ?? (options.mode === "tui" || options.mode === "rpc"),
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
 				setEditorText: (text: string) => editorTexts.push(text),
