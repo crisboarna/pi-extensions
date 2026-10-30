@@ -1,21 +1,19 @@
 import { foldName } from "./names.ts";
 
-/** The attributes every Context block starts with. */
-interface BlockHead {
-	name: string;
-	kind: "file";
-	path: string;
-}
+/** The attributes every Context block starts with: a File names its path, a Dynamic Ref its source. */
+type BlockHead = { name: string; kind: "file"; path: string } | { name: string; kind: "dynamic"; source: string };
 
-/** A Context block that carries content. */
-export interface BlockContent extends BlockHead {
+/** A Context block that carries content. `exit` is a Dynamic Ref's non-zero exit code; `truncated` says how much was kept. */
+export type BlockContent = BlockHead & {
 	body: string;
-}
+	exit?: number;
+	truncated?: string;
+};
 
 /** A Failure note: a Context block with an empty body and the reason in `error`. */
-export interface FailureContent extends BlockHead {
+export type FailureContent = BlockHead & {
 	error: string;
-}
+};
 
 /** The text of a file: a byte order mark at the start is dropped and control characters are stripped, except tab, newline and carriage return. */
 export function sanitizeText(bytes: Uint8Array): string {
@@ -25,7 +23,8 @@ export function sanitizeText(bytes: Uint8Array): string {
 
 /** `<context-ref>` with the body raw between a newline after the opening tag and a newline before the closing tag. `bytes` is the body's length in UTF-8. */
 export function contextBlock(block: BlockContent): string {
-	return element(block, Buffer.byteLength(block.body, "utf8"), "", block.body);
+	const tail = `${block.exit === undefined ? "" : ` exit="${block.exit}"`}${block.truncated === undefined ? "" : ` truncated="${attributeValue(block.truncated)}"`}`;
+	return element(block, Buffer.byteLength(block.body, "utf8"), tail, block.body);
 }
 
 /** A Context block with an empty body that says why the Expansion could not be produced. */
@@ -34,7 +33,8 @@ export function failureNote(note: FailureContent): string {
 }
 
 function element(head: BlockHead, bytes: number, tail: string, body: string): string {
-	const attributes = `name="${attributeValue(head.name)}" kind="${head.kind}" path="${attributeValue(head.path)}" bytes="${bytes}"${tail}`;
+	const origin = head.kind === "file" ? `path="${attributeValue(head.path)}"` : `source="${attributeValue(head.source)}"`;
+	const attributes = `name="${attributeValue(head.name)}" kind="${head.kind}" ${origin} bytes="${bytes}"${tail}`;
 	return `<context-ref ${attributes}>\n${body}\n</context-ref>`;
 }
 
