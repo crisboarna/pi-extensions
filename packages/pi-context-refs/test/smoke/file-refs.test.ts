@@ -23,14 +23,14 @@ const API_BLOCK = block('name="api" kind="file" path="src/api.ts" bytes="22"', A
 const GONE_NOTE = block('name="gone" kind="file" path="src/gone.ts" bytes="0" error="src/gone.ts does not exist"', "");
 
 /** A run of the real extension in a project with `src/api.ts` and `src/empty.txt`, and a library of File Refs in its agent directory. */
-function run(env: Record<string, string> = {}) {
+function run(env: Record<string, string> = {}, refs: unknown[] = REFS) {
 	const probe = probeRun("none", env);
 	mkdirSync(join(probe.dir, "src"));
 	writeFileSync(join(probe.dir, "src", "api.ts"), API);
 	writeFileSync(join(probe.dir, "src", "empty.txt"), "");
 	const agentDir = join(mkdtempSync(join(tmpdir(), "context-refs-agent-")), "agent");
 	mkdirSync(agentDir, { recursive: true });
-	writeFileSync(join(agentDir, "pi-context-refs.json"), JSON.stringify({ version: 1, refs: REFS }));
+	writeFileSync(join(agentDir, "pi-context-refs.json"), JSON.stringify({ version: 1, refs }));
 	return { ...probe, options: { ...probe.options, extensions: [EXTENSION], env: { ...probe.options.env, PI_CODING_AGENT_DIR: agentDir } } };
 }
 
@@ -42,6 +42,17 @@ describe("a File Ref in print mode (DESIGN.md sections 8 and 9)", () => {
 		const text = `Review [ref:api] and #empty, #api again.\n\n${API_BLOCK}\n\n${block('name="empty" kind="file" path="src/empty.txt" bytes="0"', "")}`;
 		assert.deepEqual(probe.received(), [{ text, images: 0 }]);
 		assert.equal(result.stdout.trim(), replyFor({ text, images: 0 }));
+		assert.equal(result.stderr, "");
+	});
+
+	it("sends a File member of a #tag:<tag> Bundle as a Context block, once", async () => {
+		const probe = run({}, [
+			{ name: "api", kind: "file", path: "src/api.ts", tags: ["Ctx"] },
+			{ name: "terse", kind: "snippet", text: "Be brief.", tags: ["ctx"] },
+		]);
+		const result = await runPrint("Review #tag:ctx and #api.", probe.options);
+		assert.equal(result.code, 0, result.stderr);
+		assert.deepEqual(probe.received(), [{ text: `Review Be brief. and #api.\n\n${API_BLOCK}`, images: 0 }]);
 		assert.equal(result.stderr, "");
 	});
 

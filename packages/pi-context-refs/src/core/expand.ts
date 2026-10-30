@@ -2,6 +2,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { contextBlock, failureNote, namesWithBlock, sanitizeText } from "./context-block.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
+import { bundleMembers } from "./resolve.ts";
 import { findRefTokens } from "./tokens.ts";
 
 /** What an Expansion needs from outside: the session's working directory, the home directory and a way to read a file. */
@@ -25,24 +26,35 @@ export interface Expansion {
 }
 
 /**
- * Replaces each ref token that names a Visible Path or Snippet Ref by its Expansion, and adds one Context block per File Ref after the text,
- * in order of first appearance. Tokens that name a File stay in the text. Other tokens stay as typed.
+ * Replaces each ref token that names a Visible Path or Snippet Ref, and each `#tag:<tag>` of a Bundle, by its Expansion, and adds one Context block
+ * per File Ref after the text, in order of first appearance. Tokens that name a File stay in the text; a File member of a Bundle is only a block.
+ * Other tokens stay as typed.
  */
 export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>, env: ExpandEnv): Promise<Expansion> {
+	const tokens = findRefTokens(text);
+	// A Bundle leaves out every member the message names itself, and every member an earlier Bundle gave.
+	const given = new Set(tokens.filter((token) => token.form !== "bundle").map((token) => foldName(token.target)));
+	const alreadySent = namesWithBlock(text);
+	const files = new Map<string, FileRef>();
+	const addFile = (ref: FileRef): void => {
+		const folded = foldName(ref.name);
+		if (!alreadySent.has(folded)) files.set(folded, ref);
+	};
 	let prose = "";
 	let copiedUpTo = 0;
-	const files = new Map<string, FileRef>();
-	const alreadySent = namesWithBlock(text);
-	for (const token of findRefTokens(text)) {
-		const ref = visible.get(foldName(token.target));
-		if (ref?.kind === "file") {
-			const folded = foldName(ref.name);
-			if (!alreadySent.has(folded)) files.set(folded, ref);
-			continue;
+	for (const token of tokens) {
+		let expansion: string | undefined;
+		if (token.form === "bundle") {
+			expansion = bundleExpansion(token.target, visible, given, addFile, env);
+		} else {
+			const ref = visible.get(foldName(token.target));
+			if (ref?.kind === "file") addFile(ref);
+			else expansion = ref ? inlineExpansion(ref, env) : undefined;
 		}
-		const expansion = ref ? inlineExpansion(ref, env) : undefined;
 		if (expansion === undefined) continue;
-		prose += text.slice(copiedUpTo, token.start) + expansion;
+		// A Bundle with nothing left to add takes the space before it along, so no gap is left in the prose.
+		const keep = expansion === "" && /[ \t]$/.test(text.slice(copiedUpTo, token.start)) ? token.start - 1 : token.start;
+		prose += text.slice(copiedUpTo, keep) + expansion;
 		copiedUpTo = token.end;
 	}
 	prose += text.slice(copiedUpTo);
@@ -50,6 +62,34 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	const blocks = await Promise.all([...files.values()].map((ref) => fileBlock(ref, env)));
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), failures };
+}
+
+/**
+ * The inline members of a Bundle not yet given, each as it would be on its own, apart by a space; a File member goes to `addFile` and adds no text.
+ * Undefined when no Visible Ref carries the Tag.
+ */
+function bundleExpansion(
+	tag: string,
+	visible: ReadonlyMap<string, Ref>,
+	given: Set<string>,
+	addFile: (ref: FileRef) => void,
+	env: ExpandEnv,
+): string | undefined {
+	const members = bundleMembers(visible, tag);
+	if (members.length === 0) return undefined;
+	const pieces: string[] = [];
+	for (const member of members) {
+		const folded = foldName(member.name);
+		if (given.has(folded)) continue;
+		given.add(folded);
+		if (member.kind === "file") {
+			addFile(member);
+			continue;
+		}
+		// A Dynamic member stays a Placeholder until Dynamic Refs are built.
+		pieces.push(inlineExpansion(member, env) ?? `[ref:${member.name}]`);
+	}
+	return pieces.join(" ");
 }
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */

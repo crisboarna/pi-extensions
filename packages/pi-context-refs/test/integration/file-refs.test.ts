@@ -202,3 +202,42 @@ describe("a File Ref that cannot be read", () => {
 		assert.equal(stderr.length, 1);
 	});
 });
+
+for (const mode of ["tui", "print", "json", "rpc"] as const) {
+	describe(`a #tag:<tag> Bundle with a File member in ${mode} mode`, () => {
+		beforeEach(() => {
+			writeFileSync(join(project, "src", "api.ts"), "export const api = 1;\n");
+			writeLibrary([
+				{ ...file("api", "src/api.ts"), tags: ["ctx"] },
+				{ name: "terse", kind: "snippet", text: "Be brief.", tags: ["ctx"] },
+				{ ...file("gone", "src/gone.ts"), tags: ["lost"] },
+			]);
+		});
+
+		it("sends the File as a Context block after the prose, with the inline members in the prose", async () => {
+			const { send } = await session(mode);
+			assert.deepEqual(await send("Review #tag:ctx now"), {
+				action: "transform",
+				text: `Review Be brief. now\n\n${block('name="api" kind="file" path="src/api.ts" bytes="22"', "export const api = 1;\n")}`,
+			});
+		});
+
+		it("gives one block when the message also names the File", async () => {
+			const { send } = await session(mode);
+			const sent = await send("#tag:ctx and [ref:api]");
+			assert.equal(sent.text.match(/<context-ref /g)?.length, 1);
+			assert.ok(sent.text.startsWith('Be brief. and [ref:api]\n\n<context-ref name="api"'), sent.text);
+		});
+
+		it("reports a member that cannot be read the way a File Ref is reported", async () => {
+			const { send, s } = await session(mode);
+			const sent = await send("#tag:lost");
+			if (mode === "tui") {
+				assert.deepEqual(sent, { action: "handled" });
+				assert.deepEqual(s.editorTexts, ["#tag:lost"]);
+			} else {
+				assert.match(sent.text, /error="src\/gone\.ts does not exist"/);
+			}
+		});
+	});
+}
