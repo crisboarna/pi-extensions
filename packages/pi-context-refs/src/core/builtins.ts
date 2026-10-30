@@ -1,4 +1,4 @@
-import type { DynamicRef } from "./library.ts";
+import type { DynamicRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 
 type BuiltinRef = DynamicRef & { command: string[] };
@@ -21,3 +21,13 @@ export function builtinRefs(setting: boolean | readonly string[]): readonly Buil
 
 /** Whether `ref` is one of the Built-in Refs themselves, and not a saved Ref that shares a name with one. */
 export const isBuiltin = (ref: unknown): boolean => BUILTIN_REFS.some((builtin) => builtin === ref);
+
+/** `visible` with the Built-in Refs added below it: a Ref already there keeps its name. */
+export function addBuiltins(visible: ReadonlyMap<string, Ref>, setting: boolean | readonly string[]): Map<string, Ref> {
+	const all = new Map(visible);
+	for (const builtin of builtinRefs(setting)) {
+		const folded = foldName(builtin.name);
+		if (!all.has(folded)) all.set(folded, builtin);
+	}
+	return all;
+}

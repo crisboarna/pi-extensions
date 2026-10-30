@@ -29,8 +29,8 @@ export interface CommandEnv {
 	isGitWorkTree: (cwd: string) => Promise<boolean>;
 }
 
-/** A Dynamic Ref's Context block, or its Failure note and the reason. */
-export type DynamicBlock = { name: string; text: string } | { name: string; text: string; reason: string };
+/** A File or Dynamic Ref's Context block, or its Failure note and the reason. */
+export type BlockResult = { name: string; text: string } | { name: string; text: string; reason: string };
 
 const DEFAULT_TIMEOUT_SECONDS = 10;
 const DEFAULT_MAX_OUTPUT = 50 * 1024;
@@ -44,9 +44,9 @@ export function commandText(argv: readonly string[]): string {
 }
 
 /** Runs the Ref's command in `cwd` and builds its Context block. A non-zero exit and a cut are marked in the block; the other ways to fail give a Failure note. */
-export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv, signal?: AbortSignal): Promise<DynamicBlock> {
+export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv, signal?: AbortSignal): Promise<BlockResult> {
 	const source = commandText(ref.command);
-	const fail = (reason: string): DynamicBlock => ({ name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source, error: reason }) });
+	const fail = (reason: string): BlockResult => ({ name: ref.name, reason, text: failureNote({ name: ref.name, kind: "dynamic", source, error: reason }) });
 	if (isBuiltin(ref) && !(await env.isGitWorkTree(cwd))) return fail("not a git repository");
 
 	const timeout = ref.timeout ?? DEFAULT_TIMEOUT_SECONDS;
@@ -63,7 +63,7 @@ export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv
 
 	const cap = ref.max_output ?? DEFAULT_MAX_OUTPUT;
 	const { bytes, cut } = headBytes(output, cap);
-	const truncated = cut ? sizeLabel(cap) : undefined;
+	const truncated = cut ? sizeText(cap) : undefined;
 	const marks = [result.code === 0 ? undefined : `exit ${result.code}`, truncated === undefined ? undefined : `truncated at ${truncated}`].filter(
 		(mark) => mark !== undefined,
 	);
@@ -93,7 +93,7 @@ function headBytes(text: string, cap: number): { bytes: Uint8Array; cut: boolean
 	return { bytes: all.subarray(0, end), cut: true };
 }
 
-function sizeLabel(bytes: number): string {
+function sizeText(bytes: number): string {
 	if (bytes % (1024 * 1024) === 0) return `${bytes / (1024 * 1024)} MB`;
 	return bytes % 1024 === 0 ? `${bytes / 1024} KB` : `${bytes} bytes`;
 }

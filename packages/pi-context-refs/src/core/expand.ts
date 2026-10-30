@@ -1,15 +1,18 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { contextBlock, failureNote, namesWithBlock, sanitizeText } from "./context-block.ts";
+import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, isCommandRef } from "./dynamic.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { findRefTokens } from "./tokens.ts";
 
-/** What an Expansion needs from outside: the session's working directory, the home directory and a way to read a file. */
-export interface ExpandEnv {
+/** What an Expansion needs from outside: the session's working directory, the home directory, a way to read a file and a way to run a command. */
+export interface ExpandEnv extends CommandEnv {
 	cwd: string;
 	home: string;
 	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
 	readFile: (path: string) => Promise<Uint8Array>;
+	/** Cancels the commands that are running. */
+	signal?: AbortSignal;
 }
 
 /** A File or Dynamic Ref whose Expansion could not be produced. */
@@ -25,19 +28,19 @@ export interface Expansion {
 }
 
 /**
- * Replaces each ref token that names a Visible Path or Snippet Ref by its Expansion, and adds one Context block per File Ref after the text,
- * in order of first appearance. Tokens that name a File stay in the text. Other tokens stay as typed.
+ * Replaces each ref token that names a Visible Path or Snippet Ref by its Expansion, and adds one Context block per File Ref and per command Dynamic Ref
+ * after the text, in order of first appearance. Commands run in parallel. Tokens that name a File or a Dynamic Ref stay in the text. Other tokens stay as typed.
  */
 export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>, env: ExpandEnv): Promise<Expansion> {
 	let prose = "";
 	let copiedUpTo = 0;
-	const files = new Map<string, FileRef>();
+	const blockRefs = new Map<string, FileRef | CommandRef>();
 	const alreadySent = namesWithBlock(text);
 	for (const token of findRefTokens(text)) {
 		const ref = visible.get(foldName(token.target));
-		if (ref?.kind === "file") {
+		if (ref?.kind === "file" || (ref && isCommandRef(ref))) {
 			const folded = foldName(ref.name);
-			if (!alreadySent.has(folded)) files.set(folded, ref);
+			if (!alreadySent.has(folded)) blockRefs.set(folded, ref);
 			continue;
 		}
 		const expansion = ref ? inlineExpansion(ref, env) : undefined;
@@ -47,7 +50,11 @@ export async function expandRefs(text: string, visible: ReadonlyMap<string, Ref>
 	}
 	prose += text.slice(copiedUpTo);
 
-	const blocks = await Promise.all([...files.values()].map((ref) => fileBlock(ref, env)));
+	const blocks = await Promise.all(
+		[...blockRefs.values()].map((ref) =>
+			ref.kind === "file" ? fileBlock(ref, env) : dynamicBlock(ref, absolutePath({ path: ref.cwd ?? "." }, env), env, env.signal),
+		),
+	);
 	const failures = blocks.flatMap((block) => ("reason" in block ? [{ name: block.name, reason: block.reason }] : []));
 	return { text: [prose, ...blocks.map((block) => block.text)].join("\n\n"), failures };
 }
@@ -67,14 +74,12 @@ function pathText(ref: PathRef | FileRef, env: ExpandEnv): string {
 	return inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside) ? absolute : inside;
 }
 
-function absolutePath(ref: PathRef | FileRef, env: ExpandEnv): string {
+function absolutePath(ref: Pick<PathRef, "path">, env: ExpandEnv): string {
 	return resolve(env.cwd, expandHome(ref.path, env.home));
 }
 
-type FileBlock = { name: string; text: string } | { name: string; text: string; reason: string };
-
 /** The file's current text as a Context block, or a Failure note and the reason. */
-async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
+async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<BlockResult> {
 	const path = pathText(ref, env);
 	try {
 		const body = sanitizeText(await env.readFile(absolutePath(ref, env)));
