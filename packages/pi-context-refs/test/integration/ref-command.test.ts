@@ -160,6 +160,14 @@ describe("/ref list", () => {
 		assert.match(last(fake)?.message ?? "", /^trigger: \$ in the file, # in this session; run \/reload to use it$/m);
 	});
 
+	it("reports a Trigger that is not allowed as a config error, and shows the default in use", async () => {
+		writeLibrary({ trigger: "@", refs });
+		const host = await boot();
+		const stderr = await ref(host, session(), "list");
+		assert.match(stderr, /^trigger: #$/m);
+		assert.match(stderr, /trigger "@": the Trigger cannot be "@", which pi uses itself; using "#"/);
+	});
+
 	it("filters by tag and by library", async () => {
 		writeLibrary({ refs });
 		const host = await boot();

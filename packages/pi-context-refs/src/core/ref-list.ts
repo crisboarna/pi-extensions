@@ -3,6 +3,7 @@ import type { Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { LAYER_PHRASE, type Layer, resolveRefs } from "./resolve.ts";
 import type { Place } from "./scope.ts";
+import { triggerProblem } from "./trigger.ts";
 
 /** The settings the Global library file holds next to its Refs. */
 export interface Settings {
@@ -14,18 +15,26 @@ export interface Settings {
 const DEFAULT_SETTINGS: Settings = { trigger: "#", builtins: true };
 const SUMMARY_LIMIT = 60;
 
-/** Reads `trigger` and `builtins` from library file text. Anything missing, malformed or of the wrong type gives the default. */
-export function readSettings(text: string | undefined): Settings {
+/** The top-level object of library file text, or undefined when the text is missing, does not parse or is not an object. */
+function settingsObject(text: string | undefined): Record<string, unknown> | undefined {
 	let data: unknown;
 	try {
 		data = text === undefined ? undefined : JSON.parse(text);
 	} catch {
-		return { ...DEFAULT_SETTINGS };
+		return undefined;
 	}
-	if (typeof data !== "object" || data === null || Array.isArray(data)) return { ...DEFAULT_SETTINGS };
-	const { trigger, builtins } = data as Record<string, unknown>;
+	return typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
+}
+
+/** Why the Trigger in a file's settings cannot be used, or undefined when it is absent or fine. */
+const triggerSettingProblem = (trigger: unknown): string | undefined =>
+	typeof trigger === "string" ? triggerProblem(trigger) : "the Trigger is one character";
+
+/** Reads `trigger` and `builtins` from library file text. Anything missing, malformed, of the wrong type or (for the Trigger) not allowed gives the default. */
+export function readSettings(text: string | undefined): Settings {
+	const { trigger, builtins } = settingsObject(text) ?? {};
 	return {
-		trigger: typeof trigger === "string" && trigger !== "" ? trigger : DEFAULT_SETTINGS.trigger,
+		trigger: typeof trigger === "string" && triggerProblem(trigger) === undefined ? trigger : DEFAULT_SETTINGS.trigger,
 		builtins:
 			typeof builtins === "boolean" || (Array.isArray(builtins) && builtins.every((name) => typeof name === "string"))
 				? builtins
@@ -33,8 +42,16 @@ export function readSettings(text: string | undefined): Settings {
 	};
 }
 
+/** The config errors in a file's settings: a Trigger that pi, or this package, cannot use. The default is used in its place. */
+export function settingsProblems(text: string | undefined): string[] {
+	const settings = settingsObject(text);
+	if (settings === undefined || !("trigger" in settings)) return [];
+	const problem = triggerSettingProblem(settings.trigger);
+	return problem === undefined ? [] : [`trigger ${JSON.stringify(settings.trigger)}: ${problem}; using ${JSON.stringify(DEFAULT_SETTINGS.trigger)}`];
+}
+
 /** Text from a file made safe for a terminal: control characters become spaces. */
-const plain = (text: string): string =>
+export const plain = (text: string): string =>
 	text
 		.replace(/\p{Cc}/gu, " ")
 		.replace(/\s+/g, " ")
@@ -54,7 +71,7 @@ export function describeRef(ref: Ref): string {
 	return parts.map(plain).join("  ");
 }
 
-function targetSummary(ref: Ref): string {
+export function targetSummary(ref: Ref): string {
 	if (ref.kind === "path" || ref.kind === "file") return ref.path;
 	if (ref.kind === "snippet") {
 		const text = plain(ref.text);

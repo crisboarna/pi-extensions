@@ -3,6 +3,7 @@
 // real home directory.
 
 import { spawn } from "node:child_process";
+import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 
 type Handler = (event: any, ctx: any) => unknown;
 
@@ -96,6 +97,8 @@ export interface FakeSession {
 	editorTexts: string[];
 	/** Every status the extension set; `text` is undefined when it cleared one. */
 	statuses: Array<{ key: string; text: string | undefined }>;
+	/** The factories passed to `ui.addAutocompleteProvider`, in registration order. */
+	autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider>;
 	/** Sends raw terminal input to the extension's listeners, as the TUI does; true when one consumed it. */
 	pressKey(data: string): boolean;
 }
@@ -105,11 +108,13 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
 	const statuses: FakeSession["statuses"] = [];
+	const autocompleteProviders: FakeSession["autocompleteProviders"] = [];
 	const keyListeners = new Set<(data: string) => { consume?: boolean } | undefined>();
 	return {
 		notices,
 		editorTexts,
 		statuses,
+		autocompleteProviders,
 		pressKey: (data) => [...keyListeners].some((listener) => listener(data)?.consume === true),
 		ctx: {
 			cwd: options.cwd,
@@ -124,6 +129,7 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 					keyListeners.add(listener);
 					return () => keyListeners.delete(listener);
 				},
+				addAutocompleteProvider: (factory: FakeSession["autocompleteProviders"][number]) => autocompleteProviders.push(factory),
 				// The editor slot: nothing is installed unless a test overrides these.
 				getEditorComponent: () => undefined,
 				setEditorComponent: () => {},
