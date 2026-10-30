@@ -5,17 +5,19 @@ import type { ApprovalRequest, Verdict } from "../../src/core/approval.ts";
 import { BUILTIN_REFS } from "../../src/core/builtins.ts";
 import type { CommandRequest, CommandResult } from "../../src/core/dynamic.ts";
 import { type ExpandEnv, expandRefs } from "../../src/core/expand.ts";
+import { MAX_READ_BYTES } from "../../src/core/file-content.ts";
 import type { Ref } from "../../src/core/library.ts";
 import { resolveRefs, visibleRefs } from "../../src/core/resolve.ts";
 import type { FetchRequest, FetchResult } from "../../src/core/url.ts";
 
 /** A file reader over an in-memory disk; a value that is an Error is thrown, as the file system would. */
 function disk(files: Record<string, string | Uint8Array | Error>): ExpandEnv["readFile"] {
-	return async (path) => {
+	return async (path, limit) => {
 		const content = files[path];
 		if (content === undefined) throw Object.assign(new Error("not found"), { code: "ENOENT" });
 		if (content instanceof Error) throw content;
-		return typeof content === "string" ? new TextEncoder().encode(content) : content;
+		const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
+		return bytes.subarray(0, limit);
 	};
 }
 const noCommands = async (): Promise<never> => {
@@ -493,6 +495,33 @@ describe("File limits", () => {
 		expandRefs("see #api", visibleRefs([ref]), env(content, imageType));
 	const head = (text: string) => text.match(/<context-ref [^>]*>/)?.[0] ?? "";
 	const body = (text: string) => text.slice(text.indexOf(">\n") + 2, text.lastIndexOf("\n</context-ref>"));
+
+	describe("a file larger than the read limit", () => {
+		it("asks the reader for at most the limit and one byte more", async () => {
+			const asked: number[] = [];
+			const reader = disk({ [file]: "small" });
+			const result = await expandRefs("see #api", visibleRefs([api]), {
+				...ENV,
+				readFile: async (path, limit) => {
+					asked.push(limit);
+					return reader(path, limit);
+				},
+			});
+			assert.deepEqual(asked, [MAX_READ_BYTES + 1]);
+			assert.deepEqual(result.failures, []);
+		});
+
+		it("is cut at the cap with a closing line that does not claim a total, because the rest was never read", async () => {
+			const content = "x"
+				.repeat(99)
+				.concat("\n")
+				.repeat(Math.ceil((MAX_READ_BYTES + 1) / 100));
+			const { text, failures } = await sendFile(content);
+			assert.deepEqual(failures, []);
+			assert.match(body(text), /\n\[Truncated at 50 KB: showing lines 1-512\. Use the read tool with offset=513 to read the rest\.\]$/);
+			assert.match(head(text), / truncated="50 KB">$/);
+		});
+	});
 
 	describe("the default cap", () => {
 		it("sends a file of exactly 50 KB whole", async () => {

@@ -12,7 +12,7 @@ import { type CommandRun, trackRun } from "./running.ts";
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
 export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
 	/** The bytes of a file; it rejects with the system's error. */
-	readFile: (path: string) => Promise<Uint8Array>;
+	readFile: (path: string, limit: number) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`: cuts a File at the caps of pi's read tool. */
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */

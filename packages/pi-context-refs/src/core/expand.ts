@@ -2,7 +2,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
 import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
-import { fileContent, type ImageContent, type TruncateHead } from "./file-content.ts";
+import { fileContent, type ImageContent, MAX_IMAGE_BYTES, MAX_READ_BYTES, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
 import { foldName } from "./names.ts";
 import { parseRecentTarget } from "./recent.ts";
@@ -15,8 +15,8 @@ import { isUrlRef, type UrlEnv, type UrlRef, urlBlock, urlFailure } from "./url.
 export interface ExpandEnv extends CommandEnv, UrlEnv {
 	cwd: string;
 	home: string;
-	/** The bytes of a file. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
-	readFile: (path: string) => Promise<Uint8Array>;
+	/** The first `limit` bytes of a file, or all of it when it is shorter. It rejects with the system's error, whose `code` says why (`ENOENT`, `EISDIR`, ...). */
+	readFile: (path: string, limit: number) => Promise<Uint8Array>;
 	/** Pi's `truncateHead`, which cuts a File at the caps of pi's read tool. */
 	truncateHead: TruncateHead;
 	/** The image type pi supports for the file at this path, or null. */
@@ -203,8 +203,11 @@ async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
 	const head = { name: ref.name, kind: "file", path } as const;
 	try {
 		const absolute = absolutePath(ref, env);
-		const bytes = await env.readFile(absolute);
-		const content = fileContent({ bytes, path, mimeType: await env.imageType(absolute), maxBytes: ref.max_bytes }, env.truncateHead);
+		const mimeType = await env.imageType(absolute).catch(() => null);
+		const read = await env.readFile(absolute, (mimeType === null ? MAX_READ_BYTES : MAX_IMAGE_BYTES) + 1);
+		const partial = mimeType === null && read.length > MAX_READ_BYTES;
+		const bytes = partial ? read.subarray(0, MAX_READ_BYTES) : read;
+		const content = fileContent({ bytes, path, mimeType, maxBytes: ref.max_bytes, partial }, env.truncateHead);
 		if ("failure" in content) return failed(head, content.failure);
 		if ("image" in content) return { name: ref.name, text: contextBlock({ ...head, body: "" }), image: content.image };
 		return { name: ref.name, text: contextBlock({ ...head, body: content.text, truncated: content.truncated }) };
