@@ -3,6 +3,7 @@ README.md
 package.json
 schema/pi-context-refs.schema.json
 src/core/builtins.ts
+src/core/collapse.ts
 src/core/config-writer.ts
 src/core/context-block.ts
 src/core/dynamic.ts
@@ -25,3 +26,6 @@ src/pi/exec.ts
 src/pi/fs.ts
 src/pi/input.ts
 src/pi/running.ts
+src/pi/sent.ts
+src/pi/text-viewer.ts
+src/pi/transcript.ts

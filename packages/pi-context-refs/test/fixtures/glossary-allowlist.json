@@ -17,7 +17,7 @@
 		},
 		{
 			"term": "mode",
-			"files": ["src/pi/input.ts", "src/pi/running.ts"],
+			"files": ["src/pi/input.ts", "src/pi/running.ts", "src/pi/sent.ts"],
 			"reason": "ctx.mode is pi's run mode (tui, rpc, json, print). A Ref kind is never called a mode."
 		},
 		{

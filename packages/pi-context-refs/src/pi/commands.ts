@@ -6,6 +6,7 @@ import { KINDS, LIBRARY_NAMES, parseRefArguments, type RefCommand, splitWords } 
 import { completeArguments } from "../core/ref-completions.ts";
 import { applyFields, buildRef, jsonOf } from "../core/ref-edit.ts";
 import { describeRef, formatList, readSettings } from "../core/ref-list.ts";
+import { showSent } from "./sent.ts";
 
 /** What `/ref` needs from outside pi, so tests can stand in for the machine. */
 export interface CommandDeps {
@@ -75,7 +76,7 @@ export function registerRefCommand(pi: ExtensionAPI, deps: CommandDeps): void {
 			const run: Run = { ctx, file, say };
 			const parsed = parseRefArguments(args);
 			if (!parsed.ok) return say(parsed.usage === undefined ? parsed.error : `${parsed.error}\n${parsed.usage}`, "error");
-			if (parsed.command.library !== undefined && !LIBRARY_NAMES.includes(parsed.command.library)) {
+			if ("library" in parsed.command && parsed.command.library !== undefined && !LIBRARY_NAMES.includes(parsed.command.library)) {
 				return say(`unknown library "${parsed.command.library}"; the libraries are: ${LIBRARY_NAMES.join(", ")}`, "error");
 			}
 			await dispatch(run, parsed.command, sessionTrigger);
@@ -93,6 +94,8 @@ async function dispatch(run: Run, command: RefCommand, sessionTrigger: string): 
 			return edit(run, command);
 		case "remove":
 			return remove(run, command);
+		case "sent":
+			return showSent(run.ctx, run.say);
 	}
 }
 

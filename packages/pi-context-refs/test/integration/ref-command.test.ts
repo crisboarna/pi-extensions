@@ -92,7 +92,7 @@ describe("/ref registration", () => {
 		const command = host.commands.get("ref") as unknown as { getArgumentCompletions(prefix: string): Array<{ value: string }> | null };
 		assert.deepEqual(
 			command.getArgumentCompletions("")?.map((item) => item.value),
-			["list", "add", "edit", "remove"],
+			["list", "add", "edit", "remove", "sent"],
 		);
 		assert.deepEqual(
 			command.getArgumentCompletions("edit a")?.map((item) => item.value),

@@ -6,6 +6,7 @@ import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { readFileBytes, readTextIfPresent, writeTextAtomically } from "./pi/fs.ts";
 import { registerInput } from "./pi/input.ts";
+import { registerTranscript } from "./pi/transcript.ts";
 
 /** Save context refs and insert them from a picker as compact placeholders that expand to real content when the message is sent. */
 export default function extension(pi: ExtensionAPI): void {
@@ -26,4 +27,5 @@ export default function extension(pi: ExtensionAPI): void {
 		writeStderr: (text) => void process.stderr.write(text),
 	});
 	registerEditor(pi);
+	registerTranscript(pi);
 }
