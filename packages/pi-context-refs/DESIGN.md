@@ -86,10 +86,12 @@ Decided in [What is a Ref, and where does the Ref library live?](https://github.
 | `command` or `url` | the **Source** of a Dynamic Ref (section 10): `command` is an argv array, `url` an http or https URL; exactly one |
 | `cwd` | Dynamic `command` only, optional; resolves like Ref paths |
 | `max_bytes` | File only, optional, raises the cut (section 9.4) up to 1 MB |
-| `timeout`, `max_output` | Dynamic only, optional, raise the defaults up to 120 s and 1 MB |
+| `timeout`, `max_output` | Dynamic only, optional, raise the defaults up to 120 s and 1 MB. `max_bytes` and `max_output` are whole numbers of bytes, `timeout` a whole number of seconds |
 | `description` | optional, shown in the picker |
 | `tags` | optional list; same characters as names, case-insensitive |
 | `scope` | Global library only, optional (section 5.3) |
+
+A library file is `{ "version": 1, "$schema": "…", "refs": [ … ] }`. `schema/pi-context-refs.schema.json` describes it and every field above; a Ref may carry only the fields its kind uses, and a field this version does not know skips that Ref, so a typo is reported rather than ignored. Keys outside `refs` that this version does not read (the settings of section 10.2 among them) are left alone.
 
 ### 5.2 The two libraries
 
@@ -108,7 +110,7 @@ The same name in several places: **Scoped Ref > Project library > unscoped Globa
 
 ### 5.5 Missing or malformed files
 
-A missing file is an empty library. In a file that parses, each invalid Ref is skipped on its own, with one warning naming the file and the JSON path, so one typo does not hide the rest. A file that does not parse keeps the session's last good copy (or none). Warnings show once in the TUI, in `/ref`, and on stderr in print mode.
+A missing file is an empty library. In a file that parses, each invalid Ref is skipped on its own, with one warning naming the file and the JSON path, so one typo does not hide the rest; a Ref whose name repeats an earlier one in the file, compared case-insensitively, is skipped the same way. A file that does not parse, or whose `version` is not 1, keeps the session's last good copy (or none). Warnings show once in the TUI, in `/ref`, and on stderr in print mode.
 
 ### 5.6 Bundles
 
@@ -185,7 +187,7 @@ One XML-style element for every block kind, after pi's own `<file name="…">` t
 
 ### 9.5 Typed tokens
 
-A typed `#name` ends at the first character that is not a name character (letters, digits, `.`, `-`, `_`), and a trailing `.` is never part of it: `#terse,` gives `terse`, and `#readme.md.` gives `readme.md`. A `[ref:…]` Placeholder is bounded by its `]` (section 6).
+A typed `#name` ends at the first character that is not a name character (letters, digits, `.`, `-`, `_`), and a trailing `.` is never part of it: `#terse,` gives `terse`, and `#readme.md.` gives `readme.md`. It starts only at the beginning of the text or after a character that cannot belong to a word, URL or path, so `page#api`, `src/#a` and `C#sharp` pass through. A `[ref:…]` Placeholder is bounded by its `]` (section 6) and must close on the line it opens on.
 
 ## 10. Dynamic Refs and Approvals
 

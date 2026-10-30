@@ -1,0 +1,24 @@
+{
+	"ignoredTerms": [
+		{
+			"term": "type",
+			"reason": "The TypeScript keyword in import type, and the type field of pi's events. Neither is a Ref kind."
+		},
+		{
+			"term": "set",
+			"reason": "JavaScript's Set and Map.set. Neither is a Bundle."
+		}
+	],
+	"allowedUses": [
+		{
+			"term": "token",
+			"files": ["src/core/expand.ts", "src/core/names.ts", "src/core/tokens.ts"],
+			"reason": "A typed #name is a ref token (GLOSSARY.md, Placeholder). RefToken and findRefTokens find typed refs and Placeholders; no code calls a Placeholder a token."
+		},
+		{
+			"term": "snippet",
+			"files": ["src/core/expand.ts", "src/core/library.ts"],
+			"reason": "Snippet is a Ref kind, and the name of that kind in a library file. The glossary lists it under Ref to say a Ref is not only a Snippet."
+		}
+	]
+}

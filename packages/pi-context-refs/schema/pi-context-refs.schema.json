@@ -1,0 +1,146 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/schema/pi-context-refs.schema.json",
+	"title": "pi-context-refs library",
+	"description": "A Ref library file: ~/.pi/agent/pi-context-refs.json (the Global library) or <project>/.pi/pi-context-refs.json (the Project library). See DESIGN.md section 5. A schema cannot compare Refs with each other, so one rule is enforced only when the file is loaded: two Refs whose names differ only by case are a config error, and the later one is skipped. The loader also skips a single invalid Ref and keeps the rest, where a schema check fails the whole file.",
+	"type": "object",
+	"required": ["version"],
+	"properties": {
+		"$schema": { "type": "string", "description": "This schema's URL, so an editor can validate the file." },
+		"version": { "const": 1, "description": "The file format version." },
+		"refs": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/ref" },
+			"description": "The Refs. When two have the same name, the first one wins."
+		}
+	},
+	"$defs": {
+		"name": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9._-]*[A-Za-z0-9_-]$",
+			"description": "Letters, digits, \".\", \"-\" and \"_\", never ending in \".\". Names are case-insensitive."
+		},
+		"scope": {
+			"type": "object",
+			"additionalProperties": false,
+			"minProperties": 1,
+			"properties": {
+				"path": { "type": "string", "minLength": 1, "description": "A directory (its whole subtree) or a glob. ~ expands to the home directory." },
+				"remote": {
+					"type": "string",
+					"minLength": 1,
+					"description": "A git remote of the session's repository, written host/path, matched case-insensitively."
+				}
+			},
+			"description": "Global library only. The Ref is visible only where the scope matches; when both are given, both must match."
+		},
+		"ref": {
+			"type": "object",
+			"required": ["name", "kind"],
+			"additionalProperties": false,
+			"properties": {
+				"name": { "$ref": "#/$defs/name" },
+				"kind": { "enum": ["path", "file", "snippet", "dynamic"], "description": "What the Ref stands for, fixed when it is saved." },
+				"path": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Path and File: the target. Relative paths resolve against the session's working directory; ~ expands."
+				},
+				"text": { "type": "string", "minLength": 1, "description": "Snippet: the text, sent literally." },
+				"command": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "type": "string" },
+					"prefixItems": [{ "type": "string", "minLength": 1 }],
+					"description": "Dynamic: the argument vector of a command, run with no shell. Use [\"sh\", \"-c\", \"...\"] when a shell is wanted."
+				},
+				"url": { "type": "string", "pattern": "^https?://", "description": "Dynamic: an http or https URL, fetched with a plain GET." },
+				"cwd": { "type": "string", "minLength": 1, "description": "Dynamic command only: the directory to run in, resolved like Ref paths." },
+				"max_bytes": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 1048576,
+					"description": "File: raises the default cut of 50 KB or 2000 lines, up to 1 MB."
+				},
+				"timeout": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 120,
+					"description": "Dynamic: seconds before the run is stopped. Default 10, at most 120."
+				},
+				"max_output": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 1048576,
+					"description": "Dynamic: bytes of output kept. Default 50 KB, at most 1 MB."
+				},
+				"description": { "type": "string", "description": "Shown in the picker." },
+				"tags": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/name" },
+					"description": "Labels that group Refs. #tag:<tag> stands for every Visible Ref with the tag."
+				},
+				"scope": { "$ref": "#/$defs/scope" }
+			},
+			"allOf": [
+				{
+					"if": { "properties": { "kind": { "const": "path" } } },
+					"then": {
+						"required": ["path"],
+						"not": {
+							"anyOf": [
+								{ "required": ["text"] },
+								{ "required": ["command"] },
+								{ "required": ["url"] },
+								{ "required": ["cwd"] },
+								{ "required": ["max_bytes"] },
+								{ "required": ["timeout"] },
+								{ "required": ["max_output"] }
+							]
+						}
+					}
+				},
+				{
+					"if": { "properties": { "kind": { "const": "file" } } },
+					"then": {
+						"required": ["path"],
+						"not": {
+							"anyOf": [
+								{ "required": ["text"] },
+								{ "required": ["command"] },
+								{ "required": ["url"] },
+								{ "required": ["cwd"] },
+								{ "required": ["timeout"] },
+								{ "required": ["max_output"] }
+							]
+						}
+					}
+				},
+				{
+					"if": { "properties": { "kind": { "const": "snippet" } } },
+					"then": {
+						"required": ["text"],
+						"not": {
+							"anyOf": [
+								{ "required": ["path"] },
+								{ "required": ["command"] },
+								{ "required": ["url"] },
+								{ "required": ["cwd"] },
+								{ "required": ["max_bytes"] },
+								{ "required": ["timeout"] },
+								{ "required": ["max_output"] }
+							]
+						}
+					}
+				},
+				{
+					"if": { "properties": { "kind": { "const": "dynamic" } } },
+					"then": {
+						"oneOf": [{ "required": ["command"] }, { "required": ["url"] }],
+						"not": { "anyOf": [{ "required": ["path"] }, { "required": ["text"] }, { "required": ["max_bytes"] }, { "required": ["url", "cwd"] }] }
+					}
+				}
+			]
+		}
+	}
+}
