@@ -7,7 +7,9 @@ src/core/library-state.ts
 src/core/library.ts
 src/core/names.ts
 src/core/resolve.ts
+src/core/segments.ts
 src/core/tokens.ts
 src/index.ts
+src/pi/editor.ts
 src/pi/fs.ts
 src/pi/input.ts

@@ -69,6 +69,9 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean }): Fa
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
 				setEditorText: (text: string) => editorTexts.push(text),
+				// The editor slot: nothing is installed unless a test overrides these.
+				getEditorComponent: () => undefined,
+				setEditorComponent: () => {},
 			},
 		},
 	};
