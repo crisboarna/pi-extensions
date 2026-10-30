@@ -198,7 +198,7 @@ Decided in [How do Dynamic refs run, and what stops one doing harm?](https://git
 ### 10.1 Sources
 
 - **command**: an argv array (`"command": ["git", "diff", "--staged"]`), run through `pi.exec` with no shell. A pipe needs an explicit `["sh", "-c", "…"]`, so a reader can see that a shell runs. It runs in the session cwd, or in an optional per-Ref `cwd` that resolves like Ref paths (confined to the project for Project library Refs). It inherits pi's environment; there is no `env` field.
-- **url**: a plain GET over http or https, following up to 5 redirects. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure. No custom headers (no secrets in config files) and no templating.
+- **url**: a plain GET over http or https, following up to 5 redirects. Text, JSON and Markdown bodies are used as they are, HTML is inlined raw up to the cap, and a binary body is a failure: a `Content-Type` that is not text, JSON, XML, YAML, JavaScript or TOML, or a NUL byte in the first 8 KB, makes a body binary. A status outside 200 to 299 is a fetch error. The timeout and the output cap of section 10.4 apply (the cap cuts the body; the fetcher stops reading there), and the block's first line is `GET <url>`. No custom headers (no secrets in config files) and no templating.
 - No parameters: every Dynamic Ref is fixed.
 
 ### 10.2 Built-in Refs

@@ -25,10 +25,12 @@ src/core/scope.ts
 src/core/segments.ts
 src/core/tokens.ts
 src/core/trigger.ts
+src/core/url.ts
 src/index.ts
 src/pi/commands.ts
 src/pi/editor.ts
 src/pi/exec.ts
+src/pi/fetch.ts
 src/pi/fs.ts
 src/pi/git-remotes.ts
 src/pi/input.ts
