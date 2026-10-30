@@ -183,6 +183,17 @@
 			},
 			"still": true,
 			"tailMs": 200
+		},
+		{
+			"kind": "loop",
+			"out": "hero-loop",
+			"from": ["decision", "subagents", "failover"],
+			"speed": 2.2,
+			"gif": {
+				"width": 720,
+				"fps": 8,
+				"colors": 64
+			}
 		}
 	]
 }

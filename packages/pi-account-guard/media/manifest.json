@@ -349,6 +349,17 @@
 			"height": 720,
 			"gif": false,
 			"tailMs": 100
+		},
+		{
+			"kind": "loop",
+			"out": "hero-loop",
+			"from": ["block", "tag", "rotation"],
+			"speed": 2.2,
+			"gif": {
+				"width": 720,
+				"fps": 8,
+				"colors": 64
+			}
 		}
 	]
 }
