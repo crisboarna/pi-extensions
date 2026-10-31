@@ -367,7 +367,7 @@ Every row was proved against pi 1.4.0 before any feature code was written, by th
 | `ctx.isProjectTrusted()` reflects `/trust` | **Differs.** It reflects the decision pi resolved at start: `--approve` or `--no-approve`, then a saved decision for the directory or the nearest parent, then `defaultProjectTrust`. `/trust` saves a decision for the next start and leaves the running session as it was. A project with no trust-requiring resource is trusted without any decision, so a library-only `.pi/pi-context-refs.json` loads (section 5.2) | `integration/project-trust.test.ts` (real pi, print and pty) |
 | Tool results carry the path as sent, and `nestedCalls` carry codemode's inner calls | Holds. The path is as the model wrote it (`@note.txt` keeps its `@`), so the Recent ref resolver strips and resolves it. A codemode result carries `nestedCalls.calls` (`id`, `name`, `arguments.path`, `status` `ok` or `error`); each inner call also raises a `tool_result` event with `parentToolCallId`. `nestedCalls` is on the stored tool result message, not on the `tool_result` event | `integration/tool-results.test.ts` (real pi) |
 
-The test doubles are in `test/support/`: a stub provider that answers locally and echoes the last user message it received, a probe extension (one scenario per run, not package code), a pty runner that reads the screen through xterm.js, and a real pi-tui `Editor` driven by key bytes.
+The test doubles are in `test/support/`: a stub provider that answers locally and echoes the last user message it received, a probe extension (one scenario per run, not package code), a pty runner that reads the screen through xterm.js, a real pi-tui `Editor` driven by key bytes, and a virtual terminal that runs real interactive pi in the test process (`test/tui`, which covers the Placeholder keys, the `alt+r` pick and Esc during a slow command by keystroke).
 
 ### 16.2 Manual checklist
 
@@ -378,7 +378,6 @@ Run in a real TUI.
 - The look of the inline list and the `alt+r` overlay at narrow widths, in themes and with wide characters.
 - Fork, resume, export and compaction showing the full text.
 - `ctrl+o` expansion.
-- Ctrl+W and undo by keystroke, and Up-arrow recall (not tried with the prototype).
 - Coexistence with pi-image-view, pi-up-history, pi-cc-steer, pi-multi-pass and pi-powerline-footer (not tried with the prototype).
 - The Approval prompt wording.
 
