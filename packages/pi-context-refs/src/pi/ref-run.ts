@@ -3,7 +3,7 @@ import { builtinRefs } from "../core/builtins.ts";
 import { type LibraryFile, readLibraryEntries } from "../core/config-writer.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import { parseLibrary, type Ref, type RefCheck } from "../core/library.ts";
-import { foldName } from "../core/names.ts";
+import { foldName, nameProblem } from "../core/names.ts";
 import { type ListedLibrary, readSettings, UNTRUSTED } from "../core/ref-list.ts";
 import { type LibraryName, libraryOf } from "../core/ref-relations.ts";
 import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
@@ -50,10 +50,15 @@ export const message = (error: unknown): string => (error instanceof Error ? err
 
 export const isEntry = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** The names a Ref can have among these entries, in file order. A library file can come from a repository, so a name with other characters (control characters among them) is not offered. */
+export function namesOf(entries: unknown[]): string[] {
+	return entries.flatMap((entry) => (isEntry(entry) && typeof entry.name === "string" && nameProblem(entry.name) === undefined ? [entry.name] : []));
+}
+
 /** The names of the entries of a library file, as they are on disk. */
 export function entryNames(file: LibraryFile): string[] {
 	const entries = readLibraryEntries(file);
-	return entries.ok ? entries.entries.flatMap((entry) => (isEntry(entry) && typeof entry.name === "string" ? [entry.name] : [])) : [];
+	return entries.ok ? namesOf(entries.entries) : [];
 }
 
 const PHRASE: Record<LibraryName, string> = { global: "the Global library", project: "the Project library" };
