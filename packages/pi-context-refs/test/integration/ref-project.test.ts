@@ -144,6 +144,16 @@ describe("/ref list: layers", () => {
 	});
 });
 
+describe("/ref edit and /ref remove on a Built-in Ref", () => {
+	it("say it is a Built-in Ref, not that no Ref has the name", async () => {
+		const host = await boot();
+		for (const verb of ["edit", "remove"]) {
+			const text = await ref(host, session(), `${verb} diff in=global`);
+			assert.match(text, /"diff" is a Built-in Ref and cannot be edited or removed/u, verb);
+		}
+	});
+});
+
 describe("a .pi folder that is a symbolic link out of the project", () => {
 	const linkOut = () => {
 		const outside = join(root, "outside");

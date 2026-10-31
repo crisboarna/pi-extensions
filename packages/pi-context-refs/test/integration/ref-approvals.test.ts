@@ -590,3 +590,23 @@ describe("/ref remove of a Project Dynamic Ref", () => {
 		assert.match(text, /Removed "tests" from the Project library; .*pi-context-refs-approvals\.json does not parse/);
 	});
 });
+
+describe("a send whose Approval dialog fails", () => {
+	it("does not send the text with the Ref unexpanded: the TUI restores the draft and says why", async () => {
+		projectLibrary([touching("go")]);
+		const host = await boot();
+		const fake = session({
+			dialogs: {
+				select: async () => {
+					throw new Error("the dialog crashed");
+				},
+			},
+		});
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, fake.ctx);
+		const result = await host.fire("input", { type: "input", text: "run #go", source: "interactive" }, fake.ctx);
+		assert.deepEqual(result, { action: "handled" });
+		assert.deepEqual(fake.editorTexts, ["run #go"]);
+		assert.match(fake.notices.at(-1)?.message ?? "", /the dialog crashed/u);
+		assert.equal(existsSync(marker()), false, "nothing ran");
+	});
+});

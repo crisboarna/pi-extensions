@@ -35,6 +35,8 @@ function isSubagentChild(): boolean {
 	return process.env.PI_SUBAGENT_CHILD === "1";
 }
 
+type Expansion = Awaited<ReturnType<typeof expandRefs>>;
+
 /** Expands typed refs and Placeholders in each message that is sent, in every mode. */
 export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 	const libraries = createLibraries(deps);
@@ -55,15 +57,14 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		for (const run of current) run.abort();
 	});
 
-	pi.on("input", async (event, ctx) => {
-		if (event.source === "extension" || isSubagentChild()) return undefined;
+	/** Expands `text` with the commands and fetches of this send tracked, or gives the reason expanding threw. */
+	const expandMessage = async (text: string, ctx: ExtensionContext): Promise<{ expansion: Expansion; cancelled: boolean } | { error: string }> => {
 		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
 		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl, sends);
 		current.add(run);
-		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
-			expansion = await expandRefs(event.text, visible, {
+			const expansion = await expandRefs(text, visible, {
 				...deps,
 				cwd: ctx.cwd,
 				usedFile: (path) => isUsedProjectFile(path, ctx.cwd, deps.recent, deps.realpath),
@@ -73,13 +74,28 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 				fetchUrl: run.fetchUrl,
 				signal: run.signal,
 			});
+			return { expansion, cancelled: run.signal.aborted };
+		} catch (error) {
+			return { error: error instanceof Error ? error.message : String(error) };
 		} finally {
 			run.finish();
 			current.delete(run);
 		}
+	};
+
+	pi.on("input", async (event, ctx) => {
+		if (event.source === "extension" || isSubagentChild()) return undefined;
+		const outcome = await expandMessage(event.text, ctx);
 		if (ended) return { action: "handled" };
-		if (run.signal.aborted) return cancelSend(event.text, ["cancelled"], ctx);
-		const { text, images, failures } = expansion;
+		if ("error" in outcome) {
+			// pi sends the text as typed when a handler throws; a Ref left unexpanded must not go out as if it were meant.
+			const reasons = [`could not expand the message: ${outcome.error}`];
+			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);
+			showNotices(reasons, ctx, deps);
+			return { action: "handled" };
+		}
+		if (outcome.cancelled) return cancelSend(event.text, ["cancelled"], ctx);
+		const { text, images, failures } = outcome.expansion;
 		if (failures.length > 0) {
 			const reasons = failures.map((failure) => `#${failure.name}: ${failure.reason}`);
 			if (ctx.mode === "tui") return cancelSend(event.text, reasons, ctx);

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { BUILTIN_REFS } from "../core/builtins.ts";
 import { type LibraryFile, readLibraryEntries, updateLibraryFile } from "../core/config-writer.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import { type Ref, validateRef } from "../core/library.ts";
@@ -243,7 +244,10 @@ async function chooseName(run: Run, target: Target, typed: string | undefined, q
 	return chosen;
 }
 
-const noRef = (name: string, target: Target): string => `no Ref named "${name}" in ${target.phrase}`;
+const noRef = (name: string, target: Target): string =>
+	BUILTIN_REFS.some((builtin) => foldName(builtin.name) === foldName(name))
+		? `"${name}" is a Built-in Ref and cannot be edited or removed; save a Ref with the same name to shadow it, or turn it off with the builtins setting`
+		: `no Ref named "${name}" in ${target.phrase}`;
 
 /** The library an edit or removal works on: the one `in=` names, else where the Visible Ref of that name lives, else the Global library. */
 function chooseTargetFor(run: Run, command: { refName?: string; library?: string }): Target | undefined {
