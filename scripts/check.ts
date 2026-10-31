@@ -12,6 +12,7 @@ const bin = (name: string, ...args: string[]): string[] => [`node_modules/.bin/$
 const GATES = [
 	{ name: "manifests", fast: true, command: node("scripts/checks/manifests.ts") },
 	{ name: "imports", fast: true, command: node("scripts/checks/imports.ts") },
+	{ name: "copies", fast: true, command: node("scripts/checks/copies.ts") },
 	{ name: "text", fast: true, command: node("scripts/checks/text.ts") },
 	{ name: "file-sizes", fast: true, command: node("scripts/checks/file-sizes.ts") },
 	{ name: "links", fast: true, command: node("scripts/checks/links.ts") },

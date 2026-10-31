@@ -78,7 +78,7 @@ function run(check: string, root: string, ...args: string[]): { ok: boolean; out
 }
 
 describe("every gate passes a clean tree", () => {
-	for (const check of ["manifests", "imports", "text", "file-sizes", "links", "licenses"]) {
+	for (const check of ["manifests", "imports", "copies", "text", "file-sizes", "links", "licenses"]) {
 		test(check, () => {
 			const result = run(check, repo());
 			assert.ok(result.ok, result.output);
@@ -139,6 +139,27 @@ describe("manifests", () => {
 	test("rejects floating runtime dependencies", () => {
 		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ dependencies: { jiti: "^2.7.0" } })) }));
 		assert.match(result.output, /must be pinned exactly/);
+	});
+});
+
+describe("copies", () => {
+	const copy = (pkg: string, content: string) => ({
+		[`packages/${pkg}/package.json`]: JSON.stringify(
+			manifest({ name: `@crisboarna/${pkg}`, repository: { type: "git", url: "", directory: `packages/${pkg}` } }),
+		),
+		[`packages/${pkg}/test/support/virtual-terminal.ts`]: content,
+	});
+	test("passes identical copies, a single copy and no copy", () => {
+		const identical = repo({ ...copy("pi-demo", "same\n"), ...copy("pi-other", "same\n"), ...copy("pi-third", "same\n") });
+		assert.ok(run("copies", identical).ok, run("copies", identical).output);
+		const single = repo(copy("pi-demo", "only\n"));
+		assert.ok(run("copies", single).ok, run("copies", single).output);
+	});
+	test("names the packages whose copy has drifted", () => {
+		const result = run("copies", repo({ ...copy("pi-demo", "one\n"), ...copy("pi-other", "one\n"), ...copy("pi-third", "two\n") }));
+		assert.ok(!result.ok);
+		assert.match(result.output, /test\/support\/virtual-terminal\.ts: the copy in pi-third is not the copy in pi-demo, pi-other\n/);
+		assert.match(result.output, /How to fix/);
 	});
 });
 

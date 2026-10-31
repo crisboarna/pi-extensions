@@ -25,6 +25,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Gate | Where | Prevents |
 |---|---|---|
 | Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, unpinned runtime dependencies, an `engines.node` floor that CI does not test |
+| Copies stay identical (`scripts/checks/copies.ts`) | C P CI | A helper copied between packages (packages cannot import each other) fixed in one package and left stale in the others. Today: the virtual terminal of the `test/tui` suites. Add a path to the script only for a file that must stay byte for byte the same |
 | Licences (`scripts/checks/licenses.ts`) | C P CI | A runtime or dev dependency under a copyleft, unknown or missing licence in the MIT packages' install tree |
 | Build-time tools stay in Docker | media renders | A copyleft licence reaching the repository. The media image (`tools/docker/media.Dockerfile`) may hold GPL tools, today espeak-ng inside Kokoro's phonemizer, because they run only there to render media and are never installed in the repository or shipped; what they produce (audio) is ours. Third-party media committed to the repository, such as the music bed, must need no attribution (CC0 or public domain) and is recorded with its source, as in `tools/media/audio/README.md` |
 | Narration loudness (`tools/media/narration.mjs`) | media renders | A narrated video whose voice is too quiet or too loud: the render fails unless the voice track measures -16 ±1 LUFS |
