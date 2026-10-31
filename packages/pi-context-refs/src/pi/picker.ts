@@ -3,6 +3,7 @@ import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } 
 import { applyPick, type PickerRow, type PickerSource, pickerRows } from "../core/picker.ts";
 import type { UsedFiles } from "../core/recent.ts";
 import { readSettings, settingsProblems } from "../core/ref-list.ts";
+import { printable } from "../core/text.ts";
 import { isNumber, triggerQuery } from "../core/trigger.ts";
 import { createLibraries, type Libraries, type LibraryDeps } from "./libraries.ts";
 
@@ -42,7 +43,9 @@ export function pickerSourceOf(
 	now: number,
 	inWorkTree: boolean,
 ): PickerSource {
-	const { visible, layers } = libraries.refresh(ctx);
+	const { visible, layers, notices } = libraries.refresh(ctx);
+	// Each warning is reported once per Libraries, so a list that refreshes on every key shows it once.
+	for (const notice of notices) ctx.ui.notify(printable(`pi-context-refs: ${notice}`), "warning");
 	return { visible, layers, inWorkTree, recent: { files: deps.recent.files(), env: { cwd: ctx.cwd, home: deps.home }, now, present: deps.isFile } };
 }
 

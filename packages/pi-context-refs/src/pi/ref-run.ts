@@ -10,7 +10,7 @@ import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
 import { printable } from "../core/text.ts";
 import type { ApprovalDeps } from "./approvals.ts";
-import { projectLibraryPath, projectLibraryProblem } from "./libraries.ts";
+import { placeOf, projectLibraryPath, projectLibraryProblem } from "./libraries.ts";
 
 /** What `/ref` needs from outside pi, so tests can stand in for the machine. */
 export interface CommandDeps extends ApprovalDeps {
@@ -92,7 +92,7 @@ export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName
 };
 
 export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
-	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };
+	const place = placeOf(ctx, deps);
 	return { ctx, deps, say: (text, level) => say(printable(text), level), place, trusted: ctx.isProjectTrusted(), files: libraryFiles(deps, ctx.cwd) };
 }
 
