@@ -1,6 +1,6 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
-import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
+import { contextBlock, failureNote, namesWithBlock, neutralizeTags } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, MAX_IMAGE_BYTES, MAX_READ_BYTES, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
@@ -175,8 +175,8 @@ function blockRefOf(ref: Ref): BlockRef | undefined {
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */
 function inlineExpansion(ref: Ref, env: ExpandEnv): string | undefined {
-	if (ref.kind === "snippet") return stripControl(ref.text);
-	if (ref.kind === "path") return stripControl(pathText(ref, env));
+	if (ref.kind === "snippet") return neutralizeTags(stripControl(ref.text));
+	if (ref.kind === "path") return neutralizeTags(stripControl(pathText(ref, env)));
 	return undefined;
 }
 

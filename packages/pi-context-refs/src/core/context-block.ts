@@ -23,6 +23,11 @@ export function sanitizeText(bytes: Uint8Array): string {
 	return stripControl(new TextDecoder().decode(bytes));
 }
 
+/** Inline text with its `<context-ref` and `</context-ref` tags made inert (`&lt;`), so text from a library cannot pass for a Context block the transcript collapse would hide. */
+export function neutralizeTags(text: string): string {
+	return text.replaceAll("<context-ref", "&lt;context-ref").replaceAll("</context-ref", "&lt;/context-ref");
+}
+
 /** `<context-ref>` with the body raw between a newline after the opening tag and a newline before the closing tag. `bytes` is the body's length in UTF-8. */
 export function contextBlock(block: BlockContent): string {
 	const exit = block.exit === undefined ? "" : ` exit="${block.exit}"`;
