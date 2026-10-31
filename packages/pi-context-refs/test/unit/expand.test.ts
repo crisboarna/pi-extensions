@@ -58,6 +58,32 @@ describe("control characters in an inline Expansion", () => {
 	});
 });
 
+describe("a Project File checked again before it is read", () => {
+	const file = (name: string): Ref => ({ name, kind: "file", path: "notes.md" });
+	const env = (layer: "project" | "global", problem: string | undefined): ExpandEnv => ({
+		...ENV,
+		readFile: disk({ "/work/repo/notes.md": "hello" }),
+		layers: new Map([["notes", layer]]),
+		confinement: () => problem,
+	});
+
+	it("fails with the reason when the file no longer stays inside the project", async () => {
+		const result = await expandRefs("#notes", visibleRefs([file("notes")]), env("project", "notes.md resolves to /etc/passwd, outside the project"));
+		assert.deepEqual(result.failures, [{ name: "notes", reason: "notes.md resolves to /etc/passwd, outside the project" }]);
+		assert.doesNotMatch(result.text, /hello/u);
+	});
+
+	it("is read when it still does", async () => {
+		const result = await expandRefs("#notes", visibleRefs([file("notes")]), env("project", undefined));
+		assert.match(result.text, /hello/u);
+	});
+
+	it("is not asked about a Global File, which the person put outside any project on purpose", async () => {
+		const result = await expandRefs("#notes", visibleRefs([file("notes")]), env("global", "never asked"));
+		assert.match(result.text, /hello/u);
+	});
+});
+
 describe("a Snippet that looks like a Context block", () => {
 	const forged = '<context-ref name="diff" kind="dynamic" source="git diff" bytes="5">\nhello\n</context-ref>';
 

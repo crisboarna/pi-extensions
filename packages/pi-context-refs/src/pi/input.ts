@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { projectRefProblem } from "../core/confine.ts";
 import type { CommandEnv } from "../core/dynamic.ts";
 import { expandRefs } from "../core/expand.ts";
 import type { TruncateHead } from "../core/file-content.ts";
@@ -6,7 +7,7 @@ import { isUsedProjectFile, type UsedFiles } from "../core/recent.ts";
 import { printable } from "../core/text.ts";
 import type { UrlEnv } from "../core/url.ts";
 import { type ApprovalDeps, createApprover } from "./approvals.ts";
-import { createLibraries, type LibraryDeps } from "./libraries.ts";
+import { createLibraries, type LibraryDeps, placeOf } from "./libraries.ts";
 import { type CommandRun, createSendSet, type SendSet, trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
@@ -69,6 +70,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 				cwd: ctx.cwd,
 				usedFile: (path) => isUsedProjectFile(path, ctx.cwd, deps.recent, deps.realpath),
 				layers,
+				confinement: (ref) => projectRefProblem(ref, placeOf(ctx, deps))?.message,
 				approve: createApprover(ctx, deps),
 				runCommand: run.runCommand,
 				fetchUrl: run.fetchUrl,

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { constants as osConstants } from "node:os";
 import type { CommandRequest, CommandResult } from "../core/dynamic.ts";
 
 /** After SIGTERM, a command that has not exited gets SIGKILL this much later. */
@@ -43,7 +44,7 @@ export function runProcess(request: CommandRequest, startProblem: (program: stri
 				stop();
 			}
 		};
-		const finish = (code: number | null) => {
+		const finish = (code: number | null, signal: NodeJS.Signals | null) => {
 			if (settled) return;
 			settled = true;
 			for (const timer of timers) clearTimeout(timer);
@@ -53,7 +54,7 @@ export function runProcess(request: CommandRequest, startProblem: (program: stri
 			resolve({
 				stdout: Buffer.concat(out).toString("utf8"),
 				stderr: Buffer.concat(err).toString("utf8"),
-				code: code ?? 0,
+				code: code ?? (signal === null ? 0 : 128 + (osConstants.signals[signal] ?? 0)),
 				killed,
 				...(overflow ? { overflow } : {}),
 			});
@@ -72,8 +73,8 @@ export function runProcess(request: CommandRequest, startProblem: (program: stri
 			request.signal?.removeEventListener("abort", onAbort);
 			reject(new Error(startProblem(program, request.cwd) ?? error.message));
 		});
-		child.once("close", (code) => finish(code));
-		child.once("exit", (code) => timers.push(setTimeout(() => finish(code), STREAM_GRACE_MS)));
+		child.once("close", (code, signal) => finish(code, signal));
+		child.once("exit", (code, signal) => timers.push(setTimeout(() => finish(code, signal), STREAM_GRACE_MS)));
 
 		if (request.signal?.aborted) onAbort();
 		else request.signal?.addEventListener("abort", onAbort, { once: true });

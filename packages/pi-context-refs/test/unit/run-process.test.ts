@@ -27,6 +27,12 @@ describe("runProcess", () => {
 		assert.deepEqual(result, { stdout: "out", stderr: "err", code: 3, killed: false });
 	});
 
+	it("gives a command that something else killed a failing exit code, not a success", async () => {
+		const result = await runProcess(node("process.kill(process.pid, 'SIGKILL')"), noProblem);
+		assert.equal(result.killed, false);
+		assert.equal(result.code, 137);
+	});
+
 	it("stops a command that writes without end, keeping a little more than the cap", async () => {
 		const result = await runProcess(node("setInterval(() => process.stdout.write('x'.repeat(65536)), 0)"), noProblem);
 		assert.equal(result.overflow, true);
