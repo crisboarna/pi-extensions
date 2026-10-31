@@ -1,28 +1,48 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
 <title>{{title}}</title>
 <meta name="description" content="{{description}}">
+<script>
+	// Runs before the first paint, so the stored theme never flashes: dark unless the visitor chose light.
+	let theme = "dark";
+	try {
+		if (localStorage.getItem("theme") === "light") theme = "light";
+	} catch {
+		// Storage can be blocked; the page then stays dark.
+	}
+	document.documentElement.dataset.theme = theme;
+	document.documentElement.classList.add("js");
+</script>
 <link rel="icon" href="{{root}}{{icon}}">
 <link rel="stylesheet" href="{{root}}assets/tokens.css">
 <link rel="stylesheet" href="{{root}}assets/site.css">
 {{head}}
+<script src="{{root}}assets/site.js" defer></script>
 </head>
-<body class="{{kind}}" style="--accent: {{accent}}">
+<body class="{{kind}}" style="--pkg: {{accent}}">
+<a class="skip" href="#main">Skip to the content</a>
 <header class="top">
-	<a class="family" href="{{root}}index.html">pi-extensions</a>
-	<nav class="packages">{{packages}}</nav>
+	<a class="family" href="{{root}}index.html"><span class="prompt" aria-hidden="true">&gt;</span> pi-extensions</a>
+	<nav class="packages" aria-label="Packages">{{packages}}</nav>
+	<button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to light theme" aria-pressed="false">
+		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+			<circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/>
+			<path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+		</svg>
+	</button>
 </header>
 <div class="layout">
 	{{sidebar}}
-	<main>
+	<main id="main" tabindex="-1">
 {{content}}
 	</main>
 </div>
 <footer class="bottom">
-	MIT licensed · <a href="https://github.com/crisboarna/pi-extensions">source on GitHub</a> · <a href="{{root}}llms.txt">llms.txt</a> for agents
+	<span>MIT licensed</span> · <a href="https://github.com/crisboarna/pi-extensions">source on GitHub</a> · <a href="{{root}}llms.txt">llms.txt</a> for agents
 </footer>
 </body>
 </html>
