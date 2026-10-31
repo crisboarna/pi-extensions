@@ -22,7 +22,7 @@ Save context refs and insert them from a picker as compact placeholders that exp
 
 ## Tests
 
-- `test/unit` (`npm test`), `test/integration` (`npm run test:integration`) and `test/smoke` (`npm run test:smoke`, opt-in). Coverage counts unit plus integration.
+- `test/unit` (`npm test`), `test/integration` (`npm run test:integration`) and `test/smoke` (`npm run test:smoke`; CI runs it, and it loads `src/index.ts`, not the tarball). Coverage counts unit plus integration.
 - Anything that runs real pi finds it through `PI_BIN`, else the repository's pinned `node_modules/.bin/pi`. The pty flows need `python3` and use `tools/media/run-in-pty.py` with xterm.js as the terminal.
 - `test/support` holds the doubles: `stub-provider.ts` (answers locally and echoes the last user message it got, so a test asserts what the model received), `probe-extension.ts` (one scenario per run; test code, not package code), `pi-process.ts`, `pty-session.ts`, `editor-harness.ts` (a real pi-tui `Editor` with no terminal) and `segment-merge.ts` (the merge technique of ADR 0001, used by the contract test).
 - `test/integration/input.test.ts` loads `src/index.ts` through jiti into the fake pi host (`test/support/fake-pi.ts`) with `PI_CODING_AGENT_DIR` in a temporary directory; the coverage run sets `CONTEXT_REFS_NATIVE_IMPORT=1` so V8 can map the source.
