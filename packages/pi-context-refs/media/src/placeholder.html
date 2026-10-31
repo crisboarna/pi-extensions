@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The placeholder: one unit in the editor, deleted by one Backspace.
+clip(async (stage) => {
+	stage.caption("A pick inserts a short placeholder, not the content.", "placeholder");
+	await stage.type("Why does #");
+	await stage.waitFor(/● api/);
+	await stage.press("Tab", { after: 500 });
+	await stage.type(" retry twice?");
+	await stage.waitFor(/\[ref:api\] retry twice\?/);
+	stage.callout(/\[ref:api\]/, "a <b>placeholder</b>, one unit", { place: "above", last: true });
+	await sleep(500);
+	await stage.still();
+	await sleep(2200);
+	stage.clear();
+	stage.caption("The cursor skips over it, and one <b>Backspace</b> deletes all of it.", "placeholder");
+	for (let i = 0; i < 13; i++) await stage.press("ArrowLeft", { after: 60 });
+	await stage.press("Backspace", { after: 600 });
+	await stage.waitGone(/\[ref:api\]/);
+	await sleep(2600);
+}, { title: "~/projects/shop-api — pi" });
+</script>
+</body>
+</html>

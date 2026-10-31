@@ -1,0 +1,104 @@
+{
+	"picker": {
+		"rows": [
+			{
+				"mark": "●",
+				"name": "api",
+				"kind": "file",
+				"description": "The public API",
+				"section": "global"
+			},
+			{
+				"mark": "●",
+				"name": "terse",
+				"kind": "snippet",
+				"description": "Keep answers short",
+				"section": "global"
+			},
+			{
+				"mark": "●",
+				"name": "notes",
+				"kind": "path",
+				"description": "Working notes",
+				"section": "global"
+			},
+			{
+				"mark": "○",
+				"name": "diff",
+				"kind": "dynamic",
+				"description": "built-in · Unstaged changes",
+				"section": "builtin"
+			},
+			{
+				"mark": "○",
+				"name": "staged",
+				"kind": "dynamic",
+				"description": "built-in · Staged changes",
+				"section": "builtin"
+			},
+			{
+				"mark": "○",
+				"name": "status",
+				"kind": "dynamic",
+				"description": "built-in · Changed files",
+				"section": "builtin"
+			},
+			{
+				"mark": "○",
+				"name": "log",
+				"kind": "dynamic",
+				"description": "built-in · The last 20 commits",
+				"section": "builtin"
+			}
+		]
+	},
+	"typed": {
+		"message": "Why does [ref:api] retry twice?",
+		"prose": "Why does [ref:api] retry twice?",
+		"blocks": [
+			{
+				"name": "api",
+				"kind": "file",
+				"size": "528 B",
+				"head": [
+					"// The public API of the shop service.",
+					"import { retry } from \"./retry.ts\";",
+					"",
+					"export interface Order {",
+					"\tid: string;",
+					"\ttotal: number;",
+					"\tpaid: boolean;"
+				]
+			}
+		],
+		"collapsed": [
+			"Why does [ref:api] retry twice?",
+			"▸ ref api (file, 528 B)"
+		]
+	},
+	"builtin": {
+		"message": "Review #diff",
+		"prose": "Review #diff",
+		"blocks": [
+			{
+				"name": "diff",
+				"kind": "dynamic",
+				"size": "362 B",
+				"head": [
+					"$ git diff",
+					"diff --git a/src/retry.ts b/src/retry.ts",
+					"index 31c497a..d928d66 100644",
+					"--- a/src/retry.ts",
+					"+++ b/src/retry.ts",
+					"@@ -5,6 +5,7 @@ export async function retry<T>(run: () => Promise<T>, options: { times: number }",
+					" \t\t\treturn await run();"
+				]
+			}
+		],
+		"collapsed": [
+			"Review #diff",
+			"▸ ref diff (dynamic, 362 B)"
+		]
+	},
+	"cover": "Why does [ref:api] retry twice?  ▸ ref api (file, 528 B)"
+}
