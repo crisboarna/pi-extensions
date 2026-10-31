@@ -102,7 +102,7 @@ export class RpcSession {
 			for (let newline = this.#buffer.indexOf("\n"); newline >= 0; newline = this.#buffer.indexOf("\n")) {
 				const line = this.#buffer.slice(0, newline).replace(/\r$/, "");
 				this.#buffer = this.#buffer.slice(newline + 1);
-				if (line) this.records.push(JSON.parse(line) as RpcRecord);
+				if (line) this.records.push(parseRecord(line));
 			}
 			for (const wake of this.#waiters.splice(0)) wake();
 		});
@@ -130,10 +130,21 @@ export class RpcSession {
 	}
 
 	async close(): Promise<void> {
+		// A process that already exited has emitted its "close" event; waiting for it again would never end.
+		if (this.#child.exitCode !== null || this.#child.signalCode !== null) return;
 		const closed = new Promise<void>((resolve) => this.#child.once("close", () => resolve()));
 		this.#child.stdin.end();
 		const kill = setTimeout(() => this.#child.kill("SIGKILL"), 5000);
 		await closed;
 		clearTimeout(kill);
+	}
+}
+
+/** One line of pi's RPC output. A line that is not JSON is kept as a record, so one stray line fails the test that reads it, not the whole file. */
+function parseRecord(line: string): RpcRecord {
+	try {
+		return JSON.parse(line) as RpcRecord;
+	} catch {
+		return { type: "unparsed", line };
 	}
 }
