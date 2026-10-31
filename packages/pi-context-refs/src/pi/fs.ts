@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -33,9 +34,10 @@ export function readTextIfPresent(path: string): string | undefined {
 /** Writes the file through a temporary file in the same directory and a rename, so a reader never sees half a file. Creates missing directories. */
 export function writeTextAtomically(path: string, text: string): void {
 	mkdirSync(dirname(path), { recursive: true });
-	const temporary = `${path}.${process.pid}.tmp`;
+	// A name no one can guess, created only if it does not exist ("wx"), so a link planted in a repository cannot send the write elsewhere.
+	const temporary = `${path}.${randomBytes(8).toString("hex")}.tmp`;
 	try {
-		writeFileSync(temporary, text, "utf8");
+		writeFileSync(temporary, text, { encoding: "utf8", flag: "wx" });
 		renameSync(temporary, path);
 	} catch (error) {
 		rmSync(temporary, { force: true });
