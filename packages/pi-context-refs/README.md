@@ -91,12 +91,17 @@ Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that ta
 - A path used only through `bash` or `ls` never becomes a recent file, and files outside the project never do.
 - The stored message holds the full expansion, so the fork selector, the editor after a fork, up-arrow after a resume, HTML export and a compaction summary show it in full. Only the live transcript collapses it. Pi gives user messages no expand control, so use `/ref sent`.
 - The placeholder relies on one private method of pi's editor. A pi upgrade can turn it into plain text, which still expands on send; a contract test in this package checks it on every build.
-- A block whose content contains `</context-ref>` is not escaped.
+- Text in a snippet or path is escaped, so it cannot pass for a block. The content of a file, command or page that contains `</context-ref>` is not; the block's byte length keeps the transcript right.
 - Images are attached at their original size.
 - Content is never refreshed after the message is sent: a resent message keeps the block it had.
 - A snippet cannot contain refs.
 - Approving a project command or URL approves the command line or the address only. A changed script, Makefile, `package.json` or page runs without asking again, and a command runs with your environment.
 - The built-in refs run `git` without asking, in a repository whose `.git/config` can be hostile.
+- A global ref scoped by `remote` applies wherever `.git/config` names that remote, and a hostile clone can name any remote.
+- A redirect is judged by the host's text and by the addresses its name resolves to when it is looked up, not at the moment of connection. A link in a project that changes between the check and the read still wins that race.
+- Two pi sessions that save a ref or an approval at the same moment can lose one of the changes; a lost approval is asked for again.
+- A foreground pi-subagents child cannot be told from `pi -p`, so refs in the task text the parent model writes for it expand there. A background child is skipped.
+- A very long command in the approval prompt can scroll its first lines off a short terminal.
 - A project ref silently hides a global or built-in ref of the same name; `/ref list` names the hidden ones.
 - A text file is read up to 16 MB; a bigger one is cut at its cap and the closing line gives no line total.
 - `@` completions only see files that appeared in sent text, and each extension gets one Markdown transformer.
