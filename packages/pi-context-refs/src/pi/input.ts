@@ -24,6 +24,15 @@ export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
 	writeStderr: (text: string) => void;
 }
 
+/**
+ * True in the process that runs a pi-subagents background child (it sets this variable, and pi-subagents
+ * documents it as the child marker). The task text there was written by the parent model, and no Ref may
+ * be triggered by the model (DESIGN.md, threat model).
+ */
+function isSubagentChild(): boolean {
+	return process.env.PI_SUBAGENT_CHILD === "1";
+}
+
 /** Expands typed refs and Placeholders in each message that is sent, in every mode. */
 export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 	const libraries = createLibraries(deps);
@@ -44,7 +53,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 	});
 
 	pi.on("input", async (event, ctx) => {
-		if (event.source === "extension") return undefined;
+		if (event.source === "extension" || isSubagentChild()) return undefined;
 		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
 		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);

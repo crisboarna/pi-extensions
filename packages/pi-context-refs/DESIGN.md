@@ -29,7 +29,7 @@ Goals:
 - Send the right thing: content is read at send, so it is current, and the stored message holds exactly what the model saw.
 - Work in every mode: typed refs expand in print, JSON and RPC too.
 
-Threat model (settled in [How do Dynamic refs run, and what stops one doing harm?](https://github.com/crisboarna/pi-extensions/issues/170)): a Project library you did not write (a teammate's change or a hostile repository) running commands or fetches on your machine, or starting runs you did not intend. Output is untrusted model input, like any file's contents, and is not filtered. The model cannot trigger a Ref: only user input expands.
+Threat model (settled in [How do Dynamic refs run, and what stops one doing harm?](https://github.com/crisboarna/pi-extensions/issues/170)): a Project library you did not write (a teammate's change or a hostile repository) running commands or fetches on your machine, or starting runs you did not intend. Output is untrusted model input, like any file's contents, and is not filtered. The model cannot trigger a Ref: only user input expands. pi gives a message the source `interactive` unless the sender says otherwise, so the task text a parent model writes for a pi-subagents background child would pass for user input; the `input` handler therefore skips a process where `PI_SUBAGENT_CHILD=1` (the marker pi-subagents sets). A foreground child runs in the parent's process without the marker and without a UI, like `pi -p`, so it cannot be told apart; that gap is open.
 
 Non-goals (v1):
 
