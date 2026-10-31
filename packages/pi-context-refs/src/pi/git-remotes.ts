@@ -36,3 +36,22 @@ function fetchUrls(output: string): string[] {
 	}
 	return origin === undefined ? [...urls] : [origin, ...[...urls].filter((url) => url !== origin)];
 }
+
+/** How long a directory's remotes are kept: long enough that a picker keystroke does not run git, short enough to see a remote added in the session. */
+const REMOTES_TTL_MS = 5000;
+
+/** `read` with its answers kept per directory for `ttl` ms. An answer of undefined (git could not run) is kept too. */
+export function cachedRemoteReader(
+	read: (cwd: string) => string[] | undefined,
+	now: () => number = Date.now,
+	ttl: number = REMOTES_TTL_MS,
+): (cwd: string) => string[] | undefined {
+	const kept = new Map<string, { at: number; urls: string[] | undefined }>();
+	return (cwd) => {
+		const hit = kept.get(cwd);
+		if (hit !== undefined && now() - hit.at < ttl) return hit.urls;
+		const urls = read(cwd);
+		kept.set(cwd, { at: now(), urls });
+		return urls;
+	};
+}

@@ -6,7 +6,7 @@ import { registerEditor } from "./pi/editor.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { urlEnv } from "./pi/fetch.ts";
 import { isFilePresent, linkTargetIfSymlink, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
-import { readRemoteUrls } from "./pi/git-remotes.ts";
+import { cachedRemoteReader, readRemoteUrls } from "./pi/git-remotes.ts";
 import { type InputDeps, registerInput } from "./pi/input.ts";
 import { registerOverlay } from "./pi/overlay.ts";
 import { registerPicker } from "./pi/picker.ts";
@@ -17,6 +17,8 @@ import { registerTranscript } from "./pi/transcript.ts";
 export default function extension(pi: ExtensionAPI): void {
 	// First, so the input handler below finds the files a message points at already noted.
 	const recent = registerRecentSource(pi, { home: homedir(), tmpdir: tmpdir(), now: Date.now });
+	// One reader for the input handler, the commands and the picker, so the picker's per-keystroke refresh does not run git each time.
+	const readRemotes = cachedRemoteReader(readRemoteUrls);
 	const inputDeps: InputDeps = {
 		recent,
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
@@ -27,7 +29,7 @@ export default function extension(pi: ExtensionAPI): void {
 		imageType: detectSupportedImageMimeTypeFromFile,
 		realpath: realpathIfPresent,
 		linkTarget: linkTargetIfSymlink,
-		readRemotes: readRemoteUrls,
+		readRemotes,
 		approvalsPath: join(getAgentDir(), "pi-context-refs-approvals.json"),
 		writeText: writeTextAtomically,
 		now: () => new Date(),
@@ -46,7 +48,7 @@ export default function extension(pi: ExtensionAPI): void {
 		home: homedir(),
 		realpath: realpathIfPresent,
 		linkTarget: linkTargetIfSymlink,
-		readRemotes: readRemoteUrls,
+		readRemotes,
 	};
 	registerRefCommand(pi, commandDeps);
 	registerPicker(pi, {
@@ -55,7 +57,7 @@ export default function extension(pi: ExtensionAPI): void {
 		readText: readTextIfPresent,
 		realpath: realpathIfPresent,
 		linkTarget: linkTargetIfSymlink,
-		readRemotes: readRemoteUrls,
+		readRemotes,
 		isGitWorkTree: commandEnv((command, args, options) => pi.exec(command, args, options)).isGitWorkTree,
 		recent,
 		now: Date.now,
