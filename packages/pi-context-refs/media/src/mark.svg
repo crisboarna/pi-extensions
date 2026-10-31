@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="pi-context-refs">
+  <title>pi-context-refs</title>
+  <rect width="64" height="64" rx="12" fill="#233040"/>
+  <!-- the jack the ref is plugged into -->
+  <circle cx="32" cy="13" r="7" fill="#c9a34e"/>
+  <circle cx="32" cy="13" r="3" fill="#1a2431"/>
+  <!-- the cord down to the label -->
+  <path d="M32 20 L32 28" fill="none" stroke="#d39b2a" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- the label stock, with the # that opens the picker -->
+  <rect x="13" y="28" width="38" height="29" rx="4" fill="#f1e6cf"/>
+  <g fill="none" stroke="#d39b2a" stroke-width="3.2" stroke-linecap="round">
+    <path d="M27 33 L24 52"/>
+    <path d="M38 33 L35 52"/>
+    <path d="M20 39 L43 39"/>
+    <path d="M19 47 L42 47"/>
+  </g>
+</svg>

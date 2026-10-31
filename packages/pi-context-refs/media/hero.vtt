@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.004 --> 00:00:06.104
+This is pi-context-refs. Save the context you keep retyping, and send it with a hash.
+
+2
+00:00:07.359 --> 00:00:13.184
+First, save a file as a ref. One command gives it a name and a short description.
+
+3
+00:00:13.793 --> 00:00:22.293
+Now type the hash. A list of your refs opens, and a mark shows which library each one comes from. We pick api.
+
+4
+00:00:23.415 --> 00:00:32.140
+The editor holds a short placeholder. One backspace deletes all of it, so a ref is never half deleted. We pick it again.
+
+5
+00:00:33.823 --> 00:00:42.798
+When the message is sent, the model gets the current text of the file. The transcript shows one line for it, with the kind and the size.
+
+6
+00:00:43.405 --> 00:00:49.755
+Four git refs need no setup. Review hash diff sends the changes you have not committed yet.
+
+7
+00:00:51.942 --> 00:00:57.717
+Alt and r opens an overlay with a preview of exactly what a ref will send.
+
+8
+00:00:58.830 --> 00:01:03.230
+And slash ref sent shows the full text of the last message.
+
+9
+00:01:04.245 --> 00:01:09.120
+To install it, run the command on screen. Then save your first ref.

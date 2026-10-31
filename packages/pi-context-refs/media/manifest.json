@@ -1,0 +1,163 @@
+{
+	"items": [
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=dark",
+			"out": "banner-dark.png",
+			"width": 1100,
+			"height": 330
+		},
+		{
+			"kind": "png",
+			"page": "banner.html",
+			"query": "theme=light",
+			"out": "banner-light.png",
+			"width": 1100,
+			"height": 330
+		},
+		{
+			"kind": "png",
+			"page": "cover.html",
+			"scale": 1,
+			"out": "cover.png",
+			"width": 1200,
+			"height": 630
+		},
+		{
+			"kind": "png",
+			"page": "mark.svg",
+			"out": "mark.png",
+			"width": 256,
+			"height": 256
+		},
+		{
+			"kind": "animation",
+			"page": "expand.html",
+			"out": "expand",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48
+			},
+			"tailMs": 400,
+			"still": true
+		},
+		{
+			"kind": "terminal",
+			"page": "hero.html",
+			"setup": "terminal/setup.ts",
+			"scene": "demo",
+			"out": "hero",
+			"width": 1280,
+			"height": 720,
+			"still": true,
+			"gif": false,
+			"tailMs": 300,
+			"narration": "hero.narration.json"
+		},
+		{
+			"kind": "terminal",
+			"page": "picker.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "clipScene",
+			"out": "picker",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "placeholder.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "clipScene",
+			"out": "placeholder",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "overlay.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "clipScene",
+			"out": "overlay",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "builtins.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "clipScene",
+			"out": "builtins",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "terminal",
+			"page": "headless.html",
+			"setup": "terminal/setup.ts",
+			"scene": "clips",
+			"variant": "headlessScene",
+			"out": "headless",
+			"width": 1280,
+			"height": 720,
+			"gif": {
+				"width": 800,
+				"fps": 8,
+				"colors": 48,
+				"dither": "none"
+			},
+			"still": true,
+			"tailMs": 200
+		},
+		{
+			"kind": "loop",
+			"out": "hero-loop",
+			"from": ["picker", "placeholder", "expand"],
+			"speed": 2.2,
+			"gif": {
+				"width": 720,
+				"fps": 8,
+				"colors": 64
+			}
+		}
+	]
+}

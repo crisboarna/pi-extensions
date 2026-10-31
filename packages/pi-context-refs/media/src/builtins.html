@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The built-in refs: #diff sends the uncommitted changes of a repository under version control.
+clip(async (stage) => {
+	stage.caption("Four built-in refs need no setup: <b>#diff</b>, <b>#staged</b>, <b>#status</b>, <b>#log</b>.", "builtins");
+	await stage.type("Review #");
+	await stage.waitFor(/○ diff/);
+	await sleep(500);
+	await stage.still();
+	await sleep(1600);
+	await stage.type("diff");
+	await sleep(1000);
+	await stage.press("Escape", { after: 400 });
+	stage.caption("A typed <b>#diff</b> works without the picker, and in print, JSON and RPC mode too.", "builtins");
+	await stage.press("Enter");
+	await stage.waitFor(/▸ ref diff \(dynamic,/, { timeout: 20000 });
+	await stage.waitFor(/caps the wait/, { timeout: 20000 });
+	stage.callout(/▸ ref diff \(dynamic, [\d.]+ [KB]+\)/, "the command's output, run at send", { place: "below", last: true });
+	await sleep(3000);
+}, { title: "~/projects/shop-api — pi" });
+</script>
+</body>
+</html>

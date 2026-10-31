@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="anim.css">
+<style>
+	.stage { padding-top: 28px; }
+	.cols { margin-top: 18px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 20px; align-items: start; }
+	.code { font-family: "JetBrains Mono", var(--mono); font-size: 18px; line-height: 1.5; white-space: pre-wrap; }
+	.ph { color: #1a2431; background: var(--ref); border-radius: 4px; padding: 0 5px; }
+	.tag { color: var(--ref); }
+	.body { color: #a9b3c1; }
+	.arrow { color: var(--ref); font-size: 20px; margin: 12px 0 0; }
+	.line { color: var(--ref); }
+	.blocks { display: grid; gap: 14px; }
+</style>
+</head>
+<body>
+<div class="stage">
+	<div class="title">A placeholder in the draft, the file at send</div>
+	<div class="cols">
+		<div class="blocks">
+			<div class="card reveal hidden" id="draft"><div class="label">Your draft in the editor</div><div class="code" id="draft-text"></div></div>
+			<div class="card reveal hidden" id="transcript"><div class="label">The transcript</div><div class="code" id="transcript-text"></div></div>
+		</div>
+		<div class="card reveal hidden" id="model"><div class="label">What the model gets, read at send</div><div class="code" id="model-text"></div></div>
+	</div>
+	<div class="caption"></div>
+</div>
+<script src="data.js"></script>
+<script src="anim.js"></script>
+<script>
+const { typed } = window.MEDIA;
+const [block] = typed.blocks;
+const [last] = typed.collapsed.slice(-1);
+
+const draft = $("#draft-text");
+const [before, after] = typed.message.split("[ref:api]");
+draft.append(before, el("span", "ph", "[ref:api]"), after);
+$("#model-text").append(
+	typed.prose,
+	"\n\n",
+	el("span", "tag", `<context-ref name="${block.name}" kind="${block.kind}" …>`),
+	"\n",
+	el("span", "body", `${block.head.join("\n")}\n…`),
+	"\n",
+	el("span", "tag", "</context-ref>"),
+);
+$("#transcript-text").append(typed.prose, "\n", el("span", "line", last));
+
+window.play = async () => {
+	show("#draft");
+	await caption("Pick api from the # list: the draft holds a short placeholder.");
+	await sleep(2600);
+	show("#model");
+	await caption("At send, the file's current text goes to the model after your message.");
+	await sleep(3200);
+	show("#transcript");
+	await caption(`The transcript keeps one line for the block: ${block.kind}, ${block.size}.`);
+	await sleep(600);
+	await still();
+	await sleep(2600);
+};
+</script>
+</body>
+</html>
