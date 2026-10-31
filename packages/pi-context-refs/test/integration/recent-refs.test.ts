@@ -307,7 +307,8 @@ describe("the Recent section of the # picker", () => {
 		for (let index = 0; index < 12; index++) {
 			writeFileSync(join(project, `f${index}.txt`), "x");
 			await result("read", { path: `f${index}.txt` });
-			await new Promise((resolve) => setTimeout(resolve, 2));
+			// Recency is the clock's millisecond; wait for the next one so each file is newer than the last.
+			for (const tick = Date.now(); Date.now() === tick; ) await new Promise((resolve) => setTimeout(resolve, 1));
 		}
 		const bare = (await items()).map((item) => item.label);
 		assert.deepEqual(
