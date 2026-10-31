@@ -105,6 +105,8 @@ export interface FakeSession {
 	autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider>;
 	/** Sends raw terminal input to the extension's listeners, as the TUI does; true when one consumed it. */
 	pressKey(data: string): boolean;
+	/** Puts text in the editor as the user typing would; `getEditorText` then returns it. */
+	typeInEditor(text: string): void;
 	/** The components shown with `ui.custom`, in the order they were opened. */
 	customs: ShownComponent[];
 }
@@ -124,6 +126,7 @@ export interface ShownComponent {
 export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?: "tui" | "rpc" | "json" | "print"; trusted?: boolean }): FakeSession {
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
+	let editorText = "";
 	const statuses: FakeSession["statuses"] = [];
 	const autocompleteProviders: FakeSession["autocompleteProviders"] = [];
 	const customs: FakeSession["customs"] = [];
@@ -134,6 +137,9 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 		statuses,
 		autocompleteProviders,
 		customs,
+		typeInEditor: (text) => {
+			editorText = text;
+		},
 		pressKey: (data) => [...keyListeners].some((listener) => listener(data)?.consume === true),
 		ctx: {
 			cwd: options.cwd,
@@ -142,7 +148,11 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 			hasUI: options.hasUI ?? (options.mode === "tui" || options.mode === "rpc"),
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
-				setEditorText: (text: string) => editorTexts.push(text),
+				setEditorText: (text: string) => {
+					editorText = text;
+					editorTexts.push(text);
+				},
+				getEditorText: () => editorText,
 				setStatus: (key: string, text: string | undefined) => statuses.push({ key, text }),
 				onTerminalInput: (listener: (data: string) => { consume?: boolean } | undefined) => {
 					keyListeners.add(listener);

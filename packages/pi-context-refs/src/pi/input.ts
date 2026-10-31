@@ -79,9 +79,10 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 	});
 }
 
-/** The TUI refuses a send it cannot complete: the draft comes back, then the notice, whose repaint shows the restored draft. */
+/** The TUI refuses a send it cannot complete: the draft comes back, then the notice, whose repaint shows the restored draft. Text typed while the send ran stays, below the draft. */
 function cancelSend(draft: string, reasons: string[], ctx: ExtensionContext): { action: "handled" } {
-	ctx.ui.setEditorText(draft);
+	const typed = ctx.ui.getEditorText();
+	ctx.ui.setEditorText(typed === "" ? draft : `${draft}\n${typed}`);
 	ctx.ui.notify(printable(`pi-context-refs: ${reasons.join("\n")}`), "error");
 	return { action: "handled" };
 }
