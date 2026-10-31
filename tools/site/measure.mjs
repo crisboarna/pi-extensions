@@ -77,7 +77,7 @@ for (const name of browsers.length ? browsers : ["chromium", "firefox", "webkit"
 		let result = "";
 		try {
 			await page.goto(`http://127.0.0.1:8098/${folder}/try.html`);
-			// coi-serviceworker reloads the page once to make it cross-origin isolated.
+			// The site worker isolates the page; site.js reloads it once to apply the headers.
 			if (!(await until(() => page.evaluate(() => window.crossOriginIsolated).catch(() => false), 20000)))
 				throw new Error("the page never became cross-origin isolated");
 			const clicked = Date.now();
