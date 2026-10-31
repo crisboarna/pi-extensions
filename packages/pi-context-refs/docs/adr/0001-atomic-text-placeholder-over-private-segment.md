@@ -17,5 +17,5 @@ The Placeholder names its Ref, so it needs no registry: undo, history recall, pa
 ## Consequences
 
 - A pi upgrade can break the merge. CI turns red through the contract test; users fall back to the plain-text behaviour.
-- The package never owns the editor, so it coexists with other editor extensions that wrap.
+- The package never replaces another extension's editor, so it coexists with other editor extensions that wrap. When no editor is installed it builds pi's default one, with pi's own options, and decorates that.
 - Placeholders in drafts, history and pasted text keep meaning the same thing.

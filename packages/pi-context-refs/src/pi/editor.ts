@@ -87,7 +87,7 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 		const previous = ctx.ui.getEditorComponent();
 		if (installed !== undefined && previous === installed) return;
 		installed = (tui, theme, keybindings) => {
-			const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings);
+			const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
 			decorateEditor(editor);
 			live = editor;
 			return editor;
