@@ -11,22 +11,23 @@
 	body.light { background: var(--paper); color: var(--ink); }
 	.mark { width: 200px; height: 200px; }
 	.word { font-family: var(--sans); font-weight: 600; font-size: 72px; letter-spacing: -0.01em; line-height: 1; }
-	.line { margin-top: 14px; font-size: 27px; }
+	.line { margin-top: 14px; font-size: 23px; }
 	body.dark .line { color: #d9cfbb; }
 	body.light .line { color: #3a4552; }
-	.packages { margin-top: 26px; display: flex; gap: 34px; font-family: var(--mono); font-size: 21px; }
-	.packages span { display: flex; align-items: center; gap: 12px; }
-	.packages img { width: 40px; height: 40px; }
+	.packages { margin-top: 26px; display: flex; gap: 24px; font-family: var(--mono); font-size: 17px; }
+	.packages span { display: flex; align-items: center; gap: 9px; }
+	.packages img { width: 32px; height: 32px; }
 </style>
 </head>
 <body>
 <img class="mark" src="/repo/site/assets/mark.svg" alt="">
 <div>
 	<div class="word">pi-extensions</div>
-	<p class="line">Route every request. Guard every account.</p>
+	<p class="line">Route every request. Guard every account. Reuse every context.</p>
 	<div class="packages">
 		<span><img src="/repo/packages/pi-switchboard/media/src/mark.svg" alt="">pi-switchboard</span>
 		<span><img src="/repo/packages/pi-account-guard/media/src/mark.svg" alt="">pi-account-guard</span>
+		<span><img src="/repo/packages/pi-context-refs/media/src/mark.svg" alt="">pi-context-refs</span>
 	</div>
 </div>
 <script>document.body.className = new URLSearchParams(location.search).get("theme") ?? "dark";</script>
