@@ -21,12 +21,9 @@ Setup: start pi with `PI_CODING_AGENT_DIR` pointing at a temporary directory and
 
 ## Keystrokes
 
-- [ ] Backspace right after `[ref:api]` deletes the whole placeholder; Left and Right skip over it.
-- [ ] Ctrl+W right after `[ref:api]` deletes only the placeholder and keeps the word before it.
-- [ ] Ctrl+Z (undo) after a delete brings the placeholder back whole.
-- [ ] Up-arrow recall of a sent message that held a placeholder.
-- [ ] A pick from `alt+r` after a typed `#ap` replaces the `#ap`, with no stray character.
-- [ ] Esc during a slow command ref (`/ref add slow dynamic sleep 5`) cancels the send and restores the draft.
+These are tests now: `test/tui/placeholder-keys.test.ts` (Backspace, Left and Right, Ctrl+W, undo, Up-arrow recall) and `test/tui/overlay-and-cancel-keys.test.ts` (an `alt+r` pick replacing `#te`, Esc during a slow command ref) run real pi's interactive mode on a virtual terminal. Nothing in this section needs a person, except one thing a virtual terminal cannot tell you:
+
+- [ ] On your own terminal and keyboard, the keys above reach pi as the tests assume. Pi's undo is `ctrl+-` (`ctrl+z` on Windows only); a terminal that does not send it needs a binding in `keybindings.json`.
 
 ## Approval
 
