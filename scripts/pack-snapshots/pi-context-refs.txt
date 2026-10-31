@@ -36,6 +36,7 @@ src/index.ts
 src/pi/approvals.ts
 src/pi/commands.ts
 src/pi/editor.ts
+src/pi/escape-guard.ts
 src/pi/exec.ts
 src/pi/fetch.ts
 src/pi/fs.ts
@@ -49,6 +50,7 @@ src/pi/recent-source.ts
 src/pi/ref-approvals.ts
 src/pi/ref-run.ts
 src/pi/ref-save.ts
+src/pi/run-process.ts
 src/pi/running.ts
 src/pi/sent.ts
 src/pi/text-viewer.ts
