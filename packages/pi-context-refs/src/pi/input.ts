@@ -7,7 +7,7 @@ import { printable } from "../core/text.ts";
 import type { UrlEnv } from "../core/url.ts";
 import { type ApprovalDeps, createApprover } from "./approvals.ts";
 import { createLibraries, type LibraryDeps } from "./libraries.ts";
-import { type CommandRun, trackRun } from "./running.ts";
+import { type CommandRun, createSendSet, type SendSet, trackRun } from "./running.ts";
 
 /** What the input handler needs from outside pi, so tests can stand in for the machine. */
 export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
@@ -22,6 +22,8 @@ export interface InputDeps extends LibraryDeps, ApprovalDeps, CommandEnv {
 	/** The files this session used; a `[ref:file:<path>]` Placeholder reads only one of them. */
 	recent: UsedFiles;
 	writeStderr: (text: string) => void;
+	/** True while another component, an autocomplete list or the overlay, wants Esc; a send then does not take it. */
+	escapeTaken?: () => boolean;
 }
 
 /**
@@ -44,20 +46,21 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 		showNotices(libraries.refresh(ctx).notices, ctx, deps);
 	});
 
-	// The send in progress, so shutting the session down can cancel it; `ended` tells the send that its session is gone.
-	let current: CommandRun | undefined;
+	// The sends in progress, so shutting the session down can cancel them all; `ended` tells a send that its session is gone.
+	const sends: SendSet = createSendSet(deps.escapeTaken);
+	const current = new Set<CommandRun>();
 	let ended = false;
 	pi.on("session_shutdown", () => {
 		ended = true;
-		current?.abort();
+		for (const run of current) run.abort();
 	});
 
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension" || isSubagentChild()) return undefined;
 		const { visible, layers, notices } = libraries.refresh(ctx);
 		showNotices(notices, ctx, deps);
-		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl);
-		current = run;
+		const run = trackRun(ctx, deps.runCommand, deps.fetchUrl, sends);
+		current.add(run);
 		let expansion: Awaited<ReturnType<typeof expandRefs>>;
 		try {
 			expansion = await expandRefs(event.text, visible, {
@@ -72,7 +75,7 @@ export function registerInput(pi: ExtensionAPI, deps: InputDeps): void {
 			});
 		} finally {
 			run.finish();
-			if (current === run) current = undefined;
+			current.delete(run);
 		}
 		if (ended) return { action: "handled" };
 		if (run.signal.aborted) return cancelSend(event.text, ["cancelled"], ctx);

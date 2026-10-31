@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { detectSupportedImageMimeTypeFromFile, type ExtensionAPI, getAgentDir, truncateHead } from "@earendil-works/pi-coding-agent";
 import { type CommandDeps, registerRefCommand } from "./pi/commands.ts";
 import { registerEditor } from "./pi/editor.ts";
+import { createEscapeGuard } from "./pi/escape-guard.ts";
 import { commandEnv } from "./pi/exec.ts";
 import { urlEnv } from "./pi/fetch.ts";
 import { isFilePresent, linkTargetIfSymlink, readFileBytes, readTextIfPresent, realpathIfPresent, writeTextAtomically } from "./pi/fs.ts";
@@ -19,7 +20,10 @@ export default function extension(pi: ExtensionAPI): void {
 	const recent = registerRecentSource(pi, { home: homedir(), tmpdir: tmpdir(), now: Date.now });
 	// One reader for the input handler, the commands and the picker, so the picker's per-keystroke refresh does not run git each time.
 	const readRemotes = cachedRemoteReader(readRemoteUrls);
+	// Esc cancels a running send unless an autocomplete list or the overlay is open and needs it.
+	const escapeGuard = createEscapeGuard();
 	const inputDeps: InputDeps = {
+		escapeTaken: escapeGuard.taken,
 		recent,
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		home: homedir(),
@@ -64,6 +68,7 @@ export default function extension(pi: ExtensionAPI): void {
 		isFile: isFilePresent,
 	});
 	const editors = registerEditor(pi);
-	registerOverlay(pi, { ...inputDeps, ...commandDeps, isFile: isFilePresent }, editors);
+	escapeGuard.watch(editors.autocompleteOpen);
+	registerOverlay(pi, { ...inputDeps, ...commandDeps, isFile: isFilePresent, escape: escapeGuard }, editors);
 	registerTranscript(pi);
 }

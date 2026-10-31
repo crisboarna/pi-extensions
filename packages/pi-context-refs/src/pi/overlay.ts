@@ -8,6 +8,7 @@ import { isNumber, triggerQuery } from "../core/trigger.ts";
 import { createPreviewApprover } from "./approvals.ts";
 import { type CommandDeps, edit, remove } from "./commands.ts";
 import type { Draft, EditorTap } from "./editor.ts";
+import type { EscapeGuard } from "./escape-guard.ts";
 import type { InputDeps } from "./input.ts";
 import { createLibraries, type Libraries } from "./libraries.ts";
 import { type OverlayResult, type OverlayState, PickerOverlay } from "./overlay-view.ts";
@@ -19,6 +20,8 @@ import { saveUsedFile } from "./ref-save.ts";
 export interface OverlayDeps extends InputDeps, CommandDeps {
 	/** Whether the path is a file that exists; a Recent row for a file that is gone is hidden. */
 	isFile: (path: string) => boolean;
+	/** Told while the overlay is open, so a running send does not take its Esc. */
+	escape?: EscapeGuard;
 }
 
 /** How long a row stays selected before its preview starts. */
@@ -93,23 +96,29 @@ async function showOverlay(session: OverlaySession, ctx: ExtensionContext, deps:
 	let repaint = (): void => {};
 	const state: OverlayState = { filter: typedTrigger(tap.draft(ctx), session.trigger).query, fileForms: new Set() };
 	while (session.active) {
-		const source = pickerSourceOf(ctx, session.libraries, deps, deps.now().getTime(), await inWorkTree(deps, ctx.cwd));
-		const result = await ctx.ui.custom<OverlayResult>(
-			(tui, theme, _keybindings, done) => {
-				repaint = () => tui.requestRender();
-				session.close = () => done({ action: "close" });
-				return new PickerOverlay({
-					tui,
-					theme,
-					done,
-					state,
-					rowsFor: (filter) => pickerRows(source, filter),
-					preview: (row, signal) => previewOf(ctx, deps, source, row, signal),
-					previewDelay: PREVIEW_DELAY_MS,
-				});
-			},
-			{ overlay: true, overlayOptions: SHAPE },
-		);
+		const workTree = await inWorkTree(deps, ctx.cwd);
+		// The session can end while git answers; its context is stale then.
+		if (!session.active) return;
+		const source = pickerSourceOf(ctx, session.libraries, deps, deps.now().getTime(), workTree);
+		const release = deps.escape?.hold();
+		const result = await ctx.ui
+			.custom<OverlayResult>(
+				(tui, theme, _keybindings, done) => {
+					repaint = () => tui.requestRender();
+					session.close = () => done({ action: "close" });
+					return new PickerOverlay({
+						tui,
+						theme,
+						done,
+						state,
+						rowsFor: (filter) => pickerRows(source, filter),
+						preview: (row, signal) => previewOf(ctx, deps, source, row, signal),
+						previewDelay: PREVIEW_DELAY_MS,
+					});
+				},
+				{ overlay: true, overlayOptions: SHAPE },
+			)
+			.finally(() => release?.());
 		session.close = undefined;
 		if (!session.active || result.action === "close") return;
 		if (result.action === "pick") {
