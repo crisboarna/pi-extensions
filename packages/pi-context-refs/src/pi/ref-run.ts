@@ -10,7 +10,7 @@ import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
 import { printable } from "../core/text.ts";
 import type { ApprovalDeps } from "./approvals.ts";
-import { projectLibraryPath } from "./libraries.ts";
+import { projectLibraryPath, projectLibraryProblem } from "./libraries.ts";
 
 /** What `/ref` needs from outside pi, so tests can stand in for the machine. */
 export interface CommandDeps extends ApprovalDeps {
@@ -68,10 +68,28 @@ const libraryFile = (deps: CommandDeps, path: string): LibraryFile => ({ path, r
 export const globalLibraryFile = (deps: CommandDeps): LibraryFile => libraryFile(deps, deps.libraryPath);
 
 /** The two library files for a session at `cwd`. */
-export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName, LibraryFile> => ({
-	global: globalLibraryFile(deps),
-	project: libraryFile(deps, projectLibraryPath(cwd)),
-});
+export const libraryFiles = (deps: CommandDeps, cwd: string): Record<LibraryName, LibraryFile> => {
+	const path = projectLibraryPath(cwd);
+	// The Project library file may be a link a repository committed; it is neither read nor written when it leaves the project.
+	const checked = (): void => {
+		const problem = projectLibraryProblem(cwd, deps);
+		if (problem !== undefined) throw new Error(problem);
+	};
+	return {
+		global: globalLibraryFile(deps),
+		project: {
+			path,
+			read: () => {
+				checked();
+				return deps.readText(path);
+			},
+			write: (text) => {
+				checked();
+				deps.writeText(path, text);
+			},
+		},
+	};
+};
 
 export function createRun(ctx: ExtensionContext, deps: CommandDeps, say: Run["say"]): Run {
 	const place: Place = { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };

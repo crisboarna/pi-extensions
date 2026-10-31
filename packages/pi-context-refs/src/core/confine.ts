@@ -38,6 +38,18 @@ export function confinementProblem(ref: Ref, env: ConfineEnv): ConfinementProble
 	};
 }
 
+/**
+ * Why the Project library file at `path` may not be read or written, or undefined when it may. The file, or the `.pi` folder above it, can be a
+ * symbolic link a repository committed; after following links the file must still lie inside the project.
+ */
+export function libraryFileProblem(path: string, env: ConfineEnv): string | undefined {
+	const root = env.realpath(env.cwd) ?? env.cwd;
+	const real = resolveThroughSymlinks(resolve(path), env, 0);
+	if (real === undefined) return `${path} follows symlinks that never end; the Project library file must stay inside the project`;
+	if (isInside(root, real)) return undefined;
+	return `${path} resolves to ${real}, outside the project ${root}; the Project library file must stay inside the project`;
+}
+
 function expandHome(path: string, home: string): string {
 	if (path === "~") return home;
 	return path.startsWith("~/") ? `${home}/${path.slice(2)}` : path;
