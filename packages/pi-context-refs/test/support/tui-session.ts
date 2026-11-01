@@ -26,7 +26,9 @@ export interface TuiOptions {
 	env?: Record<string, string>;
 	columns?: number;
 	rows?: number;
-	/** Extensions to load besides the package's and the stub provider's. */
+	/** Extensions loaded before the package's: their `session_start` handlers run first, so the package wraps what they install. */
+	before?: ExtensionFactory[];
+	/** Extensions loaded after the package's: they run last, so one that replaces the editor replaces the package's. */
 	extensions?: ExtensionFactory[];
 }
 
@@ -81,7 +83,7 @@ export class TuiSession {
 				resourceLoaderOptions: {
 					noExtensions: true,
 					noSkills: true,
-					extensionFactories: [stubProvider, contextRefs, ...(options.extensions ?? [])],
+					extensionFactories: [stubProvider, ...(options.before ?? []), contextRefs, ...(options.extensions ?? [])],
 				},
 			});
 			const model = services.modelRuntime.getModel(STUB_PROVIDER, STUB_MODEL);
