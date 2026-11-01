@@ -1,5 +1,7 @@
 // Layer B: real pi's interactive mode in this process, on a virtual terminal. Keys go in as bytes; the
 // screen and what the model received come out. Runs in `npm run test:integration` with no pty and no binary.
+//
+// covers: src/pi/picker.ts
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";

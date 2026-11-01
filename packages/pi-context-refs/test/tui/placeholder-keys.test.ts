@@ -1,6 +1,8 @@
 // Layer B: the "Keystrokes" lines of docs/manual-checklist.md that concern the Placeholder, as tests. Real pi's
 // interactive mode runs in this process on a virtual terminal; each test types keys and reads the editor.
 // The expected text is what the keys did when first tried, which is what the checklist describes.
+//
+// covers: src/pi/editor.ts
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";

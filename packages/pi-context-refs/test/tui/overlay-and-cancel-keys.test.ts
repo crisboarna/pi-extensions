@@ -1,6 +1,8 @@
 // Layer B: the last two "Keystrokes" lines of docs/manual-checklist.md as tests. A pick from `alt+r` after a typed
 // `#te` replaces the `#te` and leaves no stray character; Esc during a slow command ref cancels the send and puts
 // the draft back. The pty versions in `test/smoke` stay as canaries against the shipped binary.
+//
+// covers: src/pi/overlay.ts, src/pi/running.ts
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
