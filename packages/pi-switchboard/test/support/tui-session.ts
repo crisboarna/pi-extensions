@@ -27,6 +27,8 @@ export interface TuiOptions {
 	env?: Record<string, string>;
 	columns?: number;
 	rows?: number;
+	/** The model the session starts on; defaults to the first stub model. A virtual model (`switchboard/auto`) turns routing on. */
+	model?: { provider: string; id: string };
 	/** Extensions to load besides the switchboard and the stub providers. */
 	extensions?: ExtensionFactory[];
 }
@@ -98,7 +100,7 @@ export class TuiSession {
 					extensionFactories: [tuiStubProviders, switchboard, ...(options.extensions ?? [])],
 				},
 			});
-			const model = services.modelRuntime.getModel(PROVIDER, MODEL);
+			const model = services.modelRuntime.getModel(options.model?.provider ?? PROVIDER, options.model?.id ?? MODEL);
 			return {
 				...(await createAgentSessionFromServices({
 					services,
@@ -134,7 +136,7 @@ export class TuiSession {
 
 	/** Resolves when the editor is drawn and takes keystrokes. */
 	async ready(): Promise<void> {
-		await Promise.race([this.terminal.waitForScreen((screen) => screen.includes(`(${PROVIDER}) ${MODEL}`)), this.#running]);
+		await Promise.race([this.terminal.waitForScreen((screen) => /\(\w+\) [\w.-]+( • \w+)?\s*$/m.test(screen)), this.#running]);
 	}
 
 	/** The editor's text as drawn: the rows between the last two rules, which frame it above the footer. */

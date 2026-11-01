@@ -1,6 +1,8 @@
 // Layer B: `/tier watch`, the navigator overlay, under the keys of pi's real TUI. Real interactive pi runs in this
 // process on a virtual terminal. `integration/extension.test.ts` feeds the component two keys through a stub of
 // `ui.custom`; here pi mounts the overlay itself, so focus, the repaint, closing and a terminal resize are exercised too.
+//
+// covers: src/tui/pi-tui.ts, src/index.ts
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,6 +15,8 @@ const ESC = "\x1b";
 const UP = "\x1b[A";
 const DOWN = "\x1b[B";
 const OVERLAY = "switchboard ·";
+/** Ctrl+Alt+W as a terminal in the Kitty keyboard protocol sends it: codepoint 119, modifiers 1 + alt 2 + ctrl 4. */
+const CTRL_ALT_W = "\x1b[119;7u";
 
 /** The overlay's rows as drawn, frame stripped. */
 async function overlay(tui: TuiSession): Promise<string[]> {
@@ -75,6 +79,22 @@ async function withNavigator(body: (tui: TuiSession) => Promise<void>, options: 
 		await tui.close();
 	}
 }
+
+describe("the navigator's shortcut under the keys of pi's real TUI", () => {
+	it("Ctrl+Alt+W opens the navigator without typing a command, and Escape closes it", async () => {
+		const tui = await TuiSession.start({ config: BASE_CONFIG });
+		try {
+			await tui.ready();
+			tui.terminal.press(CTRL_ALT_W);
+			await tui.terminal.waitForScreen((screen) => screen.includes(OVERLAY));
+			assert.equal(await tui.editor(), "", "nothing was typed into the editor");
+			tui.terminal.press(ESC);
+			await overlayClosed(tui);
+		} finally {
+			await tui.close();
+		}
+	});
+});
 
 describe("the navigator overlay under the keys of pi's real TUI", () => {
 	it("opens with the main row selected and the key hints, and Escape closes it", () =>
