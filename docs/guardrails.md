@@ -55,7 +55,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | No AI attribution trailers | M CI | "Co-Authored-By" lines naming an assistant, and "Generated with" lines |
 | Pull request template | PR | Changes merged without saying how they were verified |
 | CODEOWNERS | PR | Changes merged without the owner's review (with the branch ruleset, see `docs/repository-settings.md`) |
-| Signed commits (`scripts/checks/signatures.ts`) | P | Pushing commits without a valid signature from a key in `.github/allowed_signers` |
+| Signed commits (`scripts/checks/signatures.ts`) | P | Pushing commits without a valid signature from a key in `.github/allowed_signers`. It checks the commits that exist on no remote, so merging `main` into a branch does not ask for signatures on `main`'s own commits, which GitHub signs with its key. `test/signatures.test.ts` runs it against a fixture with real SSH-signed commits |
 | GitHub-verified commits (`scripts/checks/github-signatures.ts`) | PR, `main` | Any commit in a pull request or push that GitHub does not show as Verified; the branch ruleset also requires signed commits |
 
 ## Supply chain
