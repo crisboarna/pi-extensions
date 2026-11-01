@@ -43,7 +43,6 @@
 		"pi-powerline-footer",
 		"@webcontainer/api",
 		"@xterm/xterm",
-		"@xterm/addon-fit",
-		"coi-serviceworker"
+		"@xterm/addon-fit"
 	]
 }

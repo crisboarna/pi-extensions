@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
+import { withoutRepositoryVariables } from "./git-repo.ts";
 
 type Handler = (event: any, ctx: any) => unknown;
 
@@ -34,7 +35,7 @@ interface ExecResult {
 /** `pi.exec` as pi implements it: a real child with no shell, killed on a timeout or an abort. A child that cannot start gives exit 1 and no output. */
 function exec(command: string, args: string[], options: { cwd?: string; timeout?: number; signal?: AbortSignal } = {}): Promise<ExecResult> {
 	return new Promise((resolve) => {
-		const child = spawn(command, args, { cwd: options.cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn(command, args, { cwd: options.cwd, env: withoutRepositoryVariables(process.env), shell: false, stdio: ["ignore", "pipe", "pipe"] });
 		let stdout = "";
 		let stderr = "";
 		let killed = false;
