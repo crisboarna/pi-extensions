@@ -85,6 +85,19 @@ describe("beside an extension that replaces the editor (pi's rainbow-editor exam
 			await tui.terminal.waitForScreen((screen) => screen.includes(QUIET_REPLY));
 			assert.deepEqual(received(), [{ text: "one Answer in one sentence.", images: 0 }]);
 		}));
+	it("loaded after the package: a Placeholder typed right after a half-deleted one still expands", () =>
+		withNeighbour("rainbow-editor", "after", async (tui, received) => {
+			assert.ok(await rainbowIsDrawing(tui), "the neighbour's editor is the one in use");
+			tui.terminal.type("one [ref:terse]");
+			await tui.waitForEditor((text) => text === "one [ref:terse]");
+			tui.terminal.press(BACKSPACE);
+			await tui.waitForEditor((text) => text === "one [ref:terse");
+			tui.terminal.type("[ref:terse]");
+			await tui.waitForEditor((text) => text === "one [ref:terse[ref:terse]");
+			tui.terminal.press(ENTER);
+			await tui.terminal.waitForScreen((screen) => screen.includes(QUIET_REPLY));
+			assert.deepEqual(received(), [{ text: "one [ref:terseAnswer in one sentence.", images: 0 }]);
+		}));
 });
 
 describe("beside an extension that rewrites input (pi's input-transform example)", () => {

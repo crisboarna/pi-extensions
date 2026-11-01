@@ -99,6 +99,19 @@ describe("[ref:...] placeholders", () => {
 		assert.deepEqual(found("[ref:] [ref:abc [ref:a\nb] [REF:api]"), []);
 	});
 
+	it("does not let a half-deleted placeholder swallow the complete one after it", () => {
+		const text = "one [ref:terse[ref:terse]";
+		const [token, ...rest] = findRefTokens(text);
+		assert.deepEqual([token?.form, token?.target, rest.length], ["placeholder", "terse", 0]);
+		assert.equal(token && text.slice(token.start, token.end), "[ref:terse]");
+		assert.equal(token?.start, "one [ref:terse".length);
+		assert.deepEqual(found("[ref:a[ref:b][ref:c]"), ["placeholder:b", "placeholder:c"]);
+	});
+
+	it("keeps a bracket that does not start another placeholder inside the target", () => {
+		assert.deepEqual(found("[ref:file:a[b]"), ["placeholder:file:a[b"]);
+	});
+
 	it("does not read a # inside a placeholder as a typed token", () => {
 		assert.deepEqual(found("[ref:#api]"), ["placeholder:#api"]);
 	});
