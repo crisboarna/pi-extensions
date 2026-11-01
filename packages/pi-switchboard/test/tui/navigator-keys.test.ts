@@ -47,8 +47,15 @@ async function openNavigator(tui: TuiSession): Promise<void> {
 	throw new Error(`the navigator did not open:\n${await tui.terminal.screen()}`);
 }
 
-async function withNavigator(body: (tui: TuiSession) => Promise<void>, options: { child?: boolean; columns?: number } = {}): Promise<void> {
-	const tui = await TuiSession.start({ config: BASE_CONFIG, ...(options.columns !== undefined ? { columns: options.columns } : {}) });
+async function withNavigator(
+	body: (tui: TuiSession) => Promise<void>,
+	options: { child?: boolean; columns?: number; rows?: number; transcript?: number } = {},
+): Promise<void> {
+	const tui = await TuiSession.start({
+		config: BASE_CONFIG,
+		...(options.columns !== undefined ? { columns: options.columns } : {}),
+		...(options.rows !== undefined ? { rows: options.rows } : {}),
+	});
 	try {
 		await tui.ready();
 		if (options.child) {
@@ -68,6 +75,12 @@ async function withNavigator(body: (tui: TuiSession) => Promise<void>, options: 
 				updatedAt: now,
 			};
 			writeFileSync(join(live, "child-1.json"), JSON.stringify(status));
+			if (options.transcript !== undefined) {
+				const lines = Array.from({ length: options.transcript }, (_, index) =>
+					JSON.stringify({ ts: now + index, kind: "text", text: `entry ${String(index + 1).padStart(3, "0")}` }),
+				);
+				writeFileSync(join(live, "child-1.jsonl"), `${lines.join("\n")}\n`);
+			}
 		}
 		await openNavigator(tui);
 		await body(tui);
@@ -79,6 +92,34 @@ async function withNavigator(body: (tui: TuiSession) => Promise<void>, options: 
 		await tui.close();
 	}
 }
+
+/** How many transcript entries the open transcript view draws. */
+async function transcriptRowsDrawn(tui: TuiSession): Promise<number> {
+	return (await tui.terminal.screen()).split("\n").filter((row) => /reply\s+entry \d{3}/.test(row)).length;
+}
+
+describe("the navigator's transcript view under the keys of pi's real TUI", () => {
+	it("fits the overlay at every terminal height: its hint line is drawn, and a taller terminal shows more entries", async () => {
+		const drawn = new Map<number, number>();
+		for (const rows of [24, 40, 60]) {
+			await withNavigator(
+				async (tui) => {
+					tui.terminal.press(DOWN);
+					await tui.terminal.waitForScreen((screen) => /› └ ● scout/u.test(screen));
+					tui.terminal.press("t");
+					await tui.terminal.waitForScreen((screen) => screen.includes("scout · transcript (100 entries)"));
+					const screen = await tui.terminal.screen();
+					assert.ok(screen.includes("↑↓ scroll · esc back"), `the hint line is drawn at ${rows} rows:\n${screen}`);
+					drawn.set(rows, await transcriptRowsDrawn(tui));
+				},
+				{ child: true, rows, transcript: 100 },
+			);
+		}
+		const [small, medium, large] = [24, 40, 60].map((rows) => drawn.get(rows) ?? 0);
+		assert.ok((small ?? 0) > 5, `a 24-row terminal still shows several entries, got ${small}`);
+		assert.ok((medium ?? 0) > (small ?? 0) && (large ?? 0) > (medium ?? 0), `entries drawn at 24, 40 and 60 rows: ${small}, ${medium}, ${large}`);
+	});
+});
 
 describe("the navigator's shortcut under the keys of pi's real TUI", () => {
 	it("Ctrl+Alt+W opens the navigator without typing a command, and Escape closes it", async () => {
