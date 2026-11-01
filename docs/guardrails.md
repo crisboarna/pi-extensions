@@ -65,7 +65,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | `save-exact`, `engine-strict` | every install | Floating versions; installing on an unsupported Node |
 | Lockfile policy (`scripts/checks/npm-policy.ts`) | P CI | Dependencies resolved from anywhere but the npm registry, or without a sha512 hash; the `.npmrc` guards being removed |
 | `npm audit signatures` | CI | Installed packages whose registry signatures or provenance attestations do not verify |
-| `npm audit` on runtime dependencies | CI | Known vulnerabilities in what users install |
+| `npm audit` on runtime dependencies (`scripts/tools/audit.ts`) | CI | A known vulnerability of moderate severity or worse in what users install, unless `audit-exceptions.json` lists that advisory and package with a reason and an expiry date |
 | Dependency review | CI (PR), public repository only | New dependencies with known vulnerabilities or licences outside the allow-list |
 | Dependabot with a 7-day cooldown | weekly | Stale dependencies and actions, without jumping on brand-new releases |
 | gitleaks (in Docker) | C (staged changes) P CI (whole history) | Committed secrets. Deliberate fakes in tests are allow-listed narrowly in `.gitleaks.toml` |
