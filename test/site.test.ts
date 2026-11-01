@@ -87,6 +87,9 @@ describe("the family site", () => {
 		for (const pkg of sitePackages()) {
 			const page = readFileSync(join(out, pkg.folder, "index.html"), "utf8");
 			const videos = page.match(/<video [^>]*>/g) ?? [];
+			// A package with a demo video must show it as the hero, whatever its README's alt text holds (pi-context-refs' has [ref:api]).
+			const hasDemo = existsSync(new URL(`../packages/${pkg.folder}/media/hero.mp4`, import.meta.url));
+			if (hasDemo) assert.ok(videos[0], `${pkg.folder}: its demo is a video on the page, not a picture`);
 			if (videos[0]) assert.match(videos[0], /autoplay muted loop playsinline/, `${pkg.folder}: the hero starts on load`);
 			for (const later of videos.slice(1)) assert.match(later, /controls preload="none"/, pkg.folder);
 		}

@@ -131,7 +131,7 @@ function renderMarkdown(markdown: string, hero: boolean): string {
 	// A poster that links to its video becomes the video itself, with the narration's subtitles when they exist.
 	// The README may show an animated loop (GitHub plays GIFs, not MP4s); the site's player uses the video's own still.
 	const withVideos = withoutBadges.replace(
-		/\[!\[([^\]]*)\]\(([^)\s]+\.(?:png|gif))\)\]\(([^)\s]+\.mp4)\)/g,
+		/\[!\[((?:[^[\]]|\[[^\]]*\])*)\]\(([^)\s]+\.(?:png|gif))\)\]\(([^)\s]+\.mp4)\)/g,
 		(_all, alt: string, image: string, video: string) => {
 			const poster = image.endsWith(".gif") ? video.replace(/\.mp4$/, ".png") : image;
 			const src = video.replace("/blob/main/", "/raw/main/");
@@ -256,7 +256,10 @@ function statsOf(pkg: SitePackage): string {
 
 function installLine(pkg: SitePackage): string {
 	const command = installCommand(pkg);
-	return `<div class="install"><pre><code>${command}</code></pre><button type="button" class="copy" data-copy="${command}" aria-label="Copy the install command for ${pkg.folder}">Copy</button></div>`;
+	// The package name stays in one piece when the line wraps; the copied text (data-copy) is the plain command.
+	const slash = pkg.name.indexOf("/") + 1;
+	const shown = `pi install npm:${pkg.name.slice(0, slash)}<span class="nowrap">${pkg.name.slice(slash)}</span>`;
+	return `<div class="install"><pre><code>${shown}</code></pre><button type="button" class="copy" data-copy="${command}" aria-label="Copy the install command for ${pkg.folder}">Copy</button></div>`;
 }
 
 /** Every package page opens with its ID, numbers, install line and the ways to try it; a missing demo says so. */
