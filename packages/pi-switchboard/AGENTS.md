@@ -29,6 +29,7 @@ Classifier-driven model routing for pi's main session and pi-subagents children.
 
 - Unit tests (`test/unit/`) cover pure modules with injected clocks, random sources and stores instead of waiting on real time.
 - Integration tests (`test/integration/`) load the extension through jiti against the fake host in `test/support/fake-pi.ts`, with `PI_CODING_AGENT_DIR` in a temporary directory.
+- `test/tui` (in `npm run test:integration` and coverage) runs real interactive pi in the test process on a virtual terminal (`test/support/virtual-terminal.ts`, started by `tui-session.ts`, with `tui-stub-provider.ts` registering the providers of `BASE_CONFIG`) and presses the navigator's keys (`/tier watch`). Close the overlay before `close()`: its refresh timer outlives pi's `stop()` and throws "ctx is stale". Never send Ctrl+D on an empty editor, Ctrl+C twice or `/quit` in one: pi's shutdown ends in `process.exit`. `virtual-terminal.ts` is a copy kept identical to the other packages' by `scripts/checks/copies.ts`. The tour and the footer have no key tests there yet.
 - `test/support/lmstudio-chat.ts` registers LM Studio chat models as a pi provider for free local end-to-end runs (see the README's Development section).
 - `npm run coverage` runs unit and integration tests together (integration imports natively so V8 can map coverage) and fails below 90% lines, branches or functions; `test/unit/all-modules.test.ts` makes every source file count.
 - Live checks not yet done are listed in the README under Limitations; remove an entry only after running the check.
