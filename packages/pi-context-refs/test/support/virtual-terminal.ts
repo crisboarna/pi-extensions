@@ -129,6 +129,61 @@ export class VirtualTerminal implements Terminal {
 		}
 	}
 
+	/**
+	 * Runs a slash command from the editor and resolves once `marker` is on screen. One Enter runs a command whose completion list is
+	 * closed; with the list open the first Enter only closes it. So Enter is pressed again only while the command text is still in the
+	 * editor, never into the dialog the command opened.
+	 */
+	async runCommand(command: string, marker: string, timeoutMs = 10_000): Promise<string> {
+		const inEditor = (screen: string) => screen.split("\n").some((row) => row.trim() === command);
+		this.type(command);
+		await this.waitForScreen(inEditor, timeoutMs);
+		const deadline = Date.now() + timeoutMs;
+		for (;;) {
+			this.press("\r");
+			try {
+				return await this.waitForScreen((screen) => screen.includes(marker), 600);
+			} catch {
+				const screen = await this.screen();
+				if (!inEditor(screen)) return this.waitForScreen((current) => current.includes(marker), Math.max(1, deadline - Date.now()));
+				if (Date.now() > deadline) throw new Error(`the command ${command} did not show ${JSON.stringify(marker)}; the screen shows:\n${screen}`);
+			}
+		}
+	}
+
+	/**
+	 * Moves the selection of the pi selector that is open to the row holding `label`, then presses Enter. Rows are found by what is
+	 * drawn (` → label` for the selected row, three spaces before the others), so a test never counts key presses. After each arrow
+	 * key it waits for the screen to change, so it cannot press twice for one move.
+	 */
+	async chooseRow(label: string, timeoutMs = 10_000): Promise<void> {
+		const deadline = Date.now() + timeoutMs;
+		for (;;) {
+			const rows = (await this.screen()).split("\n");
+			const selected = rows.findLastIndex((row) => /^ → /.test(row));
+			if (selected >= 0) {
+				if (rows[selected]?.includes(label)) {
+					this.press("\r");
+					return;
+				}
+				const target = rows.findIndex(
+					(row, index) => index !== selected && Math.abs(index - selected) <= 40 && /^ {3}\S/.test(row) && row.includes(label),
+				);
+				const before = rows.join("\n");
+				this.press(target >= 0 && target < selected ? "\x1b[A" : "\x1b[B");
+				await this.waitForScreen((screen) => screen !== before, 500).catch(() => undefined);
+			}
+			if (Date.now() > deadline) throw new Error(`could not select ${JSON.stringify(label)}; the screen shows:\n${rows.join("\n")}`);
+			await new Promise((resolve) => setTimeout(resolve, 30));
+		}
+	}
+
+	/** Types `text` into the input dialog that is open and submits it with Enter. */
+	answer(text: string): void {
+		this.type(text);
+		this.press("\r");
+	}
+
 	dispose(): void {
 		this.#xterm.dispose();
 	}

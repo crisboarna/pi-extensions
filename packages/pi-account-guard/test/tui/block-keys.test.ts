@@ -1,6 +1,8 @@
 // Layer B: the Block of a prompt sent to an account of the wrong zone, under the keys of pi's real selector. Real pi's
 // interactive mode runs in this process on a virtual terminal. `smoke/interactive-block.test.ts` serves the same
 // dialogs over RPC; only here do pi's own selector, the editor refill and the repaint after Cancel get exercised.
+//
+// covers: src/pi/interactive-block.ts
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";

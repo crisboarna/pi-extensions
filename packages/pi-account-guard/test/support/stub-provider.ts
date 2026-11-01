@@ -1,6 +1,10 @@
 // A stub model provider for smoke tests. It answers every prompt locally, so real
 // pi can run a full turn with no network and no credentials. Load it with
 // `pi -ne -e test/support/stub-provider.ts`.
+//
+// Environment, all optional:
+//   STUB_REQUEST_LOG  file; one line per request that reaches the provider, the model id
+//   STUB_DELAY_MS     wait this long before answering, so a test can change the model while the turn is running
 import { appendFileSync } from "node:fs";
 import {
 	type Api,
@@ -33,7 +37,7 @@ export function streamStub(model: Model<Api>, _context: TranscriptContext, optio
 		stopReason: "pending",
 		timestamp: Date.now(),
 	};
-	queueMicrotask(() => {
+	const respond = () => {
 		if (options?.signal?.aborted) {
 			stream.push({ type: "error", reason: "aborted", error: { ...message, stopReason: "aborted", errorMessage: "aborted" } });
 			stream.end();
@@ -48,7 +52,10 @@ export function streamStub(model: Model<Api>, _context: TranscriptContext, optio
 		message.stopReason = "stop";
 		stream.push({ type: "done", reason: "stop", message });
 		stream.end();
-	});
+	};
+	const delay = Number(process.env.STUB_DELAY_MS ?? 0);
+	if (delay > 0) setTimeout(respond, delay);
+	else queueMicrotask(respond);
 	return stream;
 }
 
