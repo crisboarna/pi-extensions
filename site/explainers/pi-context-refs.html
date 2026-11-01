@@ -1,0 +1,135 @@
+<h1>Try pi-context-refs: the ref playground</h1>
+<p>Write a message with refs in it, like <code>[ref:api]</code> or <code>#diff</code>, and see what pi-context-refs does with it: the picker rows, the refs it resolves, the text the model receives, the line the transcript keeps, and the <code>/ref list</code> output. This page runs pi-context-refs' own code on the library, files and message below. Nothing leaves the page.</p>
+<p class="note"><strong>Simulated:</strong> git does not run in the page, so <code>#diff</code>, <code>#status</code> and <code>#log</code> print the canned output in the "command output" box. URL refs are not supported here.</p>
+<div class="explainer">
+	<div class="inputs">
+		<fieldset class="presets">
+			<legend>Start from an example</legend>
+			<button type="button" data-preset="why">Why does [ref:api] retry twice?</button>
+			<button type="button" data-preset="diff">Review #diff</button>
+			<button type="button" data-preset="bundle">A bundle: #tag:backend</button>
+			<button type="button" data-preset="unknown">An unknown ref stays as typed</button>
+			<button type="button" data-preset="cap">A File over the cap</button>
+		</fieldset>
+		<label>Draft message <textarea id="message" rows="3" spellcheck="false"></textarea></label>
+		<label>Picker query (what you type after #) <input id="query" spellcheck="false"></label>
+		<label class="check"><input id="worktree" type="checkbox" checked> Inside a git work tree</label>
+		<label>~/.pi/agent/pi-context-refs.json <textarea id="library" rows="12" spellcheck="false">{{file:packages/pi-context-refs/examples/pi-context-refs.json}}</textarea></label>
+		<label>Project files, as JSON (a path maps to its text, or to <code>{"line": "text {n}", "lines": 2500}</code> for a long file) <textarea id="files" rows="12" spellcheck="false">{
+	"src/api.ts": "import { retry } from \"./retry.ts\";\n\nexport const fetchOrders = (client) => retry(() => client.get(\"/orders\"));\n",
+	"src/retry.ts": "export const attempts = 2;\n\nexport async function retry(call) {\n\tfor (let i = 1; ; i++) {\n\t\ttry { return await call(); } catch (error) { if (i >= attempts) throw error; }\n\t}\n}\n",
+	"NOTES.md": "# Notes\n\nShip the retry change this week.\n",
+	"logs/server.log": { "line": "2026-01-01 03:00:{n} INFO request served", "lines": 2500 }
+}</textarea></label>
+		<label>Command output, as JSON (a command line maps to what it prints) <textarea id="commands" rows="8" spellcheck="false">{
+	"git diff": "diff --git a/src/retry.ts b/src/retry.ts\n--- a/src/retry.ts\n+++ b/src/retry.ts\n@@ -1,3 +1,3 @@\n-export const attempts = 2;\n+export const attempts = 3;",
+	"git diff --staged": "",
+	"git status --short": " M src/retry.ts",
+	"git log --oneline -20": "a1b2c3d Add the shop API"
+}</textarea></label>
+	</div>
+	<div class="result" aria-live="polite">
+		<p class="verdict"><span class="lamp" id="lamp"></span><span id="verdict"></span></p>
+		<h2>Resolved refs</h2>
+		<pre id="tokens"></pre>
+		<h2>What the model receives</h2>
+		<pre id="received"></pre>
+		<h2>In the transcript</h2>
+		<pre id="transcript"></pre>
+		<h2>Picker</h2>
+		<pre id="picker"></pre>
+		<h2>/ref list</h2>
+		<pre id="list"></pre>
+		<p class="note">The picker marks show where a ref comes from: ● the Global library, ○ a Built-in ref, ⧉ a bundle of one tag. A File is cut at 2000 lines or 50 KB, as pi's read tool cuts it.</p>
+	</div>
+</div>
+<script type="importmap">{ "imports": { "node:path": "../explain/tools/site/explainers/node-path.js", "node:url": "../explain/tools/site/explainers/node-url.js", "node:crypto": "../explain/tools/site/explainers/node-crypto.js" } }</script>
+<script type="module">
+	import { explainMessage } from "../explain/tools/site/explainers/context-refs.js";
+
+	const PRESETS = {
+		why: { message: "Why does [ref:api] retry twice?", query: "" },
+		diff: { message: "Review #diff", query: "di" },
+		bundle: { message: "Is there a race in #tag:backend?", query: "back" },
+		unknown: { message: "Compare [ref:api] with [ref:missing] and #nothing", query: "" },
+		cap: { message: "What failed in [ref:server-log]?", query: "ser" },
+	};
+	const field = (id) => document.getElementById(id);
+	const SECTION = { scoped: "Scoped", project: "Project library", global: "Global library", builtin: "Built-in refs", recent: "Recent", bundle: "Bundles" };
+	let latest = 0;
+
+	function json(id, label) {
+		try {
+			const value = JSON.parse(field(id).value || "{}");
+			if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("it must be an object");
+			return { value };
+		} catch (error) {
+			return { error: `${label} is not valid JSON: ${error.message}` };
+		}
+	}
+
+	function pickerText(rows) {
+		if (rows.length === 0) return "No row matches this query.";
+		const lines = [];
+		let section = "";
+		for (const row of rows) {
+			if (row.section !== section) {
+				section = row.section;
+				lines.push(`${lines.length ? "\n" : ""}${SECTION[section] ?? section}`);
+			}
+			lines.push(`  ${row.mark} ${row.name}  ${row.kind}  ${row.description}`);
+		}
+		return lines.join("\n");
+	}
+
+	function show(lampClass, verdict, parts = {}) {
+		field("lamp").className = `lamp ${lampClass}`;
+		field("verdict").textContent = verdict;
+		for (const id of ["tokens", "received", "transcript", "picker", "list"]) field(id).textContent = parts[id] ?? "";
+	}
+
+	async function run() {
+		const ticket = ++latest;
+		const files = json("files", "The project files");
+		const commands = json("commands", "The command output");
+		const problem = files.error ?? commands.error;
+		if (problem) return show("red", `Failure: ${problem}`, { tokens: problem });
+		const answer = await explainMessage({
+			libraryText: field("library").value,
+			files: files.value,
+			commandOutput: commands.value,
+			message: field("message").value,
+			query: field("query").value.trim(),
+			inWorkTree: field("worktree").checked,
+		});
+		if (ticket !== latest) return;
+		if (!answer.ok) return show("red", `Failure: ${answer.error}`, { tokens: answer.error });
+		const resolved = answer.tokens.filter((token) => token.status === "resolved").length;
+		const unknown = answer.tokens.length - resolved;
+		const count = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
+		const base = answer.tokens.length === 0 ? "No refs in the message" : `${count(resolved, "ref")} resolved${unknown ? `, ${unknown} stay${unknown === 1 ? "s" : ""} as typed` : ""}`;
+		const failed = answer.failures.map((failure) => failure.name).join(", ");
+		const lamp = answer.failures.length ? "amber" : resolved || answer.tokens.length === 0 ? "on" : "amber";
+		const parts = {
+			tokens: answer.tokens.length ? answer.tokens.map((token) => `${token.text}  ${token.status === "resolved" ? `resolved (${token.kind})` : "unknown, stays as typed"}`).join("\n") : "The message has no ref tokens.",
+			received: answer.text,
+			transcript: answer.collapsed,
+			picker: pickerText(answer.picker),
+			list: [answer.listText, ...(answer.warnings.length ? ["", "Library warnings:", ...answer.warnings.map((warning) => `  ${warning}`)] : [])].join("\n"),
+		};
+		if (answer.failures.length) parts.tokens += `\n\nFailed: ${answer.failures.map((failure) => `${failure.name} (${failure.reason})`).join("; ")}`;
+		show(lamp, answer.failures.length ? `${base}; failed: ${failed}` : base, parts);
+	}
+
+	for (const button of document.querySelectorAll("[data-preset]"))
+		button.addEventListener("click", () => {
+			const preset = PRESETS[button.dataset.preset];
+			field("message").value = preset.message;
+			field("query").value = preset.query;
+			run();
+		});
+	for (const id of ["message", "query", "worktree", "library", "files", "commands"]) field(id).addEventListener("input", run);
+	field("message").value = PRESETS.why.message;
+	field("query").value = PRESETS.why.query;
+	run();
+</script>

@@ -693,6 +693,17 @@ footer.bottom a {
 	width: 100%;
 	accent-color: var(--accent);
 }
+.explainer .check {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.explainer input[type="checkbox"] {
+	display: inline-block;
+	width: auto;
+	margin: 0;
+	accent-color: var(--accent);
+}
 .explainer output {
 	font-family: var(--font-mono);
 	font-variant-numeric: tabular-nums;
@@ -774,6 +785,10 @@ footer.bottom a {
 }
 .explainer .rules .unsure {
 	background: color-mix(in srgb, var(--warn) 22%, transparent);
+}
+.explainer .result h2 {
+	font-size: 0.95rem;
+	margin: 1rem 0 0.3rem;
 }
 .explainer .result pre {
 	white-space: pre-wrap;

@@ -7,5 +7,13 @@
 		"declaration": false,
 		"sourceMap": false
 	},
-	"files": ["explainers/account-guard.ts", "explainers/switchboard.ts", "explainers/node-path.ts"]
+	"files": [
+		"explainers/account-guard.ts",
+		"explainers/switchboard.ts",
+		"explainers/node-path.ts",
+		"explainers/node-url.ts",
+		"explainers/node-crypto.ts",
+		"explainers/buffer-shim.ts",
+		"explainers/context-refs.ts"
+	]
 }
