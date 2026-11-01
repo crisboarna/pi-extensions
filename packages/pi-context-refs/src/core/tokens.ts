@@ -9,8 +9,9 @@ export interface RefToken {
 	end: number;
 }
 
-// A Placeholder is bounded only by `]` (on one line). A typed token starts at `#` unless a word, URL or path character comes before it.
-const REF_TOKEN = /\[ref:([^\]\n]+)\]|(?<![\p{L}\p{N}._\-/\\#&=?])#([Tt][Aa][Gg]:)?([A-Za-z0-9._-]+)/gu;
+// A Placeholder is bounded by `]` (on one line) and cannot hold another `[ref:`, so a half-deleted one before a complete one does not
+// swallow it. A typed token starts at `#` unless a word, URL or path character comes before it.
+const REF_TOKEN = /\[ref:((?:(?!\[ref:)[^\]\n])+)\]|(?<![\p{L}\p{N}._\-/\\#&=?])#([Tt][Aa][Gg]:)?([A-Za-z0-9._-]+)/gu;
 
 /** Every typed ref token and Placeholder in `text`, in order. Matching them to Refs is left to the caller. */
 export function findRefTokens(text: string): RefToken[] {
