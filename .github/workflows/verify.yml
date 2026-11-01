@@ -156,6 +156,7 @@ jobs:
       - name: Registry signatures and provenance of installed packages
         run: npm audit signatures
 
-      # Only runtime dependencies reach users; dev tooling is updated through Dependabot.
+      # Only runtime dependencies reach users; dev tooling is updated through Dependabot. npm audit has no
+      # allow-list, so scripts/tools/audit.ts applies the dated, per-advisory entries of audit-exceptions.json.
       - name: Known vulnerabilities in runtime dependencies
-        run: npm audit --omit=dev --omit=peer --audit-level=moderate
+        run: node scripts/tools/audit.ts

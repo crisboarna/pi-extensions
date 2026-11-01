@@ -26,6 +26,7 @@
 		"lint:md": "markdownlint-cli2",
 		"typecheck": "tsc -p tsconfig.json",
 		"knip": "node scripts/tools/knip.ts",
+		"audit": "node scripts/tools/audit.ts",
 		"gitleaks": "node scripts/tools/gitleaks.ts",
 		"test": "npm run test --workspaces --if-present && npm run test:repo",
 		"test:repo": "node --test --test-reporter=dot \"test/*.test.ts\"",

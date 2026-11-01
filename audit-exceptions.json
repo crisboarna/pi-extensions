@@ -1,0 +1,8 @@
+[
+	{
+		"advisory": "GHSA-g3hv-75wg-m249",
+		"package": "minimatch",
+		"reason": "Denial of service through globparts amplification in minimatch. It is installed here only as a dependency of @earendil-works/pi-coding-agent 1.4.0, which the published packages list as a \"*\" peer dependency (pi supplies it) and the repository as a dev dependency; no published package depends on or bundles minimatch. npm reports no fix. Delete this entry when pi ships a release that depends on a patched minimatch.",
+		"expires": "2026-12-01"
+	}
+]
