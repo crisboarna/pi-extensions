@@ -146,16 +146,31 @@ function renderMarkdown(markdown: string, hero: boolean): string {
 	return marked.parse(withVideos, { async: false });
 }
 
+/**
+ * The text of a piece of HTML: whatever lies outside its tags, read a character at a time, so no tag
+ * shape (`<<script>script>`) can survive a single pass. The text keeps the entities `marked` wrote.
+ */
+function textOfHtml(html: string): string {
+	let text = "";
+	let inTag = false;
+	for (const char of html) {
+		if (char === "<") inTag = true;
+		else if (char === ">") inTag = false;
+		else if (!inTag) text += char;
+	}
+	return text.trim();
+}
+
 /** Gives each table cell its column's name, so a narrow screen can show every row as a card. */
 function labelTables(html: string): string {
 	return html.replace(/<table>[\s\S]*?<\/table>/g, (table) => {
 		const head = /<thead>([\s\S]*?)<\/thead>/.exec(table)?.[1] ?? "";
-		const labels = [...head.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((cell) => (cell[1] ?? "").replace(/<[^>]+>/g, "").trim());
+		const labels = [...head.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((cell) => textOfHtml(cell[1] ?? ""));
 		return table.replace(/<tr>[\s\S]*?<\/tr>/g, (row) => {
 			let column = 0;
 			return row.replace(/<td([^>]*)>/g, (_all, attributes: string) => {
 				const label = labels[column++];
-				return label ? `<td${attributes} data-label="${escapeHtml(label)}">` : `<td${attributes}>`;
+				return label ? `<td${attributes} data-label="${label.replace(/"/g, "&quot;")}">` : `<td${attributes}>`;
 			});
 		});
 	});
