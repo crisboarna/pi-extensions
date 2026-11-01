@@ -53,6 +53,17 @@ describe("buildRows", () => {
 		);
 		assert.deepEqual([rows[2]?.tool, rows[2]?.tokensPerSecond], ["bash", 40]);
 	});
+
+	it("drops terminal control characters from everything a child's status file supplies", () => {
+		const rows = buildRows(
+			{ running: false, tokensIn: 0, tokensOut: 0, cost: 0 },
+			[child({ agent: "sc\x1b]0;owned\x07out\x1b[2J", tier: "li\x1bght", model: "acme/\x00small\r", currentTool: "ba\nsh\x1b[31m" })],
+			[],
+		);
+		const [row] = rows.slice(1);
+		assert.deepEqual([row?.label, row?.tier, row?.model, row?.tool], ["sc]0;ownedout[2J", "light", "acme/small", "bash[31m"]);
+		for (const text of [row?.label, row?.tier, row?.model, row?.tool]) assert.doesNotMatch(text ?? "", /\p{Cc}/u);
+	});
 });
 
 describe("renderList", () => {

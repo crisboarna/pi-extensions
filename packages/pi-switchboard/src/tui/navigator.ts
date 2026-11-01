@@ -2,6 +2,9 @@ import type { LiveStatus, MirrorLine } from "../live/live.ts";
 import { explain } from "../record/describe.ts";
 import type { DecisionEntry } from "../record/types.ts";
 
+/** Text from a child's status file is untrusted: control characters are dropped so it cannot move the cursor, clear the screen or set the title. */
+const withoutControls = (text: string): string => text.replace(/\p{Cc}/gu, "");
+
 /** One row of the navigator: the main task or one subagent child. */
 export interface NavRow {
 	key: string;
@@ -75,16 +78,15 @@ export function buildRows(
 		const decision =
 			(child.launchDecisionId ? launches.find((l) => l.id === child.launchDecisionId) : undefined) ??
 			[...launches].reverse().find((l) => l.subagent?.agent === child.agent && Date.parse(l.ts) <= child.startedAt + 5_000);
+		const tier = child.tier ?? decision?.tier.chosen ?? launchTier(child.launchModel);
 		rows.push({
 			key: child.session,
-			label: child.agent ?? "subagent",
+			label: withoutControls(child.agent ?? "subagent"),
 			status: child.status,
-			...((child.tier ?? decision?.tier.chosen ?? launchTier(child.launchModel))
-				? { tier: child.tier ?? decision?.tier.chosen ?? launchTier(child.launchModel) }
-				: {}),
-			...(child.model ? { model: child.model } : {}),
+			...(tier ? { tier: withoutControls(tier) } : {}),
+			...(child.model ? { model: withoutControls(child.model) } : {}),
 			turn: child.turn,
-			...(child.currentTool ? { tool: child.currentTool } : {}),
+			...(child.currentTool ? { tool: withoutControls(child.currentTool) } : {}),
 			tokensIn: child.tokens.input + child.tokens.cacheRead,
 			tokensOut: child.tokens.output,
 			...(child.tokensPerSecond ? { tokensPerSecond: child.tokensPerSecond } : {}),
