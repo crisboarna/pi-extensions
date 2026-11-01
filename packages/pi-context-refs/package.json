@@ -44,9 +44,9 @@
 	},
 	"scripts": {
 		"test": "node --test --test-reporter=dot \"test/unit/**/*.test.ts\"",
-		"test:integration": "node --test \"test/integration/**/*.test.ts\"",
+		"test:integration": "node --test \"test/integration/**/*.test.ts\" \"test/tui/**/*.test.ts\"",
 		"test:smoke": "node --test --test-concurrency=1 \"test/smoke/**/*.test.ts\"",
-		"coverage": "CONTEXT_REFS_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\"",
+		"coverage": "CONTEXT_REFS_NATIVE_IMPORT=1 node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"test/unit/**/*.test.ts\" \"test/integration/**/*.test.ts\" \"test/tui/**/*.test.ts\"",
 		"media": "node media/data.ts && node ../../scripts/tools/media.ts packages/pi-context-refs/media"
 	}
 }

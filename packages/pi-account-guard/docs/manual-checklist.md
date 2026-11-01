@@ -2,7 +2,7 @@
 
 The checks in DESIGN.md section 17.2 need a real terminal UI, real accounts or other extensions, so no automated test covers them. Run each item once on a real pi install and fill in the Result column (pass or fail, the date, the pi version and a short note). The Result column is empty until someone has run the item.
 
-**Status: run on 2026-10-26 as simulated terminal scenes. Items 1-5, 7 and 8 pass (8 with a stand-in provider; 5 after #109 corrected its expectation), item 6 cannot run without real OAuth subscriptions.** Since 2026-10-28 item 7 also runs on every CI run, automated in the repository's `test/e2e/both.test.ts` with both packages from their tarballs.
+**Status: run on 2026-10-26 as simulated terminal scenes. Items 1-5, 7 and 8 pass (8 with a stand-in provider; 5 after #109 corrected its expectation), item 6 cannot run without real OAuth subscriptions.** Items 1 and 2 (the Block select, Allow once and its confirm, Allow for session, Cancel and Escape) also run on every test run as key presses in pi's real TUI, in `test/tui/block-keys.test.ts`. Since 2026-10-28 item 7 also runs on every CI run, automated in the repository's `test/e2e/both.test.ts` with both packages from their tarballs.
 
 The items run as scenes in the media image (`npm run media` in this package, `media/terminal/` and `media/src/check-*.html`): the real pi and the guard in a pseudo-terminal drawn by xterm.js, with demo repositories, demo accounts on environment keys and a fake model provider. No real account, config or file is used. Each scene fails when the screen does not show what the Expected column says, and saves a still per step as `media/check-*.png`. The Setup below is how to repeat a check by hand.
 
