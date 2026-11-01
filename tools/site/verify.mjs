@@ -14,7 +14,7 @@
 import { createReadStream, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { extname, join, relative } from "node:path";
+import { dirname, extname, join, relative } from "node:path";
 
 const require = createRequire(`${process.env.MEDIA_MODULES ?? "/opt/media/node_modules"}/`);
 const { chromium } = require("playwright");
@@ -82,7 +82,7 @@ async function crawl() {
 			await page.screenshot({ path: shot(path), fullPage: true });
 		}
 		if (path === "index.html" || path.endsWith("/index.html")) await page.screenshot({ path: shot(path), fullPage: false });
-		if (path.endsWith("/index.html") && (await page.$("video"))) await checkHero(page, path);
+		if (overviews.includes(path) && existsSync(join(root, dirname(path), "media", "hero.mp4"))) await checkHero(page, path);
 		await checkOverflow(page, path);
 	}
 	await context.close();
@@ -90,6 +90,8 @@ async function crawl() {
 
 /** The hero must be playing, muted, with its captions, and on screen: a browser does not autoplay a video below the fold. */
 async function checkHero(page, path) {
+	// A package that ships a demo shows it as the hero video, never as a picture that links to it.
+	if (!(await page.$("video[autoplay]"))) return void problems.push(`${path}: its demo is not a video on the page`);
 	await page.waitForTimeout(2000);
 	const hero = await page.$eval("video", (video) => {
 		const box = video.getBoundingClientRect();

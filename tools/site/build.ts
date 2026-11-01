@@ -131,7 +131,7 @@ function renderMarkdown(markdown: string, hero: boolean): string {
 	// A poster that links to its video becomes the video itself, with the narration's subtitles when they exist.
 	// The README may show an animated loop (GitHub plays GIFs, not MP4s); the site's player uses the video's own still.
 	const withVideos = withoutBadges.replace(
-		/\[!\[([^\]]*)\]\(([^)\s]+\.(?:png|gif))\)\]\(([^)\s]+\.mp4)\)/g,
+		/\[!\[((?:[^[\]]|\[[^\]]*\])*)\]\(([^)\s]+\.(?:png|gif))\)\]\(([^)\s]+\.mp4)\)/g,
 		(_all, alt: string, image: string, video: string) => {
 			const poster = image.endsWith(".gif") ? video.replace(/\.mp4$/, ".png") : image;
 			const src = video.replace("/blob/main/", "/raw/main/");
