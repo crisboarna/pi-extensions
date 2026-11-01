@@ -1,0 +1,11 @@
+{
+	"$schema": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/schema/pi-context-refs.schema.json",
+	"version": 1,
+	"refs": [
+		{ "name": "api", "kind": "file", "path": "src/api.ts", "description": "The public API", "tags": ["backend"] },
+		{ "name": "retry", "kind": "file", "path": "src/retry.ts", "description": "The retry helper", "tags": ["backend"] },
+		{ "name": "terse", "kind": "snippet", "text": "Answer in one sentence.", "description": "Keep answers short" },
+		{ "name": "notes", "kind": "path", "path": "NOTES.md", "description": "Working notes" },
+		{ "name": "server-log", "kind": "file", "path": "logs/server.log", "description": "Last night's server log" }
+	]
+}

@@ -20,8 +20,10 @@ const shots = join(root, "..", "site-shots");
 mkdirSync(shots, { recursive: true });
 const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".gz": "application/gzip" };
 const server = createServer((request, response) => {
-	const file = join(root, decodeURIComponent(new URL(request.url, "http://site").pathname));
-	if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) return void response.writeHead(404).end();
+	const path = join(root, decodeURIComponent(new URL(request.url, "http://site").pathname));
+	// GitHub Pages answers a folder with its index.html, and the worker precaches "./".
+	const file = existsSync(path) && statSync(path).isDirectory() ? join(path, "index.html") : path;
+	if (!file.startsWith(root) || !existsSync(file)) return void response.writeHead(404).end();
 	response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "content-length": statSync(file).size });
 	createReadStream(file).pipe(response);
 }).listen(8098);
@@ -36,6 +38,22 @@ const PAGES = {
 			["\r", /bed 1 resting/],
 			["\u0004", /❯/],
 			['pi -p --model acme/work-model "summarize the garden beds"; echo "exit $?"\r', /exit 77/],
+		],
+	},
+	"pi-context-refs": {
+		ready: /demo-model/,
+		steps: [
+			["/ref list\r", /diff/],
+			["Why does #", /● api/],
+			["\t", /\[ref:api\]/],
+			[" retry twice?\r", /The model got:[\s\S]*getOrder/],
+			["Review #diff\r", /The model got:[\s\S]*sleep\(Math\.min/],
+			["[ref:terse] What is a ref?\r", /The model got:[\s\S]*Answer in one sentence\./],
+			// Closing a panel only redraws the screen, so the proof is the redraw; the next step needs the panel gone.
+			["\u001br", /Context refs/],
+			["\u001b", /\[\?2026l/],
+			["/ref sent\r", /Last message sent/],
+			["\u001b", /\[\?2026l/],
 		],
 	},
 	"pi-switchboard": {
@@ -93,8 +111,10 @@ for (const name of browsers.length ? browsers : ["chromium", "firefox", "webkit"
 				const started = Date.now();
 				await page.evaluate((typed) => window.TRY.type(typed), text);
 				if (!(await until(async () => expected.test((await output()).slice(before)), 60000)))
-					throw new Error(`no ${expected} after ${JSON.stringify(text)}`);
+					throw new Error(`no ${expected} after ${JSON.stringify(text)}; the terminal ended with ${JSON.stringify((await output()).slice(-300))}`);
 				stepTimes.push(seconds(Date.now() - started));
+				// pi redraws after a step (closing a panel, a reply); keys typed into a redraw are lost, as they would be for a fast typist.
+				await page.waitForTimeout(400);
 			}
 			await page.waitForTimeout(600);
 			const total = [...bytes.values()].reduce((sum, value) => sum + value, 0);

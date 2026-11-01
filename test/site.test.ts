@@ -69,6 +69,9 @@ describe("the family site", () => {
 	it("writes a worker that keeps the pages and leaves out video and the live demo", () => {
 		const worker = readFileSync(join(out, "sw.js"), "utf8");
 		assert.doesNotMatch(worker, /__VERSION__|__PRECACHE__/);
+		// Safari does not support COEP credentialless, so the live pages would never become isolated there.
+		assert.match(worker, /"Cross-Origin-Embedder-Policy", "require-corp"/);
+		assert.doesNotMatch(worker, /["']credentialless["']/);
 		const listed = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)?.[1] ?? "[]") as string[];
 		assert.ok(listed.includes("index.html") && listed.includes("assets/site.css") && listed.includes("assets/site.js"));
 		for (const pkg of sitePackages()) assert.ok(listed.includes(`${pkg.folder}/index.html`), pkg.folder);

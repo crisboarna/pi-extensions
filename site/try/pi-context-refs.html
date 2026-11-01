@@ -1,0 +1,38 @@
+<h1>Try pi-context-refs live</h1>
+<p>Real pi and pi-context-refs run here, in your browser, in a <a href="https://webcontainers.io">WebContainer</a>, in a small project (<code>~/projects/shop-api</code>) with three saved refs: <code>api</code> (a file), <code>terse</code> (a snippet) and <code>notes</code> (a path). The expansion is the real one. The model is a stand-in that answers with the text pi sent it, so you see what a real model would receive. The <code>git</code> command is also a stand-in with one canned change in <code>src/retry.ts</code>, because git does not run in a browser. Nothing leaves the page.</p>
+<div class="try-live">
+	<div class="steps">
+		<button type="button" id="start" class="primary">Start the demo (about 10 MB to download)</button>
+		<p id="status" class="status" aria-live="polite"></p>
+		<ol>
+			<li><button type="button" data-type="/ref list\r" disabled>List the refs</button>: the saved ones, then the built-in git refs.</li>
+			<li><button type="button" data-type="Why does #" disabled>Type <code>Why does #</code></button>: the picker opens. Then <button type="button" data-type="\t" disabled>press Tab</button> to insert <code>[ref:api]</code>.</li>
+			<li><button type="button" data-type=" retry twice?\r" disabled>Finish the question</button>: the model gets the file, not the placeholder.</li>
+			<li><button type="button" data-type="Review #diff\r" disabled>Review <code>#diff</code></button>: the model gets the uncommitted change.</li>
+			<li><button type="button" data-type="[ref:terse] What is a ref?\r" disabled>Add a snippet</button>: a ref can be a line of text you keep reusing.</li>
+			<li><button type="button" data-type="\u001br" disabled>Open the refs overlay (Alt+R)</button>: a filter and a preview of what each ref sends. <button type="button" data-type="\u001b" disabled>Close it (Esc)</button>.</li>
+			<li><button type="button" data-type="/ref sent\r" disabled>Show what was sent</button>: the full text of your last message. <button type="button" data-type="\u001b" disabled>Close it (Esc)</button>.</li>
+		</ol>
+	</div>
+	<div class="terminal" id="terminal"></div>
+</div>
+<script src="../vendor/xterm/xterm.js"></script>
+<script src="../vendor/xterm/addon-fit.js"></script>
+<script type="module">
+	import { startTry } from "../try/runtime.js";
+
+	const status = (text) => (document.getElementById("status").textContent = text);
+	document.getElementById("start").addEventListener("click", async (event) => {
+		event.target.disabled = true;
+		try {
+			const session = await startTry({ element: document.getElementById("terminal"), status, shell: false });
+			for (const button of document.querySelectorAll("[data-type]")) {
+				button.disabled = false;
+				button.addEventListener("click", () => session.type(button.dataset.type.replace(/\\r/g, "\r").replace(/\\t/g, "\t").replace(/\\u001b/g, "\u001b")));
+			}
+		} catch (error) {
+			status(`The demo could not start: ${error.message}`);
+			window.TRY = { state: "failed", error: error.message };
+		}
+	});
+</script>

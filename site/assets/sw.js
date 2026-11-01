@@ -13,9 +13,6 @@ const PRECACHE = ["__PRECACHE__"];
 const CACHE = `pi-extensions-${VERSION}`;
 const SKIP = /\.(mp4|webm|gz|vtt)$/;
 
-// Chromium and Firefox take require-corp; Safari needs credentialless.
-const CREDENTIALLESS = !/Chrome\/|Firefox\//.test(self.navigator.userAgent);
-
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches
@@ -37,9 +34,10 @@ self.addEventListener("activate", (event) => {
 function isolated(response) {
 	if (response.status === 0) return response;
 	const headers = new Headers(response.headers);
-	headers.set("Cross-Origin-Embedder-Policy", CREDENTIALLESS ? "credentialless" : "require-corp");
+	// require-corp is the one value Chromium, Firefox and Safari all honour (credentialless is not in Safari).
+	headers.set("Cross-Origin-Embedder-Policy", "require-corp");
 	headers.set("Cross-Origin-Opener-Policy", "same-origin");
-	if (!CREDENTIALLESS) headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+	headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 	return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -62,9 +60,8 @@ self.addEventListener("fetch", (event) => {
 	const url = new URL(request.url);
 	const local = url.origin === self.location.origin;
 	const cacheable = local && request.method === "GET" && !request.headers.has("range") && !SKIP.test(url.pathname);
-	const plain = CREDENTIALLESS && request.mode === "no-cors" ? new Request(request, { credentials: "omit" }) : request;
 	event.respondWith(
-		(cacheable ? fromNetworkThenCache(request) : fetch(plain)).then(isolated).catch((error) => {
+		(cacheable ? fromNetworkThenCache(request) : fetch(request)).then(isolated).catch((error) => {
 			console.error(error);
 			return Response.error();
 		}),
