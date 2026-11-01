@@ -50,7 +50,9 @@ async function withNeighbour(name: string, order: Order, body: (tui: TuiSession,
 async function rainbowIsDrawing(tui: TuiSession): Promise<boolean> {
 	tui.terminal.type("ultrathink");
 	await tui.waitForEditor((text) => text === "ultrathink");
-	await new Promise((resolve) => setTimeout(resolve, 150));
+	// the editor draws on its next render, which a loaded machine can delay; wait for the colours rather than for a guessed time
+	const deadline = Date.now() + 3000;
+	while (!tui.terminal.raw.includes(RAINBOW_FIRST_LETTER) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
 	const drawn = tui.terminal.raw.includes(RAINBOW_FIRST_LETTER);
 	for (let key = 0; key < "ultrathink".length; key++) tui.terminal.press(BACKSPACE);
 	await tui.waitForEditor((text) => text === "");
