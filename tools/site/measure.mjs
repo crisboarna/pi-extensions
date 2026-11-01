@@ -49,10 +49,10 @@ const PAGES = {
 			[" retry twice?\r", /The model got:[\s\S]*getOrder/],
 			["Review #diff\r", /The model got:[\s\S]*sleep\(Math\.min/],
 			["[ref:terse] What is a ref?\r", /The model got:[\s\S]*Answer in one sentence\./],
-			["/ref sent\r", /Last message sent/],
 			// Closing a panel only redraws the screen, so the proof is the redraw; the next step needs the panel gone.
-			["\u001b", /\[\?2026l/],
 			["\u001br", /Context refs/],
+			["\u001b", /\[\?2026l/],
+			["/ref sent\r", /Last message sent/],
 			["\u001b", /\[\?2026l/],
 		],
 	},
@@ -113,6 +113,8 @@ for (const name of browsers.length ? browsers : ["chromium", "firefox", "webkit"
 				if (!(await until(async () => expected.test((await output()).slice(before)), 60000)))
 					throw new Error(`no ${expected} after ${JSON.stringify(text)}; the terminal ended with ${JSON.stringify((await output()).slice(-300))}`);
 				stepTimes.push(seconds(Date.now() - started));
+				// pi redraws after a step (closing a panel, a reply); keys typed into a redraw are lost, as they would be for a fast typist.
+				await page.waitForTimeout(400);
 			}
 			await page.waitForTimeout(600);
 			const total = [...bytes.values()].reduce((sum, value) => sum + value, 0);
