@@ -383,6 +383,7 @@ Run in a real TUI.
 
 ## 17. Known limits
 
+- The `/ref sent` dialog does not scroll by a page. Seen in real pi 1.4.0 on a 40-row terminal: PageUp and PageDown move nothing, although the dialog's hint names them, while Up, Down, Home and End work (`test/tui/sent-viewer-keys.test.ts` records it as a `todo`; the cause is not found). The dialog's last rows and its hint line are also not drawn at that height: it sizes itself to the terminal height minus four rows, and pi draws a footer below it.
 - A path used only through `bash` or `ls` never becomes a Recent ref. Paths outside the project from tool calls never appear. `@` completions need the sent text to be seen.
 - With the `input` route the stored message holds the full Expansion. The fork selector and the editor after a fork, up-arrow after resume, the steering queue line, HTML export and the compaction summary show or see the full text. Each extension gets one Markdown transformer.
 - A Context block whose content contains `</context-ref>` is not escaped (section 9.2). The collapse is safe because of `bytes`; the model still sees the raw text.
