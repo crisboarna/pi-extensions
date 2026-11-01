@@ -116,9 +116,23 @@ async function checkOverflow(page, path) {
 		await page.setViewportSize({ width, height });
 		const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 		if (wide > 1) problems.push(`${path}: scrolls sideways by ${wide}px at ${name} width`);
-		if (name === "phone" && (path === "index.html" || overviews.includes(path))) await page.screenshot({ path: shot(`phone-${path}`), fullPage: false });
+		if (name === "phone" && (path === "index.html" || overviews.includes(path))) {
+			await page.screenshot({ path: shot(`phone-${path}`), fullPage: false });
+			await checkTargets(page, path);
+		}
 	}
 	await page.setViewportSize({ width: 1280, height: 900 });
+}
+
+/** On a phone, the site's own controls are at least 44 px each way; links inside a sentence are exempt, as in WCAG 2.2. */
+async function checkTargets(page, path) {
+	const small = await page.evaluate(() =>
+		[...document.querySelectorAll(".skip, .top a, .top button, footer.bottom a, .card a, .card button, .pkg-head button, .narration, .sidebar summary")]
+			.map((element) => ({ text: element.textContent.trim().slice(0, 24), box: element.getBoundingClientRect() }))
+			.filter(({ box }) => box.width > 0 && Math.min(box.width, box.height) < 43.5)
+			.map(({ text, box }) => `"${text}" ${Math.round(box.width)}x${Math.round(box.height)}`),
+	);
+	for (const target of small) problems.push(`${path}: tap target under 44 px at phone width: ${target}`);
 }
 
 /** The toggle flips the theme and stores it; a reload then paints in it from the start. */
