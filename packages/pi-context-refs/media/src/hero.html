@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<link rel="stylesheet" href="/stage/cards.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+</head>
+<body>
+<script>
+// The hero demo: real pi and pi-context-refs in a terminal, with a stand-in
+// model whose replies are scripted (media/terminal/scenes/demo.ts), narrated
+// from hero.narration.json.
+const MARK = '<img class="mark" src="mark.svg" alt="">';
+const READY = /\d+\.\d%\/\d+/;
+
+let stage;
+// pi starts before the recording does.
+window.prepare = async () => {
+	stage = await Stage.open({ title: "~/projects/shop-api — pi" });
+	stage.card(`${MARK}<div class="name">pi-context-refs</div><div class="line">Type <b>#</b>. <b>Send the context.</b></div>`);
+	await stage.waitFor(READY);
+};
+
+window.play = async () => {
+	// The narration (hero.narration.json) sets the pace: stage.say() waits until each line is spoken.
+	// Lines about something being done start with the action and are awaited after it.
+	await stage.say("title");
+	stage.card(null);
+	await sleep(400);
+
+	// 1. Save a file as a ref.
+	stage.caption("Save a file once as a named ref.", "1/6");
+	let spoken = stage.say("save");
+	await stage.command('/ref add api file src/api.ts desc="The public API"');
+	await stage.waitFor(/Added file Ref "api"/, { timeout: 15000 });
+	await spoken;
+
+	// 2. The # picker.
+	stage.caption("Type <b>#</b> in the editor: your refs open as a list.", "2/6");
+	spoken = stage.say("picker");
+	await stage.type("Why does ");
+	await stage.type("#");
+	await stage.waitFor(/● api/);
+	stage.callout(/file · The public API/, "<b>●</b> global library · kind · description", { place: "right", last: true });
+	await sleep(1500);
+	await stage.still();
+	await spoken;
+	stage.clear();
+	await stage.press("Tab", { after: 500 });
+	await stage.waitFor(/\[ref:api\]/);
+
+	// 3. The Placeholder is one unit.
+	stage.caption("The draft holds <b>[ref:api]</b>. One Backspace deletes all of it.", "3/6");
+	spoken = stage.say("placeholder");
+	stage.callout(/\[ref:api\]/, "a <b>placeholder</b>, one unit", { place: "above", last: true });
+	await sleep(1800);
+	stage.clear();
+	await stage.press("Backspace", { after: 600 });
+	await stage.waitGone(/\[ref:api\]/);
+	await stage.type("#");
+	await stage.waitFor(/● api/);
+	await stage.press("Tab", { after: 500 });
+	await stage.waitFor(/\[ref:api\]/);
+	await spoken;
+
+	// 4. Send: the model gets the file, the transcript one line.
+	await stage.type(" retry twice?");
+	spoken = stage.say("sent");
+	await stage.press("Enter");
+	await stage.waitFor(/▸ ref api \(file,/, { timeout: 20000 });
+	await stage.waitFor(/runs three times/, { timeout: 20000 });
+	stage.caption("The model got the file's current text. The transcript shows one line.", "4/6");
+	stage.callout(/▸ ref api \(file, [\d.]+ [KB]+\)/, "one line per <b>block</b>: name, kind, size", { place: "below", last: true });
+	await sleep(1500);
+	await spoken;
+	stage.clear();
+
+	// 5. A built-in ref.
+	stage.caption("<b>#diff</b>, <b>#staged</b>, <b>#status</b> and <b>#log</b> need no setup.", "5/6");
+	spoken = stage.say("builtin");
+	await stage.type("Review #diff");
+	await sleep(1200);
+	await stage.press("Escape", { after: 400 });
+	await stage.press("Enter");
+	await stage.waitFor(/▸ ref diff \(dynamic,/, { timeout: 20000 });
+	await stage.waitFor(/caps the wait/, { timeout: 20000 });
+	await spoken;
+
+	// 6. The overlay and /ref sent.
+	stage.caption("<b>alt+r</b> opens an overlay with a preview of what a ref sends.", "6/6");
+	await stage.press("Alt+r", { after: 600 });
+	await stage.waitFor(/Context refs/);
+	await sleep(600);
+	spoken = stage.say("overlay");
+	await spoken;
+	await stage.press("Escape", { after: 500 });
+	stage.caption("<b>/ref sent</b> shows the full text of the last message.", "6/6");
+	spoken = stage.say("sent-command");
+	await stage.command("/ref sent");
+	await stage.waitFor(/Last message sent/, { timeout: 15000 });
+	await spoken;
+	await stage.press("Escape", { after: 400 });
+	stage.caption("", "");
+
+	stage.card(`${MARK}<div class="name">pi-context-refs</div><code>pi install npm:@crisboarna/pi-context-refs</code><div class="small">then <code>/ref add</code> · <code>#</code> · <code>alt+r</code></div>`);
+	await stage.say("end");
+	await sleep(1500);
+};
+</script>
+</body>
+</html>

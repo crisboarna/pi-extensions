@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The # picker: refs by library, narrowed as you type, a pick inserts a placeholder.
+clip(async (stage) => {
+	stage.caption("Type <b>#</b> in the editor: your refs open as a list.", "picker");
+	await stage.type("Why does ");
+	await stage.type("#");
+	await stage.waitFor(/● api/);
+	stage.callout(/file · The public API/, "<b>●</b> global · <b>○</b> built-in", { place: "right", last: true });
+	await sleep(1200);
+	await stage.still();
+	await sleep(1800);
+	stage.clear();
+	stage.caption("Keep typing to narrow the list, then <b>Tab</b> picks.", "picker");
+	await stage.type("te");
+	await stage.waitGone(/● api/);
+	await sleep(1200);
+	await stage.press("Tab", { after: 600 });
+	await stage.waitFor(/\[ref:terse\]/);
+	await sleep(2200);
+}, { title: "~/projects/shop-api — pi" });
+</script>
+</body>
+</html>

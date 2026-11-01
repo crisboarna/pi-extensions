@@ -2,7 +2,16 @@
 
 [![npm](https://img.shields.io/npm/v/@crisboarna/pi-context-refs)](https://www.npmjs.com/package/@crisboarna/pi-context-refs) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D22.19-green)](package.json)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/banner-dark.png">
+  <img alt="pi-context-refs: a patch cord from the message plugged into the api ref jack, with its amber lamp lit, beside the diff and terse jacks. Type #. Send the context." src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/banner-light.png" width="1100">
+</picture>
+
 Save the context you keep giving the model (a path, a file, a snippet of text, the output of a command or a URL) as named refs, and send one by typing `#name` or picking it from a list. The editor shows a short `[ref:name]` placeholder; the real content is read when you send the message. It adds a `#` picker, an `alt+r` overlay with a preview, and the `/ref` command to [pi](https://pi.dev). It is for anyone who retypes the same paths, pastes the same files or copies in `git diff` by hand, and for teams that want to share the context a repository needs.
+
+[![A narrated demo in a real pi session: save a file as a ref, type # to open the picker, pick api, see the [ref:api] placeholder deleted by one Backspace, send, and see one collapsed line in the transcript, then #diff, the alt+r overlay and /ref sent. This loop plays the main moments without sound; click for the full video.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/hero-loop.gif)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-context-refs/media/hero.mp4)
+
+▶ [Watch the one-minute demo, with narration](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-context-refs/media/hero.mp4): real pi and pi-context-refs; only the model replies are scripted.
 
 ## Install
 
@@ -20,7 +29,13 @@ Restart pi. Requires Node 22.19 or later; checked with pi 1.4.
 4. Type your question around it, for example `Why does [ref:api] retry twice?`, and send.
 5. The model gets the current text of `src/api.ts` in a `<context-ref>` block after your message. The transcript shows one line for it: `▸ ref api (file, 1.8 KB)`.
 
+![Typing # in pi's editor opens a list of refs with the api ref first, then narrows it to terse as te is typed, and a Tab inserts the [ref:terse] placeholder.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/picker.gif)
+
+![The draft Why does [ref:api] retry twice? holds the placeholder as one unit; the cursor skips over it and one Backspace deletes all of it.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/placeholder.gif)
+
 Four refs work with no setup: `#diff`, `#staged`, `#status` and `#log` send git output inside a git work tree.
+
+![In a repository with an uncommitted change, typing Review #diff sends the change; the transcript shows one line, ref diff, and the model answers about the change.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/builtins.gif)
 
 You can also type the ref by hand. `Review #diff` and `Review [ref:diff]` mean the same, and they work in print, JSON and RPC mode too, where there is no picker.
 
@@ -65,6 +80,8 @@ When two refs share a name, the order is: scoped ref, project library, your unsc
 Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that tag, and picking a bundle in the list inserts one placeholder per member.
 
 ### Keys in the overlay
+
+![The alt+r overlay lists refs by library with a filter, previews the expansion of the selected ref, and inserts the pick in place of the typed #.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/overlay.gif)
 
 `alt+r` opens it. Enter picks, Tab switches a recent file between its path form and its file form, Ctrl+S saves a recent file as a ref, Ctrl+E edits and Ctrl+D removes a saved ref, Esc closes. A pick after a typed `#` replaces that `#`.
 

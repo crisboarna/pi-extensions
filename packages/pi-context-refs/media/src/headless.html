@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Headless: pi -p expands a typed #diff too; there is no picker.
+clip(async (stage) => {
+	stage.caption("In print mode a typed <b>#diff</b> expands the same way.", "headless");
+	await stage.type('pi -p --model demo/demo-model "Review #diff"', { delay: 25 });
+	await stage.press("Enter");
+	await stage.waitFor(/caps the wait/, { timeout: 30000 });
+	await sleep(400);
+	stage.callout(/caps the wait/, "the model saw the <b>uncommitted change</b>", { place: "below", last: true });
+	await stage.still();
+	await sleep(3200);
+}, { title: "~/projects/shop-api — sh", ready: /shop-api \$/ });
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// The alt+r overlay: filter, preview of the expansion, pick.
+clip(async (stage) => {
+	stage.caption("<b>alt+r</b> opens an overlay over your refs, with a preview.", "overlay");
+	await stage.type("see #te");
+	await stage.waitFor(/● terse/);
+	await sleep(600);
+	await stage.press("Alt+r", { after: 600 });
+	await stage.waitFor(/Context refs/);
+	await stage.waitFor(/Answer in one sentence/, { last: true });
+	stage.callout(/── preview · terse/, "what the ref <b>sends</b>", { place: "right", last: true });
+	await sleep(500);
+	await stage.still();
+	await sleep(2600);
+	stage.clear();
+	stage.caption("<b>Enter</b> inserts the pick in place of the typed #.", "overlay");
+	await stage.press("Enter", { after: 600 });
+	await stage.waitFor(/see \[ref:terse\]/);
+	await sleep(2400);
+}, { title: "~/projects/shop-api — pi" });
+</script>
+</body>
+</html>

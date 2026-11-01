@@ -1,0 +1,16 @@
+{
+	"voice": "af_heart",
+	"speed": 0.92,
+	"pause": 0.6,
+	"lines": {
+		"title": "This is pi-context-refs. Save the context you keep retyping, and send it with a hash.",
+		"save": "First, save a file as a ref. One command gives it a name and a short description.",
+		"picker": "Now type the hash. A list of your refs opens, and a mark shows which library each one comes from. We pick api.",
+		"placeholder": "The editor holds a short placeholder. One backspace deletes all of it, so a ref is never half deleted. We pick it again.",
+		"sent": "When the message is sent, the model gets the current text of the file. The transcript shows one line for it, with the kind and the size.",
+		"builtin": "Four git refs need no setup. Review hash diff sends the changes you have not committed yet.",
+		"overlay": "Alt and r opens an overlay with a preview of exactly what a ref will send.",
+		"sent-command": "And slash ref sent shows the full text of the last message.",
+		"end": "To install it, run the command on screen. Then save your first ref."
+	}
+}

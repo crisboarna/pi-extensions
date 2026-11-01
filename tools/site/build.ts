@@ -6,6 +6,7 @@
 //
 //   node tools/site/build.ts [out]      (default: site/dist)
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -17,8 +18,8 @@ const REPO_URL = "https://github.com/crisboarna/pi-extensions";
 const RAW_PREFIX = "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/";
 const BLOB_PREFIX = `${REPO_URL}/blob/main/`;
 const SITE = join(ROOT, "site");
-/** Each package's one accent, as on its mark; the rest of the palette is the family's. */
-const ACCENTS: Record<string, string> = { "pi-switchboard": "#c8452f", "pi-account-guard": "#3f8f8c" };
+/** Each package's own colour, as on its mark; the site shows it only on the mark and the ID chip, and keeps one accent of its own. */
+const ACCENTS: Record<string, string> = { "pi-switchboard": "#c8452f", "pi-account-guard": "#3f8f8c", "pi-context-refs": "#d39b2a" };
 
 export interface SitePage {
 	/** Repository-relative path of the Markdown source. */
@@ -50,6 +51,7 @@ function pitchOf(readme: string, fallback: string): string {
 	const paragraph = readme.split(/\n\s*\n/).find((block) => /^[A-Z]/.test(block.trim()));
 	const text = paragraph
 		?.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/`/g, "")
 		.replace(/\s+/g, " ")
 		.trim();
 	return text?.match(/^.*?\.(?=\s|$)/)?.[0] ?? fallback;
@@ -111,7 +113,9 @@ function slugger() {
 	};
 }
 
-function renderMarkdown(markdown: string): string {
+/** The hero is the first video of an overview page; it starts muted on load, with a player to pause it. */
+function renderMarkdown(markdown: string, hero: boolean): string {
+	let heroPlaced = !hero;
 	const slug = slugger();
 	const marked = new Marked({
 		gfm: true,
@@ -134,10 +138,42 @@ function renderMarkdown(markdown: string): string {
 			const subtitles = src.replace(/\.mp4$/, ".vtt");
 			const local = subtitles.startsWith(`${REPO_URL}/raw/main/`) ? subtitles.slice(`${REPO_URL}/raw/main/`.length) : undefined;
 			const track = local && existsSync(join(ROOT, local)) ? `<track kind="captions" srclang="en" label="Narration" src="${subtitles}" default>` : "";
-			return `<video controls preload="none" poster="${poster}" src="${src}" aria-label="${alt.replace(/"/g, "&quot;")}">${track}</video>`;
+			const playback = heroPlaced ? 'controls preload="none"' : 'controls autoplay muted loop playsinline preload="auto"';
+			heroPlaced = true;
+			return `<video ${playback} poster="${poster}" src="${src}" aria-label="${alt.replace(/"/g, "&quot;")}">${track}</video>`;
 		},
 	);
 	return marked.parse(withVideos, { async: false });
+}
+
+/**
+ * The text of a piece of HTML: whatever lies outside its tags, read a character at a time, so no tag
+ * shape (`<<script>script>`) can survive a single pass. The text keeps the entities `marked` wrote.
+ */
+function textOfHtml(html: string): string {
+	let text = "";
+	let inTag = false;
+	for (const char of html) {
+		if (char === "<") inTag = true;
+		else if (char === ">") inTag = false;
+		else if (!inTag) text += char;
+	}
+	return text.trim();
+}
+
+/** Gives each table cell its column's name, so a narrow screen can show every row as a card. */
+function labelTables(html: string): string {
+	return html.replace(/<table>[\s\S]*?<\/table>/g, (table) => {
+		const head = /<thead>([\s\S]*?)<\/thead>/.exec(table)?.[1] ?? "";
+		const labels = [...head.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((cell) => textOfHtml(cell[1] ?? ""));
+		return table.replace(/<tr>[\s\S]*?<\/tr>/g, (row) => {
+			let column = 0;
+			return row.replace(/<td([^>]*)>/g, (_all, attributes: string) => {
+				const label = labels[column++];
+				return label ? `<td${attributes} data-label="${label.replace(/"/g, "&quot;")}">` : `<td${attributes}>`;
+			});
+		});
+	});
 }
 
 /** Rewrites every link of a page: media to local copies, Markdown to the generated pages, other repository files to GitHub. */
@@ -202,37 +238,83 @@ function sidebar(pkg: SitePackage, page: SitePage, root: string): string {
 			}
 		return items.length ? `<h2>${group}</h2><ul>${items.join("")}</ul>` : "";
 	});
-	return `<aside class="sidebar">${groups.join("")}</aside>`;
+	// Open without the script; the script closes it on a narrow screen.
+	return `<aside class="sidebar"><details open><summary>${pkg.folder} pages</summary>${groups.join("")}</details></aside>`;
 }
 
-function tryBox(pkg: SitePackage): string {
-	const items = [
-		pkg.explainer ? `<li><a href="explain.html">The explainer</a> runs ${pkg.folder}'s own code on your config, in the page.</li>` : "",
-		pkg.live ? `<li><a href="try.html">Run it live</a>: real pi and ${pkg.folder} in a container in your browser, with demo accounts.</li>` : "",
+const installCommand = (pkg: SitePackage) => `pi install npm:${pkg.name}`;
+const idOf = (index: number) => String(index + 1).padStart(2, "0");
+
+/** The same three numbers for every package, in the same order. */
+function statsOf(pkg: SitePackage): string {
+	const docs = pkg.pages.filter((page) => page.group === "Docs").length;
+	const decisions = pkg.pages.filter((page) => page.source.includes("/docs/adr/")).length;
+	const demos = Number(pkg.explainer) + Number(pkg.live);
+	const cell = (label: string, value: number) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
+	return `<dl class="stats">${cell("Docs", docs)}${cell("ADRs", decisions)}${cell("Demos", demos)}</dl>`;
+}
+
+function installLine(pkg: SitePackage): string {
+	const command = installCommand(pkg);
+	return `<div class="install"><pre><code>${command}</code></pre><button type="button" class="copy" data-copy="${command}" aria-label="Copy the install command for ${pkg.folder}">Copy</button></div>`;
+}
+
+/** Every package page opens with its ID, numbers, install line and the ways to try it; a missing demo says so. */
+function pkgHead(pkg: SitePackage, index: number): string {
+	const slots = [
+		pkg.explainer
+			? `<li><a href="explain.html">The explainer</a> runs ${pkg.folder}'s own code on your config, in the page.</li>`
+			: `<li class="off">The explainer: not available for ${pkg.folder} yet.</li>`,
+		pkg.live
+			? `<li><a href="try.html">Run it live</a>: real pi and ${pkg.folder} in a container in your browser, with demo accounts.</li>`
+			: `<li class="off">Run it live: not available for ${pkg.folder} yet.</li>`,
 	].join("");
-	return items ? `<section class="try"><h2>Try it in the browser</h2><ul>${items}</ul></section>` : "";
+	return `<section class="pkg-head" aria-label="${pkg.folder} at a glance"><p class="eyebrow"><span class="chip">PKG ${idOf(index)}</span></p>${statsOf(pkg)}${installLine(pkg)}<h2>Try it in the browser</h2><ul>${slots}</ul></section>`;
+}
+
+/**
+ * Puts the hero video right under the title, where it is on screen when the page
+ * loads (a browser does not autoplay a video that starts below the fold), and the
+ * package's head block after it.
+ */
+function openOverview(body: string, head: string): string {
+	const hero = /<p>(<video [^>]*autoplay[\s\S]*?<\/video>)<\/p>\n?/.exec(body);
+	const rest = hero ? body.replace(hero[0], "") : body;
+	const video = hero ? `<div class="hero-video">${hero[1]}</div>\n` : "";
+	return rest.replace(/(<\/h1>)/, `$1\n${video}${head}`);
 }
 
 function landing(packages: SitePackage[], copies: Set<string>): string {
-	const cards = packages.map((pkg) => {
+	const cards = packages.map((pkg, index) => {
 		const cover = `packages/${pkg.folder}/media/cover.png`;
 		let image = "";
 		if (existsSync(join(ROOT, cover))) {
 			copies.add(cover);
-			image = `<img src="${pkg.folder}/media/cover.png" alt="">`;
+			image = `<a class="cover" href="${pkg.folder}/index.html" tabindex="-1" aria-hidden="true"><img src="${pkg.folder}/media/cover.png" alt="" loading="lazy"></a>`;
 		}
-		return `<article class="card" style="--card-accent: ${pkg.accent}">${image}<div class="body"><h2>${pkg.folder}</h2><p>${escapeHtml(pkg.pitch)}</p><pre><code>pi install npm:${pkg.name}</code></pre><a class="more" href="${pkg.folder}/index.html">Read more →</a></div></article>`;
+		const docs = pkg.pages.find((page) => page.group === "Docs");
+		const links = [
+			`<a href="${pkg.folder}/index.html">Overview</a>`,
+			docs ? `<a href="${docs.out}">Docs</a>` : '<span class="off">No docs yet</span>',
+			pkg.explainer ? `<a href="${pkg.folder}/explain.html">Explainer</a>` : '<span class="off">No explainer yet</span>',
+			pkg.live ? `<a href="${pkg.folder}/try.html">Run live</a>` : '<span class="off">No live demo yet</span>',
+		];
+		return `<article class="card reveal" style="--pkg: ${pkg.accent}">${image}<div class="body"><h2><span class="chip">${idOf(index)}</span><a href="${pkg.folder}/index.html">${pkg.folder}</a></h2><p>${escapeHtml(pkg.pitch)}</p>${statsOf(pkg)}${installLine(pkg)}<div class="links">${links.join("")}</div></div></article>`;
 	});
-	const content = `<h1>Extensions for pi: route every request, guard every account</h1>
-<p class="lede">Two extensions for <a href="https://pi.dev">pi</a>, the coding agent. MIT licensed, tested on Node 22.19 and later, each installed with one command.</p>
+	const content = `<section class="hero">
+<p class="eyebrow">pi-extensions</p>
+<h1>Route every request. Guard every account. Reuse every context.</h1>
+<p class="lede">${packages.length} extensions for <a href="https://pi.dev">pi</a>, the coding agent. Each one installs with a single command and works on its own.</p>
+<ul class="facts"><li><b>${packages.length}</b> packages</li><li><b>MIT</b> licensed</li><li>Node <b>22.19</b>+</li></ul>
+</section>
 <div class="cards">${cards.join("\n")}</div>`;
 	return fill({
-		title: "pi-extensions: route every request, guard every account",
-		description: "pi-switchboard and pi-account-guard, extensions for the pi coding agent.",
+		title: "pi-extensions: route every request, guard every account, reuse every context",
+		description: `${packages.map((pkg) => pkg.folder).join(", ")}: extensions for the pi coding agent.`,
 		root: "",
 		icon: "assets/mark.svg",
 		kind: "landing",
-		accent: "var(--brass)",
+		accent: "var(--accent)",
 		packages: packageNav(packages, ""),
 		content,
 	});
@@ -282,7 +364,7 @@ function explainerPage(pkg: SitePackage, packages: SitePackage[]): string {
 	});
 }
 
-/** A live try-it page: its fragment in the site template, with cross-origin isolation for the WebContainer and the terminal's styles. */
+/** A live try-it page: its fragment in the site template, with the terminal's styles; the worker isolates it for the WebContainer. */
 function livePage(pkg: SitePackage, packages: SitePackage[]): string {
 	const page: SitePage = { source: "", out: `${pkg.folder}/try.html`, title: "Run it live", group: "Overview" };
 	return fill({
@@ -290,8 +372,8 @@ function livePage(pkg: SitePackage, packages: SitePackage[]): string {
 		description: pkg.pitch,
 		root: "../",
 		icon: `${pkg.folder}/mark.svg`,
-		// coi-serviceworker reloads the page once with the isolation headers a static host cannot send.
-		head: '<script src="../coi-serviceworker.js"></script>\n<link rel="stylesheet" href="../vendor/xterm/xterm.css">',
+		// sw.js adds the isolation headers a static host cannot send; site.js reloads the page once to apply them.
+		head: '<link rel="stylesheet" href="../vendor/xterm/xterm.css">',
 		kind: "package live",
 		accent: pkg.accent,
 		packages: packageNav(packages, "../", pkg.folder),
@@ -300,14 +382,13 @@ function livePage(pkg: SitePackage, packages: SitePackage[]): string {
 	});
 }
 
-/** The browser code the live pages load: xterm.js, its fit addon, the WebContainer API, the isolation worker and the page runtime. */
+/** The browser code the live pages load: xterm.js, its fit addon, the WebContainer API and the page runtime. */
 function copyLiveRuntime(out: string): void {
 	const modules = join(ROOT, "node_modules");
 	const copies: Array<[string, string]> = [
 		[join(modules, "@xterm", "xterm", "lib", "xterm.js"), "vendor/xterm/xterm.js"],
 		[join(modules, "@xterm", "xterm", "css", "xterm.css"), "vendor/xterm/xterm.css"],
 		[join(modules, "@xterm", "addon-fit", "lib", "addon-fit.js"), "vendor/xterm/addon-fit.js"],
-		[join(modules, "coi-serviceworker", "coi-serviceworker.min.js"), "coi-serviceworker.js"],
 		[join(SITE, "try", "runtime.js"), "try/runtime.js"],
 	];
 	for (const [from, to] of copies) {
@@ -315,6 +396,28 @@ function copyLiveRuntime(out: string): void {
 		copyFileSync(from, join(out, to));
 	}
 	cpSync(join(modules, "@webcontainer", "api", "dist"), join(out, "vendor", "webcontainer"), { recursive: true, filter: (path) => !/\.d\.ts$/.test(path) });
+}
+
+/**
+ * The service worker: assets/sw.js moved to the site root, with the list of
+ * files to keep for offline use and a version taken from their content, so a
+ * new build replaces the old cache. Videos, the live demo's files and the
+ * WebContainer runtime stay out; they are large or need the network anyway.
+ */
+function writeWorker(out: string): void {
+	const wanted = (file: string) => /\.(html|css|js|svg)$/.test(file) || file === "llms.txt" || /\/media\/(hero|cover)\.png$/.test(file);
+	const unwanted = (file: string) => /^(vendor|assets\/sw\.js)/.test(file) || /(^|\/)try\//.test(file);
+	const files = (readdirSync(out, { recursive: true }) as string[])
+		.map((file) => file.split("\\").join("/"))
+		.filter((file) => statSync(join(out, file)).isFile() && wanted(file) && !unwanted(file))
+		.sort();
+	const hash = createHash("sha256");
+	for (const file of files) hash.update(file).update(readFileSync(join(out, file)));
+	const worker = readFileSync(join(SITE, "assets", "sw.js"), "utf8")
+		.replace('"__VERSION__"', JSON.stringify(hash.digest("hex").slice(0, 10)))
+		.replace('["__PRECACHE__"]', JSON.stringify(["./", ...files]));
+	write(join(out, "sw.js"), worker);
+	rmSync(join(out, "assets", "sw.js"));
 }
 
 /** Builds the site into `out` and returns the problems the link check found (none on success). */
@@ -327,7 +430,7 @@ export function buildSite(out: string): string[] {
 		for (const page of pkg.pages) {
 			const markdown = readFileSync(join(ROOT, page.source), "utf8");
 			const root = "../".repeat(page.out.split("/").length - 1);
-			const body = rewriteLinks(renderMarkdown(markdown), page, pages, copies);
+			const body = rewriteLinks(labelTables(renderMarkdown(markdown, page.group === "Overview")), page, pages, copies);
 			const mark = existsSync(join(ROOT, "packages", pkg.folder, "media", "src", "mark.svg")) ? `${pkg.folder}/mark.svg` : "assets/mark.svg";
 			write(
 				join(out, page.out),
@@ -340,7 +443,7 @@ export function buildSite(out: string): string[] {
 					accent: pkg.accent,
 					packages: packageNav(packages, root, pkg.folder),
 					sidebar: sidebar(pkg, page, root),
-					content: page.group === "Overview" ? body.replace(/(<\/h1>)/, `$1\n${tryBox(pkg)}`) : body,
+					content: page.group === "Overview" ? openOverview(body, pkgHead(pkg, packages.indexOf(pkg))) : body,
 				}),
 			);
 			write(join(out, page.source.replace(/^packages\//, "")), markdown);
@@ -363,10 +466,9 @@ export function buildSite(out: string): string[] {
 		mkdirSync(dirname(join(out, source.replace(/^packages\//, ""))), { recursive: true });
 		copyFileSync(join(ROOT, source), join(out, source.replace(/^packages\//, "")));
 	}
-	mkdirSync(join(out, "assets"), { recursive: true });
+	cpSync(join(SITE, "assets"), join(out, "assets"), { recursive: true });
 	copyFileSync(join(ROOT, "tools", "brand", "tokens.css"), join(out, "assets", "tokens.css"));
-	copyFileSync(join(SITE, "assets", "site.css"), join(out, "assets", "site.css"));
-	copyFileSync(join(SITE, "assets", "mark.svg"), join(out, "assets", "mark.svg"));
+	writeWorker(out);
 	// Pages publishes the folder as it is; without this file it would run Jekyll over it.
 	write(join(out, ".nojekyll"), "");
 	return checkSiteLinks(out);
