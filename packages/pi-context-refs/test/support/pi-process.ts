@@ -1,7 +1,7 @@
 // Runs real pi for smoke tests: no network, no credentials, an isolated agent
 // directory, and the stub provider loaded with `-ne -e`.
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { STUB_MODEL, STUB_PROVIDER } from "./stub-provider.ts";
@@ -28,11 +28,19 @@ export interface PiOptions {
 	args?: string[];
 }
 
+/** The temporary directories `isolatedEnv` made; they are removed when the test process exits. */
+const made: string[] = [];
+process.once("exit", () => {
+	for (const directory of made) rmSync(directory, { recursive: true, force: true });
+});
+
 /** An isolated environment: pi's own state in a temp directory, offline, with credential and pi configuration variables removed. */
 export function isolatedEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = {};
 	for (const [key, value] of Object.entries(process.env)) if (!CREDENTIAL_ENV.test(key) && !PI_ENV.test(key)) env[key] = value;
-	const agentDir = join(mkdtempSync(join(tmpdir(), "context-refs-smoke-")), "agent");
+	const root = mkdtempSync(join(tmpdir(), "context-refs-smoke-"));
+	made.push(root);
+	const agentDir = join(root, "agent");
 	mkdirSync(agentDir, { recursive: true });
 	return { ...env, PI_CODING_AGENT_DIR: agentDir, PI_OFFLINE: "1", ...extra };
 }
@@ -102,7 +110,7 @@ export class RpcSession {
 			for (let newline = this.#buffer.indexOf("\n"); newline >= 0; newline = this.#buffer.indexOf("\n")) {
 				const line = this.#buffer.slice(0, newline).replace(/\r$/, "");
 				this.#buffer = this.#buffer.slice(newline + 1);
-				if (line) this.records.push(JSON.parse(line) as RpcRecord);
+				if (line) this.records.push(parseRecord(line));
 			}
 			for (const wake of this.#waiters.splice(0)) wake();
 		});
@@ -130,10 +138,21 @@ export class RpcSession {
 	}
 
 	async close(): Promise<void> {
+		// A process that already exited has emitted its "close" event; waiting for it again would never end.
+		if (this.#child.exitCode !== null || this.#child.signalCode !== null) return;
 		const closed = new Promise<void>((resolve) => this.#child.once("close", () => resolve()));
 		this.#child.stdin.end();
 		const kill = setTimeout(() => this.#child.kill("SIGKILL"), 5000);
 		await closed;
 		clearTimeout(kill);
+	}
+}
+
+/** One line of pi's RPC output. A line that is not JSON is kept as a record, so one stray line fails the test that reads it, not the whole file. */
+function parseRecord(line: string): RpcRecord {
+	try {
+		return JSON.parse(line) as RpcRecord;
+	} catch {
+		return { type: "unparsed", line };
 	}
 }

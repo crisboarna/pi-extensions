@@ -35,7 +35,15 @@ describe("a command Dynamic Ref", () => {
 	it("asks the runner for the argv in the given directory with the default 10 s timeout", async () => {
 		const e = env(ok("fine\n"));
 		await run(ref(), e, "/work/repo/sub");
-		assert.deepEqual(e.requests, [{ name: "tests", argv: ["npm", "test"], cwd: "/work/repo/sub", timeoutMs: 10_000 }]);
+		assert.deepEqual(e.requests, [{ name: "tests", argv: ["npm", "test"], cwd: "/work/repo/sub", timeoutMs: 10_000, maxOutputBytes: 51_200 }]);
+	});
+
+	it("asks the runner to stop the command at the output cap, and marks a command it stopped as cut, with no exit code", async () => {
+		const e = env(ok("x".repeat(2049), { code: 143, overflow: true }));
+		const block = await run(ref({ max_output: 2048 }), e);
+		assert.equal(e.requests[0]?.maxOutputBytes, 2048);
+		assert.match(block.text, /truncated="2 KB"/u);
+		assert.doesNotMatch(block.text, /exit/u);
 	});
 
 	it("passes a raised timeout in milliseconds", async () => {

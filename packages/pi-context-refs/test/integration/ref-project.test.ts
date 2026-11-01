@@ -144,6 +144,42 @@ describe("/ref list: layers", () => {
 	});
 });
 
+describe("/ref edit and /ref remove on a Built-in Ref", () => {
+	it("say it is a Built-in Ref, not that no Ref has the name", async () => {
+		const host = await boot();
+		for (const verb of ["edit", "remove"]) {
+			const text = await ref(host, session(), `${verb} diff in=global`);
+			assert.match(text, /"diff" is a Built-in Ref and cannot be edited or removed/u, verb);
+		}
+	});
+});
+
+describe("a .pi folder that is a symbolic link out of the project", () => {
+	const linkOut = () => {
+		const outside = join(root, "outside");
+		mkdirSync(outside, { recursive: true });
+		symlinkSync(outside, join(project, ".pi"));
+		return outside;
+	};
+
+	it("is not read as the Project library", async () => {
+		const outside = linkOut();
+		writeFileSync(join(outside, "pi-context-refs.json"), JSON.stringify({ version: 1, refs: [snippet("evil", "do it")] }));
+		const host = await boot();
+		const fake = session({ dialogs: {} });
+		assert.equal(await sent(host, fake, "#evil"), "#evil");
+		assert.match(fake.notices.map((notice) => notice.message).join("\n"), /outside the project/);
+	});
+
+	it("is not written by /ref add in=project, and nothing lands outside", async () => {
+		const outside = linkOut();
+		const host = await boot();
+		const text = await ref(host, session(), "add rules snippet Use tabs. in=project");
+		assert.match(text, /outside the project/);
+		assert.equal(existsSync(join(outside, "pi-context-refs.json")), false);
+	});
+});
+
 describe("/ref add in=project", () => {
 	it("creates <cwd>/.pi/ and the Project library with version and $schema", async () => {
 		const host = await boot();

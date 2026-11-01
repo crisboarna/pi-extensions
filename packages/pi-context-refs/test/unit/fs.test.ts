@@ -32,6 +32,17 @@ describe("writeTextAtomically", () => {
 		assert.deepEqual(readdirSync(join(dir, "nested")), ["a.json"]);
 	});
 
+	it("does not follow a symbolic link planted at the temporary name an earlier version used", () => {
+		const dir = mkdtempSync(join(tmpdir(), "context-refs-write-"));
+		const victim = join(dir, "victim.txt");
+		writeFileSync(victim, "precious");
+		const path = join(dir, "a.json");
+		symlinkSync(victim, `${path}.${process.pid}.tmp`);
+		writeTextAtomically(path, "library");
+		assert.equal(readFileSync(victim, "utf8"), "precious");
+		assert.equal(readFileSync(path, "utf8"), "library");
+	});
+
 	it("leaves the old file and no temporary file when the write fails", () => {
 		const dir = mkdtempSync(join(tmpdir(), "context-refs-write-"));
 		const path = join(dir, "a.json");

@@ -5,21 +5,23 @@ import type { DynamicRef } from "./library.ts";
 /** A Dynamic Ref whose Source is a command. */
 export type CommandRef = DynamicRef & { command: string[] };
 
-/** What one run of a command asks of the runner. `timeoutMs` is how long it may take before the runner kills it. */
+/** What one run of a command asks of the runner. `timeoutMs` is how long it may take before the runner kills it; `maxOutputBytes` is the cap on its output, past which the runner stops it. */
 export interface CommandRequest {
 	name: string;
 	argv: string[];
 	cwd: string;
 	timeoutMs: number;
+	maxOutputBytes: number;
 	signal?: AbortSignal;
 }
 
-/** What a finished command left behind, in the shape of `pi.exec`. `killed` is set when the runner stopped it, after a timeout or an abort. */
+/** What a finished command left behind, in the shape of `pi.exec`. `killed` is set when the runner stopped it, after a timeout or an abort. `overflow` is set when the runner stopped it for writing more than `maxOutputBytes`; the output then holds a little more than the cap and the exit code means nothing. */
 export interface CommandResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
+	overflow?: boolean;
 }
 
 /** What running a command needs from outside. The runner rejects when the command cannot start, with the reason as the message. */
@@ -55,9 +57,17 @@ export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv
 	if (isBuiltin(ref) && !(await env.isGitWorkTree(cwd))) return fail("not a git repository");
 
 	const timeout = ref.timeout ?? DEFAULT_TIMEOUT_SECONDS;
+	const cap = ref.max_output ?? DEFAULT_MAX_OUTPUT;
 	let result: CommandResult;
 	try {
-		result = await env.runCommand({ name: ref.name, argv: ref.command, cwd, timeoutMs: timeout * 1000, ...(signal ? { signal } : {}) });
+		result = await env.runCommand({
+			name: ref.name,
+			argv: ref.command,
+			cwd,
+			timeoutMs: timeout * 1000,
+			maxOutputBytes: cap,
+			...(signal ? { signal } : {}),
+		});
 	} catch (error) {
 		return fail(`${source} cannot start: ${error instanceof Error ? error.message : String(error)}`);
 	}
@@ -66,10 +76,11 @@ export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv
 	const output = result.stdout + (result.stderr === "" || result.stdout === "" || result.stdout.endsWith("\n") ? "" : "\n") + result.stderr;
 	if (output.slice(0, BINARY_PROBE_LENGTH).includes("\0")) return fail(`${source} wrote binary output`);
 
-	const cap = ref.max_output ?? DEFAULT_MAX_OUTPUT;
 	const { bytes, cut } = headBytes(output, cap);
 	const truncated = cut ? sizeText(cap) : undefined;
-	const marks = [result.code === 0 ? undefined : `exit ${result.code}`, truncated === undefined ? undefined : `truncated at ${truncated}`].filter(
+	// A command stopped for writing too much has no exit code worth showing.
+	const failedExit = result.code !== 0 && result.overflow !== true;
+	const marks = [failedExit ? `exit ${result.code}` : undefined, truncated === undefined ? undefined : `truncated at ${truncated}`].filter(
 		(mark) => mark !== undefined,
 	);
 	const line = `$ ${source}${marks.length > 0 ? ` (${marks.join(", ")})` : ""}`;
@@ -82,7 +93,7 @@ export async function dynamicBlock(ref: CommandRef, cwd: string, env: CommandEnv
 			kind: "dynamic",
 			source,
 			body,
-			...(result.code === 0 ? {} : { exit: result.code }),
+			...(failedExit ? { exit: result.code } : {}),
 			...(truncated === undefined ? {} : { truncated }),
 		}),
 	};

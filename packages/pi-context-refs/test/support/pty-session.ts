@@ -70,12 +70,15 @@ export class PtySession {
 	}
 
 	async close(): Promise<void> {
-		const closed = new Promise<void>((resolve) => this.#child.once("close", () => resolve()));
-		this.#child.stdin.end();
-		this.#child.kill("SIGTERM");
-		const kill = setTimeout(() => this.#child.kill("SIGKILL"), 5000);
-		await closed;
-		clearTimeout(kill);
+		// A process that already exited has emitted its "close" event; waiting for it again would never end.
+		if (this.#child.exitCode === null && this.#child.signalCode === null) {
+			const closed = new Promise<void>((resolve) => this.#child.once("close", () => resolve()));
+			this.#child.stdin.end();
+			this.#child.kill("SIGTERM");
+			const kill = setTimeout(() => this.#child.kill("SIGKILL"), 5000);
+			await closed;
+			clearTimeout(kill);
+		}
 		this.#terminal.dispose();
 	}
 }

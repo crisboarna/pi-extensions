@@ -245,6 +245,13 @@ describe("the extension in a TUI session", () => {
 		assert.equal(editor.getText(), "see ");
 	});
 
+	it("builds the editor the way pi builds its own, with the working status inside it", async () => {
+		const booted = await boot();
+		await start(booted);
+		const editor = build(booted.slot.factory);
+		assert.equal((editor as { embedWorkingStatus?: boolean }).embedWorkingStatus, true);
+	});
+
 	it("builds on the editor another extension already put in the slot instead of replacing it", async () => {
 		const marked: string[] = [];
 		const other: EditorFactory = (tui, theme, kb) => {

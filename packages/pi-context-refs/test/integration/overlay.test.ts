@@ -325,8 +325,7 @@ describe("picking from the overlay", () => {
 		await open();
 		await press(KEYS.enter);
 		await finished();
-		await new Promise((resolve) => setTimeout(resolve, 80));
-		assert.equal(editor.isShowingAutocomplete(), false);
+		await until(() => !editor.isShowingAutocomplete(), "the autocomplete list to close");
 		assert.equal(editor.getText(), "[ref:terse]");
 	});
 

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { BUILTIN_REFS } from "../core/builtins.ts";
 import { type LibraryFile, readLibraryEntries, updateLibraryFile } from "../core/config-writer.ts";
 import { projectRefProblem } from "../core/confine.ts";
 import { type Ref, validateRef } from "../core/library.ts";
@@ -21,6 +22,7 @@ import {
 	type Level,
 	libraryFiles,
 	message,
+	namesOf,
 	type Run,
 	readListed,
 	type Target,
@@ -237,13 +239,15 @@ async function chooseName(run: Run, target: Target, typed: string | undefined, q
 		run.say(entries.error, "error");
 		return undefined;
 	}
-	const names = entries.entries.flatMap((entry) => (isEntry(entry) && typeof entry.name === "string" ? [entry.name] : []));
-	const chosen = await run.ctx.ui.select(question, names);
+	const chosen = await run.ctx.ui.select(question, namesOf(entries.entries));
 	if (chosen === undefined) run.say("Cancelled");
 	return chosen;
 }
 
-const noRef = (name: string, target: Target): string => `no Ref named "${name}" in ${target.phrase}`;
+const noRef = (name: string, target: Target): string =>
+	BUILTIN_REFS.some((builtin) => foldName(builtin.name) === foldName(name))
+		? `"${name}" is a Built-in Ref and cannot be edited or removed; save a Ref with the same name to shadow it, or turn it off with the builtins setting`
+		: `no Ref named "${name}" in ${target.phrase}`;
 
 /** The library an edit or removal works on: the one `in=` names, else where the Visible Ref of that name lives, else the Global library. */
 function chooseTargetFor(run: Run, command: { refName?: string; library?: string }): Target | undefined {
@@ -314,7 +318,7 @@ async function replaceRef(run: Run, target: Target, name: string, ref: Ref): Pro
 async function editInEditor(run: Run, target: Target, found: { entry: Json; name: string }): Promise<void> {
 	const original = jsonOf(found.entry);
 	let draft = original;
-	let title = `Edit "${found.name}"`;
+	let title = `Edit "${printable(found.name)}"`;
 	for (;;) {
 		const edited = await run.ctx.ui.editor(title, draft);
 		if (edited === undefined) return run.say("Cancelled; nothing was changed");
@@ -352,7 +356,7 @@ export async function remove(run: Run, command: Extract<RefCommand, { name: "rem
 	if (!entries.ok) return run.say(entries.error, "error");
 	const found = findEntry(entries.entries, name);
 	if (!found) return run.say(noRef(name, target), "error");
-	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${found.name}"?`, printable(removalText(run, target, found)))))
+	if (run.ctx.hasUI && !(await run.ctx.ui.confirm(`Remove "${printable(found.name)}"?`, printable(removalText(run, target, found)))))
 		return run.say(`Kept "${found.name}"`);
 	const result = updateLibraryFile(target.file, (current) => {
 		const again = findEntry(current, found.name);

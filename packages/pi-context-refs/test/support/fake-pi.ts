@@ -3,9 +3,26 @@
 // real home directory.
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 
 type Handler = (event: any, ctx: any) => unknown;
+
+/** The methods and event names of pi's `ExtensionAPI`, read from the declarations the installed pi ships, so a host that is looser than pi cannot hide a call pi does not have. */
+const PI_API = (() => {
+	const types = readFileSync(
+		join(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "core", "extensions", "types.d.ts"),
+		"utf8",
+	);
+	const start = types.indexOf("export interface ExtensionAPI {");
+	const body = types.slice(start, types.indexOf("\n}\n", start));
+	return {
+		methods: new Set([...body.matchAll(/^ {4}([a-zA-Z]+)[(<]/gm)].map((match) => match[1])),
+		events: new Set([...body.matchAll(/^ {4}on\(event: "([a-z_]+)"/gm)].map((match) => match[1])),
+	};
+})();
 
 interface ExecResult {
 	stdout: string;
@@ -76,16 +93,20 @@ export function createFakeHost(): FakeHost {
 		handledEvents: () => [...handlers.entries()].filter(([, list]) => list.length > 0).map(([event]) => event),
 	};
 	const known: Record<string, (...args: any[]) => unknown> = {
-		on: (event: string, handler: Handler) => handlers.set(event, [...(handlers.get(event) ?? []), handler]),
+		on: (event: string, handler: Handler) => {
+			if (!PI_API.events.has(event)) throw new Error(`pi has no event "${event}"`);
+			handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+		},
 		registerCommand: (name: string, def: { handler(args: string, ctx: unknown): Promise<void> }) => host.commands.set(name, def),
 		registerShortcut: (key: string, def: { handler(ctx: unknown): Promise<void> | void }) => host.shortcuts.set(key, def),
 		exec,
 	};
-	// Any other API method is accepted and recorded, so an extension that registers
-	// something unexpected is visible to a test rather than crashing the load.
+	// Any other method pi has is accepted and recorded, so an extension that registers
+	// something unexpected is visible to a test; a method pi does not have throws.
 	host.pi = new Proxy(known, {
 		get(target, method) {
 			if (typeof method !== "string") return undefined;
+			if (!PI_API.methods.has(method)) throw new Error(`pi has no method "${method}"`);
 			return (...args: unknown[]) => {
 				calls.push({ method, args });
 				return target[method]?.(...args);
@@ -105,6 +126,8 @@ export interface FakeSession {
 	autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider>;
 	/** Sends raw terminal input to the extension's listeners, as the TUI does; true when one consumed it. */
 	pressKey(data: string): boolean;
+	/** Puts text in the editor as the user typing would; `getEditorText` then returns it. */
+	typeInEditor(text: string): void;
 	/** The components shown with `ui.custom`, in the order they were opened. */
 	customs: ShownComponent[];
 }
@@ -124,6 +147,7 @@ export interface ShownComponent {
 export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?: "tui" | "rpc" | "json" | "print"; trusted?: boolean }): FakeSession {
 	const notices: FakeSession["notices"] = [];
 	const editorTexts: string[] = [];
+	let editorText = "";
 	const statuses: FakeSession["statuses"] = [];
 	const autocompleteProviders: FakeSession["autocompleteProviders"] = [];
 	const customs: FakeSession["customs"] = [];
@@ -134,6 +158,9 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 		statuses,
 		autocompleteProviders,
 		customs,
+		typeInEditor: (text) => {
+			editorText = text;
+		},
 		pressKey: (data) => [...keyListeners].some((listener) => listener(data)?.consume === true),
 		ctx: {
 			cwd: options.cwd,
@@ -142,7 +169,11 @@ export function createFakeSession(options: { cwd: string; hasUI?: boolean; mode?
 			hasUI: options.hasUI ?? (options.mode === "tui" || options.mode === "rpc"),
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),
-				setEditorText: (text: string) => editorTexts.push(text),
+				setEditorText: (text: string) => {
+					editorText = text;
+					editorTexts.push(text);
+				},
+				getEditorText: () => editorText,
 				setStatus: (key: string, text: string | undefined) => statuses.push({ key, text }),
 				onTerminalInput: (listener: (data: string) => { consume?: boolean } | undefined) => {
 					keyListeners.add(listener);

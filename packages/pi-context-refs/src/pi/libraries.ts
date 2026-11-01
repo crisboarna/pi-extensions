@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { builtinRefs } from "../core/builtins.ts";
-import { projectRefProblem } from "../core/confine.ts";
+import { libraryFileProblem, projectRefProblem } from "../core/confine.ts";
 import type { Ref } from "../core/library.ts";
 import { createLibraryState, type LibraryState } from "../core/library-state.ts";
 import { readSettings } from "../core/ref-list.ts";
@@ -45,6 +45,11 @@ export interface Libraries {
 /** The Project library file of a project directory: exactly `<cwd>/.pi/pi-context-refs.json`, never a parent's. */
 export const projectLibraryPath = (cwd: string): string => join(cwd, ".pi", "pi-context-refs.json");
 
+/** Why the Project library file of `cwd` may not be used (a link that leaves the project), or undefined. */
+export function projectLibraryProblem(cwd: string, deps: Pick<LibraryDeps, "home" | "realpath" | "linkTarget">): string | undefined {
+	return libraryFileProblem(projectLibraryPath(cwd), { cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget });
+}
+
 /** The place the session is in, with git asked at most once per call of `remotes`. */
 export function placeOf(ctx: { cwd: string }, deps: Pick<LibraryDeps, "home" | "realpath" | "linkTarget" | "readRemotes">): Place {
 	return { cwd: ctx.cwd, home: deps.home, realpath: deps.realpath, linkTarget: deps.linkTarget, remotes: () => deps.readRemotes(ctx.cwd) };
@@ -81,7 +86,11 @@ export function createLibraries(deps: LibraryDeps): Libraries {
 						file,
 						state: createLibraryState(
 							file,
-							() => deps.readText(file),
+							() => {
+								const problem = projectLibraryProblem(ctx.cwd, deps);
+								if (problem !== undefined) throw new Error(problem);
+								return deps.readText(file);
+							},
 							(ref) => projectRefProblem(ref, place),
 						),
 					};

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { confinementProblem, projectRefProblem } from "../../src/core/confine.ts";
+import { confinementProblem, libraryFileProblem, projectRefProblem } from "../../src/core/confine.ts";
 import type { Ref } from "../../src/core/library.ts";
 import { parseLibrary } from "../../src/core/library.ts";
 
@@ -152,5 +152,23 @@ describe("projectRefProblem", () => {
 	it("applies the confinement rule", () => {
 		assert.equal(projectRefProblem({ name: "a", kind: "file", path: "../x" }, files())?.field, "path");
 		assert.equal(projectRefProblem({ name: "a", kind: "file", path: "x" }, files()), undefined);
+	});
+});
+
+describe("libraryFileProblem", () => {
+	it("accepts the Project library file in the project, and one behind a link that stays inside", () => {
+		assert.equal(libraryFileProblem("/work/app/.pi/pi-context-refs.json", files()), undefined);
+		assert.equal(libraryFileProblem("/work/app/.pi/pi-context-refs.json", files({ "/work/app/.pi": "/work/app/config" })), undefined);
+	});
+
+	it("refuses one behind a link that leaves the project, whether the file exists or not", () => {
+		assert.match(
+			libraryFileProblem("/work/app/.pi/pi-context-refs.json", files({ "/work/app/.pi": "/home/me" })) ?? "",
+			/resolves to \/home\/me\/pi-context-refs\.json, outside the project/u,
+		);
+		assert.match(
+			libraryFileProblem("/work/app/.pi/pi-context-refs.json", files({ "/work/app/.pi/pi-context-refs.json": "/etc/passwd" })) ?? "",
+			/outside the project/u,
+		);
 	});
 });

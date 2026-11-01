@@ -1,6 +1,6 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { type ApprovalRequest, type Definition, definitionOf, type Verdict } from "./approval.ts";
-import { contextBlock, failureNote, namesWithBlock } from "./context-block.ts";
+import { contextBlock, failureNote, namesWithBlock, neutralizeTags } from "./context-block.ts";
 import { type BlockResult, type CommandEnv, type CommandRef, dynamicBlock, dynamicFailure, isCommandRef } from "./dynamic.ts";
 import { fileContent, type ImageContent, MAX_IMAGE_BYTES, MAX_READ_BYTES, type TruncateHead } from "./file-content.ts";
 import type { FileRef, PathRef, Ref } from "./library.ts";
@@ -25,6 +25,8 @@ export interface ExpandEnv extends CommandEnv, UrlEnv {
 	layers?: ReadonlyMap<string, Layer>;
 	/** Decides whether a Project library command or URL Ref may run. It is asked one Ref at a time, before any Ref of the message runs. Without it none may. */
 	approve?: (request: ApprovalRequest) => Promise<Verdict>;
+	/** Checked just before a Project library File is read, because links can change while Approvals are asked and commands run: why the file may not be read, or undefined. */
+	confinement?: (ref: FileRef) => string | undefined;
 	/** Cancels the commands and fetches that are running. */
 	signal?: AbortSignal;
 	/** Whether this session used the file and it lies inside the working directory after following symlinks. A `[ref:file:<path>]` Placeholder is read only when this says yes; without it, never. */
@@ -175,8 +177,8 @@ function blockRefOf(ref: Ref): BlockRef | undefined {
 
 /** The inline text of a Snippet or Path; undefined for the kinds that become Context blocks. */
 function inlineExpansion(ref: Ref, env: ExpandEnv): string | undefined {
-	if (ref.kind === "snippet") return stripControl(ref.text);
-	if (ref.kind === "path") return stripControl(pathText(ref, env));
+	if (ref.kind === "snippet") return neutralizeTags(stripControl(ref.text));
+	if (ref.kind === "path") return neutralizeTags(stripControl(pathText(ref, env)));
 	return undefined;
 }
 
@@ -202,6 +204,8 @@ async function fileBlock(ref: FileRef, env: ExpandEnv): Promise<FileBlock> {
 	const path = pathText(ref, env);
 	const head = { name: ref.name, kind: "file", path } as const;
 	try {
+		const problem = env.layers?.get(foldName(ref.name)) === "project" ? env.confinement?.(ref) : undefined;
+		if (problem !== undefined) return failed(head, problem);
 		const absolute = absolutePath(ref, env);
 		const mimeType = await env.imageType(absolute).catch(() => null);
 		const read = await env.readFile(absolute, (mimeType === null ? MAX_READ_BYTES : MAX_IMAGE_BYTES) + 1);

@@ -267,6 +267,20 @@ describe("the TUI while a command runs", () => {
 		assert.throws(() => process.kill(Number(readFileSync(pidFile, "utf8")), 0), { code: "ESRCH" });
 		assert.equal(s.pressKey(ESC), false, "the listener is gone after the send");
 	});
+
+	it("keeps what the user typed while a cancelled send ran, and puts the old draft in front of it", async () => {
+		const pidFile = join(project, "pid.txt");
+		writeLibrary([
+			{ ...node("slow", "require('node:fs').writeFileSync(process.argv[1], String(process.pid)); setTimeout(() => {}, 60000)", pidFile), timeout: 120 },
+		]);
+		const { s, send } = await session("tui");
+		const sending = send("check #slow");
+		while (!existsSync(pidFile) || readFileSync(pidFile, "utf8") === "") await new Promise((resolve) => setTimeout(resolve, 10));
+		s.typeInEditor("next question");
+		s.pressKey(ESC);
+		assert.deepEqual(await sending, { action: "handled" });
+		assert.deepEqual(s.editorTexts, ["check #slow\nnext question"]);
+	});
 });
 
 describe("Built-in Refs", () => {

@@ -78,6 +78,29 @@ describe("extension load", () => {
 	});
 });
 
+describe("a message the model wrote for a pi-subagents child", () => {
+	afterEach(() => {
+		delete process.env.PI_SUBAGENT_CHILD;
+	});
+
+	it("is left alone in a background child, where the task text comes from the parent model", async () => {
+		writeLibrary([snippet("terse", "Be brief.")]);
+		const host = await boot();
+		const session = createFakeSession({ cwd: project, mode: "print" });
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		process.env.PI_SUBAGENT_CHILD = "1";
+		assert.equal(await send(host, session, "Task: answer #terse"), undefined);
+	});
+
+	it("is expanded when the variable is absent", async () => {
+		writeLibrary([snippet("terse", "Be brief.")]);
+		const host = await boot();
+		const session = createFakeSession({ cwd: project, mode: "print" });
+		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		assert.deepEqual(await send(host, session, "Task: answer #terse"), { action: "transform", text: "Task: answer Be brief." });
+	});
+});
+
 for (const mode of ["tui", "print", "json", "rpc"] as const) {
 	describe(`a typed ref in ${mode} mode`, () => {
 		const fresh = async () => {

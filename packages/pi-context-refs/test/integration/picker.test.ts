@@ -71,6 +71,21 @@ const sampleLibrary = () =>
 	]);
 
 describe("the # picker", () => {
+	it("shows a library warning once when the list opens, not only at the next send", async () => {
+		writeFileSync(
+			libraryFile(),
+			'{ "version": 1, "refs": [ { "name": "ok", "kind": "snippet", "text": "x" }, { "name": "bad name", "kind": "snippet", "text": "y" } ] }',
+		);
+		const { editor, session } = await start();
+		const before = session.notices.length;
+		const picker = editor();
+		await picker.type("#");
+		await picker.type("o");
+		const warnings = session.notices.slice(before).filter((notice) => /bad name|name/u.test(notice.message));
+		assert.equal(warnings.length, 1, JSON.stringify(session.notices));
+		assert.equal(warnings[0]?.type, "warning");
+	});
+
 	it("opens on a bare #, scoped rows first, each with a mark, name, kind and description", async () => {
 		sampleLibrary();
 		const { editor } = await start();

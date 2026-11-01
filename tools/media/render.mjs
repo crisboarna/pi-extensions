@@ -25,6 +25,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { renderLoop } from "./loop.mjs";
 import { mixNarration, prepareNarration } from "./narration.mjs";
 import { startStage } from "./stage-server.mjs";
 
@@ -160,20 +161,13 @@ async function animation(item, url = pageUrl(item), prepare = async () => {}) {
 	rmSync(videos, { recursive: true, force: true });
 }
 
-function loop(item) {
-	const { width = 720, fps = 8, colors = 64 } = item.gif ?? {};
-	const inputs = item.from.flatMap((name) => ["-i", join(dir, `${name}.mp4`)]);
-	const scaled = item.from.map((_, i) => `[${i}:v]setpts=PTS/${item.speed},fps=${fps},scale=${width}:-1:flags=lanczos[v${i}];`).join("");
-	const joined = item.from.map((_, i) => `[v${i}]`).join("");
-	const filters = `${scaled}${joined}concat=n=${item.from.length}:v=1:a=0,split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`;
-	execFileSync("ffmpeg", ["-loglevel", "error", "-y", ...inputs, "-filter_complex", filters, "-loop", "0", join(dir, `${item.out}.gif`)]);
-}
-
 for (const item of manifest.items) {
-	if (only.length > 0 && !only.includes(item.out)) continue;
+	// A loop joins other items' MP4s, so it is rendered again whenever one of them is.
+	const joinsRendered = item.kind === "loop" && Array.isArray(item.from) && item.from.some((name) => only.includes(name));
+	if (only.length > 0 && !only.includes(item.out) && !joinsRendered) continue;
 	const started = Date.now();
 	if (item.kind === "loop") {
-		loop(item);
+		renderLoop(item, dir);
 		console.log(
 			`media: ${item.out}.gif ${Math.round(statSync(join(dir, `${item.out}.gif`)).size / 1024)} KB (${((Date.now() - started) / 1000).toFixed(1)}s)`,
 		);

@@ -73,6 +73,8 @@ export function decorateEditor(editor: EditorComponent): boolean {
 export interface EditorTap {
 	/** The draft of the editor this package put in the slot, or undefined once something else holds the slot or the editor cannot report its draft. */
 	draft(ctx: Pick<ExtensionContext, "ui">): Draft | undefined;
+	/** True while the editor this package put in the slot shows its autocomplete list. */
+	autocompleteOpen(): boolean;
 }
 
 /**
@@ -87,7 +89,7 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 		const previous = ctx.ui.getEditorComponent();
 		if (installed !== undefined && previous === installed) return;
 		installed = (tui, theme, keybindings) => {
-			const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings);
+			const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
 			decorateEditor(editor);
 			live = editor;
 			return editor;
@@ -97,5 +99,9 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 	pi.on("session_shutdown", () => {
 		live = undefined;
 	});
-	return { draft: (ctx) => (live !== undefined && installed !== undefined && ctx.ui.getEditorComponent() === installed ? draftOf(live) : undefined) };
+	return {
+		autocompleteOpen: () =>
+			live !== undefined && "isShowingAutocomplete" in live && typeof live.isShowingAutocomplete === "function" && live.isShowingAutocomplete() === true,
+		draft: (ctx) => (live !== undefined && installed !== undefined && ctx.ui.getEditorComponent() === installed ? draftOf(live) : undefined),
+	};
 }
