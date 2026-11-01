@@ -78,7 +78,7 @@ function run(check: string, root: string, ...args: string[]): { ok: boolean; out
 }
 
 describe("every gate passes a clean tree", () => {
-	for (const check of ["manifests", "imports", "copies", "text", "file-sizes", "links", "licenses"]) {
+	for (const check of ["manifests", "imports", "copies", "tui-coverage", "text", "file-sizes", "links", "licenses"]) {
 		test(check, () => {
 			const result = run(check, repo());
 			assert.ok(result.ok, result.output);
@@ -160,6 +160,40 @@ describe("copies", () => {
 		assert.ok(!result.ok);
 		assert.match(result.output, /test\/support\/virtual-terminal\.ts: the copy in pi-third is not the copy in pi-demo, pi-other\n/);
 		assert.match(result.output, /How to fix/);
+	});
+});
+
+describe("tui-coverage", () => {
+	const dialog = { "packages/pi-demo/src/dialog.ts": "export const open = (ctx) => ctx.ui.custom(() => ({}));\n" };
+	const covering = (covers: string) => ({ "packages/pi-demo/test/tui/dialog.test.ts": `// covers: ${covers}\n` });
+	test("passes a source file that takes keys when a test/tui test names it, and one that takes none", () => {
+		const covered = repo({ ...dialog, ...covering("src/dialog.ts") });
+		assert.ok(run("tui-coverage", covered).ok, run("tui-coverage", covered).output);
+		const plain = repo({ "packages/pi-demo/src/plain.ts": "export const one = 1;\n" });
+		assert.ok(run("tui-coverage", plain).ok, run("tui-coverage", plain).output);
+	});
+	test("names a source file that draws interactive UI and has no test/tui test", () => {
+		const result = run("tui-coverage", repo(dialog));
+		assert.ok(!result.ok);
+		assert.match(result.output, /pi-demo: src\/dialog\.ts takes keys or draws UI, but no test\/tui test names it/);
+		assert.match(result.output, /How to fix/);
+	});
+	test("catches every kind of interactive call, generic calls included", () => {
+		for (const call of [
+			"ctx.ui.custom<void>(f)",
+			"ctx.ui.setEditorComponent(x)",
+			"pi.registerShortcut('a', y)",
+			"ctx.ui.addAutocompleteProvider(z)",
+			"ctx.ui.onTerminalInput(w)",
+		]) {
+			const result = run("tui-coverage", repo({ "packages/pi-demo/src/call.ts": `${call};\n` }));
+			assert.ok(!result.ok, `${call} should need a test`);
+		}
+	});
+	test("rejects a covers header that names a file that does not exist", () => {
+		const result = run("tui-coverage", repo({ ...dialog, ...covering("src/dialog.ts, src/gone.ts") }));
+		assert.ok(!result.ok);
+		assert.match(result.output, /dialog\.test\.ts says it covers src\/gone\.ts, which does not exist/);
 	});
 });
 

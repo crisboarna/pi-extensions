@@ -20,11 +20,15 @@ import { VirtualTerminal } from "./virtual-terminal.ts";
 export interface TuiOptions {
 	/** Library file for the Global library; omit for none. */
 	library?: unknown;
+	/** Written as the agent directory's `settings.json`, for example `{ tuiMode: "regular" }`. */
+	settings?: Record<string, unknown>;
 	/** Environment the stub provider reads (`STUB_*`); set for the session and restored on close. */
 	env?: Record<string, string>;
 	columns?: number;
 	rows?: number;
-	/** Extensions to load besides the package's and the stub provider's. */
+	/** Extensions loaded before the package's: their `session_start` handlers run first, so the package wraps what they install. */
+	before?: ExtensionFactory[];
+	/** Extensions loaded after the package's: they run last, so one that replaces the editor replaces the package's. */
 	extensions?: ExtensionFactory[];
 }
 
@@ -55,6 +59,7 @@ export class TuiSession {
 		mkdirSync(project);
 		mkdirSync(agentDir);
 		if (options.library !== undefined) writeFileSync(join(agentDir, "pi-context-refs.json"), JSON.stringify(options.library));
+		if (options.settings !== undefined) writeFileSync(join(agentDir, "settings.json"), JSON.stringify(options.settings));
 
 		const saved = new Map<string, string | undefined>();
 		const setEnv = (key: string, value: string) => {
@@ -78,7 +83,7 @@ export class TuiSession {
 				resourceLoaderOptions: {
 					noExtensions: true,
 					noSkills: true,
-					extensionFactories: [stubProvider, contextRefs, ...(options.extensions ?? [])],
+					extensionFactories: [stubProvider, ...(options.before ?? []), contextRefs, ...(options.extensions ?? [])],
 				},
 			});
 			const model = services.modelRuntime.getModel(STUB_PROVIDER, STUB_MODEL);

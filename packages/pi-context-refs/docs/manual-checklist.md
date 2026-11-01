@@ -33,6 +33,8 @@ These are tests now: `test/tui/placeholder-keys.test.ts` (Backspace, Left and Ri
 
 ## Coexistence
 
+The three ways extensions get in each other's way are tests now, run against pi's own example extensions (`test/tui/neighbours-keys.test.ts`): one that replaces the editor (`rainbow-editor`, loaded before and after this package), one that rewrites input (`input-transform`) and one that sets its own status (`status-line`). The five extensions below are third-party code this repository does not install, so they stay a manual check.
+
 Install each extension beside this one, restart pi, and check that `#` opens the list, a pick inserts a placeholder, Backspace deletes it whole, and a send reaches the model with the block.
 
 - [ ] pi-image-view (an image paste and a File ref in one message).
