@@ -11,6 +11,7 @@ import { fakeTheme } from "../support/fake-pi.ts";
 import { boot } from "../support/harness.ts";
 
 const WIDTHS = [20, 40, 80, 120, 200];
+const ROWS = [10, 24, 40, 60, 100];
 const KEYS = ["\x1b[A", "\x1b[B", "\r", "\x1b", "t", "q", " ", "\x1b[5~", "\x1b[6~", "\x1b[C", "\x00", "\x1b[200~p\x1b[201~", "x"];
 const NAMES = [
 	"scout",
@@ -51,6 +52,7 @@ describe("random keys and names against the navigator", () => {
 		it(`never throws, stays inside the terminal and draws no control sequence but a style (seed ${seed})`, async () => {
 			const next = random(seed);
 			const pick = <T>(items: readonly T[]): T => items[Math.floor(next() * items.length)] as T;
+			const rows = pick(ROWS);
 			const { session, agentDir, tier } = await boot({ subagents: {} });
 			const live = join(agentDir, "pi-switchboard", "live");
 			mkdirSync(live, { recursive: true });
@@ -74,7 +76,7 @@ describe("random keys and names against the navigator", () => {
 			let view: View | undefined;
 			Object.assign(session.ctx, { hasUI: true });
 			session.ctx.ui.custom = async (factory: (...args: unknown[]) => View) => {
-				view = factory({ requestRender() {} }, fakeTheme, {}, () => {});
+				view = factory({ requestRender() {}, terminal: { rows } }, fakeTheme, {}, () => {});
 			};
 			await tier("watch");
 			assert.ok(view, "the navigator was mounted");

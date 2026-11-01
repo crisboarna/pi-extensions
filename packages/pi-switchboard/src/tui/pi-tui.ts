@@ -66,6 +66,9 @@ export function framed(lines: string[], width: number, border: (text: string) =>
 	return [border(`╭${edge}╮`), ...lines.map((line) => `${border("│")} ${truncateToWidth(line, inner, "…", true)} ${border("│")}`), border(`╰${edge}╯`)];
 }
 
+/** The overlay may take this share of the terminal's height (`maxHeight` below); the views size themselves to it, or their last rows are cut off. */
+const HEIGHT_SHARE = 0.8;
+
 /** Opens the navigator overlay (DESIGN.md 11.5). */
 export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Promise<void> {
 	if (!ctx.hasUI) {
@@ -91,7 +94,8 @@ export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Pr
 			return {
 				render(width: number): string[] {
 					const row = model.rows[Math.min(selected, model.rows.length - 1)];
-					const height = Math.max(10, (process.stdout.rows ?? 30) - 6);
+					// The overlay holds `HEIGHT_SHARE` of the rows less its two border rows, and a transcript view draws `height - 1` lines.
+					const height = Math.max(10, Math.floor(tui.terminal.rows * HEIGHT_SHARE) - 1);
 					const lines =
 						view === "list" || !row
 							? renderList(model, selected, style)
@@ -136,7 +140,7 @@ export async function openNavigator(runtime: Runtime, ctx: ExtensionContext): Pr
 				},
 			};
 		},
-		{ overlay: true, overlayOptions: { width: "90%", maxHeight: "80%", anchor: "center" } },
+		{ overlay: true, overlayOptions: { width: "90%", maxHeight: `${Math.round(HEIGHT_SHARE * 100)}%`, anchor: "center" } },
 	);
 }
 

@@ -237,7 +237,7 @@ describe("subagent launches", () => {
 		const screens: string[][] = [];
 		Object.assign(session.ctx, { hasUI: true });
 		session.ctx.ui.custom = async (factory: (...args: unknown[]) => { render(w: number): string[]; handleInput(d: string): void; dispose(): void }) => {
-			const view = factory({ requestRender() {} }, fakeTheme, {}, () => {});
+			const view = factory({ requestRender() {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
 			screens.push(view.render(120));
 			view.handleInput("\u001b[B");
 			view.handleInput("\r");
