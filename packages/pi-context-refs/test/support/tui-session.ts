@@ -20,6 +20,8 @@ import { VirtualTerminal } from "./virtual-terminal.ts";
 export interface TuiOptions {
 	/** Library file for the Global library; omit for none. */
 	library?: unknown;
+	/** Written as the agent directory's `settings.json`, for example `{ tuiMode: "regular" }`. */
+	settings?: Record<string, unknown>;
 	/** Environment the stub provider reads (`STUB_*`); set for the session and restored on close. */
 	env?: Record<string, string>;
 	columns?: number;
@@ -55,6 +57,7 @@ export class TuiSession {
 		mkdirSync(project);
 		mkdirSync(agentDir);
 		if (options.library !== undefined) writeFileSync(join(agentDir, "pi-context-refs.json"), JSON.stringify(options.library));
+		if (options.settings !== undefined) writeFileSync(join(agentDir, "settings.json"), JSON.stringify(options.settings));
 
 		const saved = new Map<string, string | undefined>();
 		const setEnv = (key: string, value: string) => {

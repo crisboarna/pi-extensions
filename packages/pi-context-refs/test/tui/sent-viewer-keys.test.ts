@@ -1,5 +1,6 @@
 // Layer B: the read-only dialog of `/ref sent` under the keys of pi's real TUI. Real interactive pi runs in this process on a
-// virtual terminal; the sent message is long enough that the dialog has to scroll.
+// virtual terminal; the sent message is long enough that the dialog has to scroll. Pi's default TUI mode is fullscreen, where pi
+// keeps PageUp and PageDown for its own scrolling unless the dialog is an overlay, so the page keys run in both modes.
 //
 // covers: src/pi/text-viewer.ts
 import assert from "node:assert/strict";
@@ -14,6 +15,7 @@ const DOWN = "\x1b[B";
 const HOME = "\x1b[H";
 const END = "\x1b[F";
 const PAGE_DOWN = "\x1b[6~";
+const PAGE_UP = "\x1b[5~";
 const TITLE = "Last message sent, as the model received it";
 const LINES = 80;
 const SNIPPET = Array.from({ length: LINES }, (_, index) => `line ${String(index + 1).padStart(2, "0")} of the snippet`).join("\n");
@@ -24,6 +26,14 @@ async function firstRow(tui: TuiSession): Promise<string | undefined> {
 	const rows = (await tui.terminal.screen()).split("\n");
 	const title = rows.findIndex((row) => row.includes(TITLE));
 	return title < 0 ? undefined : rows[title + 2]?.trim();
+}
+
+/** The dialog's hint line: the keys it names and the rows it shows. */
+async function hint(tui: TuiSession): Promise<string | undefined> {
+	return (await tui.terminal.screen())
+		.split("\n")
+		.find((row) => row.includes("Esc closes"))
+		?.trim();
 }
 
 async function waitUntil(check: () => Promise<boolean>, what: string, tui: TuiSession, timeoutMs = 10_000): Promise<void> {
@@ -55,8 +65,8 @@ async function open(tui: TuiSession): Promise<void> {
 }
 
 /** Sends a message holding the long snippet, then opens `/ref sent`. */
-async function withViewer(body: (tui: TuiSession) => Promise<void>): Promise<void> {
-	const tui = await TuiSession.start({ library: LIBRARY, env: { STUB_QUIET: "1" } });
+async function withViewer(body: (tui: TuiSession) => Promise<void>, settings?: Record<string, unknown>): Promise<void> {
+	const tui = await TuiSession.start({ library: LIBRARY, env: { STUB_QUIET: "1" }, ...(settings ? { settings } : {}) });
 	try {
 		await tui.ready();
 		tui.terminal.type("go [ref:long]");
@@ -107,12 +117,20 @@ describe("the /ref sent dialog under the keys of pi's real TUI", () => {
 			}));
 	}
 
-	// Found by this suite: in real pi 1.4.0 PageUp and PageDown move nothing in this dialog, although its hint promises them
-	// (Down, Up, Home and End work). The cause is not found. A `todo` test runs and reports without failing the run.
-	it("scrolls a page with PageDown", { todo: "PageUp and PageDown do not scroll the dialog in pi's TUI; cause not found" }, () =>
-		withViewer(async (tui) => {
-			tui.terminal.press(PAGE_DOWN);
-			await waitUntil(async () => (await firstRow(tui)) !== "go line 01 of the snippet", "PageDown moved the dialog", tui, 1500);
-		}),
-	);
+	// The page keys, in each of pi's two TUI modes. In fullscreen, the default, pi takes PageUp and PageDown for its own scrolling
+	// unless the dialog is an overlay; a version of the dialog that was not one scrolled nothing here and lost its hint line.
+	for (const [mode, settings] of [
+		["fullscreen", undefined],
+		["regular", { tuiMode: "regular" }],
+	] as const) {
+		it(`scrolls a page with PageDown and back with PageUp, and draws its hint with the range (${mode} mode)`, () =>
+			withViewer(async (tui) => {
+				assert.match((await hint(tui)) ?? "", /PgUp\/PgDn.*\(1-36 of 8\d\)/);
+				tui.terminal.press(PAGE_DOWN);
+				await waitForFirstRow(tui, "line 37 of the snippet");
+				assert.match((await hint(tui)) ?? "", /\(37-72 of 8\d\)/);
+				tui.terminal.press(PAGE_UP);
+				await waitForFirstRow(tui, "go line 01 of the snippet");
+			}, settings));
+	}
 });
