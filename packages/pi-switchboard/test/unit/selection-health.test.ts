@@ -35,6 +35,19 @@ describe("shared health file", () => {
 		assert.equal(store.shared, false);
 	});
 
+	it("runs on its own copy at once when it is told not to wait for a held lock", () => {
+		const dir = mkdtempSync(join(tmpdir(), "switchboard-health-"));
+		const path = join(dir, "health.json");
+		writeFileSync(`${path}.lock`, JSON.stringify({ pid: 1, ts: Date.now() }));
+		const store = new FileHealthStore(path, { lockWaitMs: 0 });
+		store.update((data) => {
+			data.pointers.x = 1;
+		});
+		assert.equal(store.shared, false);
+		assert.equal(store.read().pointers.x, 1, "the update ran on the in-memory copy");
+		assert.throws(() => readFileSync(path, "utf8"), /ENOENT/, "and nothing was written to the shared file");
+	});
+
 	it("lets two processes share one round-robin pointer", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "switchboard-health-"));
 		const path = join(dir, "health.json");

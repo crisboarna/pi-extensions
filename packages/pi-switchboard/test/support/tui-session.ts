@@ -46,6 +46,8 @@ export class TuiSession {
 	readonly #runtime: Runtime;
 	readonly #restoreEnv: () => void;
 	#running: Promise<void> = new Promise(() => {});
+	/** Resolves once every extension's `session_start` has run, and a tick after it. */
+	#started: Promise<void> = new Promise(() => {});
 
 	private constructor(
 		terminal: VirtualTerminal,
@@ -90,6 +92,18 @@ export class TuiSession {
 			}
 		};
 
+		let markStarted = (): void => {};
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		// pi draws its footer first and runs every extension's `session_start` afterwards. This one is loaded last, so the timer it sets is
+		// created after every other extension's: it fires once their `session_start` work is done, including a tick an extension waits.
+		const readiness: ExtensionFactory = (pi) => {
+			pi.on("session_start", () => {
+				setTimeout(markStarted, 0);
+			});
+		};
+
 		const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
 			const services = await createAgentSessionServices({
 				cwd,
@@ -97,7 +111,7 @@ export class TuiSession {
 				resourceLoaderOptions: {
 					noExtensions: true,
 					noSkills: true,
-					extensionFactories: [tuiStubProviders, switchboard, ...(options.extensions ?? [])],
+					extensionFactories: [tuiStubProviders, switchboard, ...(options.extensions ?? []), readiness],
 				},
 			});
 			const model = services.modelRuntime.getModel(options.model?.provider ?? PROVIDER, options.model?.id ?? MODEL);
@@ -120,6 +134,7 @@ export class TuiSession {
 		const mode = new InteractiveMode(runtime, { terminal });
 		const session = new TuiSession(terminal, project, configPath, agentDir, mode, runtime, restoreEnv);
 		// `run` initialises the UI, then loops on the editor's submits and never returns: it is raced, not awaited.
+		session.#started = started;
 		session.#running = mode.run();
 		return session;
 	}
@@ -136,7 +151,10 @@ export class TuiSession {
 
 	/** Resolves when the editor is drawn and takes keystrokes. */
 	async ready(): Promise<void> {
-		await Promise.race([this.terminal.waitForScreen((screen) => /\(\w+\) [\w.-]+( • \w+)?\s*$/m.test(screen)), this.#running]);
+		await Promise.race([
+			Promise.all([this.terminal.waitForScreen((screen) => /\(\w+\) [\w.-]+( • \w+)?\s*$/m.test(screen)), this.#started]),
+			this.#running,
+		]);
 	}
 
 	/** The editor's text as drawn: the rows between the last two rules, which frame it above the footer. */

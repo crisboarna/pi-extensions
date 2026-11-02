@@ -19,7 +19,9 @@ const tier: Tier = {
 	cooldown: { scope: "member" },
 };
 
-const store = new FileHealthStore(path);
+// Waits far longer than a pi process would: on a busy machine one of the two workers can be descheduled for longer than the 250 ms a real
+// update waits, the other then runs on its own copy by design, and this test would be measuring the machine. The fallback has its own test.
+const store = new FileHealthStore(path, { lockWaitMs: 60_000 });
 const lines: string[] = [];
 for (let i = 0; i < Number(count); i++) {
 	const result = selectMember({ tier, tierKey: "p/t", store, now: Date.now(), rng: seededRng(i), task: i });
