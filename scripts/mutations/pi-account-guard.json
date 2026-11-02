@@ -19,5 +19,19 @@
 		"find": "if (isName(value)) return value;\n\terrors.push({ path: \"$schema\"",
 		"replace": "if (value !== undefined) return value as string;\n\terrors.push({ path: \"$schema\"",
 		"tests": ["packages/pi-account-guard/test/unit/config-schema.test.ts"]
+	},
+	{
+		"id": "unreadable-config-read-as-missing",
+		"file": "packages/pi-account-guard/src/pi/fs.ts",
+		"find": "return code === \"ENOENT\" || code === \"ENOTDIR\";",
+		"replace": "return true;",
+		"tests": ["packages/pi-account-guard/test/integration/hostile-config.test.ts"]
+	},
+	{
+		"id": "unknown-config-fields-accepted",
+		"file": "packages/pi-account-guard/src/core/config.ts",
+		"find": "if (!allowed.includes(field))",
+		"replace": "if (false)",
+		"tests": ["packages/pi-account-guard/test/integration/hostile-config.test.ts"]
 	}
 ]
