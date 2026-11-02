@@ -36,7 +36,8 @@ export function runNodeTest(options: { cwd: string; files: string[]; timeoutMs: 
 		const log = createWriteStream(options.logPath);
 		// a run started from inside another `node --test` would inherit this and report its failures as a nested run does: exit code 0
 		const { NODE_TEST_CONTEXT: _outer, ...inherited } = process.env;
-		const child = spawn(process.execPath, ["--test", ...options.files], {
+		// the spec reporter on every Node: before Node 24 a piped run prints TAP, which has no ✖ line to find in the log
+		const child = spawn(process.execPath, ["--test", "--test-reporter=spec", ...options.files], {
 			cwd: options.cwd,
 			env: { ...inherited, ...options.env },
 			stdio: ["ignore", "pipe", "pipe"],
