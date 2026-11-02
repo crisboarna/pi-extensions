@@ -47,5 +47,12 @@
 		"find": "readme.matchAll(/\\bpi \\d+\\.\\d+(?:\\.\\d+)? or later\\b/g)",
 		"replace": "[]",
 		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "readme-required-sections-unchecked",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "if ((at[index] ?? -1) < 0)",
+		"replace": "if (false)",
+		"tests": ["test/readme-rules.test.ts"]
 	}
 ]

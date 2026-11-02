@@ -19,7 +19,7 @@ Every request in [pi](https://pi.dev) goes to a model that fits it: small jobs t
 pi install npm:@crisboarna/pi-switchboard
 ```
 
-Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.
+Restart pi.
 
 ## Try it first
 
@@ -108,8 +108,21 @@ A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it ca
 - [Commands](docs/commands.md): every `/tier` command and its output.
 - [Footer](docs/footer.md): the powerline items and placeholders.
 - [Inspector, replay and report](docs/inspector.md): the HTML inspector and the `pi-switchboard` CLI.
+- [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - Design of record: [DESIGN.md](DESIGN.md), terms: [GLOSSARY.md](GLOSSARY.md), decisions: [docs/adr/](docs/adr/).
+
+## Requirements
+
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+
+| How pi runs | What works | What does not |
+|---|---|---|
+| Interactive | Routing, failover and subagent tiers, every `/tier` command, the tier editor, the navigator and the footer | |
+| Print (`-p`) | Routing and failover, tested with real prompts | `/tier` output, which print mode does not show. Use the `pi-switchboard` CLI |
+| RPC | Routing and failover, tested through pi's RPC mode | The editor and the navigator, which need a screen |
+
+JSON mode is not tested on its own. The `pi-switchboard` CLI needs no pi at all.
 
 ## Data and privacy
 

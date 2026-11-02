@@ -46,6 +46,24 @@ export function badgeProblems(readme: string): string[] {
 	return problems;
 }
 
+/** The sections every package README has, in this order (docs/conventions/readme.md). */
+export const REQUIRED_HEADINGS = ["Requirements", "Data and privacy", "Uninstall"] as const;
+
+/** The ways a package README lacks a section the convention requires, has them out of order, or does not link its upgrade notes. */
+export function headingProblems(readme: string): string[] {
+	const problems: string[] = [];
+	const lines = readme.split("\n");
+	const at = REQUIRED_HEADINGS.map((name) => lines.indexOf(`## ${name}`));
+	REQUIRED_HEADINGS.forEach((name, index) => {
+		if ((at[index] ?? -1) < 0) problems.push(`has no "## ${name}" section`);
+	});
+	const present = at.filter((index) => index >= 0);
+	if (present.some((index, position) => position > 0 && index < (present[position - 1] ?? -1)))
+		problems.push(`has its sections out of order; the order is ${REQUIRED_HEADINGS.join(", ")}`);
+	if (!readme.includes("docs/upgrading.md")) problems.push("does not link docs/upgrading.md from its Reference section");
+	return problems;
+}
+
 /** The ways a package README states the Node and pi versions other than the words of the convention, which come from the manifests. */
 export function versionProblems(readme: string, expected: Expected): string[] {
 	const problems: string[] = [];
