@@ -173,5 +173,26 @@
 		"find": "const preview = folder ? `${folder}/media/cover.png` : \"media/og.png\";",
 		"replace": "const preview = folder ? `${folder}/media/cover.png` : \"media/none.png\";",
 		"tests": ["test/site.test.ts"]
+	},
+	{
+		"id": "search-index-keeps-scripts",
+		"file": "tools/site/search.ts",
+		"find": "const content = main.replace(/<(script|style)[\\s\\S]*?<\\/\\1>/g, \" \");",
+		"replace": "const content = main;",
+		"tests": ["test/site-search.test.ts"]
+	},
+	{
+		"id": "search-index-unbounded",
+		"file": "tools/site/search.ts",
+		"find": ".slice(0, MAX_TEXT)",
+		"replace": "",
+		"tests": ["test/site-search.test.ts"]
+	},
+	{
+		"id": "search-index-unsorted",
+		"file": "tools/site/search.ts",
+		"find": ".sort((a, b) => a.url.localeCompare(b.url))",
+		"replace": "",
+		"tests": ["test/site-search.test.ts"]
 	}
 ]

@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { Marked, type Tokens } from "marked";
 import { ROOT } from "../../scripts/lib/repo.ts";
 import { checkSiteLinks } from "./links.ts";
+import { searchIndex, textOfHtml } from "./search.ts";
 import { pagePaths, SITE_URL, sitemap, withSocialTags } from "./social.ts";
 
 const REPO_URL = "https://github.com/crisboarna/pi-extensions";
@@ -145,21 +146,6 @@ function renderMarkdown(markdown: string, hero: boolean): string {
 		},
 	);
 	return marked.parse(withVideos, { async: false });
-}
-
-/**
- * The text of a piece of HTML: whatever lies outside its tags, read a character at a time, so no tag
- * shape (`<<script>script>`) can survive a single pass. The text keeps the entities `marked` wrote.
- */
-function textOfHtml(html: string): string {
-	let text = "";
-	let inTag = false;
-	for (const char of html) {
-		if (char === "<") inTag = true;
-		else if (char === ">") inTag = false;
-		else if (!inTag) text += char;
-	}
-	return text.trim();
 }
 
 /** Gives each table cell its column's name, so a narrow screen can show every row as a card. */
@@ -409,7 +395,8 @@ function copyLiveRuntime(out: string): void {
  * WebContainer runtime stay out; they are large or need the network anyway.
  */
 function writeWorker(out: string): void {
-	const wanted = (file: string) => /\.(html|css|js|svg)$/.test(file) || file === "llms.txt" || /\/media\/(hero|cover)\.png$/.test(file);
+	const wanted = (file: string) =>
+		/\.(html|css|js|svg)$/.test(file) || file === "llms.txt" || file === "search.json" || /\/media\/(hero|cover)\.png$/.test(file);
 	const unwanted = (file: string) => /^(vendor|assets\/sw\.js)/.test(file) || /(^|\/)try\//.test(file);
 	const files = (readdirSync(out, { recursive: true }) as string[])
 		.map((file) => file.split("\\").join("/"))
@@ -440,6 +427,7 @@ function addSocialTags(out: string): void {
 		write(join(out, path), withSocialTags(readFileSync(join(out, path), "utf8"), path, image));
 	}
 	write(join(out, "sitemap.xml"), sitemap(paths));
+	write(join(out, "search.json"), searchIndex(paths.map((path) => ({ path, html: readFileSync(join(out, path), "utf8") }))));
 }
 
 /** Builds the site into `out` and returns the problems the link check found (none on success). */
