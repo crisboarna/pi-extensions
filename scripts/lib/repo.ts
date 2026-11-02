@@ -24,6 +24,9 @@ export const HOST_PROVIDED = [
 	"@sinclair/typebox",
 ];
 
+/** The versions of pi the packages work with, and the range CI tests: its floor, and the newest release inside it. */
+export const PI_PEER_RANGE = ">=1.4.0 <2";
+
 /** The parts of a package.json the checks read. */
 export interface Manifest {
 	name: string;
