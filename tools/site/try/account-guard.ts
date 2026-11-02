@@ -21,8 +21,8 @@ const CONFIG = {
 	zones: ["work", "personal"],
 	defaultZone: "personal",
 	accounts: [
-		{ provider: "acme", source: "env:ACME_WORK_KEY", zones: ["work"], note: "Acme seat" },
-		{ provider: "homelab", source: "env:HOMELAB_KEY", zones: ["personal"] },
+		{ provider: "openai", source: "env:OPENAI_API_KEY", zones: ["work"], note: "Company API key" },
+		{ provider: "anthropic", source: "env:ANTHROPIC_API_KEY", zones: ["personal"] },
 	],
 	places: [{ path: "~/work", zone: "work" }],
 };
