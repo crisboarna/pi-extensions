@@ -47,5 +47,26 @@
 		"find": "\t\tif (pending !== undefined) clearTimeout(pending);\n\t\tpending = undefined;\n\t\tlive = undefined;",
 		"replace": "\t\tlive = undefined;",
 		"tests": ["packages/pi-context-refs/test/integration/editor.test.ts"]
+	},
+	{
+		"id": "doctor-editor-always-atomic",
+		"file": "packages/pi-context-refs/src/pi/editor.ts",
+		"find": "return liveAtomic ? \"atomic\" : \"plain:no-segment\";",
+		"replace": "return \"atomic\";",
+		"tests": ["packages/pi-context-refs/test/integration/editor.test.ts"]
+	},
+	{
+		"id": "doctor-replaced-editor-not-noticed",
+		"file": "packages/pi-context-refs/src/pi/editor.ts",
+		"find": "if (ctx.ui.getEditorComponent() !== installed) return \"plain:replaced\";",
+		"replace": "if (false) return \"plain:replaced\";",
+		"tests": ["packages/pi-context-refs/test/tui/ref-doctor-keys.test.ts"]
+	},
+	{
+		"id": "doctor-pending-approval-ignored",
+		"file": "packages/pi-context-refs/src/pi/doctor.ts",
+		"find": "=== \"pending\")",
+		"replace": "=== \"never\")",
+		"tests": ["packages/pi-context-refs/test/integration/ref-doctor.test.ts"]
 	}
 ]

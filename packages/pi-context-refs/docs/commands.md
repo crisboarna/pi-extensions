@@ -14,6 +14,7 @@ Every `/ref` command works with full arguments. The dialogs only fill in what is
 | `/ref approve <name>` | Shows the exact definition and asks you to confirm. Needs a UI |
 | `/ref revoke <name\|*>` | Drops one Approval, or all of them for this project. Asks nothing |
 | `/ref sent` | Prints the full Expansion of the last message you sent |
+| `/ref doctor` | Checks both libraries, the approvals file, git, the editor and the trigger, and says what to fix. It only reads: it writes nothing and runs no ref |
 
 A command is written as an argv with shell-style quoting and is never run through a shell. For a pipe, write the shell out: `sh -c "git log | head"`.
 

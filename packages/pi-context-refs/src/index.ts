@@ -42,6 +42,7 @@ export default function extension(pi: ExtensionAPI): void {
 		writeStderr: (text) => void process.stderr.write(text),
 	};
 	registerInput(pi, inputDeps);
+	const editors = registerEditor(pi);
 	const commandDeps: CommandDeps = {
 		libraryPath: join(getAgentDir(), "pi-context-refs.json"),
 		readText: readTextIfPresent,
@@ -53,6 +54,10 @@ export default function extension(pi: ExtensionAPI): void {
 		realpath: realpathIfPresent,
 		linkTarget: linkTargetIfSymlink,
 		readRemotes,
+		doctor: {
+			editorStatus: editors.status,
+			isGitWorkTree: commandEnv((command, args, options) => pi.exec(command, args, options)).isGitWorkTree,
+		},
 	};
 	registerRefCommand(pi, commandDeps);
 	registerPicker(pi, {
@@ -67,7 +72,6 @@ export default function extension(pi: ExtensionAPI): void {
 		now: Date.now,
 		isFile: isFilePresent,
 	});
-	const editors = registerEditor(pi);
 	escapeGuard.watch(editors.autocompleteOpen);
 	registerOverlay(pi, { ...inputDeps, ...commandDeps, isFile: isFilePresent, escape: escapeGuard }, editors);
 	registerTranscript(pi);

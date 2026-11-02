@@ -20,7 +20,8 @@ export type RefCommand =
 	| { name: "approvals" }
 	| { name: "approve"; refName?: string }
 	| { name: "revoke"; refName?: string }
-	| { name: "sent" };
+	| { name: "sent" }
+	| { name: "doctor" };
 
 export type ParsedArguments = { ok: true; command: RefCommand } | { ok: false; error: string; usage?: string };
 
@@ -33,6 +34,7 @@ export const USAGE = {
 	approve: "/ref approve <name>",
 	revoke: "/ref revoke <name|*>",
 	sent: "/ref sent",
+	doctor: "/ref doctor",
 } as const;
 
 export const SUBCOMMANDS = Object.keys(USAGE);
@@ -46,6 +48,7 @@ export const SUBCOMMAND_HELP: Record<string, string> = {
 	approve: "Approve a Project Dynamic Ref as it is defined now",
 	revoke: "Drop the Approval of a Ref, or of all of them",
 	sent: "Show the full text of the last message sent",
+	doctor: "Check the libraries, approvals, git, editor and trigger, and say what to fix",
 };
 
 export const KINDS = ["path", "file", "snippet", "dynamic"];
@@ -148,6 +151,8 @@ export function parseRefArguments(args: string): ParsedArguments {
 			return parseApproval(subcommand, rest);
 		case "sent":
 			return rest[0] === undefined ? { ok: true, command: { name: "sent" } } : failure("sent", `unexpected "${rest[0].text}"`);
+		case "doctor":
+			return rest[0] === undefined ? { ok: true, command: { name: "doctor" } } : failure("doctor", `unexpected "${rest[0].text}"`);
 		default:
 			return { ok: false, error: `unknown subcommand "${subcommand}"`, usage: SUBCOMMANDS.map((name) => USAGE[name as keyof typeof USAGE]).join("\n") };
 	}

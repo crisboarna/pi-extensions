@@ -172,6 +172,11 @@ describe("parseRefArguments: edit and remove", () => {
 describe("parseRefArguments: sent", () => {
 	it("takes no arguments", () => {
 		assert.deepEqual(parse("sent"), { ok: true, command: { name: "sent" } });
+		assert.deepEqual(parse("doctor"), { ok: true, command: { name: "doctor" } });
+		const extra = parse("doctor now");
+		assert.equal(extra.ok, false);
+		assert.match(extra.ok ? "" : extra.error, /unexpected "now"/);
+		assert.match(extra.ok ? "" : (extra.usage ?? ""), /\/ref doctor/);
 		const result = parse("sent now");
 		assert.equal(result.ok, false);
 		assert.match(result.ok ? "" : result.error, /"now"/);

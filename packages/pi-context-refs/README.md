@@ -116,7 +116,7 @@ See [docs/headless.md](docs/headless.md).
 | A placeholder is sent as typed | No visible ref has that name now | Run `/ref list`; the ref may be removed, out of scope or in an untrusted library |
 | `/ref` prints nothing in `pi -p` | Pi shows no extension notices there | The output is on stderr |
 
-More causes and fixes are in [docs/troubleshooting.md](docs/troubleshooting.md).
+Run `/ref doctor` first: it checks both libraries, the approvals, git, the editor and the trigger, says what to fix and changes nothing. More causes and fixes are in [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Limitations
 
