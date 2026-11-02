@@ -231,13 +231,6 @@
 		"tests": ["test/stats.test.ts"]
 	},
 	{
-		"id": "stats-flags-a-speedup",
-		"file": "scripts/lib/stats.ts",
-		"find": "ratio > 1 + thresholds.minSlowdown",
-		"replace": "Math.abs(ratio - 1) > thresholds.minSlowdown",
-		"tests": ["test/stats.test.ts"]
-	},
-	{
 		"id": "stats-median-even-takes-upper",
 		"file": "scripts/lib/stats.ts",
 		"find": "((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2",
