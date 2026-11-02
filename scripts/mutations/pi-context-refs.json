@@ -68,5 +68,19 @@
 		"find": "=== \"pending\")",
 		"replace": "=== \"never\")",
 		"tests": ["packages/pi-context-refs/test/integration/ref-doctor.test.ts"]
+	},
+	{
+		"id": "printable-leaves-control-bytes",
+		"file": "packages/pi-context-refs/src/core/text.ts",
+		"find": "text.replace(/(?![\\t\\n])\\p{Cc}/gu, \"?\")",
+		"replace": "text",
+		"tests": ["packages/pi-context-refs/test/integration/terminal-safety.test.ts"]
+	},
+	{
+		"id": "picker-description-keeps-control-bytes",
+		"file": "packages/pi-context-refs/src/core/ref-list.ts",
+		"find": ".replace(/\\p{Cc}/gu, \" \")",
+		"replace": ".replace(/$^/gu, \" \")",
+		"tests": ["packages/pi-context-refs/test/integration/hostile-library.test.ts"]
 	}
 ]
