@@ -79,3 +79,17 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 - Do not add AI attribution trailers or lines ("Co-Authored-By", "Generated with") to commits or pull requests; the commit-msg hook rejects them.
 - Add a changeset (`npm run changeset`) when a change alters what a package publishes; tests, docs and tooling-only changes do not need one.
 - Never push, publish, tag, create releases, change repository settings or change npm visibility without the user's explicit approval for that action.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `crisboarna/pi-extensions`, used through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default triage labels are used as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: `GLOSSARY-MAP.md` points to one glossary per package. See `docs/agents/domain.md`.
