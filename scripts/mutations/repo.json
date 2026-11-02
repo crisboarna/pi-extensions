@@ -194,5 +194,26 @@
 		"find": ".sort((a, b) => a.url.localeCompare(b.url))",
 		"replace": "",
 		"tests": ["test/site-search.test.ts"]
+	},
+	{
+		"id": "launch-post-forbidden-word",
+		"file": "docs/launch/social.md",
+		"find": "Three extensions for the pi coding agent, each installs on its own: pi-switchboard routes",
+		"replace": "Three powerful extensions for the pi coding agent, each installs on its own: pi-switchboard routes",
+		"tests": ["test/launch-docs.test.ts"]
+	},
+	{
+		"id": "launch-x-post-too-long",
+		"file": "docs/launch/social.md",
+		"find": "pi-context-refs expands # placeholders. Demo:",
+		"replace": "pi-context-refs expands # placeholders in the prompt, with a short picker and a snippet library you can share across all of your projects. Demo:",
+		"tests": ["test/launch-docs.test.ts"]
+	},
+	{
+		"id": "launch-title-length-wrong",
+		"file": "docs/launch/hacker-news.md",
+		"find": "That is 72 characters.",
+		"replace": "That is 70 characters.",
+		"tests": ["test/launch-docs.test.ts"]
 	}
 ]
