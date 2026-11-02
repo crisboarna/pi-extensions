@@ -123,6 +123,13 @@ describe("soak --randomize", () => {
 		assert.match(result.output, /first failing run: \S+ \(seed \d+\)/);
 	});
 
+	test("gives every copy an order of its own: an order-dependent suite passes in some copies and fails in others", () => {
+		const result = soak({ ...tui("ordered", ORDER_DEPENDENT) }, ["--randomize", "--copies", "30"], { SOAK_SEED: "1" });
+		const passed = Number(/(\d+)\/30 passed/.exec(result.output)?.[1]);
+		// one shared seed would make all thirty copies do the same thing; thirty seeds make a mix, with a chance of 2^-29 of none
+		assert.ok(passed > 0 && passed < 30, `${passed} of 30 copies passed\n${result.output}`);
+	});
+
 	test("replays: the same seed gives the same first failing run", () => {
 		const args = ["--randomize", "--copies", "30"];
 		const first = soak({ ...tui("ordered", ORDER_DEPENDENT) }, args, { SOAK_SEED: "1" });
