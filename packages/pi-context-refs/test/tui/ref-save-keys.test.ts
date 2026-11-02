@@ -25,8 +25,8 @@ const AS_PATH = "Path: insert its path";
 const ON_RECENT = /› ↺/;
 const TAKEN = { name: "notes.md", kind: "snippet", text: "already here" };
 
-/** The screen with its wrapped rows joined, for a long path that the terminal breaks across rows. */
-const joined = (screen: string): string => screen.replace(/\s*\n\s*/g, "");
+/** The screen with all whitespace left out, for a title whose path the terminal breaks across rows wherever the path happens to fall. */
+const squashed = (screen: string): string => screen.replace(/\s+/g, "");
 
 /** Whether `screen` shows `text`, whatever the terminal broke across rows: all whitespace is left out on both sides. */
 const shows = (screen: string, text: string): boolean => screen.replace(/\s+/g, "").includes(text.replace(/\s+/g, ""));
@@ -84,7 +84,7 @@ async function startSave(tui: TuiSession): Promise<string> {
 	await openOverlay(tui);
 	await selectRecent(tui);
 	tui.terminal.press(CTRL_S);
-	return tui.terminal.waitForScreen((screen) => /Save .* as/.test(joined(screen)) && screen.includes(AS_FILE));
+	return tui.terminal.waitForScreen((screen) => /Save\/\S*\/project\/notes\.mdas/.test(squashed(screen)) && screen.includes(AS_FILE));
 }
 
 /** Opens the name question for a File Ref and resolves with the screen. */
@@ -115,12 +115,12 @@ describe("saving a Recent row under the keys of pi's real TUI", () => {
 	it("asks File or Path with the path shown, then the name starting from a suggestion, and Enter saves a File Ref", () =>
 		withTui([], async ({ tui, saved }) => {
 			const choice = await startSave(tui);
-			assert.match(joined(choice), /Save \/.*\/project\/notes\.md as/);
+			assert.match(squashed(choice), /Save\/\S*\/project\/notes\.mdas/);
 			assert.match(choice, new RegExp(`→ ${AS_FILE}\\s*\\n\\s+${AS_PATH}`), "the two forms, File first and selected");
 			assert.match(choice, /enter select/);
 			await tui.terminal.chooseRow(AS_FILE);
 			const editor = await tui.terminal.waitForScreen((screen) => screen.includes("Name of the file Ref for") && nameInEditor(screen) !== undefined);
-			assert.match(joined(editor), /Name of the file Ref for\/.*\/project\/notes\.md/);
+			assert.match(squashed(editor), /NameofthefileReffor\/\S*\/project\/notes\.md/);
 			assert.equal(nameInEditor(editor), "notes.md", "the name starts as the file name");
 			assert.match(editor, /enter submit {2}shift\+enter\/ctrl\+j newline {2}escape\/ctrl\+c cancel/);
 			assert.deepEqual(saved(), [], "nothing is saved while the name is asked");

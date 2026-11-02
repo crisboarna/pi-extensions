@@ -127,7 +127,7 @@ describe("the Approval dialog under the keys of pi's real TUI", () => {
 			project.tui.terminal.type(DRAFT);
 			await project.tui.waitForEditor((text) => text === DRAFT);
 			project.tui.terminal.press(ENTER);
-			await project.tui.terminal.waitForScreen((screen) => (screen.match(new RegExp(QUIET_REPLY.replace(/[()]/g, "\\$&"), "g")) ?? []).length === 2);
+			await project.tui.terminal.waitForScreen((screen) => screen.split(QUIET_REPLY).length - 1 === 2);
 			assert.equal(project.ran(), true, "the second send ran the approved command");
 			assert.ok(!(await project.tui.terminal.screen()).includes("Always for this definition"), "and asked nothing");
 		}));

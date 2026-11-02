@@ -48,6 +48,9 @@ async function withProject(body: (project: Project) => Promise<void>): Promise<v
 	}
 }
 
+/** Whether `screen` shows `text`, whatever the terminal broke across rows: all whitespace is left out on both sides. */
+const shows = (screen: string, text: string): boolean => screen.replace(/\s+/g, "").includes(text.replace(/\s+/g, ""));
+
 /** Approves one Ref by name and waits for the result line. */
 async function approve(tui: TuiSession, name: string): Promise<void> {
 	await tui.terminal.runCommand(`/ref approve ${name}`, `Approve #${name}?`);
@@ -190,7 +193,10 @@ describe("saving a command Ref under the keys of pi's real TUI", () => {
 			const confirm = await tui.terminal.waitForScreen((screen) => screen.includes("Save #probe and approve it?") && screen.includes("→ Yes"));
 			assert.match(confirm, /argv: node -e 1/);
 			assert.match(confirm, /source: command/);
-			assert.match(confirm, /approves exactly this definition/);
+			assert.ok(
+				shows(confirm, "and approves exactly this definition."),
+				"the sentence that holds the library path, which wraps wherever the path is long or short",
+			);
 			assert.match(confirm, /This approves the command line only, not the files it runs/);
 			assert.deepEqual(projectRefs(), ["setup", "other"], "nothing is saved while the question is open");
 			tui.terminal.press(ENTER);
