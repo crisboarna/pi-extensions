@@ -11,6 +11,11 @@ Extensions for the [pi](https://pi.dev) coding agent: pi-switchboard routes ever
 
 **[The site](https://crisboarna.github.io/pi-extensions/)** has each package's docs, its demo video, an explainer that runs the package's own code on your config, and a live demo: real pi and the extension in a container in your browser.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/hero-dark.png">
+  <img alt="Three real pi sessions: pi-switchboard moves a subagent to the next account after a usage limit, pi-account-guard blocks a work account in a personal repository before the turn is sent, and pi-context-refs lists saved refs when you type #." src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/hero-light.png">
+</picture>
+
 | Package | What it does | Install |
 |---|---|---|
 | [`@crisboarna/pi-account-guard`](packages/pi-account-guard) | Stops a session from sending a turn to a model account that does not belong to the zone of the directory it works in, so a work subscription is never used in a personal repository by accident. Fails closed when it cannot decide. | `pi install npm:@crisboarna/pi-account-guard` |

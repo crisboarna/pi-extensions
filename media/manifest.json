@@ -31,6 +31,22 @@
 			"width": 1280,
 			"height": 640,
 			"scale": 1
+		},
+		{
+			"kind": "png",
+			"page": "hero.html",
+			"query": "theme=dark",
+			"out": "hero-dark.png",
+			"width": 1100,
+			"height": 320
+		},
+		{
+			"kind": "png",
+			"page": "hero.html",
+			"query": "theme=light",
+			"out": "hero-light.png",
+			"width": 1100,
+			"height": 320
 		}
 	]
 }
