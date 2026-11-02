@@ -5,7 +5,7 @@
 //
 // covers: src/tui/editor.ts
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { describe, it } from "node:test";
 import type { RawConfig } from "../../src/config/types.ts";
@@ -46,11 +46,12 @@ interface Editor {
 }
 
 /** A session whose config file is written the way the editor writes it, so that a change shows as a short diff. */
-async function withEditor(body: (editor: Editor) => Promise<void>, options: { rows?: number } = {}): Promise<void> {
+async function withEditor(body: (editor: Editor) => Promise<void>, options: { rows?: number; file?: boolean } = {}): Promise<void> {
 	const tui = await TuiSession.start({ config: BASE_CONFIG, ...(options.rows ? { rows: options.rows } : {}) });
 	try {
 		await tui.ready();
-		writeFileSync(tui.configPath, stableStringify(JSON.parse(JSON.stringify(BASE_CONFIG)) as RawConfig));
+		if (options.file === false) unlinkSync(tui.configPath);
+		else writeFileSync(tui.configPath, stableStringify(JSON.parse(JSON.stringify(BASE_CONFIG)) as RawConfig));
 		await tui.terminal.runCommand("/tier models --global", MENU);
 		await body({
 			tui,
@@ -338,4 +339,39 @@ describe("the tier editor's save under the keys of pi's real TUI", () => {
 			await editor.tui.terminal.waitForScreen((screen) => screen.includes("No changes to save."));
 			assert.deepEqual(editor.backups(), []);
 		}));
+});
+
+describe("the tier editor's save confirm on a small terminal, under the keys of pi's real TUI", () => {
+	/** Creates a first profile in a config file that does not exist yet, which makes the whole file the diff. */
+	async function createFirstProfile(editor: Editor): Promise<void> {
+		await editor.go("+ new profile", "Profile name (lowercase)");
+		await editor.answer("work");
+		await editor.tui.terminal.waitForScreen((screen) => screen.includes("Model for the first tier"));
+		await editor.tui.terminal.chooseRow("acme/big");
+		await editor.tui.terminal.waitForScreen((screen) => screen.includes("Profile work"));
+		await backToMenu(editor, "profile");
+	}
+
+	for (const rows of [24, 20]) {
+		it(`keeps Yes, No and the key hint on screen at ${rows} rows when a first save is a long diff`, () =>
+			withEditor(
+				async (editor) => {
+					await createFirstProfile(editor);
+					const confirm = await editor.go(SAVE, "Save");
+					await editor.tui.terminal.waitForScreen((screen) => screen.includes("→ Yes"));
+					const screen = await editor.tui.terminal.screen();
+					assert.match(
+						screen,
+						/→ Yes\s*\n\s+No\s*\n\s*↑↓ navigate {2}enter select {2}escape\/ctrl\+c cancel/,
+						`the question and its keys are visible:\n${confirm}`,
+					);
+					assert.match(screen, /… \d+ more lines/, "the diff says how much it leaves out");
+					assert.match(screen, /\+\s+"profiles": \{/, "and still shows where the change starts");
+					editor.tui.terminal.press(ENTER);
+					await editor.tui.terminal.waitForScreen((screen) => shows(screen, RELOADED));
+					assert.deepEqual(editor.saved().profiles.work?.tiers.standard?.members, ["acme/big"]);
+				},
+				{ rows, file: false },
+			));
+	}
 });

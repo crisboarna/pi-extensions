@@ -94,6 +94,16 @@ function memberModel(member: MemberInput): string {
 	return typeof member === "string" ? member : member.model;
 }
 
+/** The most diff lines the save question shows: pi draws a dialog in the few rows above the footer, and a longer one pushes Yes and No off the screen. */
+const MAX_DIFF_LINES = 6;
+
+/** The first lines of a diff that fits a small terminal, with a count of what is left out. */
+function fitDiff(diff: string): string {
+	const lines = diff.split("\n");
+	if (lines.length <= MAX_DIFF_LINES) return diff;
+	return [...lines.slice(0, MAX_DIFF_LINES), `  … ${lines.length - MAX_DIFF_LINES} more lines`].join("\n");
+}
+
 /** Saves `next` to `path` after validation, a diff and confirmation, writing a timestamped .bak first. */
 export async function saveWithConfirmation(ui: EditorUi, path: string, before: RawConfig, next: RawConfig, now = new Date()): Promise<boolean> {
 	const check = normalizeConfig(next);
@@ -108,7 +118,7 @@ export async function saveWithConfirmation(ui: EditorUi, path: string, before: R
 		ui.notify("No changes to save.", "info");
 		return false;
 	}
-	const ok = await ui.confirm(`Save ${path}?`, lineDiff(beforeText || stableStringify(before), afterText));
+	const ok = await ui.confirm(`Save ${path}?`, fitDiff(lineDiff(beforeText || stableStringify(before), afterText)));
 	if (!ok) return false;
 	mkdirSync(dirname(path), { recursive: true });
 	if (beforeText) copyFileSync(path, `${path}.${now.toISOString().replace(/[:.]/gu, "-")}.bak`);
