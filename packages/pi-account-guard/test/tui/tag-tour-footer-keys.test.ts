@@ -20,13 +20,14 @@ const NEEDS_ONE = "Check at least one zone, or press esc to cancel.";
 
 async function withTui(
 	body: (tui: TuiSession, requests: () => string[]) => Promise<void>,
-	options: { config?: unknown; columns?: number } = {},
+	options: { config?: unknown; columns?: number; rows?: number } = {},
 ): Promise<void> {
 	const log = join(mkdtempSync(join(tmpdir(), "account-guard-requests-")), "requests.txt");
 	const requests = () => (existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean) : []);
 	const tui = await TuiSession.start({
 		...(options.config !== undefined ? { config: options.config } : {}),
 		...(options.columns !== undefined ? { columns: options.columns } : {}),
+		...(options.rows !== undefined ? { rows: options.rows } : {}),
 		env: { STUB_REQUEST_LOG: log },
 	});
 	try {
@@ -174,5 +175,53 @@ describe("the footer under pi's real TUI", () => {
 				assert.ok(footer.length <= 40, `the footer fits 40 columns, got ${footer.length}: ${footer}`);
 			},
 			{ config: { accounts: [{ provider: "stub", source: "fallback", zones: ["personal"] }] }, columns: 40 },
+		));
+});
+
+describe("the tag checklist with many zones, under the keys of pi's real TUI", () => {
+	const HINT = "up/down move, space checks, enter confirms, esc cancels";
+	const ZONES = Array.from({ length: 30 }, (_, index) => `zone${String(index + 1).padStart(2, "0")}`);
+	const CONFIG = { zones: ZONES, defaultZone: "zone01", accounts: [{ provider: "stub", source: "fallback", zones: ["zone01"] }], places: [] };
+	const savedZones = (tui: TuiSession): string[] | undefined =>
+		(
+			JSON.parse(readFileSync(join(tui.agentDir, "account-guard.json"), "utf8")) as { accounts: Array<{ provider: string; zones: string[] }> }
+		).accounts.find((account) => account.provider === "stub")?.zones;
+
+	it("scrolls on a 24-row terminal: the cursor row and the key hint stay on screen from the first zone to the last", () =>
+		withTui(
+			async (tui) => {
+				const first = await tui.terminal.runCommand("/guard tag", "Which zones does stub");
+				await tui.terminal.waitForScreen((screen) => screen.includes("> [ ] zone01"));
+				assert.ok(first.includes(HINT), "the hint is on screen");
+				assert.match(first, /↓ \d+ more/, "it says there are zones below");
+				assert.doesNotMatch(first, /↑ \d+ more/, "and none above");
+				for (let index = 2; index <= ZONES.length; index++) {
+					tui.terminal.press(DOWN);
+					const screen = await tui.terminal.waitForScreen((current) => current.includes(`> [ ] ${ZONES[index - 1]}`));
+					assert.ok(screen.includes(HINT), `the hint is on screen with the cursor on ${ZONES[index - 1]}`);
+				}
+				const last = await tui.terminal.screen();
+				assert.match(last, /↑ \d+ more/, "at the end it says there are zones above");
+				assert.doesNotMatch(last, /↓ \d+ more/, "and none below");
+				tui.terminal.press(SPACE);
+				await tui.terminal.waitForScreen((screen) => screen.includes("> [x] zone30"));
+				tui.terminal.press(ENTER);
+				await tui.terminal.waitForScreen((screen) => screen.includes("Change the zones of stub (fallback)?") && screen.includes("→ Yes"));
+				tui.terminal.press(ENTER);
+				await tui.terminal.waitForScreen((screen) => !screen.includes("Change the zones of stub (fallback)?"));
+				assert.deepEqual(savedZones(tui), ["zone30"], "the zone ticked at the end of the list is the one saved");
+			},
+			{ config: CONFIG, rows: 24 },
+		));
+
+	it("shows every zone with no scroll marks when they all fit", () =>
+		withTui(
+			async (tui) => {
+				const screen = await tui.terminal.runCommand("/guard tag", "Which zones does stub");
+				await tui.terminal.waitForScreen((current) => current.includes("[ ] zone30"));
+				assert.ok(screen.includes(HINT));
+				assert.doesNotMatch(await tui.terminal.screen(), /[↑↓] \d+ more/);
+			},
+			{ config: CONFIG, rows: 60 },
 		));
 });

@@ -24,7 +24,7 @@ export function attachTagDialogs(session: FakeSession, mode: "tui" | "rpc" | "pr
 	ctx.ui.custom = async (factory: (...args: any[]) => any) => {
 		let result: unknown;
 		let closed = false;
-		const tui = { requestRender: () => undefined };
+		const tui = { requestRender: () => undefined, terminal: { rows: 24 } };
 		const component = await factory(tui, {}, {}, (value: unknown) => {
 			result = value;
 			closed = true;

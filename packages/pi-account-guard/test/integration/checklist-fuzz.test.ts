@@ -9,22 +9,26 @@ import { askZonesWithChecklist } from "../../src/pi/tag-checklist.ts";
 
 const ZONES = ["work", "個人 personal", "😀 an emoji zone with a very long name that has to wrap across several lines of a narrow terminal"];
 const WIDTHS = [10, 24, 40, 80, 200];
+const MANY = Array.from({ length: 40 }, (_, index) => `zone${String(index + 1).padStart(2, "0")}`);
+const HEIGHTS = [10, 24, 50];
+const HINT = "up/down move, space checks, enter confirms, esc cancels";
+const NOTHING_CHECKED = "Check at least one zone, or press esc to cancel.";
 const NAMED_KEYS = ["\x1b[A", "\x1b[B", " ", "\r", "\x1b", "\t", "\x7f", "\x1b[C", "\x1b[D", "\x1b[200~paste\x1b[201~", "\x03", "\x00"];
 const PRINTABLE = ["a", "Z", "7", "é", "個", "😀", "\u200b", "\u0301", " "];
 
 type Component = { render(width: number): string[]; handleInput(data: string): void };
 
-function mount(): Component {
+function mount(rows = 24, zones: string[] = ZONES): Component {
 	let component: Component | undefined;
 	const ctx = {
 		ui: {
 			custom: (factory: (...args: unknown[]) => Component) =>
 				new Promise((resolve) => {
-					component = factory({ requestRender() {} }, {}, {}, resolve);
+					component = factory({ requestRender() {}, terminal: { rows } }, {}, {}, resolve);
 				}),
 		},
 	} as unknown as ExtensionContext;
-	void askZonesWithChecklist(ctx, "Which zones does this account belong to?", ZONES);
+	void askZonesWithChecklist(ctx, "Which zones does this account belong to?", zones);
 	assert.ok(component, "the checklist was mounted");
 	return component;
 }
@@ -71,5 +75,32 @@ describe("random input against the tag checklist", () => {
 				}
 			}
 		});
+	}
+});
+
+describe("random input against a long tag checklist on terminals of several heights", () => {
+	const seeds = process.env.FUZZ_SEED ? [Number(process.env.FUZZ_SEED)] : Array.from({ length: 10 }, (_, index) => 3000 + index);
+	for (const rows of HEIGHTS) {
+		for (const seed of seeds) {
+			it(`keeps the cursor row and the hint in the output at ${rows} rows (seed ${seed})`, () => {
+				const next = random(seed);
+				const component = mount(rows, MANY);
+				const history: string[] = [];
+				for (let step = 0; step < 100; step++) {
+					const input = randomInput(next);
+					history.push(JSON.stringify(input));
+					component.handleInput(input);
+					const lines = component.render(80);
+					const context = `(${rows} rows, seed ${seed}, after ${history.slice(-8).join(" ")})`;
+					assert.ok(
+						lines.some((line) => line.startsWith("> [")),
+						`the cursor row is missing ${context}`,
+					);
+					const last = lines.at(-1);
+					assert.ok(last === HINT || last === NOTHING_CHECKED, `the last line is not the hint: ${JSON.stringify(last)} ${context}`);
+					assert.ok(lines.length <= Math.max(8, rows - 8) + 1, `${lines.length} lines are too many for ${rows} rows ${context}`);
+				}
+			});
+		}
 	}
 });
