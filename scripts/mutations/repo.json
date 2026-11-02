@@ -82,5 +82,19 @@
 		"find": "seed: baseSeed + copy",
 		"replace": "seed: baseSeed",
 		"tests": ["test/soak.test.ts"]
+	},
+	{
+		"id": "pack-reachability-nothing-missing",
+		"file": "scripts/lib/reachable.ts",
+		"find": "return reachable.filter((file) => !held.has(file));",
+		"replace": "return [];",
+		"tests": ["test/reachable.test.ts"]
+	},
+	{
+		"id": "reachability-ignores-lazy-imports",
+		"file": "scripts/lib/reachable.ts",
+		"find": "/\\bimport\\s*\\(\\s*[\"']([^\"']+)[\"']\\s*\\)/g,",
+		"replace": "/$^/g,",
+		"tests": ["test/reachable.test.ts"]
 	}
 ]

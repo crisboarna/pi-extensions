@@ -16,6 +16,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import { specifiers } from "../lib/reachable.ts";
 import { HOST_PROVIDED, listPackages, type Manifest, ROOT, readJson, reporter } from "../lib/repo.ts";
 
 const TYPEBOX_ALIASED = new Set(["typebox", "typebox/value", "typebox/compile", "@sinclair/typebox", "@sinclair/typebox/value", "@sinclair/typebox/compile"]);
@@ -27,19 +28,6 @@ const BUILTINS = new Set(builtinModules.filter((name) => !name.startsWith("_")))
 
 const report = reporter("imports");
 const rootDev = new Set(Object.keys(readJson<Manifest>(join(ROOT, "package.json")).devDependencies ?? {}));
-
-function specifiers(text: string): string[] {
-	const code = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-	const found: string[] = [];
-	const patterns = [
-		/\bfrom\s*["']([^"']+)["']/g,
-		/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
-		/^\s*import\s*["']([^"']+)["']/gm,
-		/\bimport\(\s*"([^"]+)"\s*\)\./g,
-	];
-	for (const pattern of patterns) for (const match of code.matchAll(pattern)) if (match[1]) found.push(match[1]);
-	return [...new Set(found)];
-}
 
 function packageName(specifier: string): string {
 	const parts = specifier.split("/");
