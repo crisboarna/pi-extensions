@@ -384,7 +384,7 @@ Run in a real TUI.
 
 ## 17. Known limits
 
-- When another extension replaces the editor after this one (loaded later, so its `session_start` runs later), the Placeholder decoration is gone and Backspace removes one character at a time. Seen with pi's `rainbow-editor` example (`test/tui/neighbours-keys.test.ts`).
+- When another extension replaces the editor after this one (loaded later, so its `session_start` runs later), the Placeholder decoration is gone and Backspace removes one character at a time. Seen with pi's `rainbow-editor` example (`test/tui/neighbours-keys.test.ts`), and, with real installed extensions (`npm run coexist`), with pi-image-view and pi-powerline-footer; pi-cc-steer wraps whatever editor is installed, so the decoration holds in both orders. In every case the send still expands the Placeholder.
 - A path used only through `bash` or `ls` never becomes a Recent ref. Paths outside the project from tool calls never appear. `@` completions need the sent text to be seen.
 - With the `input` route the stored message holds the full Expansion. The fork selector and the editor after a fork, up-arrow after resume, the steering queue line, HTML export and the compaction summary show or see the full text. Each extension gets one Markdown transformer.
 - A Context block whose content contains `</context-ref>` is not escaped (section 9.2). The collapse is safe because of `bytes`; the model still sees the raw text.

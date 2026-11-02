@@ -61,6 +61,17 @@ npm run soak -- packages/pi-switchboard/test/tui/tier-editor-keys.test.ts --copi
 
 It prints one line per file and the log of the first failing run. A run that does not exit within `--timeout` (120 seconds by default) is killed and counted as a hang, because a suite can pass every test and then never exit.
 
+## Try real third-party extensions
+
+`test/tui/neighbours-keys.test.ts` loads the example extensions pi ships. Extensions people install are different code, so `npm run coexist` runs the package beside real ones:
+
+```bash
+npm run coexist                  # install the pins, run every package's test/coexist tests, remove the folder
+npm run coexist -- --keep        # keep the temporary folder, to look at what was installed
+```
+
+The versions are pinned in `scripts/coexist.json`. The script installs them from the npm registry into a temporary folder outside the repository, with `--ignore-scripts`, and links pi's own packages in from the repository, so the extensions run against the pi under test and there is one copy of it. The repository's `.npmrc` does not apply to that folder, so the script refuses a pin younger than its `min-release-age`, and a pin that is not an exact version. Read what an extension did from what the model received, not from the screen: one of them draws its own prompt in front of the typed text. A package with no licence is not pinned.
+
 ## Prove a test can fail
 
 A test that cannot fail proves nothing. Break the source on purpose, run the test, and put the source back:
@@ -72,4 +83,4 @@ npm run mutation-canary -- --only tier-save-ignores-no
 
 An entry is `{ "id", "file", "find", "replace", "tests" }`: `find` occurs once in `file`, and `tests` are test files of the same package that must fail with the change. The script refuses a file with uncommitted changes, runs the tests unchanged first, and restores the file afterwards, also on Ctrl+C. A mutation that survives means the test does not guard what it claims to; fix the test, not the entry. Add an entry whenever you prove a test by hand.
 
-Both commands run on demand, not in a hook or in CI.
+These commands run on demand, not in a hook or in CI.

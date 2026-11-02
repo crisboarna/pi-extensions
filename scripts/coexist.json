@@ -1,0 +1,7 @@
+{
+	"packages": [
+		{ "name": "pi-cc-steer", "version": "0.1.10" },
+		{ "name": "pi-image-view", "version": "0.5.0" },
+		{ "name": "pi-powerline-footer", "version": "0.21.0" }
+	]
+}
