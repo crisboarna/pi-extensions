@@ -34,7 +34,7 @@ Design notes go in `DESIGN.md`, terms in `GLOSSARY.md`, decisions in `docs/adr/`
 | `engines.node` | the root's value (`>=22.19.0`, pi's own floor), which the `floor` CI job tests on exactly | A package never claims support for a Node version nothing tests |
 | `files` | everything published, and nothing else | The pack snapshot shows every change to this list |
 | `pi` | `extensions` (and `skills`, `prompts`, `themes`), optional `image`, `video` | pi loads these entries; the gallery shows the image or video |
-| `peerDependencies` | pi's packages as `"*"` | pi supplies them at runtime; a second copy breaks `instanceof` checks and typebox schemas |
+| `peerDependencies` | `@earendil-works/*` as `PI_PEER_RANGE` (`>=1.4.0 <2`), `typebox` as `"*"` | pi supplies them at runtime; a second copy breaks `instanceof` checks and typebox schemas. The range is the one CI tests (its floor and the newest release inside it), so it never promises a pi nothing has run against |
 | `dependencies` | exact versions, as few as possible | Users install them; exact versions are reproducible |
 | `devDependencies` | none; use the root | Every package tests against the same pi and tooling versions |
 

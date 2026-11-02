@@ -12,5 +12,19 @@
 		"find": "compareVersions(version, range.below) < 0",
 		"replace": "true",
 		"tests": ["test/pi-versions.test.ts"]
+	},
+	{
+		"id": "manifests-pi-peer-range-unchecked",
+		"file": "scripts/checks/manifests.ts",
+		"find": "range === PI_PEER_RANGE,",
+		"replace": "true,",
+		"tests": ["test/checks.test.ts"]
+	},
+	{
+		"id": "manifests-root-pi-pin-unchecked",
+		"file": "scripts/checks/manifests.ts",
+		"find": "compareVersions(pin, range.below) < 0",
+		"replace": "true",
+		"tests": ["test/checks.test.ts"]
 	}
 ]

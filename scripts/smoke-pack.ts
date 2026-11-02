@@ -9,9 +9,10 @@
 //      (pi's own packages are peers that pi never installs; it maps only their
 //      main entry points), starts the repository's pi on that folder in RPC
 //      mode, and fails on any extension load error;
-//   3. runs each bin with --help and expects exit code 0.
+//   3. runs each bin with --help and expects exit code 0;
+//   4. reads the peer dependencies back from the unpacked tarball, which must be those of the manifest (the range CI tests).
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listPackages, ROOT, reporter } from "./lib/repo.ts";
@@ -69,6 +70,13 @@ for (const { manifest } of listPackages()) {
 		);
 		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [`npm:${manifest.name}`] }));
 		const installed = join(npmDir, "node_modules", ...manifest.name.split("/"));
+
+		// The range a package promises is only worth something if it is what npm publishes, so read it back from the unpacked tarball.
+		const published = JSON.parse(readFileSync(join(installed, "package.json"), "utf8")) as { peerDependencies?: Record<string, string> };
+		for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
+			if (published.peerDependencies?.[name] !== range)
+				report.fail(`${manifest.name}: the tarball declares peer ${name} as "${published.peerDependencies?.[name]}", the manifest as "${range}"`);
+		}
 
 		if ((manifest.pi?.extensions ?? []).length > 0) {
 			const { stderr, answered } = await startPi(agentDir, work);

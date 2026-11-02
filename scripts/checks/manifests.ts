@@ -3,11 +3,14 @@
 // Each package is published on its own, so each manifest must be complete:
 // scoped name matching its folder, metadata the npm page and the pi gallery
 // read, provenance on publish, and pi's host-provided packages declared as
-// "*" peers. Pi aliases those modules at runtime; an installed copy puts a
-// second instance of the same module in one process.
+// peers, never as dependencies. Pi aliases those modules at runtime; an
+// installed copy puts a second instance of the same module in one process.
+// pi's own packages use the range CI tests (PI_PEER_RANGE: its floor and
+// the newest release inside it); typebox, which pi bundles, stays "*".
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { HOST_PROVIDED, listPackages, type Manifest, REPOSITORY_URL, ROOT, readJson, reporter, SCOPE } from "../lib/repo.ts";
+import { compareVersions, parseRange } from "../lib/pi-versions.ts";
+import { HOST_PROVIDED, listPackages, type Manifest, PI_PEER_RANGE, REPOSITORY_URL, ROOT, readJson, reporter, SCOPE } from "../lib/repo.ts";
 
 /** Minimum coverage, in percent, for lines, branches and functions in every package. */
 const COVERAGE_FLOOR = 90;
@@ -17,6 +20,16 @@ const root = readJson<Manifest>(join(ROOT, "package.json"));
 if (root.private !== true) report.fail("root package.json must be private");
 for (const field of ["dependencies", "peerDependencies", "optionalDependencies"] as const) {
 	if (root[field]) report.fail(`root package.json must not declare ${field}; use devDependencies`);
+}
+
+// The pi the repository tests with must be inside the range the packages declare, or the range would promise what no test has seen.
+try {
+	const range = parseRange(PI_PEER_RANGE);
+	const pin = root.devDependencies?.["@earendil-works/pi-coding-agent"];
+	if (!(pin && /^\d+\.\d+\.\d+$/.test(pin) && compareVersions(pin, range.min) >= 0 && compareVersions(pin, range.below) < 0))
+		report.fail(`root devDependencies must pin @earendil-works/pi-coding-agent exactly, inside ${PI_PEER_RANGE} (found "${pin}")`);
+} catch (error) {
+	report.fail(`PI_PEER_RANGE in scripts/lib/repo.ts: ${(error as Error).message}`);
 }
 
 // Root engines.node is the oldest Node the packages support, and CI runs the
@@ -95,7 +108,13 @@ for (const { dir, path, manifest: m } of listPackages()) {
 	}
 	need(!m.devDependencies, "devDependencies belong in the root package.json so every package tests against the same versions");
 	for (const [name, range] of Object.entries(m.peerDependencies ?? {})) {
-		if (HOST_PROVIDED.includes(name)) need(range === "*", `peer ${name} must use "*" (pi supplies whatever it bundles), found "${range}"`);
+		if (!HOST_PROVIDED.includes(name)) continue;
+		if (name.startsWith("@earendil-works/"))
+			need(
+				range === PI_PEER_RANGE,
+				`peer ${name} must be "${PI_PEER_RANGE}", the range CI tests (PI_PEER_RANGE in scripts/lib/repo.ts), found "${range}"`,
+			);
+		else need(range === "*", `peer ${name} must use "*" (pi supplies whatever it bundles), found "${range}"`);
 	}
 	for (const [name, range] of Object.entries(m.dependencies ?? {})) {
 		need(

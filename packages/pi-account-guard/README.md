@@ -21,7 +21,7 @@ It is a guard against slips, not a security boundary: it never reads secrets, an
 pi install npm:@crisboarna/pi-account-guard
 ```
 
-Restart pi. Requires Node 22.19 or later; checked with pi 1.4.
+Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.
 
 ## Quick start
 

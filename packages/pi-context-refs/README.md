@@ -19,7 +19,7 @@ Save the context you keep giving the model (a path, a file, a snippet of text, t
 pi install npm:@crisboarna/pi-context-refs
 ```
 
-Restart pi. Requires Node 22.19 or later; checked with pi 1.4.
+Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.
 
 ## Quick start
 
