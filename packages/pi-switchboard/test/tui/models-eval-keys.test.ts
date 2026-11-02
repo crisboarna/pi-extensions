@@ -37,7 +37,7 @@ describe("/tier models asks which config to edit, under the keys of pi's real TU
 	it("offers the user's config and the project's, with the user's selected first", () =>
 		withTui(async (tui) => {
 			await tui.terminal.runCommand("/tier models", "Edit which config?");
-			const choice = await tui.terminal.waitForScreen((screen) => screen.includes("/project/.pi/") && screen.includes("→"));
+			const choice = await tui.terminal.waitForScreen((screen) => shows(screen, "/project/.pi/pi-switch") && screen.includes("→"));
 			assert.match(choice, /enter select/);
 			assert.ok(choice.indexOf("→") < choice.indexOf("/project/.pi/"), "the selected row comes before the project's");
 			tui.terminal.press(ESC);
@@ -48,7 +48,7 @@ describe("/tier models asks which config to edit, under the keys of pi's real TU
 	it("Enter on the first opens the editor on the user's config", () =>
 		withTui(async (tui) => {
 			await tui.terminal.runCommand("/tier models", "Edit which config?");
-			await tui.terminal.waitForScreen((screen) => screen.includes("/project/.pi/"));
+			await tui.terminal.waitForScreen((screen) => shows(screen, "/project/.pi/pi-switch"));
 			tui.terminal.press(ENTER);
 			const editor = await tui.terminal.waitForScreen((screen) => screen.includes(MENU));
 			assert.ok(!shows(editor, "/.pi/pi-switchboard.json"), "it is not the project's file");
@@ -58,9 +58,9 @@ describe("/tier models asks which config to edit, under the keys of pi's real TU
 	it("Down then Enter opens the editor on the project's config, which has no profiles yet", () =>
 		withTui(async (tui) => {
 			await tui.terminal.runCommand("/tier models", "Edit which config?");
-			await tui.terminal.waitForScreen((screen) => screen.includes("/project/.pi/"));
+			await tui.terminal.waitForScreen((screen) => shows(screen, "/project/.pi/pi-switch"));
 			tui.terminal.press(DOWN);
-			await tui.terminal.waitForScreen((screen) => /→\s*\n\s*\/\S*\/project\/\.pi\/pi-swi/.test(screen));
+			await tui.terminal.waitForScreen((screen) => /→\s*\/\S*\/project\/\.pi\/pi-swi/.test(screen));
 			tui.terminal.press(ENTER);
 			const editor = await tui.terminal.waitForScreen((screen) => screen.includes(MENU));
 			assert.ok(shows(editor, "/project/.pi/pi-switchboard.json"), "the title names the project's file");
