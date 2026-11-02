@@ -1,4 +1,5 @@
 import { BUILTIN_REFS } from "./builtins.ts";
+import { UNTRUSTED } from "./ref-list.ts";
 
 /** The editor states the doctor can report; `EditorTap.status` produces them (src/pi/editor.ts). */
 export type EditorState = "no-ui" | "pending" | "atomic" | "plain:no-segment" | "plain:replaced";
@@ -50,8 +51,7 @@ function globalLines(fact: LibraryFact, out: Lines): void {
 
 function projectLines(project: DoctorFacts["project"], out: Lines): void {
 	if (!project.trusted) {
-		if (project.exists)
-			out.warn.push(`! Project library: ${project.path} is not loaded because pi does not trust this project; run /trust, then restart pi`);
+		if (project.exists) out.warn.push(`! Project library ${project.path}: not loaded. ${UNTRUSTED}`);
 		else out.ok.push(`✓ Project library: none (${project.path})`);
 		return;
 	}
@@ -83,7 +83,7 @@ function gitLines({ git }: DoctorFacts, out: Lines): void {
 function editorLines(editor: EditorState, out: Lines): void {
 	switch (editor) {
 		case "no-ui":
-			return void out.ok.push("✓ editor: this mode has no editor; typed refs still expand");
+			return void out.ok.push("✓ editor: this session has no editor; typed refs still expand");
 		case "atomic":
 			return void out.ok.push("✓ editor: a placeholder is one unit; one Backspace deletes it");
 		case "pending":

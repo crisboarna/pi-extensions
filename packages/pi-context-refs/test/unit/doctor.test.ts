@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { type DoctorFacts, doctorLines } from "../../src/core/doctor.ts";
+import { UNTRUSTED } from "../../src/core/ref-list.ts";
 
 const HEALTHY: DoctorFacts = {
 	global: { path: "/agent/pi-context-refs.json", exists: true, refs: 3, warnings: [] },
@@ -65,18 +66,15 @@ describe("doctorLines", () => {
 			assert.match(out, /✓ Global library: 2 refs/);
 		});
 
-		it("says a Project library is not loaded when pi does not trust the project, and what to do", () => {
+		it("says a Project library is not loaded when pi does not trust the project, with the sentence /ref list uses", () => {
 			const out = text({ project: { trusted: false, path: "/work/.pi/pi-context-refs.json", exists: true } });
-			assert.match(
-				out,
-				/! Project library: \/work\/\.pi\/pi-context-refs\.json is not loaded because pi does not trust this project; run \/trust, then restart pi/,
-			);
+			assert.ok(out.includes(`! Project library /work/.pi/pi-context-refs.json: not loaded. ${UNTRUSTED}`), out);
 		});
 
 		it("says nothing alarming about an untrusted project that has no library", () => {
 			const out = text({ project: { trusted: false, path: "/work/.pi/pi-context-refs.json", exists: false } });
 			assert.match(out, /✓ Project library: none/);
-			assert.doesNotMatch(out, /\/trust/);
+			assert.ok(!out.includes(UNTRUSTED));
 		});
 
 		it("names a Project library that cannot be used", () => {
@@ -131,7 +129,7 @@ describe("doctorLines", () => {
 		const editor = (status: DoctorFacts["editor"], ui = true) => text({ editor: status, versions: { pi: "1.4.0", node: "v24.0.0", ui } });
 
 		it("says there is no editor without a UI, and that typed refs still expand", () => {
-			assert.match(editor("no-ui", false), /✓ editor: this mode has no editor; typed refs still expand/);
+			assert.match(editor("no-ui", false), /✓ editor: this session has no editor; typed refs still expand/);
 		});
 
 		it("says to look again while the editor is not wrapped yet", () => {

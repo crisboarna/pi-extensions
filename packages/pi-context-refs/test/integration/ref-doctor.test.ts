@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { createJiti } from "jiti";
+import { UNTRUSTED } from "../../src/core/ref-list.ts";
 import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
 import { initRepo } from "../support/git-repo.ts";
 
@@ -103,7 +104,7 @@ describe("/ref doctor", () => {
 		assert.match(text, /✓ Project library: 1 ref in /);
 		assert.match(text, /✓ approvals: none for this project/);
 		assert.match(text, /✓ git: #diff, #staged, #status and #log work here/);
-		assert.match(text, /✓ editor: this mode has no editor; typed refs still expand/);
+		assert.match(text, /✓ editor: this session has no editor; typed refs still expand/);
 		assert.match(text, /✓ trigger: # opens the list/);
 		assert.match(text, new RegExp(`✓ pi \\S+, Node ${process.version.replace(/\./g, "\\.")}, without a UI`));
 	});
@@ -112,7 +113,8 @@ describe("/ref doctor", () => {
 		library(projectFile(), [touching("tests")]);
 		const host = await boot();
 		const text = await doctor(host, session({ trusted: false }));
-		assert.match(text, /! Project library: .*pi-context-refs\.json is not loaded because pi does not trust this project; run \/trust, then restart pi/);
+		assert.match(text, /! Project library .*pi-context-refs\.json: not loaded\. /);
+		assert.ok(text.includes(UNTRUSTED), "the same sentence /ref list gives");
 		assert.doesNotMatch(text, /waits? for an Approval/, "an untrusted library's commands are not even counted");
 		assert.equal(existsSync(marker()), false);
 	});
