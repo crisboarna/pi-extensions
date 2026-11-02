@@ -2,7 +2,7 @@
 // are stated in the convention's words and agree with the manifests. Each rule must catch the failure it exists for, and let a clean README pass.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { badgeProblems, MAX_BADGES, majorMinor, versionProblems } from "../scripts/lib/readme-rules.ts";
+import { badgeProblems, headingProblems, MAX_BADGES, majorMinor, versionProblems } from "../scripts/lib/readme-rules.ts";
 
 const EXPECTED = { node: "22.19", piMin: "1.4", piBelow: "2.0" };
 const badge = (alt: string, src: string): string => `[![${alt}](${src})](https://example.test/${alt})`;
@@ -46,6 +46,34 @@ describe("badgeProblems", () => {
 			badgeProblems('<picture><img src="https://img.shields.io/badge/x-y-green"></picture>\n![alt](https://img.shields.io/badge/x-y-green)\n'),
 			[],
 		);
+	});
+});
+
+describe("headingProblems", () => {
+	const SOUND_SECTIONS = "## Requirements\n\n## Data and privacy\n\n## Uninstall\n\nSee [upgrading](docs/upgrading.md).\n";
+
+	test("accepts a README with the three sections in order and the upgrade notes linked", () => {
+		assert.deepEqual(headingProblems(SOUND_SECTIONS), []);
+	});
+
+	test("names each missing section", () => {
+		const problems = headingProblems("## Requirements\n\ndocs/upgrading.md\n");
+		assert.deepEqual(problems, ['has no "## Data and privacy" section', 'has no "## Uninstall" section']);
+	});
+
+	test("refuses sections out of order", () => {
+		const problems = headingProblems("## Uninstall\n\n## Requirements\n\n## Data and privacy\n\ndocs/upgrading.md\n");
+		assert.equal(problems.length, 1);
+		assert.match(problems[0] ?? "", /out of order/);
+	});
+
+	test("refuses a README that does not link its upgrade notes", () => {
+		const problems = headingProblems("## Requirements\n\n## Data and privacy\n\n## Uninstall\n");
+		assert.deepEqual(problems, ["does not link docs/upgrading.md from its Reference section"]);
+	});
+
+	test("does not take a heading inside a longer title or a code block line for a section", () => {
+		assert.equal(headingProblems("### Requirements\n\n## Requirements and more\n\ndocs/upgrading.md\n").length, 3);
 	});
 });
 

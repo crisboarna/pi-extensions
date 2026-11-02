@@ -390,12 +390,21 @@ describe("commit messages", () => {
 });
 
 describe("readme", () => {
-	const SOUND = "# demo\n\nRestart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.\n";
+	const BODY =
+		"## Requirements\n\nNode 22.19 or later; pi 1.4 up to, not including, 2.0.\n\n## Data and privacy\n\n## Uninstall\n\n[Upgrading](docs/upgrading.md)\n";
+	const SOUND = `# demo\n\n${BODY}`;
 	const ROOT_README = "# root\n";
 	const sound = (readme = SOUND) => repo({ "README.md": ROOT_README, "packages/pi-demo/README.md": readme });
 	test("passes READMEs that state the versions in the convention's words", () => {
 		const result = run("readme", sound());
 		assert.ok(result.ok, result.output);
+	});
+	test("rejects a package README without the required sections or the link to its upgrade notes", () => {
+		const result = run("readme", sound("# demo\n\nNode 22.19 or later; pi 1.4 up to, not including, 2.0.\n"));
+		assert.ok(!result.ok);
+		assert.match(result.output, /packages\/pi-demo\/README\.md: has no "## Requirements" section/);
+		assert.match(result.output, /has no "## Uninstall" section/);
+		assert.match(result.output, /does not link docs\/upgrading\.md/);
 	});
 	test("rejects a value typed into a badge, naming the README and the badge", () => {
 		const badge = "[![node](https://img.shields.io/badge/node-%3E%3D22.19-green)](https://example.test)\n\n";
