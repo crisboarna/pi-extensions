@@ -68,5 +68,33 @@
 		"find": "members: objectTable(value.members),",
 		"replace": "members: value.members as never,",
 		"tests": ["packages/pi-switchboard/test/integration/hostile-state.test.ts"]
+	},
+	{
+		"id": "contract-decision-modality-renamed",
+		"file": "packages/pi-switchboard/src/classifier/detect.ts",
+		"find": ".includes(\"decisions\")",
+		"replace": ".includes(\"decision\")",
+		"tests": ["packages/pi-switchboard/test/integration/classifier-contract.test.ts"]
+	},
+	{
+		"id": "contract-systemone-path-renamed",
+		"file": "packages/pi-switchboard/src/classifier/system-one.ts",
+		"find": "new URL(\"systemone\",",
+		"replace": "new URL(\"system-one\",",
+		"tests": ["packages/pi-switchboard/test/integration/classifier-contract.test.ts"]
+	},
+	{
+		"id": "contract-usage-field-renamed",
+		"file": "packages/pi-switchboard/src/classifier/system-one.ts",
+		"find": "body.usage.input_tokens",
+		"replace": "body.usage.inputTokens",
+		"tests": ["packages/pi-switchboard/test/integration/classifier-contract.test.ts"]
+	},
+	{
+		"id": "contract-question-text-changed",
+		"file": "packages/pi-switchboard/src/classifier/questions.ts",
+		"find": "What kind of work does the latest request ask for?",
+		"replace": "What kind of work is asked for?",
+		"tests": ["packages/pi-switchboard/test/integration/classifier-contract.test.ts"]
 	}
 ]
