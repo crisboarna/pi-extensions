@@ -175,7 +175,8 @@ for (const file of files) {
 	const mine = outcomes.filter((outcome) => outcome.job.file === file);
 	const hung = mine.filter((outcome) => outcome.hung);
 	const failures = mine.filter((outcome) => !outcome.hung && outcome.exitCode !== 0);
-	const bad = [...failures, ...hung];
+	// By copy, not by the order the runs finished in, so that the run reported first (and its seed) is the same every time.
+	const bad = [...failures, ...hung].sort((a, b) => a.job.copy - b.job.copy);
 	firstFailure ??= bad[0];
 	failed ||= bad.length > 0;
 	const summary =
