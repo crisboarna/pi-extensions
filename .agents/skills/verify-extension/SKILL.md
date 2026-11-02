@@ -9,7 +9,8 @@ Unit and integration tests run against a fake host. This checks the real one wit
 
 1. Make an isolated agent directory: `export PI_CODING_AGENT_DIR="$(mktemp -d)"`. Copy in only the settings or config the check needs; never copy `auth.json` without asking the user.
 2. Load only the package under test: `pi -ne -e ./packages/<name>/src/index.ts`. Add `-p "<prompt>"` for a non-interactive run; note that print mode hides notifications.
-3. For the installed shape, also run `npm run smoke:pack -- @crisboarna/<name>`.
+3. For the installed shape, also run `npm run smoke:pack -- @crisboarna/<name>`; it fails if pi does not list the package's commands and skill from the tarball.
+3a. If the package has a doctor or check command (`/guard check`, `/tier doctor`), run it in this session and keep its output for the handoff.
 4. Exercise each changed command, tool or event path. Use local or free models where the package allows it, and ask before spending the user's paid quota.
 5. Record what you ran, what you saw, and what you could not check. Update the package README's Limitations when a listed gap is now verified, or when you found a new one.
 6. Remove the temporary agent directory.

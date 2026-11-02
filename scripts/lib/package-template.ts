@@ -50,10 +50,10 @@ export function packageFiles({ name, description, node, license }: PackageInput)
 		"src/index.ts": `import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { greeting } from "./greeting.ts";
 
-/** ${description} */
+/** ${description.replaceAll("*/", "* /")} */
 export default function extension(pi: ExtensionAPI): void {
 	pi.registerCommand("${name.replace(/^pi-/, "")}", {
-		description: "${description.replace(/"/g, '\\"')}",
+		description: ${JSON.stringify(description)},
 		handler: async (_args, ctx) => {
 			ctx.ui.notify(greeting(ctx.cwd), "info");
 		},

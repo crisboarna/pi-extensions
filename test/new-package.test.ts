@@ -39,6 +39,18 @@ describe("the files of a new package", () => {
 		assert.ok(notes.includes(piWords), piWords);
 	});
 
+	test("a description with a quote, a backslash or a comment end cannot break the generated source", () => {
+		const hostile = 'Says "hi" with a back\\slash \\" and a */ in it, for the test.';
+		const generated = packageFiles({ name: "pi-example", description: hostile, node: ">=22.19.0", license: "MIT\n" });
+		const source = generated["src/index.ts"] ?? "";
+		const literal = /description: ("(?:[^"\\]|\\.)*"),/.exec(source)?.[1];
+		assert.ok(literal, "the description is a string literal in src/index.ts");
+		assert.equal(JSON.parse(literal), hostile);
+		assert.equal(JSON.parse(generated["package.json"] ?? "{}").description, hostile);
+		const comment = source.split("\n").find((line) => line.startsWith("/**")) ?? "";
+		assert.equal(comment.split("*/").length - 1, 1, "the doc comment ends once, at its end");
+	});
+
 	test("the command it registers is the one the README's Quick start names", () => {
 		assert.match(files["src/index.ts"] ?? "", /registerCommand\("example"/);
 		assert.match(readme, /Run `\/example` in pi\./);
