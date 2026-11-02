@@ -13,3 +13,4 @@ First release: save the context you keep giving the model as named refs, and sen
 - **Works without the picker.** `Review #diff` and `Review [ref:diff]` mean the same and work in print, JSON and RPC mode as well. A failed ref puts your draft back with the reason.
 - **A short transcript.** Each block collapses to one line, and `/ref sent` shows the full text of the last message.
 - **Beside other extensions.** The package wraps whichever editor was installed last, so the placeholder stays one unit beside extensions that replace the editor.
+- **Tested against a stated range of pi.** It declares pi `>=1.4.0 <2`, the range CI runs the suites against, instead of promising every version.
