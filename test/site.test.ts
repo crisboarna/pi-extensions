@@ -99,7 +99,7 @@ describe("the family site", () => {
 		const switchboard = readFileSync(join(out, "pi-switchboard", "index.html"), "utf8");
 		assert.match(switchboard, /<track kind="captions" srclang="en" label="Narration" src="media\/hero\.vtt" default><\/video>/);
 		assert.ok(existsSync(join(out, "pi-switchboard", "media", "hero.vtt")));
-		assert.doesNotMatch(guard, /raw\.githubusercontent\.com|img\.shields\.io/);
+		assert.doesNotMatch(guard, /raw\.githubusercontent\.com|img\.shields\.io|scorecard\.dev|github\.io\/pi-extensions\/badges/);
 		assert.ok(existsSync(join(out, "pi-account-guard", "media", "hero.mp4")));
 	});
 

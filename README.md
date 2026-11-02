@@ -1,5 +1,7 @@
 # pi extensions by @crisboarna
 
+[![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![codeql](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/codeql.yml?branch=main&label=codeql)](https://github.com/crisboarna/pi-extensions/security/code-scanning) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/banner-dark.png">
   <img alt="pi-extensions: route every request, guard every account, reuse every context. The family mark, three cords crossing on an enamel panel, beside the marks of pi-switchboard, pi-account-guard and pi-context-refs" src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/banner-light.png" width="1100">
