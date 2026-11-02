@@ -162,4 +162,6 @@ for (const template of [".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLAT
 execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: ROOT, stdio: "inherit" });
 execFileSync(join(ROOT, "node_modules/.bin/biome"), ["format", "--write", `packages/${name}`, ".github/ISSUE_TEMPLATE"], { cwd: ROOT, stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/checks/pack.ts", "--update"], { cwd: ROOT, stdio: "inherit" });
-console.log(`\nCreated packages/${name} (${full}). Next: add it to the table in README.md, write the README, then npm run check.`);
+console.log(
+	`\nCreated packages/${name} (${full}). Next: add it to the table in README.md, write the README, list its command in COMMANDS in scripts/smoke-pack.ts, then npm run check.`,
+);
