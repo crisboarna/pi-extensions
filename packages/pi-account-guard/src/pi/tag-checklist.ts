@@ -11,12 +11,18 @@ function keyOf(data: string): ChecklistKey | undefined {
 	return undefined;
 }
 
+/** The rows the list keeps free for what pi draws around it and for a title that wraps. */
+const CHROME_ROWS = 8;
+
 /** Shows the zones as a checkbox list in the TUI; resolves with the checked zones, or `undefined` when the user cancels. */
 export function askZonesWithChecklist(ctx: ExtensionContext, title: string, zones: string[]): Promise<string[] | undefined> {
 	return ctx.ui.custom<string[] | undefined>((tui, _theme, _keybindings, done) => {
 		const list = createChecklist(title, zones);
 		return {
-			render: (width) => list.lines().flatMap((line) => wrapTextWithAnsi(line, width).map((wrapped) => truncateToWidth(wrapped, width))),
+			render: (width) =>
+				list
+					.lines(Math.max(CHROME_ROWS, tui.terminal.rows - CHROME_ROWS))
+					.flatMap((line) => wrapTextWithAnsi(line, width).map((wrapped) => truncateToWidth(wrapped, width))),
 			handleInput(data) {
 				const key = keyOf(data);
 				if (key === undefined) return;

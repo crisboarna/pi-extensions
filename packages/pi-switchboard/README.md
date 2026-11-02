@@ -134,7 +134,7 @@ Remove the footer items if you added them.
 - **Agents with an external runner** (`claude-code`, `codex-exec`) are never routed.
 - **`/model` lists every tier** of every profile as `switchboard/<profile>.<tier>`.
 - **`/tier` output uses pi's notifications**, which print mode (`pi -p`) does not show.
-- **The tier editor's save path** is covered by integration tests only; it was opened live, not saved. Real pi-subagents children, the navigator, `/tier init`, dry-run, pin and report were run live for the [terminal clips](docs/commands.md#in-a-session).
+- **The tier editor's save** is tested with keystrokes in real pi on a virtual terminal, including the diff, the write and the `.bak` copy; nobody has saved a real config with it at a real terminal yet. Real pi-subagents children, the navigator, `/tier init`, dry-run, pin and report were run live for the [terminal clips](docs/commands.md#in-a-session).
 - **Quota data is best effort**: the first decision after start-up may run before pi-usage answers, and then the quota strategy's fallback chooses.
 
 ## Development

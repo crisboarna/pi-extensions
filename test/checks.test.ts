@@ -185,9 +185,20 @@ describe("tui-coverage", () => {
 			"pi.registerShortcut('a', y)",
 			"ctx.ui.addAutocompleteProvider(z)",
 			"ctx.ui.onTerminalInput(w)",
+			"await ctx.ui.select('Which?', rows)",
+			"await run.ctx.ui.confirm('Sure?', 'text')",
+			"await ctx.ui.input('Name', 'x')",
+			"await ctx.ui.editor('Edit', text)",
+			"await ui.confirm('Save?', diff)",
 		]) {
 			const result = run("tui-coverage", repo({ "packages/pi-demo/src/call.ts": `${call};\n` }));
 			assert.ok(!result.ok, `${call} should need a test`);
+		}
+	});
+	test("asks nothing of a file that only notifies, sets the status or has a select of its own", () => {
+		for (const call of ["ctx.ui.notify('text')", "ctx.ui.setStatus('k', 'v')", "menu.select(rows)", "form.input.value", "myui.confirm(x)"]) {
+			const result = run("tui-coverage", repo({ "packages/pi-demo/src/call.ts": `${call};\n` }));
+			assert.ok(result.ok, `${call} needs no test: ${result.output}`);
 		}
 	});
 	test("rejects a covers header that names a file that does not exist", () => {

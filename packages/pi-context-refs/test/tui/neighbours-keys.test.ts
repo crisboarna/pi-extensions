@@ -18,8 +18,13 @@ const ESC = "\x1b";
 const BACKSPACE = "\x7f";
 const SLOW = { name: "slow", kind: "dynamic", command: [process.execPath, "-e", "setTimeout(() => {}, 60000)"], timeout: 120 };
 const LIBRARY = { version: 1, refs: [{ name: "terse", kind: "snippet", text: "Answer in one sentence." }, SLOW] };
-/** The rainbow editor draws each letter of "ultrathink" in its own colour, the first one coral (233, 137, 115); pi's theme never colours a lone `u` that way. */
-const RAINBOW_FIRST_LETTER = "\x1b[38;2;233;137;115mu";
+/**
+ * The rainbow editor draws each letter of "ultrathink" in its own 24-bit colour, and its shine brightens the first letters on some
+ * frames, so no one colour is certain; a `u` and an `l` side by side that each carry their own colour are there on every frame, and
+ * pi's theme never draws text that way.
+ */
+const COLOUR = String.raw`\x1b\[38;2;\d+;\d+;\d+m`;
+const RAINBOW_LETTERS = new RegExp(`${COLOUR}u${COLOUR}l`);
 
 type Order = "before" | "after";
 
@@ -33,6 +38,13 @@ async function withNeighbour(name: string, order: Order, body: (tui: TuiSession,
 					.filter(Boolean)
 					.map((line) => JSON.parse(line) as Received)
 			: [];
+	const started: Array<ReturnType<typeof setInterval>> = [];
+	const realSetInterval = globalThis.setInterval;
+	globalThis.setInterval = ((...args: Parameters<typeof setInterval>) => {
+		const timer = realSetInterval(...args);
+		started.push(timer);
+		return timer;
+	}) as typeof setInterval;
 	const tui = await TuiSession.start({
 		library: LIBRARY,
 		env: { STUB_QUIET: "1", STUB_RECEIVED_LOG: log },
@@ -43,6 +55,11 @@ async function withNeighbour(name: string, order: Order, body: (tui: TuiSession,
 		await body(tui, received);
 	} finally {
 		await tui.close();
+		// pi's rainbow-editor starts an animation timer when "ultrathink" is typed and stops it only when the editor it started in
+		// next gets a key; if that editor was replaced first (the order depends on load) the timer runs for ever and keeps the
+		// test process alive after the last test. Clear what the neighbours started.
+		globalThis.setInterval = realSetInterval;
+		for (const timer of started) clearInterval(timer);
 	}
 }
 
@@ -50,8 +67,10 @@ async function withNeighbour(name: string, order: Order, body: (tui: TuiSession,
 async function rainbowIsDrawing(tui: TuiSession): Promise<boolean> {
 	tui.terminal.type("ultrathink");
 	await tui.waitForEditor((text) => text === "ultrathink");
-	await new Promise((resolve) => setTimeout(resolve, 150));
-	const drawn = tui.terminal.raw.includes(RAINBOW_FIRST_LETTER);
+	// the editor draws on its next render, which a loaded machine can delay; wait for the colours rather than for a guessed time
+	const deadline = Date.now() + 3000;
+	while (!RAINBOW_LETTERS.test(tui.terminal.raw) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
+	const drawn = RAINBOW_LETTERS.test(tui.terminal.raw);
 	for (let key = 0; key < "ultrathink".length; key++) tui.terminal.press(BACKSPACE);
 	await tui.waitForEditor((text) => text === "");
 	return drawn;
