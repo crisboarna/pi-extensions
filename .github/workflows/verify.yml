@@ -73,6 +73,18 @@ jobs:
       - name: Unit and integration tests with coverage thresholds
         run: npm run coverage
 
+      # The README badges show these numbers. They are written only here, after the thresholds held, and served by the Pages build of a verified main.
+      - name: Write the badge documents
+        run: node scripts/badges.ts badges
+
+      - name: Keep the badge documents for the site build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: badges
+          path: badges
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Integration tests through jiti, as pi loads extensions
         run: npm run test:integration
 

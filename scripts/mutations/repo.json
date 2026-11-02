@@ -96,5 +96,33 @@
 		"find": "/\\bimport\\s*\\(\\s*[\"']([^\"']+)[\"']\\s*\\)/g,",
 		"replace": "/$^/g,",
 		"tests": ["test/reachable.test.ts"]
+	},
+	{
+		"id": "badge-empty-report-is-full",
+		"file": "scripts/lib/badges.ts",
+		"find": "if (tally.found <= 0) return 0;",
+		"replace": "if (tally.found <= 0) return 100;",
+		"tests": ["test/badges.test.ts"]
+	},
+	{
+		"id": "badge-rounds-up",
+		"file": "scripts/lib/badges.ts",
+		"find": "return Math.floor((Math.min(tally.hit, tally.found) / tally.found) * 100);",
+		"replace": "return Math.round((Math.min(tally.hit, tally.found) / tally.found) * 100);",
+		"tests": ["test/badges.test.ts"]
+	},
+	{
+		"id": "badge-root-from-some-packages",
+		"file": "scripts/lib/badges.ts",
+		"find": "if (measured.length === packages.length) out[\"coverage.json\"]",
+		"replace": "if (measured.length > 0) out[\"coverage.json\"]",
+		"tests": ["test/badges.test.ts"]
+	},
+	{
+		"id": "badge-root-hides-weak-package",
+		"file": "scripts/lib/badges.ts",
+		"find": "const value = Math.min(...all.map(lowestPercent));",
+		"replace": "const value = Math.max(...all.map(lowestPercent));",
+		"tests": ["test/badges.test.ts"]
 	}
 ]
