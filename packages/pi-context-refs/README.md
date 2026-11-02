@@ -62,36 +62,24 @@ Two settings sit beside `refs` in your own file. `/ref list` shows them; there i
 | `trigger` | The character that opens the picker. One character; not `/`, `@`, `!` or a space. A change needs `/reload`. | `#` |
 | `builtins` | `false` turns off `#diff`, `#staged`, `#status` and `#log`; a list of names turns off just those. | all four on |
 
-Limits per ref: `max_bytes` for a File (default 50 KB, up to 1 MB); `timeout` (default 10 s, up to 120 s) and `max_output` (default 50 KB, up to 1 MB) for a Dynamic ref. A saved ref with the name of a built-in replaces it.
-
-When two refs share a name, the order is: scoped ref, project library, your unscoped ref, built-in. `/ref list` names the ones that are hidden.
-
-### Commands
-
-| Command | Does |
-|---|---|
-| `/ref list [tag=<tag>] [in=<library>]` | Settings, refs by library, hidden refs, built-ins, warnings and the approval state of each project command |
-| `/ref add <name> <kind> <target…> [desc=<text>] [tags=a,b] [in=<library>]` | Kind is `path`, `file`, `snippet` or `dynamic`; `in=` is `global` (default), `project` or `here` (your library, scoped to this repository) |
-| `/ref edit <name> [key=value…]` | With no pairs, opens the ref as JSON in an editor |
-| `/ref remove <name>` | Removes the ref after a confirm |
-| `/ref approvals`, `/ref approve <name>`, `/ref revoke <name\|*>` | Show, grant or drop approvals of project commands and URLs (granting needs the TUI) |
-| `/ref sent` | The full expansions of the last message you sent |
-
-Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that tag, and picking a bundle in the list inserts one placeholder per member.
-
-### Keys in the overlay
+Limits, the order in which refs win, scopes and every field of a ref are in [docs/configuration.md](docs/configuration.md). Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that tag.
 
 ![The alt+r overlay lists refs by library with a filter, previews the expansion of the selected ref, and inserts the pick in place of the typed #.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/overlay.gif)
 
-`alt+r` opens it. Enter picks, Tab switches a recent file between its path form and its file form, Ctrl+S saves a recent file as a ref, Ctrl+E edits and Ctrl+D removes a saved ref, Esc closes. A pick after a typed `#` replaces that `#`.
+`alt+r` opens the overlay. Every `/ref` command and every key is in [docs/commands.md](docs/commands.md).
 
 ## Reference
 
+- [docs/commands.md](docs/commands.md): every `/ref` command and key.
+- [docs/configuration.md](docs/configuration.md): the library files, the fields of a ref, the settings and which ref wins.
+- [docs/headless.md](docs/headless.md): print, JSON and RPC mode, failures and approvals without a UI.
+- [docs/with-other-extensions.md](docs/with-other-extensions.md): the editor, the message and the transcript beside other extensions.
+- [docs/faq.md](docs/faq.md) and [docs/troubleshooting.md](docs/troubleshooting.md): why it behaves as it does, and what to do when it does not work.
 - [DESIGN.md](DESIGN.md): the full design, with the pi behaviour it relies on (section 16.1) and the known limits (section 17).
 - [GLOSSARY.md](GLOSSARY.md): the terms used here and in the code.
-- [docs/adr/](docs/adr/): the six decisions that are hardest to reverse.
+- [docs/adr/](docs/adr/): the seven decisions that are hardest to reverse.
 - [docs/manual-checklist.md](docs/manual-checklist.md): the checks that need a person at a real terminal, and their status.
-- [schema/](schema): JSON Schemas for the library files and the approvals file.
+- [schema/](schema): JSON Schemas for the library files and the approvals file, and [examples/](examples) for a library to copy.
 
 ## Troubleshooting
 
@@ -102,6 +90,8 @@ Tag refs with `tags=a,b`, then `#tag:<tag>` sends every visible ref with that ta
 | A project command shows `(pending)` | You have not approved its definition | Run it from the TUI and answer the question, or run `/ref approve <name>` |
 | A placeholder is sent as typed | No visible ref has that name now | Run `/ref list`; the ref may be removed, out of scope or in an untrusted library |
 | `/ref` prints nothing in `pi -p` | Pi shows no extension notices there | The output is on stderr |
+
+More causes and fixes are in [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Limitations
 
