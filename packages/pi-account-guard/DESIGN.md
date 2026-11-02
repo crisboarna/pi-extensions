@@ -66,11 +66,11 @@ One file holds all configuration: `~/.pi/agent/account-guard.json`. There is no 
   "zones": ["work", "personal"],
   "defaultZone": "personal",
   "accounts": [
-    { "provider": "openai-codex-2", "source": "oauth", "zones": ["work"], "note": "Acme seat" }
+    { "provider": "openai-codex-2", "source": "oauth", "zones": ["work"], "note": "Company API key" }
   ],
   "places": [
-    { "remote": "*/acme-corp/*", "zone": "work" },
-    { "path": "~/Projects/acme", "zone": "work" }
+    { "remote": "*/my-company/*", "zone": "work" },
+    { "path": "~/work", "zone": "work" }
   ]
 }
 ```
@@ -95,10 +95,10 @@ Reads and writes:
 Decided in [What are the place rule semantics?](https://github.com/crisboarna/pi-account-guard/issues/5).
 
 1. **Place path.** The place is the session cwd, not the git root, resolved with native `realpath` (canonical case on macOS). Only the real path is matched; a rule written against a symlink alias misses and falls to the default zone. Git is used only to read remotes, from the cwd (git finds the enclosing repository itself, worktrees included).
-2. **Path syntax.** `~` is expanded. A path with no glob characters (`~/Projects/scout`) matches that directory and everything below it. A path with glob characters uses standard globs (`*` one segment, `**` any depth, `?` one character, `{a,b}`). A `**` that forms a whole segment spans any number of segments, also at the start of a pattern or of a brace alternative (`**/acme-corp/*`). Globs run through a matcher that tracks every alternative at once instead of backtracking, so a hostile pattern or remote URL cannot stall `session_start`. Matching is case-sensitive against the canonical real path. Rule paths are realpath'd at load when they exist; a path that does not exist yet is matched as the literal `~`-expanded path, with no warning, because rules for future directories are legitimate.
-3. **Remote condition.** Every configured remote's fetch URL is considered; the condition holds if any remote matches. URLs are normalized to `host/path`: scheme, user and `.git` suffix stripped, `:` replaced by `/`, percent-decoded. The host is kept as written; SSH config aliases are not resolved (so `github.com-acme/billing-portal/*` or `*/billing-portal/*`). Remote matching is case-insensitive.
-4. **Rule shape.** A rule has an optional path and an optional remote; at least one is required, and when both are present both must hold. Remote-only rules are allowed (`*/acme-corp/*` catches a clone anywhere on disk).
-5. **Precedence.** The first matching rule in file order wins. The user lists specific rules first (for example a personal-remote rule under `~/Projects/acme` before the plain `~/Projects/acme` rule). No match falls to the default zone.
+2. **Path syntax.** `~` is expanded. A path with no glob characters (`~/Projects/scout`) matches that directory and everything below it. A path with glob characters uses standard globs (`*` one segment, `**` any depth, `?` one character, `{a,b}`). A `**` that forms a whole segment spans any number of segments, also at the start of a pattern or of a brace alternative (`**/my-company/*`). Globs run through a matcher that tracks every alternative at once instead of backtracking, so a hostile pattern or remote URL cannot stall `session_start`. Matching is case-sensitive against the canonical real path. Rule paths are realpath'd at load when they exist; a path that does not exist yet is matched as the literal `~`-expanded path, with no warning, because rules for future directories are legitimate.
+3. **Remote condition.** Every configured remote's fetch URL is considered; the condition holds if any remote matches. URLs are normalized to `host/path`: scheme, user and `.git` suffix stripped, `:` replaced by `/`, percent-decoded. The host is kept as written; SSH config aliases are not resolved (so `github.com-work/billing-portal/*` or `*/billing-portal/*`). Remote matching is case-insensitive.
+4. **Rule shape.** A rule has an optional path and an optional remote; at least one is required, and when both are present both must hold. Remote-only rules are allowed (`*/my-company/*` catches a clone anywhere on disk).
+5. **Precedence.** The first matching rule in file order wins. The user lists specific rules first (for example a personal-remote rule under `~/work` before the plain `~/work` rule). No match falls to the default zone.
 6. **Non-git and no-remote places.** Rules with a remote condition do not match; path-only rules still apply. Git failing to run (binary missing, corrupt repository, timeout) is not "no remote": it is the undecidable case in section 7.
 
 ### 5.4 Resolution timing

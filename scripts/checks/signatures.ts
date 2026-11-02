@@ -17,18 +17,16 @@ function git(args: string[]): string {
 	return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 }
 
-/** Commits to check for each ref being pushed: new commits not already on any remote. */
+/**
+ * Commits to check for each ref being pushed: new commits not already on any remote. The remote tip git reports for the ref is not
+ * used: `remote..local` would also list a commit that came in by merging main, and GitHub signs main's commits with its own key.
+ */
 function prePushCommits(input: string): string[] {
 	const out: string[] = [];
 	for (const line of input.split("\n").filter(Boolean)) {
-		const [, localSha = "", , remoteSha = ""] = line.split(" ");
+		const [, localSha = ""] = line.split(" ");
 		if (ZERO.test(localSha)) continue;
-		const range = ZERO.test(remoteSha) ? [localSha, "--not", "--remotes"] : [`${remoteSha}..${localSha}`];
-		out.push(
-			...git(["rev-list", ...range])
-				.split("\n")
-				.filter(Boolean),
-		);
+		out.push(...git(["rev-list", localSha, "--not", "--remotes"]).split("\n").filter(Boolean));
 	}
 	return [...new Set(out)];
 }

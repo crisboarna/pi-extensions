@@ -27,7 +27,8 @@
 				"tools/site/try/*.ts",
 				"scripts/release/*.ts"
 			],
-			"project": ["scripts/**/*.ts", "test/**/*.ts", "tools/site/**/*.ts"]
+			"project": ["scripts/**/*.ts", "test/**/*.ts", "tools/site/**/*.ts"],
+			"ignoreBinaries": ["ssh-keygen"]
 		},
 		"packages/*": {
 			"entry": ["src/index.ts", "bin/*.mjs", "test/**/*.test.ts"],

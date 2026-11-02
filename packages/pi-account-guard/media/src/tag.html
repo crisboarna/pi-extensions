@@ -12,12 +12,12 @@
 <script>
 // The tag prompt: a new account asks once which zones it belongs to.
 clip(async (stage) => {
-	stage.caption("<b>spare</b> has never been used, so it has no zone yet.", "tag");
-	await stage.type("summarize the garden beds");
+	stage.caption("<b>google</b> has never been used, so it has no zone yet.", "tag");
+	await stage.type("add a git alias to undo the last commit");
 	await stage.press("Enter");
-	await stage.waitFor(/Which zones does spare/);
+	await stage.waitFor(/Which zones does google/);
 	await sleep(400);
-	stage.callout(/Which zones does spare/, "nothing is ticked for you", { place: "above", last: true });
+	stage.callout(/Which zones does google/, "nothing is ticked for you", { place: "above", last: true });
 	await sleep(2400);
 	stage.clear();
 	stage.caption("Tick its zones. A tag that matches this place sends the turn at once.", "tag");
@@ -25,11 +25,11 @@ clip(async (stage) => {
 	await stage.press(" ", { after: 500 });
 	await stage.still();
 	await stage.press("Enter");
-	await stage.waitFor(/bed 1 resting\./, { timeout: 15000 });
+	await stage.waitFor(/\.gitconfig\./, { timeout: 15000 });
 	await stage.waitFor(/guard personal ✓/);
-	stage.callout(/Tagged spare \(env:SPARE_KEY\) as personal\./, "saved to account-guard.json", { place: "right", last: true });
+	stage.callout(/Tagged google \(env:GEMINI_API_KEY\) as personal\./, "saved to account-guard.json", { place: "right", last: true });
 	await sleep(3000);
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>

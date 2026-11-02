@@ -14,13 +14,13 @@
 clip(async (stage) => {
 	await stage.command("/guard tag switchboard personal");
 	await sleep(1000);
-	await stage.type("summarize the garden beds");
+	await stage.type("what does install.sh do?");
 	await stage.press("Enter");
-	await stage.waitFor(/Done on homelab\/home-model/, { timeout: 20000 });
+	await stage.waitFor(/Done on anthropic\/claude-sonnet-5/, { timeout: 20000 });
 	await stage.command("/guard");
 	await stage.waitFor(/Account\s+switchboard/);
 	await stage.still("7-personal-sent");
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>
