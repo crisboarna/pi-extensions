@@ -18,6 +18,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 - `npm run check:fast` runs the gates the pre-commit hook runs.
 - `npm test` runs every package's unit tests and the repository script tests; `npm run test:integration` and `npm run coverage` run the rest of what CI runs.
 - `npm run smoke:pack` installs each package from its packed tarball and loads it through jiti, the way users get it.
+- `npm run soak` runs copies of the keystroke suites side by side to find the failures and hangs that only show on a busy machine; `npm run mutation-canary` breaks the source on purpose to prove that the tests can fail. Both run on demand; `docs/conventions/testing.md` says when.
 - `npm run test:e2e` installs the packages from their packed tarballs into the repository's pinned pi: pi-switchboard's classifier CLI and commands, real prompts through its routing, failover and pi-subagents children (with stand-in models and a stand-in classifier, no network), and both packages together in one pi (`test/e2e/both.test.ts`). With `E2E_SERVERS` it also runs the suites that need a model server (`packages/pi-switchboard/AGENTS.md`, Testing). CI runs it without `E2E_SERVERS`, and the real-pi smoke tests of account-guard and context-refs (`npm run test:smoke` in each package).
 - `npm run format` applies Biome formatting and safe fixes; Markdown is linted by markdownlint, never formatted by Biome.
 
@@ -25,6 +26,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - A change is done when `npm run check`, `npm test`, `npm run test:integration` and `npm run coverage` pass, and you have read their output.
 - Add or update tests in the same change as the behaviour; a bug fix starts with a test that fails without the fix.
+- Read `docs/conventions/testing.md` before you write a `test/tui` test, and run `npm run soak` on every new or changed one before you push it.
 - Coverage stays at 90% or more for lines, branches and functions in every package (`npm run coverage`); cover new code with tests that assert behaviour, not with tests that only execute lines.
 - After changing how a package loads, its `files`, `bin` or `pi` manifest entries, run `npm run smoke:pack` and `node scripts/checks/pack.ts`.
 - After changing runtime behaviour, smoke it in a real pi: `pi -ne -e ./packages/<name>/src/index.ts`, with `PI_CODING_AGENT_DIR` pointing at a temporary directory.
