@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { Marked, type Tokens } from "marked";
 import { ROOT } from "../../scripts/lib/repo.ts";
 import { checkSiteLinks } from "./links.ts";
+import { pagePaths, SITE_URL, sitemap, withSocialTags } from "./social.ts";
 
 const REPO_URL = "https://github.com/crisboarna/pi-extensions";
 const RAW_PREFIX = "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/";
@@ -423,6 +424,24 @@ function writeWorker(out: string): void {
 	rmSync(join(out, "assets", "sw.js"));
 }
 
+/**
+ * Gives every page its canonical address and its Open Graph and Twitter tags, and writes the sitemap. A package's page previews as that package's
+ * cover; a page outside the packages previews as the family card when the build has one.
+ */
+function addSocialTags(out: string): void {
+	const files = (readdirSync(out, { recursive: true }) as string[])
+		.map((file) => file.split("\\").join("/"))
+		.filter((file) => statSync(join(out, file)).isFile());
+	const paths = pagePaths(files);
+	for (const path of paths) {
+		const folder = path.includes("/") ? path.slice(0, path.indexOf("/")) : "";
+		const preview = folder ? `${folder}/media/cover.png` : "media/social.png";
+		const image = existsSync(join(out, preview)) ? `${SITE_URL}/${preview}` : undefined;
+		write(join(out, path), withSocialTags(readFileSync(join(out, path), "utf8"), path, image));
+	}
+	write(join(out, "sitemap.xml"), sitemap(paths));
+}
+
 /** Builds the site into `out` and returns the problems the link check found (none on success). */
 export function buildSite(out: string): string[] {
 	rmSync(out, { recursive: true, force: true });
@@ -471,6 +490,7 @@ export function buildSite(out: string): string[] {
 	}
 	cpSync(join(SITE, "assets"), join(out, "assets"), { recursive: true });
 	copyFileSync(join(ROOT, "tools", "brand", "tokens.css"), join(out, "assets", "tokens.css"));
+	addSocialTags(out);
 	writeWorker(out);
 	// Pages publishes the folder as it is; without this file it would run Jekyll over it.
 	write(join(out, ".nojekyll"), "");
