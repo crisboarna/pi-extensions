@@ -23,13 +23,13 @@ const only = process.argv.slice(2);
 const PI_CLI = join(ROOT, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
 
 /**
- * The slash commands each package that loads into pi must register. A package that loads but registers nothing passes every "did it
+ * The slash commands each package that loads into pi must register, with its skills, which pi lists as `skill:<name>` commands. A package that loads but registers nothing passes every "did it
  * start" check, so the list is explicit: a new package adds its commands here, or an empty list if it has none.
  */
 const COMMANDS: Record<string, string[]> = {
-	"@crisboarna/pi-account-guard": ["guard"],
-	"@crisboarna/pi-context-refs": ["ref"],
-	"@crisboarna/pi-switchboard": ["tier"],
+	"@crisboarna/pi-account-guard": ["guard", "skill:pi-account-guard"],
+	"@crisboarna/pi-context-refs": ["ref", "skill:pi-context-refs"],
+	"@crisboarna/pi-switchboard": ["tier", "skill:pi-switchboard"],
 };
 
 /** A command as pi's `get_commands` lists it: its name, and the package it came from (`npm:<name>` for one installed from npm). */
