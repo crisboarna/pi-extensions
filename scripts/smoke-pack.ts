@@ -8,7 +8,8 @@
 //   2. installs it into a fresh pi agent folder the way `pi install npm:` does
 //      (pi's own packages are peers that pi never installs; it maps only their
 //      main entry points), starts the repository's pi on that folder in RPC
-//      mode, and fails on any extension load error;
+//      mode, fails on any extension load error, and asks pi which commands are
+//      registered: every command in COMMANDS must come from this package;
 //   3. runs each bin with --help and expects exit code 0;
 //   4. reads the peer dependencies back from the unpacked tarball, which must be those of the manifest (the range CI tests).
 import { execFileSync, spawn, spawnSync } from "node:child_process";
@@ -21,8 +22,24 @@ const report = reporter("smoke-pack");
 const only = process.argv.slice(2);
 const PI_CLI = join(ROOT, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
 
+/**
+ * The slash commands each package that loads into pi must register. A package that loads but registers nothing passes every "did it
+ * start" check, so the list is explicit: a new package adds its commands here, or an empty list if it has none.
+ */
+const COMMANDS: Record<string, string[]> = {
+	"@crisboarna/pi-account-guard": ["guard"],
+	"@crisboarna/pi-context-refs": ["ref"],
+	"@crisboarna/pi-switchboard": ["tier"],
+};
+
+/** A command as pi's `get_commands` lists it: its name, and the package it came from (`npm:<name>` for one installed from npm). */
+interface ListedCommand {
+	name: string;
+	source: string | undefined;
+}
+
 /** Starts pi on `agentDir`, waits until it answers over RPC, and returns what it printed to stderr. */
-function startPi(agentDir: string, cwd: string): Promise<{ stderr: string; answered: boolean }> {
+function startPi(agentDir: string, cwd: string): Promise<{ stderr: string; answered: boolean; commands: ListedCommand[] }> {
 	return new Promise((resolve) => {
 		const child = spawn(process.execPath, [PI_CLI, "--mode", "rpc", "--no-session", "--offline"], {
 			cwd,
@@ -31,15 +48,23 @@ function startPi(agentDir: string, cwd: string): Promise<{ stderr: string; answe
 		});
 		let stderr = "";
 		let answered = false;
+		let pending = "";
+		const commands: ListedCommand[] = [];
 		const finish = () => {
 			clearTimeout(timer);
 			child.kill();
-			resolve({ stderr, answered });
+			resolve({ stderr, answered, commands });
 		};
 		const timer = setTimeout(finish, 60_000);
 		child.stderr.on("data", (data) => (stderr += data));
 		child.stdout.on("data", (data) => {
-			if (String(data).includes('"command":"get_commands"')) {
+			pending += String(data);
+			const lines = pending.split("\n");
+			pending = lines.pop() ?? "";
+			for (const line of lines) {
+				if (!line.includes('"command":"get_commands"')) continue;
+				const reply = JSON.parse(line) as { data?: { commands?: Array<{ name: string; sourceInfo?: { source?: string } }> } };
+				for (const command of reply.data?.commands ?? []) commands.push({ name: command.name, source: command.sourceInfo?.source });
 				answered = true;
 				finish();
 			}
@@ -79,10 +104,21 @@ for (const { manifest } of listPackages()) {
 		}
 
 		if ((manifest.pi?.extensions ?? []).length > 0) {
-			const { stderr, answered } = await startPi(agentDir, work);
+			const { stderr, answered, commands } = await startPi(agentDir, work);
 			const failures = stderr.split("\n").filter((line) => /Failed to load extension|Error:/u.test(line));
 			for (const line of failures) report.fail(`${manifest.name}: pi could not load it from the tarball: ${line.trim()}`);
 			if (!answered && failures.length === 0) report.fail(`${manifest.name}: pi did not start with it installed (no RPC answer in 60 s)`);
+			const expected = COMMANDS[manifest.name];
+			if (expected === undefined)
+				report.fail(`${manifest.name}: list the slash commands it registers in COMMANDS in scripts/smoke-pack.ts (an empty list if it has none)`);
+			else if (answered) {
+				for (const name of expected) {
+					if (!commands.some((command) => command.name === name && command.source === `npm:${manifest.name}`))
+						report.fail(
+							`${manifest.name}: pi did not list /${name} as a command of this package; it listed ${commands.map((command) => `/${command.name}`).join(", ") || "none"}`,
+						);
+				}
+			}
 		}
 		for (const [name, target] of Object.entries(manifest.bin ?? {})) {
 			const run = spawnSync(process.execPath, [join(installed, target), "--help"], { cwd: work, encoding: "utf8" });
@@ -94,5 +130,5 @@ for (const { manifest } of listPackages()) {
 }
 
 report.finish(
-	"make the published files self-sufficient: every runtime import declared in dependencies, and from pi's packages only the entry points pi maps (see scripts/checks/imports.ts).",
+	"make the published files self-sufficient: every runtime import declared in dependencies, and from pi's packages only the entry points pi maps (see scripts/checks/imports.ts); and register the commands listed for the package in COMMANDS.",
 );
