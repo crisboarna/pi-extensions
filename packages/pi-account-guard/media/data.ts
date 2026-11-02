@@ -29,7 +29,7 @@ const paths = { home: HOME, realpath: (path: string) => path };
 const PLACES: Record<string, string[]> = {
 	[`~/${REPOSITORIES.work.path}`]: [REPOSITORIES.work.remote],
 	"~/work/notes": [],
-	"~/work/side-project": ["git@github.com:homelab-dev/side-project.git"],
+	"~/work/side-project": ["git@github.com:me/side-project.git"],
 	[`~/${REPOSITORIES.personal.path}`]: [REPOSITORIES.personal.remote],
 };
 
@@ -101,17 +101,17 @@ function placeRules() {
 	};
 }
 
-/** A rotator moves a running turn in a personal place from homelab to the work account; the guard aborts it and offers homelab first. */
+/** A rotator moves a running turn in a personal place from Anthropic to the work account; the guard aborts it and offers Anthropic first. */
 function rotation() {
 	const guard = config();
-	const where = "~/personal/garden-planner";
+	const where = "~/code/dotfiles";
 	const outcome = place(where, guard);
-	const steps = ["homelab", "acme"].map((provider) => ({ provider, ...check(provider, where) }));
-	const moved = decide({ place: outcome, account: account("acme"), config: { ok: true, config: guard } });
+	const steps = ["anthropic", "openai"].map((provider) => ({ provider, ...check(provider, where) }));
+	const moved = decide({ place: outcome, account: account("openai"), config: { ok: true, config: guard } });
 	if (moved.verdict !== "block") throw new Error("expected the rotation to be blocked");
 	const dialog = midTurnDialog(
-		{ cause: moved.cause, place: outcome, currentModelId: "home-model", accounts: guard.accounts, offers, context },
-		account("homelab"),
+		{ cause: moved.cause, place: outcome, currentModelId: "claude-sonnet-5", accounts: guard.accounts, offers, context },
+		account("anthropic"),
 	);
 	return {
 		steps,
@@ -120,7 +120,7 @@ function rotation() {
 	};
 }
 
-const turns = [check("homelab", "~/personal/garden-planner"), check("acme", "~/personal/garden-planner"), check("acme", "~/work/acme-api")];
+const turns = [check("anthropic", "~/code/dotfiles"), check("openai", "~/code/dotfiles"), check("openai", "~/work/payments-api")];
 const data = {
 	turn: { rules: rules(config()), defaultZone: config().defaultZone, turns },
 	places: placeRules(),

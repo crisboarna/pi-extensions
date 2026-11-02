@@ -89,7 +89,7 @@ Decisions (2026-10-26): one commit per implementation ticket; the fine-grained h
 
 ### 2. Live checks as terminal scenes (before any recording)
 
-- `media/terminal/setup.ts` for account-guard: a throwaway home with `~/work/acme-api` (git remote `github.com/acme-corp/acme-api`) and `~/personal/garden-planner`; three demo accounts on env-var keys (`acme`, work; `homelab`, personal; `spare`, untagged); `account-guard.json` with one path rule and one remote rule.
+- `media/terminal/setup.ts` for account-guard: a throwaway home with `~/work/payments-api` (git remote `github.com/my-company/payments-api`) and `~/code/dotfiles`; three accounts on the env-var keys of well-known providers (`openai`, work; `anthropic`, personal; `google`, untagged); `account-guard.json` with one path rule and one remote rule.
 - Scene `checks` runs manual-checklist items 1–5 and 7 (7 loads pi-switchboard from the repo) and saves a still per item; item 6 with pi-multi-pass and item 8 with pi-claude-bridge as root dev dependencies (licences vetted by `scripts/checks/licenses.ts`), each with fake keys and a demo `CLAUDE_CONFIG_DIR` inside the scene home. Every check and recording runs in this simulated environment; none uses a real account or anything from the user's machine.
 - Fix what they find, with a failing test first; record results in `docs/manual-checklist.md`.
 
@@ -108,10 +108,10 @@ Hero, about 60 s, captions and callouts:
 | Beat | Screen |
 |---|---|
 | Title | Mark, name, "Rotate freely. Never into the wrong zone." (pi starts off camera) |
-| 1/5 | `~/personal/garden-planner` with the `acme` (work) account selected; a prompt; the BLOCKED select. Callouts: account zone, place zone. |
-| 2/5 | Switch to `homelab`; the same prompt runs; footer `guard personal ✓`. |
-| 3/5 | `/model spare`: the tag prompt checklist; tag `personal`; the turn goes at once. |
-| 4/5 | A rotation mid-turn (`/model acme` while streaming) aborts with "failover blocked"; once idle the previous account is offered first. |
+| 1/5 | `~/code/dotfiles` with the `openai` (work) account selected; a prompt; the BLOCKED select. Callouts: account zone, place zone. |
+| 2/5 | Switch to `anthropic`; the same prompt runs; footer `guard personal ✓`. |
+| 3/5 | `/model google/gemini-3.8-flash`: the tag prompt checklist; tag `personal`; the turn goes at once. |
+| 4/5 | A rotation mid-turn (`/model openai/gpt-5.5` while streaming) aborts with "failover blocked"; once idle the previous account is offered first. |
 | 5/5 | `/guard`: the place, the rule that decided it, the account, its Match. |
 | End | `pi install npm:@crisboarna/pi-account-guard`. |
 
@@ -129,7 +129,7 @@ Clips (MP4, GIF from the MP4, still): `block`, `tag`, `allow`, `mid-turn`, `guar
 
 - `site/` at the root, built by `tools/site/build.ts` (TypeScript run by Node, like the other scripts): Markdown from each package's README and `docs/` rendered with `marked` (pinned, MIT); pages from small HTML templates; brand tokens shared with the media pages (move switchboard's `media/src/brand.css` palette to `tools/brand/tokens.css`, each package keeps its own mark and accent).
 - Pages: a landing ("Extensions for pi: route every request, guard every account", both packages with poster, one-line pitch, install line); one page per package (hero video, What you get, clips, try-it, docs); `llms.txt` with the packages' docs for agents.
-- Try-it, live: the WebContainer pattern from the spike (`/tmp/wc-lab`): prebuilt `node_modules` snapshot built in `node:22-slim` and pruned to what pi needs, gzipped and unpacked with `DecompressionStream`, fd/rg stubs, xterm.js with the fit addon, `coi-serviceworker` for Pages. account-guard: a shell (`jsh`) in a home with the two repositories and buttons that type `cd ~/personal/garden-planner && pi --model acme/work-model` and similar, so the visitor sees the real block, tag prompt and exit 77. switchboard: the same pi session with the scripted classifier and providers from `media/terminal/scenes/demo.ts`.
+- Try-it, live: the WebContainer pattern from the spike (`/tmp/wc-lab`): prebuilt `node_modules` snapshot built in `node:22-slim` and pruned to what pi needs, gzipped and unpacked with `DecompressionStream`, fd/rg stubs, xterm.js with the fit addon, `coi-serviceworker` for Pages. account-guard: a shell (`jsh`) in a home with the two repositories and buttons that type `cd ~/code/dotfiles && pi --model openai/gpt-5.5` and similar, so the visitor sees the real block, tag prompt and exit 77. switchboard: the same pi session with the scripted classifier and providers from `media/terminal/scenes/demo.ts`.
 - Try-it, static: account-guard's config tester (paste or edit `account-guard.json`, a directory and its remotes, an account → the deciding rule, the zone, Match or Block) runs `src/core` compiled to browser modules by `tsc` (`rewriteRelativeImportExtensions`), no bundler. switchboard's rule playground (its plan section 4.7) uses the same build for `src/rules` and `src/tiering`.
 - Deploy: `.github/workflows/pages.yml` on main after `verify`, actions pinned by SHA, `pages: write` and `id-token: write` only in that job.
 

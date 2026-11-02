@@ -5,20 +5,20 @@ import type { GuardScene } from "../setup.ts";
 
 const reply = (request: LlmRequest) => {
 	// A long answer streams slowly, so a model change can land while it runs.
-	if (request.lastUser.includes("long plan"))
+	if (request.lastUser.includes("long review"))
 		return {
-			text: "Here is a long plan for the garden beds, step by step, with watering, soil, light and spacing for every bed in turn. ".repeat(6),
+			text: "Here is a long review of the dotfiles, step by step, covering the shell, git, the editor and the Brewfile in turn. ".repeat(6),
 			wordMs: 140,
 		};
 	return { text: `Done on ${request.provider}/${request.model}.`, wordMs: 25 };
 };
 
-export const blockScene: GuardScene = { place: "personal", model: "acme/work-model", llm: reply };
-export const tagScene: GuardScene = { place: "personal", model: "spare/spare-model", llm: reply };
-export const midTurnScene: GuardScene = { place: "personal", model: "homelab/home-model", llm: reply };
+export const blockScene: GuardScene = { place: "personal", model: "openai/gpt-5.5", llm: reply };
+export const tagScene: GuardScene = { place: "personal", model: "google/gemini-3.8-flash", llm: reply };
+export const midTurnScene: GuardScene = { place: "personal", model: "anthropic/claude-sonnet-5", llm: reply };
 const powerline = (customItems: unknown[]): GuardScene => ({
 	place: "personal",
-	model: "homelab/home-model",
+	model: "anthropic/claude-sonnet-5",
 	with: ["powerline"],
 	settings: { powerline: { customItems } },
 	llm: reply,

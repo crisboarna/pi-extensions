@@ -13,7 +13,7 @@
 // /guard place add: a client repository outside the work organization becomes work.
 clip(async (stage) => {
 	stage.caption("A client repository: no rule matches it, so it falls to the default zone, personal.", "place-add");
-	stage.callout(/guard personal ✗ acme is work/, "the work account would be blocked", { place: "right" });
+	stage.callout(/guard personal ✗ openai is work/, "the work account would be blocked", { place: "right" });
 	await sleep(3000);
 	stage.clear();
 	stage.caption("<b>/guard place add path=here zone=work</b> makes this directory and everything below it work.", "place-add");

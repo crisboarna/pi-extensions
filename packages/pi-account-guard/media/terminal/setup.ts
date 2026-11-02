@@ -1,6 +1,6 @@
 // Prepares a pi-account-guard terminal scene for tools/media/render.mjs: a
-// throwaway home with a work and a personal repository, three demo accounts
-// on environment keys, the guard's config, and a fake model provider whose
+// throwaway home with a work and a personal repository, three accounts
+// on the environment keys of OpenAI, Anthropic and Google, the guard's config, and a fake model provider whose
 // replies the scene scripts. pi and the guard are the real code; nothing of
 // the user's (accounts, config, files) is ever read.
 import { spawnSync } from "node:child_process";
@@ -31,20 +31,20 @@ export interface GuardScene {
 
 /** Demo accounts: each provider authenticates with its own environment key, so its Account source is `env:<VAR>`. */
 export const ACCOUNTS: Record<string, { key: string; models: string[] }> = {
-	acme: { key: "ACME_WORK_KEY", models: ["work-model"] },
-	homelab: { key: "HOMELAB_KEY", models: ["home-model", "home-model-large"] },
-	spare: { key: "SPARE_KEY", models: ["spare-model"] },
+	openai: { key: "OPENAI_API_KEY", models: ["gpt-5.5"] },
+	anthropic: { key: "ANTHROPIC_API_KEY", models: ["claude-sonnet-5", "claude-opus-5"] },
+	google: { key: "GEMINI_API_KEY", models: ["gemini-3.8-flash"] },
 };
 
 export const CONFIG = {
 	zones: ["work", "personal"],
 	defaultZone: "personal",
 	accounts: [
-		{ provider: "acme", source: "env:ACME_WORK_KEY", zones: ["work"], note: "Acme seat" },
-		{ provider: "homelab", source: "env:HOMELAB_KEY", zones: ["personal"] },
+		{ provider: "openai", source: "env:OPENAI_API_KEY", zones: ["work"], note: "Company API key" },
+		{ provider: "anthropic", source: "env:ANTHROPIC_API_KEY", zones: ["personal"] },
 	],
 	places: [
-		{ remote: "*/acme-corp/*", zone: "work" },
+		{ remote: "*/my-company/*", zone: "work" },
 		{ path: "~/work", zone: "work" },
 	],
 };
@@ -66,7 +66,7 @@ export default function demoAccounts(pi) {
 const SWITCHBOARD = {
 	profiles: {
 		home: {
-			tiers: { light: { rank: 1, members: ["homelab/home-model"] }, deep: { rank: 2, members: ["homelab/home-model-large"] } },
+			tiers: { light: { rank: 1, members: ["anthropic/claude-sonnet-5"] }, deep: { rank: 2, members: ["anthropic/claude-opus-5"] } },
 			fallbackTier: "light",
 		},
 	},
@@ -74,10 +74,10 @@ const SWITCHBOARD = {
 };
 
 export const REPOSITORIES = {
-	work: { path: "work/acme-api", remote: "git@github.com:acme-corp/acme-api.git", file: "src/server.ts" },
-	personal: { path: "personal/garden-planner", remote: "git@github.com:homelab-dev/garden-planner.git", file: "src/beds.ts" },
+	work: { path: "work/payments-api", remote: "git@github.com:my-company/payments-api.git", file: "src/server.ts" },
+	personal: { path: "code/dotfiles", remote: "git@github.com:me/dotfiles.git", file: "install.sh" },
 	// A client repository outside the work organization: no rule matches it until one is added.
-	client: { path: "projects/billing-portal", remote: "git@github.com:northwind-labs/billing-portal.git", file: "src/invoice.ts" },
+	client: { path: "projects/billing-portal", remote: "git@github.com:a-client/billing-portal.git", file: "src/invoice.ts" },
 };
 
 export default async function setup(item: { scene: string; variant?: string }) {
@@ -94,7 +94,7 @@ export default async function setup(item: { scene: string; variant?: string }) {
 	if (scene.with?.includes("switchboard")) home.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(SWITCHBOARD, null, "\t")}\n`);
 	for (const { path, remote, file } of Object.values(REPOSITORIES)) {
 		const dir = join(home.home, path);
-		home.write(`${path}/${file}`, "export const ready = true;\n");
+		home.write(`${path}/${file}`, file.endsWith(".sh") ? '#!/bin/sh\nln -sf "$PWD/home/.zshrc" ~/.zshrc\n' : "export const ready = true;\n");
 		for (const args of [
 			["init", "-q"],
 			["remote", "add", "origin", remote],
@@ -118,7 +118,12 @@ export default async function setup(item: { scene: string; variant?: string }) {
 				...(scene.shell ? { PATH: `${join(home.home, "bin")}:/usr/local/bin:/usr/bin:/bin`, PS1: "\\w $ ", HISTFILE: "/dev/null" } : {}),
 				PI_CODING_AGENT_DIR: home.agentDir,
 				PI_OFFLINE: "1",
-				...Object.fromEntries(Object.values(ACCOUNTS).map(({ key }) => [key, "demo-not-a-secret"])),
+				// claude-bridge reads ANTHROPIC_API_KEY before its config directory, so a bridge scene starts without it unless the scene sets it.
+				...Object.fromEntries(
+					Object.values(ACCOUNTS)
+						.filter(({ key }) => !(scene.bridge === true && key === "ANTHROPIC_API_KEY"))
+						.map(({ key }) => [key, "demo-not-a-secret"]),
+				),
 				...Object.fromEntries(Object.entries(scene.env ?? {}).map(([name, value]) => [name, value.replace(/^~/, home.home)])),
 			},
 		},

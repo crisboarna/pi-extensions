@@ -5,9 +5,9 @@ The footer item `guard` is always on. It shows the place zone and the Match stat
 | Text | Meaning |
 |---|---|
 | `guard personal ✓` | The account matches the place zone. |
-| `guard personal ✗ acme is work` | No Match. The next turn is blocked. |
+| `guard personal ✗ openai is work` | No Match. The next turn is blocked. |
 | `guard personal ? untagged` | The account has no tag. |
-| `guard OVERRIDE acme in personal` | An Allow for session is active. |
+| `guard OVERRIDE openai in personal` | An Allow for session is active. |
 | `guard ! config invalid (last valid copy in use)` | The file is malformed and a valid earlier copy is in use. |
 | `guard ! config invalid, turns blocked` | The file is malformed and no valid copy exists. |
 | `guard ! zone unknown (git failed)` | A remote rule matters and git failed. |

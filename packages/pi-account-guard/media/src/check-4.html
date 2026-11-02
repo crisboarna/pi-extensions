@@ -12,10 +12,10 @@
 <script>
 // Checklist item 4: a model change while a turn runs.
 clip(async (stage) => {
-	await stage.type("write a long plan for the beds");
+	await stage.type("write a long review of the dotfiles");
 	await stage.press("Enter");
-	await stage.waitFor("Here is a long plan");
-	await stage.command("/model acme/work-model");
+	await stage.waitFor("Here is a long review");
+	await stage.command("/model openai/gpt-5.5");
 	await stage.waitFor(/failover|blocked/i, { timeout: 20000, last: true });
 	await stage.still("4-aborted");
 	await stage.waitFor("BLOCKED", { timeout: 30000 });
@@ -24,9 +24,9 @@ clip(async (stage) => {
 	if (stage.find("Allow once")) throw new Error("the mid-turn select offers Allow once");
 	for (let i = 0; i < 6 && !stage.find(/→ Cancel/); i++) await stage.press("ArrowDown", { after: 150 });
 	await stage.press("Enter", { after: 800 });
-	await stage.waitFor(/\(acme\) work-model/);
+	await stage.waitFor(/\(openai\) gpt-5\.5/);
 	await stage.still("4-cancel-keeps-model");
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>

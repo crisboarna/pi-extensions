@@ -12,9 +12,9 @@
 <script>
 // Checklist item 3: the tag prompt for an untagged account.
 clip(async (stage) => {
-	await stage.type("summarize the garden beds");
+	await stage.type("what does install.sh do?");
 	await stage.press("Enter");
-	await stage.waitFor(/spare/);
+	await stage.waitFor(/google/);
 	await sleep(600);
 	await stage.still("3-tag-prompt");
 	await stage.press("Escape", { after: 800 });
@@ -23,17 +23,17 @@ clip(async (stage) => {
 	for (let i = 0; i < 6 && !stage.find(/→ Cancel/); i++) await stage.press("ArrowDown", { after: 150 });
 	await stage.press("Enter", { after: 800 });
 	await stage.press("Enter");
-	await stage.waitFor(/spare/);
+	await stage.waitFor(/google/);
 	await sleep(500);
 	for (let i = 0; i < 4 && !stage.find(/→ .*personal/); i++) await stage.press("ArrowDown", { after: 150 });
 	await stage.press(" ", { after: 300 });
 	await stage.still("3-checked");
 	await stage.press("Enter", { after: 800 });
-	await stage.waitFor("Done on spare/spare-model.", { timeout: 15000 });
+	await stage.waitFor("Done on google/gemini-3.8-flash.", { timeout: 15000 });
 	await stage.command("/guard");
 	await stage.waitFor(/Untagged\s+none/);
 	await stage.still("3-tagged");
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>
