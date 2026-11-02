@@ -20,6 +20,18 @@ jobs:
     permissions:
       contents: read # passed to the reusable workflow's jobs
 
+  # The newest pi there is, even one younger than min-release-age (the nightly run has the same lane, blocking). Advisory here: a break
+  # caused by a pi release is not this pull request's fault, so it shows as a warning and the check stays green.
+  pi-newest:
+    name: pi newest (advisory)
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: newest
+      allow-young: true
+      advisory: true
+    permissions:
+      contents: read # passed to the reusable workflow's jobs
+
   rules:
     name: pull request rules
     runs-on: ubuntu-latest

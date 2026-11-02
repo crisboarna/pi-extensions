@@ -1,0 +1,117 @@
+# The checks that are too slow or too moving for every pull request, run once a day against main:
+#   - the real-pi suites against the newest release of pi there is, even one published today, which the 3-day min-release-age rule
+#     keeps out of every other lane. pi went from 1.0 to 1.5 in 32 days; this is the early warning. A failure fails this run and opens
+#     one issue; on a pull request the same lane is advisory (pr.yml).
+#   - the floor and the newest release inside the declared range again, so a registry change shows up without a code change;
+#   - the pinned third-party extensions loaded beside each package (npm run coexist);
+#   - the mutation canary, which breaks the source on purpose and expects the tests to notice.
+# No secrets, nothing is published, and the only write permission belongs to the job that reports a failure.
+# GitHub switches scheduled workflows off after 60 days without repository activity; any push turns them back on.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  newest:
+    name: pi newest
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: newest
+      allow-young: true
+    permissions:
+      contents: read # check out the repository
+
+  latest:
+    name: pi latest
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: latest
+    permissions:
+      contents: read # check out the repository
+
+  floor:
+    name: pi floor
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: floor
+    permissions:
+      contents: read # check out the repository
+
+  coexist:
+    name: real third-party extensions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      # The pins are exact versions at least as old as min-release-age (scripts/coexist.json), installed with --ignore-scripts outside the repository.
+      - name: Packages beside the pinned third-party extensions, in both load orders
+        run: npm run coexist
+
+  canary:
+    name: mutation canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Every deliberate break must make its tests fail
+        run: npm run mutation-canary
+
+  report:
+    name: report a failure
+    needs: [newest, latest, floor, coexist, canary]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write # open the issue, or add to the one that is already open
+    steps:
+      # One open issue at a time, found by its title, so a lane that stays red for a week is one thread and not seven.
+      - name: Open or update the nightly issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PI_NEWEST: ${{ needs.newest.outputs.pi }}
+          RESULTS: "newest=${{ needs.newest.result }} latest=${{ needs.latest.result }} floor=${{ needs.floor.result }} coexist=${{ needs.coexist.result }} canary=${{ needs.canary.result }}"
+        run: |
+          title="Nightly run failed"
+          body="The nightly run failed: ${RESULTS}. Newest pi tested: ${PI_NEWEST:-unknown}. Run: ${RUN_URL}"
+          number=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$REPO" --body "$body"
+          else
+            gh issue create --repo "$REPO" --title "$title" --body "$body"
+          fi
