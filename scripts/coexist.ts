@@ -27,10 +27,10 @@ if (unknown) {
 }
 const keep = args.includes("--keep");
 
-const fail = (message: string): never => {
+function fail(message: string): never {
 	console.error(`coexist: ${message}`);
 	process.exit(1);
-};
+}
 
 /** The ISO time the registry says `pin` was published, or undefined. */
 function publishedAt(pin: Pin): string | undefined {
@@ -80,8 +80,18 @@ try {
 	}
 	for (const name of ["@earendil-works", "typebox"]) {
 		const source = join(ROOT, "node_modules", name);
-		if (!existsSync(source)) fail(`${source} is missing; run npm install in the repository first`);
-		if (!existsSync(join(dir, "node_modules", name))) symlinkSync(realpathSync(source), join(dir, "node_modules", name));
+		let target: string;
+		try {
+			target = realpathSync(source);
+		} catch {
+			fail(`${source} is missing; run npm install in the repository first`);
+		}
+		try {
+			symlinkSync(target, join(dir, "node_modules", name));
+		} catch (error) {
+			// npm may have put a copy there; try the link and accept that, rather than ask first and act on an answer that can go stale
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+		}
 	}
 	const { NODE_TEST_CONTEXT: _outer, ...inherited } = process.env;
 	status = 0;
