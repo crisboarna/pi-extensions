@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/repo/tools/brand/tokens.css">
+<style>
+	/* Three real terminal sessions, one per package. The stills carry their own caption row, so each is cropped above it and the words under it are live text. */
+	* { box-sizing: border-box; margin: 0; }
+	html, body { width: 100%; height: 100%; }
+	body { font-family: var(--text); -webkit-font-smoothing: antialiased; overflow: hidden; display: grid; align-items: center; padding: 0 48px; }
+	body.dark { background: var(--panel-deep); color: var(--cream); }
+	body.light { background: var(--paper); color: var(--ink); }
+	.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+	.shot { width: 100%; height: 156px; border-radius: 10px; border: 2px solid var(--idle); overflow: hidden; background: #0f1721; }
+	.shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+	.name { margin-top: 16px; font-family: var(--mono); font-size: 18px; }
+	.job { margin-top: 6px; font-size: 19px; }
+	body.dark .job { color: var(--brass); }
+	body.light .job { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="row">
+	<div><div class="shot"><img src="/repo/packages/pi-switchboard/media/hero.png" alt=""></div><div class="name">pi-switchboard</div><div class="job">Each request to a model that fits it</div></div>
+	<div><div class="shot"><img src="/repo/packages/pi-account-guard/media/hero.png" alt=""></div><div class="name">pi-account-guard</div><div class="job">Wrong account blocked before send</div></div>
+	<div><div class="shot"><img src="/repo/packages/pi-context-refs/media/hero.png" alt=""></div><div class="name">pi-context-refs</div><div class="job">Type # to reuse your context</div></div>
+</div>
+<script>document.body.className = new URLSearchParams(location.search).get("theme") ?? "dark";</script>
+</body>
+</html>
