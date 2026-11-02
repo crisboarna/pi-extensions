@@ -57,7 +57,11 @@ export async function startTry({ element, status, shell }) {
 		fit.fit();
 		process.resize({ cols: term.cols, rows: term.rows });
 	});
-	state.type = (text) => input.write(text);
+	// A step button takes the keyboard focus when it is clicked; the terminal takes it back, so the keys the visitor types next reach pi.
+	state.type = (text) => {
+		term.focus();
+		return input.write(text);
+	};
 	state.state = "running";
 	state.times.running = performance.now();
 	status("");

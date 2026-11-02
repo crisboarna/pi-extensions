@@ -116,6 +116,10 @@ for (const name of browsers.length ? browsers : ["chromium", "firefox", "webkit"
 				// pi redraws after a step (closing a panel, a reply); keys typed into a redraw are lost, as they would be for a fast typist.
 				await page.waitForTimeout(400);
 			}
+			// A step button must leave the keyboard in the terminal, or the next key a visitor types goes to the button.
+			await page.locator("[data-type]").last().click();
+			if (!(await page.evaluate(() => Boolean(document.activeElement?.closest("#terminal")))))
+				throw new Error("a step button left the keyboard focus outside the terminal");
 			await page.waitForTimeout(600);
 			const total = [...bytes.values()].reduce((sum, value) => sum + value, 0);
 			const hosts = [...bytes.entries()].sort((a, b) => b[1] - a[1]).map(([host, value]) => `${host} ${(value / 1048576).toFixed(1)} MB`);
