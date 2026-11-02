@@ -18,6 +18,20 @@ function number(value: unknown, field: string): number {
 	return value;
 }
 
+/** How far outside 0 to 1 a probability may be and still be float noise from the server (1.0000001) rather than a wrong answer. */
+const NOISE = 1e-6;
+
+/**
+ * A probability or a confidence: a finite number from 0 to 1, with float noise just outside the range clamped to it. Anything further out is an
+ * invalid answer, not a decision: the confidence gate compares the number with a threshold, and a confidence of 7 (or `|2p - 1|` from a
+ * probability of 3) would pass every threshold, which is the opposite of what the gate is for.
+ */
+function unit(value: unknown, field: string): number {
+	const result = number(value, field);
+	if (result < -NOISE || result > 1 + NOISE) throw new Error(`${LABEL} returned an invalid ${field}`);
+	return Math.min(1, Math.max(0, result));
+}
+
 /** Turns the server's answers into pi-ai's classifier answers; throws on a missing or malformed one. */
 export function parseAnswers(value: unknown, questions: ClassifierContext["questions"]): Record<string, ClassifierAnswer> {
 	if (!isRecord(value)) throw new Error(`${LABEL} returned an unexpected response`);
@@ -28,14 +42,14 @@ export function parseAnswers(value: unknown, questions: ClassifierContext["quest
 		if (question.type === "choice") {
 			if (answer.type !== "choice" || typeof answer.choice !== "string" || !isRecord(answer.probabilities))
 				throw new Error(`${LABEL} did not return a choice answer for ${id}`);
-			const probabilities = Object.fromEntries(Object.entries(answer.probabilities).map(([key, p]) => [key, number(p, `probability for ${id}.${key}`)]));
-			answers[id] = { type: "choice", choice: answer.choice, probabilities, confidence: number(answer.confidence, `confidence for ${id}`) };
+			const probabilities = Object.fromEntries(Object.entries(answer.probabilities).map(([key, p]) => [key, unit(p, `probability for ${id}.${key}`)]));
+			answers[id] = { type: "choice", choice: answer.choice, probabilities, confidence: unit(answer.confidence, `confidence for ${id}`) };
 		} else if (question.type === "score") {
 			if (answer.type !== "score") throw new Error(`${LABEL} did not return a score answer for ${id}`);
-			answers[id] = { type: "score", score: number(answer.score, `score for ${id}`), confidence: number(answer.confidence, `confidence for ${id}`) };
+			answers[id] = { type: "score", score: number(answer.score, `score for ${id}`), confidence: unit(answer.confidence, `confidence for ${id}`) };
 		} else {
 			if (answer.type !== "noul") throw new Error(`${LABEL} did not return a bool answer for ${id}`);
-			answers[id] = { type: "bool", probability: number(answer.noul, `probability for ${id}`) };
+			answers[id] = { type: "bool", probability: unit(answer.noul, `probability for ${id}`) };
 		}
 	}
 	return answers;
