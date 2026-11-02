@@ -22,12 +22,25 @@ export function majorMinor(version: string): string {
 	return version.split(".").slice(0, 2).join(".");
 }
 
-/** The badges of a README: the markdown images that sit on lines starting with a linked image, with their alt text and address. */
+/** The hosts that serve badges. A linked image from one of them is a badge wherever it sits in a README. */
+const BADGE_HOSTS =
+	/^https:\/\/(?:img\.shields\.io|api\.scorecard\.dev|api\.securityscorecards\.dev|bestpractices\.coreinfrastructure\.org|bestpractices\.dev|codecov\.io|badge\.fury\.io)\//;
+
+/**
+ * The badges of a README, with their alt text and address: every linked image on the first line that starts with one (the badge line), and a
+ * linked image from a badge host on any later line. A poster that links to a video is a linked image too, but it is not a badge.
+ */
 function badges(readme: string): Array<{ alt: string; src: string }> {
 	const found: Array<{ alt: string; src: string }> = [];
+	let badgeLineSeen = false;
 	for (const line of readme.split("\n")) {
 		if (!line.startsWith("[![")) continue;
-		for (const match of line.matchAll(/\[!\[([^\]]*)\]\(([^)\s]+)\)\]\(/g)) found.push({ alt: match[1] ?? "", src: match[2] ?? "" });
+		const onBadgeLine = !badgeLineSeen;
+		badgeLineSeen = true;
+		for (const match of line.matchAll(/\[!\[([^\]]*)\]\(([^)\s]+)\)\]\(/g)) {
+			const src = match[2] ?? "";
+			if (onBadgeLine || BADGE_HOSTS.test(src)) found.push({ alt: match[1] ?? "", src });
+		}
 	}
 	return found;
 }

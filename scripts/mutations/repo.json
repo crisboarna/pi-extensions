@@ -124,5 +124,19 @@
 		"find": "const value = Math.min(...all.map(lowestPercent));",
 		"replace": "const value = Math.max(...all.map(lowestPercent));",
 		"tests": ["test/badges.test.ts"]
+	},
+	{
+		"id": "readme-poster-counted-as-badge",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "if (onBadgeLine || BADGE_HOSTS.test(src)) found.push",
+		"replace": "if (true) found.push",
+		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "readme-late-badge-not-counted",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "if (onBadgeLine || BADGE_HOSTS.test(src)) found.push",
+		"replace": "if (onBadgeLine) found.push",
+		"tests": ["test/readme-rules.test.ts"]
 	}
 ]

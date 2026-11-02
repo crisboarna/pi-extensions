@@ -41,6 +41,18 @@ describe("badgeProblems", () => {
 		assert.deepEqual(badgeProblems(`${exact}\n`), []);
 	});
 
+	test("does not count a poster that links to a video, but counts a badge from a badge host on a later line", () => {
+		const line = Array.from({ length: MAX_BADGES }, (_, index) => badge(`b${index}`, `https://img.shields.io/npm/v/pkg${index}`)).join(" ");
+		const poster = "[![A demo video](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/hero.png)](https://example.test/hero.mp4)";
+		assert.deepEqual(badgeProblems(`# T\n\n${line}\n\n${poster}\n`), []);
+		const second = badge("late", "https://img.shields.io/npm/v/late");
+		assert.match(badgeProblems(`# T\n\n${line}\n\n${poster}\n${second}\n`)[0] ?? "", new RegExp(`has ${MAX_BADGES + 1} badges`));
+		assert.match(
+			badgeProblems(`# T\n\n${line}\n\n${badge("score", "https://api.scorecard.dev/projects/github.com/a/b/badge")}\n`)[0] ?? "",
+			/has 9 badges/,
+		);
+	});
+
 	test("ignores images that are not badges: a banner in the page body is not on a badge line", () => {
 		assert.deepEqual(
 			badgeProblems('<picture><img src="https://img.shields.io/badge/x-y-green"></picture>\n![alt](https://img.shields.io/badge/x-y-green)\n'),
