@@ -2,7 +2,7 @@
 	"turn": {
 		"rules": [
 			{
-				"text": "remote */acme-corp/*",
+				"text": "remote */my-company/*",
 				"zone": "work"
 			},
 			{
@@ -14,16 +14,16 @@
 		"turns": [
 			{
 				"account": {
-					"name": "homelab (env:HOMELAB_KEY)",
-					"source": "env:HOMELAB_KEY",
+					"name": "anthropic (env:ANTHROPIC_API_KEY)",
+					"source": "env:ANTHROPIC_API_KEY",
 					"zones": [
 						"personal"
 					]
 				},
 				"place": {
-					"path": "~/personal/garden-planner",
+					"path": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				},
@@ -32,46 +32,46 @@
 			},
 			{
 				"account": {
-					"name": "acme (env:ACME_WORK_KEY)",
-					"source": "env:ACME_WORK_KEY",
+					"name": "openai (env:OPENAI_API_KEY)",
+					"source": "env:OPENAI_API_KEY",
 					"zones": [
 						"work"
 					]
 				},
 				"place": {
-					"path": "~/personal/garden-planner",
+					"path": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				},
 				"verdict": "block",
-				"footer": "guard personal ✗ acme is work",
+				"footer": "guard personal ✗ openai is work",
 				"block": {
 					"title": [
-						"BLOCKED  acme (env:ACME_WORK_KEY) is zone work",
-						"Place ~/personal/garden-planner -> zone personal"
+						"BLOCKED  openai (env:OPENAI_API_KEY) is zone work",
+						"Place ~/code/dotfiles -> zone personal"
 					],
 					"rows": [
-						"Switch to homelab (env:HOMELAB_KEY) -> home-model  [personal]",
-						"Allow once: this turn to acme (env:ACME_WORK_KEY)",
-						"Allow for session: acme (env:ACME_WORK_KEY)",
+						"Switch to anthropic (env:ANTHROPIC_API_KEY) -> claude-sonnet-5  [personal]",
+						"Allow once: this turn to openai (env:OPENAI_API_KEY)",
+						"Allow for session: openai (env:OPENAI_API_KEY)",
 						"Cancel"
 					]
 				}
 			},
 			{
 				"account": {
-					"name": "acme (env:ACME_WORK_KEY)",
-					"source": "env:ACME_WORK_KEY",
+					"name": "openai (env:OPENAI_API_KEY)",
+					"source": "env:OPENAI_API_KEY",
 					"zones": [
 						"work"
 					]
 				},
 				"place": {
-					"path": "~/work/acme-api",
+					"path": "~/work/payments-api",
 					"remotes": [
-						"github.com/acme-corp/acme-api"
+						"github.com/my-company/payments-api"
 					],
 					"zone": "work",
 					"rule": 0
@@ -86,7 +86,7 @@
 		"before": {
 			"rules": [
 				{
-					"text": "remote */acme-corp/*",
+					"text": "remote */my-company/*",
 					"zone": "work"
 				},
 				{
@@ -100,9 +100,9 @@
 			],
 			"places": [
 				{
-					"where": "~/work/acme-api",
+					"where": "~/work/payments-api",
 					"remotes": [
-						"github.com/acme-corp/acme-api"
+						"github.com/my-company/payments-api"
 					],
 					"zone": "work",
 					"rule": 0
@@ -116,15 +116,15 @@
 				{
 					"where": "~/work/side-project",
 					"remotes": [
-						"github.com/homelab-dev/side-project"
+						"github.com/me/side-project"
 					],
 					"zone": "work",
 					"rule": 1
 				},
 				{
-					"where": "~/personal/garden-planner",
+					"where": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				}
@@ -137,7 +137,7 @@
 					"zone": "personal"
 				},
 				{
-					"text": "remote */acme-corp/*",
+					"text": "remote */my-company/*",
 					"zone": "work"
 				},
 				{
@@ -147,9 +147,9 @@
 			],
 			"places": [
 				{
-					"where": "~/work/acme-api",
+					"where": "~/work/payments-api",
 					"remotes": [
-						"github.com/acme-corp/acme-api"
+						"github.com/my-company/payments-api"
 					],
 					"zone": "work",
 					"rule": 1
@@ -163,15 +163,15 @@
 				{
 					"where": "~/work/side-project",
 					"remotes": [
-						"github.com/homelab-dev/side-project"
+						"github.com/me/side-project"
 					],
 					"zone": "personal",
 					"rule": 0
 				},
 				{
-					"where": "~/personal/garden-planner",
+					"where": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				}
@@ -181,18 +181,18 @@
 	"rotation": {
 		"steps": [
 			{
-				"provider": "homelab",
+				"provider": "anthropic",
 				"account": {
-					"name": "homelab (env:HOMELAB_KEY)",
-					"source": "env:HOMELAB_KEY",
+					"name": "anthropic (env:ANTHROPIC_API_KEY)",
+					"source": "env:ANTHROPIC_API_KEY",
 					"zones": [
 						"personal"
 					]
 				},
 				"place": {
-					"path": "~/personal/garden-planner",
+					"path": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				},
@@ -200,49 +200,49 @@
 				"footer": "guard personal ✓"
 			},
 			{
-				"provider": "acme",
+				"provider": "openai",
 				"account": {
-					"name": "acme (env:ACME_WORK_KEY)",
-					"source": "env:ACME_WORK_KEY",
+					"name": "openai (env:OPENAI_API_KEY)",
+					"source": "env:OPENAI_API_KEY",
 					"zones": [
 						"work"
 					]
 				},
 				"place": {
-					"path": "~/personal/garden-planner",
+					"path": "~/code/dotfiles",
 					"remotes": [
-						"github.com/homelab-dev/garden-planner"
+						"github.com/me/dotfiles"
 					],
 					"zone": "personal"
 				},
 				"verdict": "block",
-				"footer": "guard personal ✗ acme is work",
+				"footer": "guard personal ✗ openai is work",
 				"block": {
 					"title": [
-						"BLOCKED  acme (env:ACME_WORK_KEY) is zone work",
-						"Place ~/personal/garden-planner -> zone personal"
+						"BLOCKED  openai (env:OPENAI_API_KEY) is zone work",
+						"Place ~/code/dotfiles -> zone personal"
 					],
 					"rows": [
-						"Switch to homelab (env:HOMELAB_KEY) -> home-model  [personal]",
-						"Allow once: this turn to acme (env:ACME_WORK_KEY)",
-						"Allow for session: acme (env:ACME_WORK_KEY)",
+						"Switch to anthropic (env:ANTHROPIC_API_KEY) -> claude-sonnet-5  [personal]",
+						"Allow once: this turn to openai (env:OPENAI_API_KEY)",
+						"Allow for session: openai (env:OPENAI_API_KEY)",
 						"Cancel"
 					]
 				}
 			}
 		],
-		"notice": "guard: failover blocked, model changed to acme (env:ACME_WORK_KEY) [work] during a turn in a personal place (~/personal/garden-planner). Turn aborted.",
+		"notice": "guard: failover blocked, model changed to openai (env:OPENAI_API_KEY) [work] during a turn in a personal place (~/code/dotfiles). Turn aborted.",
 		"select": {
 			"title": [
-				"BLOCKED  acme (env:ACME_WORK_KEY) is zone work",
-				"Place ~/personal/garden-planner -> zone personal"
+				"BLOCKED  openai (env:OPENAI_API_KEY) is zone work",
+				"Place ~/code/dotfiles -> zone personal"
 			],
 			"rows": [
-				"Switch to homelab (env:HOMELAB_KEY) -> home-model  [personal]",
-				"Allow for session: acme (env:ACME_WORK_KEY)",
+				"Switch to anthropic (env:ANTHROPIC_API_KEY) -> claude-sonnet-5  [personal]",
+				"Allow for session: openai (env:OPENAI_API_KEY)",
 				"Cancel"
 			]
 		}
 	},
-	"cover": "guard personal ✓  homelab in ~/personal/garden-planner"
+	"cover": "guard personal ✓  anthropic in ~/code/dotfiles"
 }

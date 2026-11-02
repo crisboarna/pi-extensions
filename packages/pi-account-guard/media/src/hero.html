@@ -19,7 +19,7 @@ const READY = /\d+\.\d%\/\d+/;
 let stage;
 // pi starts before the recording does.
 window.prepare = async () => {
-	stage = await Stage.open({ title: "~/personal/garden-planner — pi" });
+	stage = await Stage.open({ title: "~/code/dotfiles — pi" });
 	stage.card(`${MARK}<div class="name">pi-account-guard</div><div class="line">Rotate freely. <b>Never into the wrong zone.</b></div>`);
 	await stage.waitFor(READY);
 };
@@ -32,19 +32,19 @@ window.play = async () => {
 	await sleep(400);
 
 	// 1. A slip: the work account in a personal repository.
-	stage.caption("A personal repository, but pi still has the work account selected.", "1/5");
-	stage.callout(/guard personal ✗ acme is work/, "the footer already warns", { place: "above" });
+	stage.caption("A personal repository, but pi is still on the work account: GPT-5.5 with the company's OpenAI key.", "1/5");
+	stage.callout(/guard personal ✗ openai is work/, "the footer already warns", { place: "above" });
 	await stage.say("intro");
 	stage.clear();
 	let spoken = stage.say("block-ask");
-	await stage.type("summarize the garden beds");
+	await stage.type("what does install.sh do?");
 	await spoken;
 	await stage.press("Enter");
-	await stage.waitFor("BLOCKED  acme (env:ACME_WORK_KEY) is zone work");
+	await stage.waitFor("BLOCKED  openai (env:OPENAI_API_KEY) is zone work");
 	stage.caption("The guard checks the account before the turn is sent. Nothing reaches the work account.", "1/5");
 	spoken = stage.say("block");
 	await sleep(1800);
-	stage.callout(/acme \(env:ACME_WORK_KEY\) is zone work/, "<b>account zone</b>: acme is tagged work", { place: "above", last: true });
+	stage.callout(/openai \(env:OPENAI_API_KEY\) is zone work/, "<b>account</b>: the key from <b>$OPENAI_API_KEY</b>, tagged work", { place: "above", last: true });
 	await sleep(2200);
 	stage.callout(/-> zone personal/, "<b>place zone</b>: this repository is personal", { place: "right", last: true });
 	await stage.still();
@@ -53,11 +53,11 @@ window.play = async () => {
 
 	// 2. One keystroke to an account of this zone.
 	stage.caption("One keystroke switches to an account of this zone, and the same prompt runs.", "2/5");
-	stage.callout(/Switch to homelab/, "<b>Switch</b>: your personal account", { place: "right", last: true });
+	stage.callout(/Switch to anthropic/, "<b>Switch</b>: to your personal Anthropic account", { place: "right", last: true });
 	await stage.say("switch-offer");
 	stage.clear();
 	await stage.press("Enter");
-	await stage.waitFor(/clover\./, { timeout: 15000 });
+	await stage.waitFor(/login shell\./, { timeout: 15000 });
 	await stage.waitFor(/guard personal ✓/);
 	stage.callout(/guard personal ✓/, "a <b>Match</b>", { place: "right" });
 	await stage.say("switch-done");
@@ -66,31 +66,31 @@ window.play = async () => {
 	// 3. A new account tags itself on first use.
 	stage.caption("A new account asks once which zones it belongs to.", "3/5");
 	spoken = stage.say("tag-intro");
-	await stage.command("/model spare/spare-model");
-	await stage.waitFor(/\(spare\) spare-model/);
-	await stage.type("and the watering schedule");
+	await stage.command("/model google/gemini-3.8-flash");
+	await stage.waitFor(/\(google\) gemini-3\.8-flash/);
+	await stage.type("add a git alias to undo the last commit");
 	await spoken;
 	await stage.press("Enter");
-	await stage.waitFor(/Which zones does spare/);
-	stage.callout(/Which zones does spare/, "<b>tag prompt</b>: nothing is ticked for you", { place: "above", last: true });
+	await stage.waitFor(/Which zones does google/);
+	stage.callout(/Which zones does google/, "<b>tag prompt</b>: nothing is ticked for you", { place: "above", last: true });
 	await stage.say("tag-prompt");
 	stage.clear();
 	spoken = stage.say("tag-done");
 	for (let i = 0; i < 4 && !stage.find(/> \[ \] personal/); i++) await stage.press("ArrowDown", { after: 250 });
 	await stage.press(" ", { after: 500 });
 	await stage.press("Enter");
-	await stage.waitFor(/a week\./, { timeout: 15000 });
+	await stage.waitFor(/\.gitconfig\./, { timeout: 15000 });
 	stage.caption("Tagged <b>personal</b>: the turn goes at once, and the tag is saved for next time.", "3/5");
 	await spoken;
 
 	// 4. A rotation into the wrong zone mid-turn.
 	stage.caption("Rotators and routers switch accounts on their own, even mid-turn.", "4/5");
 	await stage.say("rotate-intro");
-	await stage.type("draft a planting plan for the spring");
+	await stage.type("review my .zshrc and find why the shell starts slowly");
 	await stage.press("Enter");
-	await stage.waitFor("Here is a planting plan", { timeout: 15000 });
+	await stage.waitFor("Your .zshrc loads nvm", { timeout: 15000 });
 	await sleep(800);
-	await stage.command("/model acme/work-model");
+	await stage.command("/model openai/gpt-5.5");
 	await stage.waitFor(/failover blocked/, { timeout: 20000, last: true });
 	stage.caption("A switch into the work zone stops the turn at once.", "4/5");
 	stage.callout(/failover blocked/, "the turn is <b>aborted</b>, not finished on work", { place: "above", alert: true, last: true });
@@ -98,21 +98,21 @@ window.play = async () => {
 	await stage.waitFor("BLOCKED", { timeout: 30000, last: true });
 	stage.clear();
 	stage.caption("Once idle, the account it was on comes first. There is no Allow once: the turn is gone.", "4/5");
-	stage.callout(/Switch to spare \(env:SPARE_KEY\) -> spare-model\s+\[personal\]/, "back to <b>spare</b>, the account it was on", { place: "right", last: true });
+	stage.callout(/Switch to google \(env:GEMINI_API_KEY\) -> gemini-3.8-flash\s+\[personal\]/, "back to <b>Gemini</b>, the account it was on", { place: "right", last: true });
 	await stage.say("rotate-offer");
 	stage.clear();
 	await stage.press("Enter");
-	await stage.waitFor(/\(spare\) spare-model/);
+	await stage.waitFor(/\(google\) gemini-3\.8-flash/);
 	await sleep(400);
 
 	// 5. The status.
 	await stage.command("/guard");
-	await stage.waitFor(/Account\s+spare \(env:SPARE_KEY\) -> personal\s+✓ Match/);
+	await stage.waitFor(/Account\s+google \(env:GEMINI_API_KEY\) -> personal\s+✓ Match/);
 	stage.caption("<b>/guard</b> shows the place, what decides its zone, and the account's Match.", "5/5");
-	stage.callout(/Place\s+~\/personal\/garden-planner -> personal \(default zone\)/, "no rule matches: the <b>default zone</b>", { place: "right", last: true });
+	stage.callout(/Place\s+~\/code\/dotfiles -> personal \(default zone\)/, "no rule matches: the <b>default zone</b>", { place: "right", last: true });
 	await stage.say("status-place");
 	stage.clear();
-	stage.callout(/Account\s+spare \(env:SPARE_KEY\) -> personal\s+✓ Match/, "tagged personal: a <b>Match</b>", { place: "right", last: true });
+	stage.callout(/Account\s+google \(env:GEMINI_API_KEY\) -> personal\s+✓ Match/, "tagged personal: a <b>Match</b>", { place: "right", last: true });
 	await stage.say("status-account");
 	stage.clear();
 	stage.caption("", "");

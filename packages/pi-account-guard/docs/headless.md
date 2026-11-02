@@ -5,9 +5,9 @@
 A block in `pi -p` or JSON mode does not send the turn. The message goes to stderr (stdout stays clean for piping) and the process exits with code **77**, so a script can tell a guard block (77) from a model error (1):
 
 ```text
-$ pi -p "summarize the garden beds"
-BLOCKED acme (env:ACME_WORK_KEY) is zone work; this place
-(~/personal/garden-planner) is zone personal. No turn was sent.
+$ pi -p "what does install.sh do?"
+BLOCKED openai (env:OPENAI_API_KEY) is zone work; this place
+(~/code/dotfiles) is zone personal. No turn was sent.
 ...
 $ echo $?
 77
@@ -18,10 +18,10 @@ The same holds when a block aborts a run (a mid-turn model change or an idle re-
 For an untagged account the message names the JSON entry to add:
 
 ```text
-BLOCKED spare (env:SPARE_KEY) has no zone tag; place zone is personal.
+BLOCKED google (env:GEMINI_API_KEY) has no zone tag; place zone is personal.
 Add to ~/.pi/agent/account-guard.json accounts:
-  {"provider":"spare","source":"env:SPARE_KEY","zones":["personal"]}
-or run pi, then: /guard tag spare env:SPARE_KEY personal
+  {"provider":"google","source":"env:GEMINI_API_KEY","zones":["personal"]}
+or run pi, then: /guard tag google env:GEMINI_API_KEY personal
 or set PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1 for this process.
 ```
 

@@ -14,18 +14,18 @@
 clip(async (stage) => {
 	stage.caption("<b>/guard</b> shows what the guard sees here.", "guard-status");
 	await stage.command("/guard");
-	await stage.waitFor(/Untagged\s+spare/);
+	await stage.waitFor(/Untagged\s+google/);
 	await sleep(300);
-	stage.callout(/Place\s+~\/work\/acme-api -> work \(rule 1: remote \*\/acme-corp\/\*\)/, "the rule that decides the place", { place: "right", last: true });
+	stage.callout(/Place\s+~\/work\/payments-api -> work \(rule 1: remote \*\/my-company\/\*\)/, "the rule that decides the place", { place: "right", last: true });
 	await sleep(2600);
 	stage.clear();
-	stage.callout(/Account\s+acme \(env:ACME_WORK_KEY\) -> work\s+✓ Match/, "the account and its <b>Match</b>", { place: "right", last: true });
+	stage.callout(/Account\s+openai \(env:OPENAI_API_KEY\) -> work\s+✓ Match/, "the account and its <b>Match</b>", { place: "right", last: true });
 	await stage.still();
 	await sleep(2600);
 	stage.clear();
-	stage.callout(/Untagged\s+spare \(env:SPARE_KEY\)/, "accounts that will ask for a tag", { place: "right", last: true });
+	stage.callout(/Untagged\s+google \(env:GEMINI_API_KEY\)/, "accounts that will ask for a tag", { place: "right", last: true });
 	await sleep(2800);
-}, { title: "~/work/acme-api — pi" });
+}, { title: "~/work/payments-api — pi" });
 </script>
 </body>
 </html>

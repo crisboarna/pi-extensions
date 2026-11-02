@@ -51,8 +51,8 @@ async function guardCheck(question: GuardQuestion): Promise<string | undefined> 
 
 describe("account-guard's config tester", () => {
 	const cases: Array<Omit<GuardQuestion, "home">> = [
-		{ configText: example, directory: "~/Projects/acme/billing", remotes: [], provider: "openai-codex-2", source: "oauth" },
-		{ configText: example, directory: "~/src/api", remotes: ["git@github.com:acme-corp/api.git"], provider: "openai-codex-2", source: "oauth" },
+		{ configText: example, directory: "~/work/billing", remotes: [], provider: "openai-codex-2", source: "oauth" },
+		{ configText: example, directory: "~/src/api", remotes: ["git@github.com:my-company/api.git"], provider: "openai-codex-2", source: "oauth" },
 		{ configText: example, directory: "~/garden", remotes: ["https://github.com/me/garden.git"], provider: "openai-codex-2", source: "oauth" },
 		{ configText: example, directory: "~/garden", remotes: [], provider: "homelab", source: "env:HOMELAB_KEY" },
 		{ configText: "", directory: "/srv/tools", remotes: [], provider: "homelab", source: "oauth" },

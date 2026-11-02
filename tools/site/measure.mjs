@@ -33,11 +33,11 @@ const PAGES = {
 	"pi-account-guard": {
 		ready: /\$ |❯/,
 		steps: [
-			["cd ~/personal/garden-planner && pi --model acme/work-model\r", /guard personal/],
-			["summarize the garden beds\r", /BLOCKED {2}acme \(env:ACME_WORK_KEY\) is zone work/],
-			["\r", /bed 1 resting/],
+			["cd ~/code/dotfiles && pi --model openai/gpt-5.5\r", /guard personal/],
+			["what does install.sh do?\r", /BLOCKED {2}openai \(env:OPENAI_API_KEY\) is zone work/],
+			["\r", /login shell/],
 			["\u0004", /❯/],
-			['pi -p --model acme/work-model "summarize the garden beds"; echo "exit $?"\r', /exit 77/],
+			['pi -p --model openai/gpt-5.5 "what does install.sh do?"; echo "exit $?"\r', /exit 77/],
 		],
 	},
 	"pi-context-refs": {

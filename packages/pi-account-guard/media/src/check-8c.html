@@ -16,12 +16,12 @@ clip(async (stage) => {
 	await stage.waitFor("Account   claude-bridge (claude-config:~/.claude)");
 	await sleep(300);
 	await stage.still("8-status");
-	await stage.type("summarize the garden beds");
+	await stage.type("what does install.sh do?");
 	await stage.press("Enter");
 	await stage.waitFor("claude-bridge · Claude Code login ~/.claude");
 	await sleep(300);
 	await stage.still("8-tag-prompt");
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>

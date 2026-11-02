@@ -17,13 +17,13 @@ clip(async (stage) => {
 	const shown = stage.lines().join("\n").split("guard personal").length - 1;
 	if (shown !== 1) throw new Error(`the guard text shows ${shown} times`);
 	await stage.still("5-match");
-	await stage.command("/model acme/work-model");
-	await stage.waitFor("acme is work");
+	await stage.command("/model openai/gpt-5.5");
+	await stage.waitFor("openai is work");
 	await stage.still("5-no-match");
-	await stage.command("/model spare/spare-model");
+	await stage.command("/model google/gemini-3.8-flash");
 	await stage.waitFor("? untagged");
 	await stage.still("5-untagged");
-}, { title: "~/personal/garden-planner — pi" });
+}, { title: "~/code/dotfiles — pi" });
 </script>
 </body>
 </html>

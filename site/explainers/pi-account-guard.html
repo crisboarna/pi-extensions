@@ -4,7 +4,7 @@
 	<div class="inputs">
 		<fieldset class="presets">
 			<legend>Start from an example</legend>
-			<button type="button" data-preset="remote">A repository of acme-corp</button>
+			<button type="button" data-preset="remote">A repository of my-company</button>
 			<button type="button" data-preset="personal">A personal directory</button>
 			<button type="button" data-preset="untagged">An untagged account</button>
 		</fieldset>
@@ -19,7 +19,7 @@
 	<div class="result" aria-live="polite">
 		<p class="verdict"><span class="lamp" id="lamp"></span><span id="verdict"></span></p>
 		<pre id="text"></pre>
-		<p class="note">The same text appears in pi after <code>/guard check &lt;directory&gt; &lt;provider&gt; &lt;source&gt;</code>. Remotes are matched as <code>host/path</code>, for example <code>github.com/acme-corp/api</code>.</p>
+		<p class="note">The same text appears in pi after <code>/guard check &lt;directory&gt; &lt;provider&gt; &lt;source&gt;</code>. Remotes are matched as <code>host/path</code>, for example <code>github.com/my-company/api</code>.</p>
 	</div>
 </div>
 <script type="importmap">{ "imports": { "node:path": "../explain/tools/site/explainers/node-path.js" } }</script>
@@ -27,9 +27,9 @@
 	import { explainGuard } from "../explain/tools/site/explainers/account-guard.js";
 
 	const PRESETS = {
-		remote: { directory: "~/src/api", remotes: "git@github.com:acme-corp/api.git", provider: "openai-codex-2", source: "oauth" },
-		personal: { directory: "~/garden", remotes: "https://github.com/me/garden.git", provider: "openai-codex-2", source: "oauth" },
-		untagged: { directory: "~/garden", remotes: "", provider: "homelab", source: "env:HOMELAB_KEY" },
+		remote: { directory: "~/src/api", remotes: "git@github.com:my-company/api.git", provider: "openai-codex-2", source: "oauth" },
+		personal: { directory: "~/code/dotfiles", remotes: "https://github.com/me/dotfiles.git", provider: "openai-codex-2", source: "oauth" },
+		untagged: { directory: "~/code/dotfiles", remotes: "", provider: "google", source: "env:GEMINI_API_KEY" },
 	};
 	const field = (id) => document.getElementById(id);
 	const ids = ["directory", "remotes", "provider", "source", "config"];

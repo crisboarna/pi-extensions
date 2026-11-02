@@ -9,9 +9,9 @@
 
 Keeps each [pi](https://pi.dev) session on the accounts that belong where it runs: a work subscription never answers in a personal repository, and the other way round. Before each turn, the guard checks the account pi is about to use against the zone of the directory, and when they differ it blocks the turn and offers the fix in one keystroke. It is for anyone with work and personal subscriptions in one pi, especially with rotators and routers that change accounts on their own.
 
-[![A two-minute narrated demo in a real pi session: in a personal repository the work account is blocked before anything is sent, one keystroke switches to the personal account, a new account tags itself, a rotation into the work zone mid-turn is aborted, and /guard shows the place and the Match. This loop plays the main moments without sound; click for the full video.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/hero-loop.gif)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4)
+[![A narrated demo of under three minutes in a real pi session: in a personal dotfiles repository the company OpenAI account (GPT-5.5) is blocked before anything is sent, one keystroke switches to the personal Anthropic account (Claude Sonnet), a new Google account (Gemini Flash) tags itself, a rotation into the work zone mid-turn is aborted, and /guard shows the place and the Match. This loop plays the main moments without sound; click for the full video.](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/hero-loop.gif)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4)
 
-▶ [Watch the two-minute demo, with narration](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4): real pi and pi-account-guard with demo accounts; only the model replies are scripted.
+▶ [Watch the demo, with narration (2:40)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/media/hero.mp4): real pi and pi-account-guard with throwaway accounts and repositories; only the model replies are scripted.
 
 It is a guard against slips, not a security boundary: it never reads secrets, and when it cannot decide, it blocks.
 
@@ -27,14 +27,14 @@ Restart pi. Requires Node 22.19 or later; checked with pi 1.4.
 
 With no config the guard knows two zones, `work` and `personal`, and every directory is `personal`.
 
-1. In a work repository, run `/guard place add path=here zone=work`. This directory and everything below it are now `work`. For every repository of an organization, use its remote instead: `/guard place add remote=*/acme-corp/* zone=work`.
+1. In a work repository, run `/guard place add path=here zone=work`. This directory and everything below it are now `work`. For every repository of an organization, use its remote instead: `/guard place add remote=*/my-company/* zone=work`.
 2. Send a prompt. The first time an account is used, the tag prompt asks which zones it belongs to. Tick `work`, and the turn goes at once.
 3. Open a personal repository with the same account selected. The turn is blocked, and the select offers Switch rows for the accounts you tagged `personal`.
 4. Run `/guard` at any time: it shows the place and the rule that decides it, the account and whether it matches. `/guard check <path>` asks the same about another directory, and `/guard tour` walks through it all with samples.
 
-The footer shows the result as you work: `guard personal ✓`, or `guard personal ✗ acme is work` before a turn would be blocked.
+The footer shows the result as you work: `guard personal ✓`, or `guard personal ✗ openai is work` before a turn would be blocked.
 
-![How a turn is checked: the account acme (env:ACME_WORK_KEY) is tagged work; ~/personal/garden-planner matches no place rule, so it falls to the default zone personal; the zones differ, so the turn is blocked and the select offers homelab first; in ~/work/acme-api the remote rule decides work, a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check.gif)
+![How a turn is checked: the account openai (env:OPENAI_API_KEY) is tagged work; ~/code/dotfiles matches no place rule, so it falls to the default zone personal; the zones differ, so the turn is blocked and the select offers anthropic first; in ~/work/payments-api the remote rule decides work, a Match](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/check.gif)
 
 ### Agents and scripts
 
@@ -47,7 +47,7 @@ The package ships a skill, `pi-account-guard`, that pi loads with it. Ask the ag
 - **Tags itself on first use.** No config to write up front: each new account asks for its zones once.
 - **Catches rotators and routers mid-turn.** A model change into the wrong zone during a turn (pi-multi-pass rotation, `/model`, a router fallback) aborts the turn and offers the previous account first.
 - **Scripts can tell.** In print and JSON mode a block exits with code 77, with the reason on stderr.
-- **Reads no secrets.** An account is a provider id plus its auth source, such as `env:ACME_WORK_KEY` or `oauth`, never the key itself.
+- **Reads no secrets.** An account is a provider id plus its auth source, such as `env:OPENAI_API_KEY` or `oauth`, never the key itself.
 
 ## Configuration
 
