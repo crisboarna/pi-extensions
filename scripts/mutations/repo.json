@@ -54,5 +54,19 @@
 		"find": "if ((at[index] ?? -1) < 0)",
 		"replace": "if (false)",
 		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "release-plan-tag-without-version-allowed",
+		"file": "scripts/release/plan.ts",
+		"find": "\t\tif (tags.includes(tag)) {\n\t\t\tplan.problems.push(",
+		"replace": "\t\tif (false) {\n\t\t\tplan.problems.push(",
+		"tests": ["test/release-plan.test.ts"]
+	},
+	{
+		"id": "release-plan-older-version-allowed",
+		"file": "scripts/release/plan.ts",
+		"find": "compare(version, latest) <= 0",
+		"replace": "compare(version, latest) < -99",
+		"tests": ["test/release-plan.test.ts"]
 	}
 ]
