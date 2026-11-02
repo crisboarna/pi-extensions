@@ -217,6 +217,21 @@ export function findChildByDecision(dir: string, decisionId: string): LiveStatus
 	return undefined;
 }
 
+const MIRROR_KINDS: readonly string[] = ["task", "text", "tool-call", "tool-result", "error"];
+
+/** Whether a parsed line is a transcript line: a time, a known kind and some text. Valid JSON of any other shape is not one, and `null` least of all. */
+function isMirrorLine(value: unknown): value is MirrorLine {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	const line = value as Record<string, unknown>;
+	return (
+		typeof line.ts === "number" &&
+		Number.isFinite(line.ts) &&
+		typeof line.kind === "string" &&
+		MIRROR_KINDS.includes(line.kind) &&
+		typeof line.text === "string"
+	);
+}
+
 export function readMirror(dir: string, session: string): MirrorLine[] {
 	try {
 		return readFileSync(join(dir, `${safe(session)}.jsonl`), "utf8")
@@ -224,7 +239,8 @@ export function readMirror(dir: string, session: string): MirrorLine[] {
 			.filter(Boolean)
 			.flatMap((line) => {
 				try {
-					return [JSON.parse(line) as MirrorLine];
+					const parsed: unknown = JSON.parse(line);
+					return isMirrorLine(parsed) ? [parsed] : [];
 				} catch {
 					return [];
 				}

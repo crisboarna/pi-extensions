@@ -74,12 +74,40 @@ function sleepSync(ms: number): void {
 	Atomics.wait(sleeper, 0, 0, ms);
 }
 
+const isMap = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The entries of a table whose values are objects; a table of any other shape is empty, and an entry of any other shape is dropped. */
+function objectTable<T>(value: unknown): Record<string, T> {
+	return isMap(value) ? (Object.fromEntries(Object.entries(value).filter(([, entry]) => isMap(entry))) as Record<string, T>) : {};
+}
+
+/** The entries of a table whose values are finite numbers. */
+function numberTable(value: unknown): Record<string, number> {
+	return isMap(value)
+		? (Object.fromEntries(Object.entries(value).filter(([, entry]) => typeof entry === "number" && Number.isFinite(entry))) as Record<string, number>)
+		: {};
+}
+
+/**
+ * The health in the file. A file that is not JSON, or not version 1, starts over: health is a cache, not a record. A version 1 file whose tables
+ * have the wrong shape (a number where a table goes) keeps the tables that are right, because a table of the wrong type would make the next update
+ * throw. Keys this version does not know are kept, so an older process rewriting the file does not drop a newer one's fields.
+ */
 function parse(text: string): HealthData {
 	try {
-		const value = JSON.parse(text) as Partial<HealthData>;
-		if (value && value.v === 1) return { ...emptyHealth(), ...value } as HealthData;
+		const value: unknown = JSON.parse(text);
+		if (isMap(value) && value.v === 1) {
+			return {
+				...value,
+				v: 1,
+				members: objectTable(value.members),
+				pointers: numberTable(value.pointers),
+				swrr: objectTable(value.swrr),
+				accounts: objectTable(value.accounts),
+			};
+		}
 	} catch {
-		// A damaged file starts over; health is a cache, not a record.
+		// A damaged file starts over.
 	}
 	return emptyHealth();
 }
