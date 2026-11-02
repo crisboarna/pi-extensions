@@ -69,8 +69,20 @@ export function decorateEditor(editor: EditorComponent): boolean {
 	return true;
 }
 
+/**
+ * Whether a Placeholder is one unit in the editor right now, and if not, why:
+ * - `no-ui`: the session has no editor (print, JSON, RPC); typed refs still expand;
+ * - `pending`: the editor has not been wrapped yet (the tick after `session_start`, ADR 0007, or pi has not built it);
+ * - `atomic`: the editor is wrapped and one Backspace deletes a whole Placeholder;
+ * - `plain:no-segment`: the editor in the slot has no `segment` method to build on (ADR 0001), so a Placeholder is plain text that still expands;
+ * - `plain:replaced`: another extension put its own editor in the slot after the wrap, so the decoration is gone (ADR 0007).
+ */
+export type EditorStatus = "no-ui" | "pending" | "atomic" | "plain:no-segment" | "plain:replaced";
+
 /** Finds the draft of the editor the user types in. */
 export interface EditorTap {
+	/** Whether a Placeholder is one unit in the editor now, and why not when it is not. Reads state; changes nothing. */
+	status(ctx: Pick<ExtensionContext, "ui" | "hasUI">): EditorStatus;
 	/** The draft of the editor this package put in the slot, or undefined once something else holds the slot or the editor cannot report its draft. */
 	draft(ctx: Pick<ExtensionContext, "ui">): Draft | undefined;
 	/** True while the editor this package put in the slot shows its autocomplete list. */
@@ -86,6 +98,7 @@ export interface EditorTap {
 export function registerEditor(pi: ExtensionAPI): EditorTap {
 	let installed: EditorFactory | undefined;
 	let live: EditorComponent | undefined;
+	let liveAtomic = false;
 	let pending: ReturnType<typeof setTimeout> | undefined;
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
@@ -96,7 +109,7 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 			if (installed !== undefined && previous === installed) return;
 			installed = (tui, theme, keybindings) => {
 				const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
-				decorateEditor(editor);
+				liveAtomic = decorateEditor(editor);
 				live = editor;
 				return editor;
 			};
@@ -107,8 +120,16 @@ export function registerEditor(pi: ExtensionAPI): EditorTap {
 		if (pending !== undefined) clearTimeout(pending);
 		pending = undefined;
 		live = undefined;
+		liveAtomic = false;
 	});
 	return {
+		status: (ctx) => {
+			if (!ctx.hasUI) return "no-ui";
+			if (pending !== undefined || installed === undefined) return "pending";
+			if (ctx.ui.getEditorComponent() !== installed) return "plain:replaced";
+			if (live === undefined) return "pending";
+			return liveAtomic ? "atomic" : "plain:no-segment";
+		},
 		autocompleteOpen: () =>
 			live !== undefined && "isShowingAutocomplete" in live && typeof live.isShowingAutocomplete === "function" && live.isShowingAutocomplete() === true,
 		draft: (ctx) => (live !== undefined && installed !== undefined && ctx.ui.getEditorComponent() === installed ? draftOf(live) : undefined),

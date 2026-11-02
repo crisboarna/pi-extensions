@@ -402,5 +402,77 @@ describe("the editor tap at session shutdown", () => {
 	});
 });
 
+describe("the editor tap's status, which says why a Placeholder is or is not one unit", () => {
+	function started(options: { hasUI: boolean; before?: EditorFactory }) {
+		const host = createFakeHost();
+		const tap = registerEditor(host.pi as unknown as Parameters<typeof registerEditor>[0]);
+		const session = createFakeSession({ cwd: project, hasUI: options.hasUI });
+		const slot: Slot = { factory: options.before };
+		Object.assign(session.ctx.ui, {
+			getEditorComponent: () => slot.factory,
+			setEditorComponent: (next: EditorFactory) => {
+				slot.factory = next;
+			},
+		});
+		const start = () => host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		return { host, tap, session, slot, start };
+	}
+
+	it("is no-ui when the session has no UI", async () => {
+		const { tap, session, start } = started({ hasUI: false });
+		await start();
+		await nextTick();
+		assert.equal(tap.status(session.ctx), "no-ui");
+	});
+
+	it("is pending from the start of the session until the tick that wraps the editor", async () => {
+		const { tap, session, start } = started({ hasUI: true });
+		assert.equal(tap.status(session.ctx), "pending", "before the session starts");
+		await start();
+		assert.equal(tap.status(session.ctx), "pending", "the tick has not run");
+		await nextTick();
+		assert.equal(tap.status(session.ctx), "pending", "the slot holds our factory, but pi has not built the editor");
+	});
+
+	it("is atomic once pi has built the wrapped editor and it has a segment method to build on", async () => {
+		const { tap, session, slot, start } = started({ hasUI: true });
+		await start();
+		await nextTick();
+		build(slot.factory);
+		assert.equal(tap.status(session.ctx), "atomic");
+	});
+
+	it("is plain:no-segment when the editor in the slot has no segment method, as after a pi change", async () => {
+		const bare = (() => ({ render: () => [], handleInput() {}, invalidate() {}, getText: () => "" })) as unknown as EditorFactory;
+		const { tap, session, slot, start } = started({ hasUI: true, before: bare });
+		await start();
+		await nextTick();
+		(slot.factory as EditorFactory)(FAKE_TUI as unknown as Parameters<EditorFactory>[0], THEME, keybindings);
+		assert.equal(tap.status(session.ctx), "plain:no-segment");
+	});
+
+	it("is plain:replaced when another extension put its own editor in the slot after the wrap", async () => {
+		const { tap, session, slot, start } = started({ hasUI: true });
+		await start();
+		await nextTick();
+		build(slot.factory);
+		slot.factory = (() => ({ render: () => [], handleInput() {}, invalidate() {} })) as unknown as EditorFactory;
+		assert.equal(tap.status(session.ctx), "plain:replaced");
+	});
+
+	it("goes back to pending at shutdown, until the next session wraps an editor again", async () => {
+		const { host, tap, session, slot, start } = started({ hasUI: true });
+		await start();
+		await nextTick();
+		build(slot.factory);
+		await host.fire("session_shutdown", { type: "session_shutdown", reason: "new" }, session.ctx);
+		assert.equal(tap.status(session.ctx), "pending");
+		await start();
+		await nextTick();
+		build(slot.factory);
+		assert.equal(tap.status(session.ctx), "atomic");
+	});
+});
+
 /** Keeps `Build` in use for the type of the editor-building helper. */
 export type { Build };

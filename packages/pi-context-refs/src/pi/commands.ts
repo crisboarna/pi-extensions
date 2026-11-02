@@ -10,6 +10,7 @@ import { applyFields, buildRef, jsonOf } from "../core/ref-edit.ts";
 import { describeRef, formatList, readSettings, settingsProblems } from "../core/ref-list.ts";
 import { addedConsequence, findPlaced, removalConsequence } from "../core/ref-relations.ts";
 import { printable } from "../core/text.ts";
+import { doctor } from "./doctor.ts";
 import { approvalStateOf, approveRef, decideApproval, forgetApproval, recordDecided, revokeApproval, showApprovals } from "./ref-approvals.ts";
 import {
 	type CommandDeps,
@@ -102,6 +103,8 @@ async function dispatch(run: Run, command: RefCommand, sessionTrigger: string): 
 			return revokeApproval(run, command);
 		case "sent":
 			return showSent(run.ctx, run.say);
+		case "doctor":
+			return doctor(run, run.deps.doctor, sessionTrigger);
 	}
 }
 

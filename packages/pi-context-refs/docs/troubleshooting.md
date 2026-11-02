@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with `/ref list`. It prints the settings, every ref by library, the refs another library hides, any warnings about a file, and the Approval state of each Project command.
+Start with `/ref doctor`. It checks both libraries, the approvals file, git, the editor and the trigger, says what is wrong and what to do, and changes nothing. Then `/ref list` prints the settings, every ref by library, the refs another library hides, any warnings about a file, and the Approval state of each Project command.
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -19,4 +19,4 @@ Start with `/ref list`. It prints the settings, every ref by library, the refs a
 | `#diff` or `#log` is missing from the list | The directory is not inside a git work tree | They are hidden there, and a typed one fails with "not a git repository" |
 | A `#word` in my sentence expanded | A visible ref has exactly that name | Rename the ref, or change the trigger |
 
-If none of this explains it, open an issue and include the output of `/ref list`.
+If none of this explains it, open an issue and include the output of `/ref doctor`.

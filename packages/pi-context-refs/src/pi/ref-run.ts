@@ -10,6 +10,7 @@ import { type LayeredRefs, resolveRefs } from "../core/resolve.ts";
 import { normalizeRemote, type Place } from "../core/scope.ts";
 import { printable } from "../core/text.ts";
 import type { ApprovalDeps } from "./approvals.ts";
+import type { DoctorEnv } from "./doctor.ts";
 import { placeOf, projectLibraryPath, projectLibraryProblem } from "./libraries.ts";
 
 /** What `/ref` needs from outside pi, so tests can stand in for the machine. */
@@ -20,6 +21,8 @@ export interface CommandDeps extends ApprovalDeps {
 	writeStderr: (text: string) => void;
 	/** The fetch URLs of the remotes of the repository that holds a directory, or undefined when git cannot tell. */
 	readRemotes: (cwd: string) => string[] | undefined;
+	/** What `/ref doctor` needs beyond the files: the editor's state and a git check. */
+	doctor: DoctorEnv;
 }
 
 export type Level = "info" | "error";

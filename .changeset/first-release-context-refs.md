@@ -15,3 +15,4 @@ First release: save the context you keep giving the model as named refs, and sen
 - **Beside other extensions.** The package wraps whichever editor was installed last, so the placeholder stays one unit beside extensions that replace the editor.
 - **Tested against a stated range of pi.** It declares pi `>=1.4.0 <2`, the range CI runs the suites against, instead of promising every version.
 - **A `pi-context-refs` skill.** Ask the agent why a `#name` did not expand, what a ref sends, or how to add or share a ref; it reads your libraries and proposes `/ref` commands for you to run, and never approves a command for you.
+- **`/ref doctor` says what is wrong.** It checks both libraries, the approvals file, git, the editor and the trigger, and says what to do about each: a project that pi does not trust, a project command that waits for approval, a placeholder that is plain text and why. It only reads.
