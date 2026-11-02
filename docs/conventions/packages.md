@@ -15,6 +15,7 @@ packages/<name>/
 ├── tsconfig.json     extends ../../tsconfig.base.json
 ├── src/index.ts      the extension factory pi loads
 ├── src/…             behaviour, in modules tests can import
+├── docs/upgrading.md what an upgrade keeps and how breaking changes are announced (docs/conventions/upgrading.md)
 └── test/             unit/ and integration/ tests (node --test)
 ```
 
