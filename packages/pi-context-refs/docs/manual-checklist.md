@@ -49,12 +49,4 @@ No run recorded yet.
 
 ## Release decision
 
-Releasing needs the maintainer's approval. This package is at `0.0.0` and the changesets already in `.changeset/` for it are empty. Before the first release the maintainer decides the bump and writes one non-empty changeset for `@crisboarna/pi-context-refs`, for example:
-
-```text
----
-"@crisboarna/pi-context-refs": minor
----
-
-First release: save Path, File, Snippet and Dynamic refs, pick them with `#` or `alt+r`, and send their content as context blocks.
-```
+Releasing needs the maintainer's approval. The first release is staged: `.changeset/first-release-context-refs.md` bumps `@crisboarna/pi-context-refs` to 0.1.0 and holds its release notes, and the release pull request publishes it when the maintainer merges that pull request. Until then the package is at `0.0.0`. Run the checklist above, and read the notes in the release pull request's `CHANGELOG.md`, before merging.
