@@ -158,6 +158,31 @@ async function checkTheme() {
 	await context.close();
 }
 
+/** The search box: shown by the script, focused by "/", finds a page by a word in its text, says so when nothing matches, and its links work from a nested page. */
+async function checkSearch() {
+	const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block" });
+	const page = await context.newPage();
+	const nested = pages.find((candidate) => candidate.includes("/docs/")) ?? "index.html";
+	await page.goto(`${base}/${nested}`, { waitUntil: "load" });
+	if (!(await page.isVisible("#search-input"))) return void problems.push("search: the box is not shown");
+	await page.keyboard.press("/");
+	if (!(await page.evaluate(() => document.activeElement?.id === "search-input"))) problems.push('search: "/" did not focus the box');
+	await page.fill("#search-input", "switchboard");
+	await page.waitForSelector("#search-results li a", { timeout: 5000 }).catch(() => problems.push("search: a word on the site found nothing"));
+	await page.fill("#search-input", "zzzqqqxxx");
+	await page
+		.waitForFunction(() => document.querySelector("#search-results")?.textContent === "Nothing found", null, { timeout: 5000 })
+		.catch(() => problems.push("search: a nonsense word did not say nothing was found"));
+	await page.fill("#search-input", "switchboard");
+	await page.waitForSelector("#search-results li a", { timeout: 5000 }).catch(() => {});
+	const target = await page.getAttribute("#search-results li a", "href");
+	if (!target) return void (await context.close());
+	await page.click("#search-results li a");
+	await page.waitForLoadState("load");
+	if (!(await page.textContent("h1"))) problems.push(`search: the first result (${target}) opened a page with no title`);
+	await context.close();
+}
+
 /** One visit installs the worker; then the pages must render with the network off. */
 async function checkOffline() {
 	const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -179,6 +204,7 @@ async function checkOffline() {
 
 await crawl();
 await checkTheme();
+await checkSearch();
 await checkOffline();
 await browser.close();
 server.close();

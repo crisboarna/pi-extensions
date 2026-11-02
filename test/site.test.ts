@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { buildSite, sitePackages } from "../tools/site/build.ts";
+import { MAX_TEXT } from "../tools/site/search.ts";
 import { IMAGE_SIZE, pagePaths, pageUrl, SITE_URL } from "../tools/site/social.ts";
 
 describe("the family site", () => {
@@ -148,6 +149,24 @@ describe("the family site", () => {
 		const landing = readFileSync(join(out, "index.html"), "utf8");
 		assert.ok(landing.includes(`<meta property="og:image" content="${SITE_URL}/media/og.png">`));
 		assert.ok(landing.includes('<meta name="twitter:card" content="summary_large_image">'));
+	});
+
+	it("indexes for search exactly the pages that were built, each with a title and words, and keeps the download small", () => {
+		const text = readFileSync(join(out, "search.json"), "utf8");
+		const entries = JSON.parse(text) as Array<{ title: string; url: string; text: string }>;
+		assert.deepEqual(entries.map((entry) => entry.url).sort(), builtPages());
+		for (const entry of entries) {
+			assert.ok(entry.title.length > 0, `${entry.url}: title`);
+			assert.ok(entry.text.length > 0 && entry.text.length <= MAX_TEXT, `${entry.url}: ${entry.text.length} characters`);
+		}
+		assert.ok(text.length < 400_000, `search.json is ${text.length} bytes`);
+		for (const path of builtPages()) {
+			const depth = "../".repeat(path.split("/").length - 1);
+			assert.ok(
+				readFileSync(join(out, path), "utf8").includes(`data-index="${depth}search.json"`),
+				`${path}: its search box finds search.json at ${depth || "./"}`,
+			);
+		}
 	});
 
 	it("lists in the sitemap exactly the pages that were built", () => {

@@ -121,7 +121,84 @@ async function registerWorker() {
 	}
 }
 
+/**
+ * Search with no server: the first time the box is used it downloads search.json (a title and the text of every page) and filters it here.
+ * A page matches when every word typed is in its title or its text; title matches come first. Results are built with textContent, never markup.
+ */
+function setupSearch() {
+	const box = document.getElementById("search");
+	const input = document.getElementById("search-input");
+	const list = document.getElementById("search-results");
+	if (!box || !input || !list) return;
+	box.hidden = false;
+	const indexUrl = new URL(input.dataset.index, location.href);
+	let index;
+	const load = () => {
+		index ??= fetch(indexUrl)
+			.then((response) => (response.ok ? response.json() : []))
+			.catch(() => []);
+		return index;
+	};
+	const find = (entries, query) => {
+		const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+		if (terms.length === 0) return [];
+		const hits = [];
+		for (const entry of entries) {
+			const title = entry.title.toLowerCase();
+			const text = entry.text.toLowerCase();
+			if (!terms.every((term) => title.includes(term) || text.includes(term))) continue;
+			hits.push({ entry, score: terms.reduce((sum, term) => sum + (title.includes(term) ? 10 : 0), 0) });
+		}
+		return hits.sort((a, b) => b.score - a.score).slice(0, 8);
+	};
+	const snippet = (text, query) => {
+		const at = text.toLowerCase().indexOf(query.toLowerCase().split(/\s+/)[0] ?? "");
+		const start = Math.max(0, at - 50);
+		return (start > 0 ? "…" : "") + text.slice(start, start + 140);
+	};
+	const show = async () => {
+		const query = input.value.trim();
+		const hits = query ? find(await load(), query) : [];
+		list.replaceChildren(
+			...hits.map(({ entry }) => {
+				const item = document.createElement("li");
+				const link = document.createElement("a");
+				link.href = new URL(entry.url, indexUrl).href;
+				link.textContent = entry.title;
+				const detail = document.createElement("span");
+				detail.textContent = snippet(entry.text, query);
+				item.append(link, detail);
+				return item;
+			}),
+		);
+		if (query && hits.length === 0) {
+			const none = document.createElement("li");
+			none.textContent = "Nothing found";
+			list.append(none);
+		}
+		list.hidden = !query;
+	};
+	input.addEventListener("focus", load);
+	input.addEventListener("input", show);
+	input.addEventListener("keydown", (event) => {
+		if (event.key !== "Escape") return;
+		input.value = "";
+		list.hidden = true;
+	});
+	document.addEventListener("click", (event) => {
+		if (!box.contains(event.target)) list.hidden = true;
+	});
+	document.addEventListener("keydown", (event) => {
+		const typing = /^(input|textarea|select)$/i.test(event.target?.tagName ?? "") || event.target?.isContentEditable;
+		if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			event.preventDefault();
+			input.focus();
+		}
+	});
+}
+
 setupThemeToggle();
+setupSearch();
 setupReveal();
 setupSidebar();
 setupHeroVideo();
