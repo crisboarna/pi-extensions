@@ -1,8 +1,10 @@
 LICENSE
 README.md
+examples/pi-context-refs.json
 package.json
 schema/pi-context-refs-approvals.schema.json
 schema/pi-context-refs.schema.json
+skills/pi-context-refs/SKILL.md
 src/core/approval-list.ts
 src/core/approval.ts
 src/core/builtins.ts
