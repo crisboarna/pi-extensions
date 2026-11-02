@@ -138,5 +138,33 @@
 		"find": "if (onBadgeLine || BADGE_HOSTS.test(src)) found.push",
 		"replace": "if (onBadgeLine) found.push",
 		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "social-folder-address",
+		"file": "tools/site/social.ts",
+		"find": "if (path.endsWith(\"/index.html\")) return",
+		"replace": "if (false) return",
+		"tests": ["test/site-social.test.ts"]
+	},
+	{
+		"id": "social-vendor-in-sitemap",
+		"file": "tools/site/social.ts",
+		"find": "!/^(vendor|assets)\\//.test(file)",
+		"replace": "true",
+		"tests": ["test/site-social.test.ts"]
+	},
+	{
+		"id": "social-canonical-twice",
+		"file": "tools/site/social.ts",
+		"find": "if (html.includes('rel=\"canonical\"')) return html;",
+		"replace": "if (false) return html;",
+		"tests": ["test/site-social.test.ts"]
+	},
+	{
+		"id": "social-large-card-without-image",
+		"file": "tools/site/social.ts",
+		"find": "image ? \"summary_large_image\" : \"summary\"",
+		"replace": "\"summary_large_image\"",
+		"tests": ["test/site-social.test.ts"]
 	}
 ]

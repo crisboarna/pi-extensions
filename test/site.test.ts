@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { buildSite, sitePackages } from "../tools/site/build.ts";
+import { IMAGE_SIZE, pagePaths, pageUrl, SITE_URL } from "../tools/site/social.ts";
 
 describe("the family site", () => {
 	const out = mkdtempSync(join(tmpdir(), "site-test-"));
@@ -101,6 +102,52 @@ describe("the family site", () => {
 		assert.ok(existsSync(join(out, "pi-switchboard", "media", "hero.vtt")));
 		assert.doesNotMatch(guard, /raw\.githubusercontent\.com|img\.shields\.io|scorecard\.dev|github\.io\/pi-extensions\/badges/);
 		assert.ok(existsSync(join(out, "pi-account-guard", "media", "hero.mp4")));
+	});
+
+	const builtPages = () =>
+		pagePaths(
+			(readdirSync(out, { recursive: true }) as string[]).map((file) => file.split("\\").join("/")).filter((file) => statSync(join(out, file)).isFile()),
+		);
+
+	it("gives every page exactly one canonical address, the one the sitemap lists", () => {
+		const pages = builtPages();
+		assert.ok(pages.length > 30, `found only ${pages.length} pages`);
+		for (const path of pages) {
+			const html = readFileSync(join(out, path), "utf8");
+			const canonical = html.match(/<link rel="canonical" href="([^"]+)">/g) ?? [];
+			assert.equal(canonical.length, 1, `${path}: ${canonical.length} canonical links`);
+			assert.ok(canonical[0]?.includes(`href="${pageUrl(path)}"`), `${path}: canonical is ${canonical[0]}`);
+			assert.ok(html.includes(`<meta property="og:url" content="${pageUrl(path)}">`), `${path}: og:url`);
+			assert.match(html, /<meta property="og:title" content="[^"]+">/, path);
+			assert.match(html, /<meta name="twitter:card" content="summary(_large_image)?">/, path);
+		}
+	});
+
+	it("points every preview image at a file the build holds, 1200 by 630", () => {
+		let seen = 0;
+		for (const path of builtPages()) {
+			const html = readFileSync(join(out, path), "utf8");
+			const image = html.match(/<meta property="og:image" content="([^"]+)">/)?.[1];
+			if (!image) {
+				assert.match(html, /twitter:card" content="summary"/, `${path}: no image, so the small card`);
+				continue;
+			}
+			seen += 1;
+			assert.ok(image.startsWith(`${SITE_URL}/`), image);
+			assert.ok(html.includes(`<meta name="twitter:image" content="${image}">`), `${path}: twitter:image matches`);
+			const file = join(out, image.slice(SITE_URL.length + 1));
+			assert.ok(existsSync(file), `${path}: ${image} is not in the build`);
+			const header = readFileSync(file).subarray(0, 24);
+			assert.equal(header.readUInt32BE(16), IMAGE_SIZE.width, `${image} width`);
+			assert.equal(header.readUInt32BE(20), IMAGE_SIZE.height, `${image} height`);
+		}
+		assert.ok(seen >= sitePackages().length, "every package page has a preview");
+	});
+
+	it("lists in the sitemap exactly the pages that were built", () => {
+		const listed = [...readFileSync(join(out, "sitemap.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]).sort();
+		assert.deepEqual(listed, builtPages().map(pageUrl).sort());
+		assert.equal(new Set(listed).size, listed.length, "no address twice");
 	});
 
 	it("lists every page's Markdown source in llms.txt", () => {
