@@ -33,5 +33,19 @@
 		"find": "if (edited.trim() === original) return run.say(`Nothing changed in \"${found.name}\"`);",
 		"replace": "",
 		"tests": ["packages/pi-context-refs/test/tui/ref-commands-keys.test.ts"]
+	},
+	{
+		"id": "editor-wrap-comes-late",
+		"file": "packages/pi-context-refs/src/pi/editor.ts",
+		"find": "}, 0);",
+		"replace": "}, 1500);",
+		"tests": ["packages/pi-context-refs/test/integration/editor.test.ts", "packages/pi-context-refs/test/tui/neighbours-keys.test.ts"]
+	},
+	{
+		"id": "editor-wrap-survives-shutdown",
+		"file": "packages/pi-context-refs/src/pi/editor.ts",
+		"find": "\t\tif (pending !== undefined) clearTimeout(pending);\n\t\tpending = undefined;\n\t\tlive = undefined;",
+		"replace": "\t\tlive = undefined;",
+		"tests": ["packages/pi-context-refs/test/integration/editor.test.ts"]
 	}
 ]
