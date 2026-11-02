@@ -61,6 +61,16 @@ npm run soak -- packages/pi-switchboard/test/tui/tier-editor-keys.test.ts --copi
 
 It prints one line per file and the log of the first failing run. A run that does not exit within `--timeout` (120 seconds by default) is killed and counted as a hang, because a suite can pass every test and then never exit.
 
+### Find tests that depend on each other
+
+Load is one way a test fails. Order is another: a test that only passes because an earlier test ran first. Run the suites in a random order:
+
+```bash
+npm run soak -- --randomize --suites unit,integration,tui --copies 3
+```
+
+Each copy runs its file's tests in a random order from its own seed, and the run prints the seeds. A failure names its seed: replay that exact order with `SOAK_SEED=<seed> npm run soak -- --randomize --copies 1 <test file>`. `--suites` says which folders of `test/` a package target runs (the default is `test/tui`). It needs Node 24; Node 22 has no random order. The nightly run does this over every package (`nightly.yml`), so a test that depends on another shows up the next morning, with the seed to replay.
+
 ## Try real third-party extensions
 
 `test/tui/neighbours-keys.test.ts` loads the example extensions pi ships. Extensions people install are different code, so `npm run coexist` runs the package beside real ones:

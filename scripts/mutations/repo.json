@@ -68,5 +68,19 @@
 		"find": "compare(version, latest) <= 0",
 		"replace": "compare(version, latest) < -99",
 		"tests": ["test/release-plan.test.ts"]
+	},
+	{
+		"id": "soak-randomize-flag-not-passed",
+		"file": "scripts/soak.ts",
+		"find": "args: job.seed === undefined ? [] : [\"--test-randomize\", `--test-random-seed=${job.seed}`],",
+		"replace": "args: [],",
+		"tests": ["test/soak.test.ts"]
+	},
+	{
+		"id": "soak-every-copy-same-seed",
+		"file": "scripts/soak.ts",
+		"find": "seed: baseSeed + copy",
+		"replace": "seed: baseSeed",
+		"tests": ["test/soak.test.ts"]
 	}
 ]
