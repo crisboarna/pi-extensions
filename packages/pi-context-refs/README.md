@@ -74,12 +74,22 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 - [docs/configuration.md](docs/configuration.md): the library files, the fields of a ref, the settings and which ref wins.
 - [docs/headless.md](docs/headless.md): print, JSON and RPC mode, failures and approvals without a UI.
 - [docs/with-other-extensions.md](docs/with-other-extensions.md): the editor, the message and the transcript beside other extensions.
+- [docs/privacy.md](docs/privacy.md): what leaves your machine, what an approval does not cover, and where the guards stop.
 - [docs/faq.md](docs/faq.md) and [docs/troubleshooting.md](docs/troubleshooting.md): why it behaves as it does, and what to do when it does not work.
 - [DESIGN.md](DESIGN.md): the full design, with the pi behaviour it relies on (section 16.1) and the known limits (section 17).
 - [GLOSSARY.md](GLOSSARY.md): the terms used here and in the code.
 - [docs/adr/](docs/adr/): the seven decisions that are hardest to reverse.
 - [docs/manual-checklist.md](docs/manual-checklist.md): the checks that need a person at a real terminal, and their status.
 - [schema/](schema): JSON Schemas for the library files and the approvals file, and [examples/](examples) for a library to copy.
+
+## Data and privacy
+
+- **Network:** only to fetch an address ref that you saved: a plain `GET`, with up to five redirects, and a redirect from a public host to a loopback, private or link-local address is refused. There is no telemetry and no update check.
+- **Processes:** the command of each Dynamic ref you send, as an argv with no shell and with your environment; `git diff`, `git diff --staged`, `git status --short` and `git log --oneline -20` for the four built-ins; and `git remote -v` to match a scope. A command from a Project library runs only after you approve its exact definition.
+- **Files it reads:** your library, the Project library when pi trusts the project, the approvals file, and each file or path a ref names, when you send.
+- **Files it writes:** your library in the agent directory, the Project library in `.pi/` when you save with `in=project`, and the approvals file in the agent directory. Each write is one atomic step.
+- **What reaches the model:** the content of each ref you send, in the message. The session stores it in full, so export, fork and compaction see it too.
+- **Limits:** it does not redact what a ref sends, and an approval covers a command line or an address, not the files a command runs. [docs/privacy.md](docs/privacy.md) lists them.
 
 ## Troubleshooting
 
@@ -115,6 +125,14 @@ More causes and fixes are in [docs/troubleshooting.md](docs/troubleshooting.md).
 - A `#word` in prose that matches a ref name expands, so a ref named `todo` makes every `#todo` expand.
 - Another extension that reads the user message (a classifier, a guard) sees the full expansion.
 - Not yet checked by a person in a real terminal: the look of the list and the overlay at narrow widths and in themes, fork, resume, export and compaction, `ctrl+o`, the wording of the approval prompt, and living beside pi-image-view, pi-up-history, pi-cc-steer, pi-multi-pass and pi-powerline-footer. The list is in [docs/manual-checklist.md](docs/manual-checklist.md).
+
+## Uninstall
+
+```bash
+pi remove npm:@crisboarna/pi-context-refs
+```
+
+Then delete `pi-context-refs.json` and `pi-context-refs-approvals.json` from the agent directory (`~/.pi/agent/`), and `.pi/pi-context-refs.json` from any project that shares a library. A placeholder left in an old draft is plain text.
 
 ## License
 
