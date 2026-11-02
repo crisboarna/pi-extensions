@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseRange } from "../lib/pi-versions.ts";
-import { badgeProblems, majorMinor, versionProblems } from "../lib/readme-rules.ts";
+import { badgeProblems, headingProblems, majorMinor, versionProblems } from "../lib/readme-rules.ts";
 import { listPackages, PI_PEER_RANGE, ROOT, reporter } from "../lib/repo.ts";
 
 const report = reporter("readme");
@@ -28,6 +28,7 @@ for (const { dir, path, manifest } of listPackages()) {
 		continue;
 	}
 	for (const problem of badgeProblems(readme)) report.fail(`${at}: ${problem}`);
+	for (const problem of headingProblems(readme)) report.fail(`${at}: ${problem}`);
 	const node = /^>=(\d+\.\d+\.\d+)$/.exec(manifest.engines?.node ?? "")?.[1];
 	if (!node) {
 		report.fail(`${at}: engines.node must be ">=x.y.z" (manifests.ts reports this too)`);
