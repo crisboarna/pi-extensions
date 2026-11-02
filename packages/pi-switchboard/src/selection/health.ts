@@ -66,6 +66,7 @@ export class MemoryHealthStore implements HealthStore {
 
 const LOCK_STALE_MS = 10_000;
 const LOCK_RETRY_MS = 25;
+/** How long an update waits for the lock before it runs on an in-memory copy, unless the store is given another wait. */
 const LOCK_WAIT_MS = 250;
 const sleeper = new Int32Array(new SharedArrayBuffer(4));
 
@@ -92,13 +93,15 @@ function parse(text: string): HealthData {
 export class FileHealthStore implements HealthStore {
 	private readonly path: string;
 	private readonly lockPath: string;
+	private readonly lockWaitMs: number;
 	private memory: HealthData = emptyHealth();
 	shared = true;
 	degraded = false;
 
-	constructor(path: string) {
+	constructor(path: string, options: { lockWaitMs?: number } = {}) {
 		this.path = path;
 		this.lockPath = `${path}.lock`;
+		this.lockWaitMs = options.lockWaitMs ?? LOCK_WAIT_MS;
 		mkdirSync(dirname(path), { recursive: true });
 	}
 
@@ -132,7 +135,7 @@ export class FileHealthStore implements HealthStore {
 	}
 
 	private lock(): boolean {
-		const deadline = Date.now() + LOCK_WAIT_MS;
+		const deadline = Date.now() + this.lockWaitMs;
 		for (;;) {
 			try {
 				const fd = openSync(this.lockPath, "wx", 0o600);
