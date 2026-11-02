@@ -22,6 +22,28 @@ export interface UsageEntry {
 
 const ROTATE_BYTES = 20 * 1024 * 1024;
 
+const count = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
+
+/**
+ * Whether a parsed line is a usage entry: a time, the model it names, and token and cost counts that are finite and not negative. A line that is
+ * valid JSON of any other shape (a string for a count, a negative cost) would make a quota NaN or too large, so it is dropped like a torn line.
+ */
+export function isUsageEntry(value: unknown): value is UsageEntry {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	const entry = value as Record<string, unknown>;
+	return (
+		typeof entry.ts === "string" &&
+		Number.isFinite(Date.parse(entry.ts)) &&
+		typeof entry.provider === "string" &&
+		typeof entry.model === "string" &&
+		count(entry.input) &&
+		count(entry.output) &&
+		count(entry.cacheRead) &&
+		count(entry.cacheWrite) &&
+		count(entry.cost)
+	);
+}
+
 export class UsageLedger {
 	private readonly path: string;
 
@@ -52,8 +74,8 @@ export class UsageLedger {
 			for (const line of text.split("\n")) {
 				if (!line) continue;
 				try {
-					const entry = JSON.parse(line) as UsageEntry;
-					if (Date.parse(entry.ts) >= since) entries.push(entry);
+					const entry: unknown = JSON.parse(line);
+					if (isUsageEntry(entry) && Date.parse(entry.ts) >= since) entries.push(entry);
 				} catch {
 					// Skip a torn line.
 				}
