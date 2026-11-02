@@ -24,3 +24,4 @@ media/.voice/
 .release/
 # Claude Code agent worktrees: whole checkouts with their own configs, which the gates would read as this repository
 /.claude/worktrees/
+badges/

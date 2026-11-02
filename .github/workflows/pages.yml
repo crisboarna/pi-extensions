@@ -42,6 +42,13 @@ jobs:
 
       - run: npm run site
 
+      # Written by verify.yml in this same run, after the coverage thresholds held, so the site only ever shows numbers a verified main proved.
+      - name: Add the badge documents the READMEs show
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: badges
+          path: site/dist/badges
+
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site/dist
