@@ -113,19 +113,12 @@ A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it ca
 
 ## Data and privacy
 
-- Network calls go only to configured classifiers.
-- pi-switchboard never reads `auth.json` or other credential files. It reads `multi-pass.json` for account names only.
-- Evidence (request text, short tool errors) is redacted once (home directory, tokens, keys) before it reaches the classifier, the session entry or any log.
-- Files under `~/.pi/agent/pi-switchboard/`: `health.json` (shared cooldowns and pointers), `usage.jsonl` (usage ledger), `state.json` (global profile and one-time notices), `live/` (subagent status and transcript mirrors, deleted 24 hours after a child ends), `decisions.jsonl` (only with `debug.log`).
-
-## Uninstall
-
-```bash
-pi remove npm:@crisboarna/pi-switchboard
-rm -rf ~/.pi/agent/pi-switchboard ~/.pi/agent/pi-switchboard.json
-```
-
-Remove the footer items if you added them.
+- **Network:** requests go only to a classifier you configured: a local server, or a cloud model through a pi provider. `/tier doctor` sends the configured classifier one test request. `pi-switchboard classifier detect` reads the model lists of the three default local servers (Ollama on `127.0.0.1:11434`, LM Studio on `127.0.0.1:1234`, llama.cpp on `127.0.0.1:8080`) and sends one test request to a decision model it finds. `classifier setup` reads the same lists while it waits for a server, tests once it is ready, and can ask a router to load a model. `classifier eval` sends 24 labelled requests to the classifier you name. There is no telemetry and no update check.
+- **Processes:** `classifier setup` shows the install and server commands, and asks before it runs them and before it writes the config, unless you pass `--yes`. `/tier inspect --open` opens the HTML it wrote with the platform's file opener (`open`, `xdg-open` or `cmd /c start`).
+- **What the classifier sees:** the request text and short tool errors, redacted once (home directory, tokens, keys) before they reach the classifier, the session entry or any log.
+- **Files it reads:** the config (`pi-switchboard.json` in the agent directory, and the nearest `.pi/pi-switchboard.json` from the project upward), `multi-pass.json` for account names only, pi-subagents agent files for their front matter, and session files for `inspect` and `reclassify`. pi-usage answers over pi's event bus; this package makes no request for it.
+- **Files it writes** under `~/.pi/agent/pi-switchboard/`: `health.json` (shared cooldowns and pointers), `usage.jsonl` (usage ledger), `state.json` (global profile and one-time notices), `live/` (subagent status and transcript mirrors, deleted 24 hours after a child ends), `inspect/` (the HTML inspector), and `decisions.jsonl` (only with `debug.log`). `/tier models` and `classifier setup` write the config; the editor saves a timestamped `.bak` copy first.
+- **Credentials:** it never reads `auth.json` or other credential files.
 
 ## Limitations
 
@@ -136,6 +129,15 @@ Remove the footer items if you added them.
 - **`/tier` output uses pi's notifications**, which print mode (`pi -p`) does not show.
 - **The tier editor's save** is tested with keystrokes in real pi on a virtual terminal, including the diff, the write and the `.bak` copy; nobody has saved a real config with it at a real terminal yet. Real pi-subagents children, the navigator, `/tier init`, dry-run, pin and report were run live for the [terminal clips](docs/commands.md#in-a-session).
 - **Quota data is best effort**: the first decision after start-up may run before pi-usage answers, and then the quota strategy's fallback chooses.
+
+## Uninstall
+
+```bash
+pi remove npm:@crisboarna/pi-switchboard
+rm -rf ~/.pi/agent/pi-switchboard ~/.pi/agent/pi-switchboard.json
+```
+
+Remove the footer items if you added them.
 
 ## Development
 
