@@ -1,5 +1,14 @@
 blank_issues_enabled: false
 contact_links:
+  - name: pi-account-guard questions
+    url: https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/docs/faq.md
+    about: Why a turn was blocked and how zones work are answered in the FAQ and the troubleshooting page.
+  - name: pi-switchboard questions
+    url: https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/docs/faq.md
+    about: How a request is routed, and what to do when a classifier does not answer, are in the FAQ and the troubleshooting page.
+  - name: pi-context-refs questions
+    url: https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-context-refs/docs/faq.md
+    about: Why a #name did not expand and what an Approval covers are in the FAQ and the troubleshooting page.
   - name: Security vulnerability
     url: https://github.com/crisboarna/pi-extensions/security/advisories/new
     about: Report vulnerabilities privately, not as an issue.
