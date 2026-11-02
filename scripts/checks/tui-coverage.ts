@@ -1,7 +1,8 @@
 // Checks that every place a package takes keys or draws interactive UI has a keystroke test in real pi.
 //
-// A source file that calls `ui.custom`, `setEditorComponent`, `registerShortcut`, `addAutocompleteProvider` or
-// `onTerminalInput` handles input that unit tests with fakes cannot prove works in pi's TUI. Each such file must be named
+// A source file that calls `ui.custom`, a dialog (`ui.select`, `ui.confirm`, `ui.input` or `ui.editor`), `setEditorComponent`,
+// `registerShortcut`, `addAutocompleteProvider` or `onTerminalInput` handles input, or draws rows, that unit tests with
+// fakes cannot prove works in pi's TUI (a dialog can lose its question off a small screen). Each such file must be named
 // in a `// covers:` header of a test under `test/tui/` (the suites that run real interactive pi on a virtual terminal),
 // and each name in a header must be a source file that exists, so the headers cannot rot into claims about nothing.
 //
@@ -10,7 +11,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { listPackages, reporter } from "../lib/repo.ts";
 
-const INTERACTIVE = /\b(?:ui\.custom|setEditorComponent|registerShortcut|addAutocompleteProvider|onTerminalInput)\b/;
+const INTERACTIVE = /\b(?:ui\.(?:custom|select|confirm|input|editor)|setEditorComponent|registerShortcut|addAutocompleteProvider|onTerminalInput)\b/;
 const COVERS = /^\/\/ covers:\s*(.+)$/gm;
 
 function files(dir: string, suffix: string): string[] {
