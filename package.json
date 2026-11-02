@@ -35,6 +35,7 @@
 		"coverage": "npm run coverage --workspaces --if-present",
 		"smoke:pack": "node scripts/smoke-pack.ts",
 		"soak": "node scripts/soak.ts",
+		"mutation-canary": "node scripts/mutation-canary.ts",
 		"site:snapshots": "node tools/site/snapshot.ts",
 		"site": "node scripts/tools/site.ts",
 		"site:verify": "node scripts/tools/site.ts --verify",

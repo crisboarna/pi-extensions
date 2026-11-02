@@ -1,0 +1,44 @@
+[
+	{
+		"id": "tier-save-ignores-no",
+		"file": "packages/pi-switchboard/src/tui/editor.ts",
+		"find": "if (!ok) return false;",
+		"replace": "if (!ok) ui.notify(\"x\", \"info\");",
+		"tests": ["packages/pi-switchboard/test/tui/tier-editor-keys.test.ts"]
+	},
+	{
+		"id": "tier-save-keeps-no-backup",
+		"file": "packages/pi-switchboard/src/tui/editor.ts",
+		"find": "if (beforeText) copyFileSync(path, `${path}.${now.toISOString().replace(/[:.]/gu, \"-\")}.bak`);",
+		"replace": "",
+		"tests": ["packages/pi-switchboard/test/tui/tier-editor-keys.test.ts"]
+	},
+	{
+		"id": "tier-delete-without-asking",
+		"file": "packages/pi-switchboard/src/tui/editor.ts",
+		"find": "action === \"delete tier\" && (await ui.confirm(\"Delete tier\", `Delete ${name}?`))",
+		"replace": "action === \"delete tier\"",
+		"tests": ["packages/pi-switchboard/test/tui/tier-editor-keys.test.ts"]
+	},
+	{
+		"id": "tier-new-tier-ranked-weakest",
+		"file": "packages/pi-switchboard/src/tui/editor.ts",
+		"find": "const rank = Math.max(0, ...Object.values(profile.tiers).map((t) => t.rank)) + 1;",
+		"replace": "const rank = 0;",
+		"tests": ["packages/pi-switchboard/test/tui/tier-editor-keys.test.ts"]
+	},
+	{
+		"id": "tier-save-diff-uncapped",
+		"file": "packages/pi-switchboard/src/tui/editor.ts",
+		"find": "if (lines.length <= MAX_DIFF_LINES) return diff;",
+		"replace": "return diff;",
+		"tests": ["packages/pi-switchboard/test/tui/tier-editor-keys.test.ts"]
+	},
+	{
+		"id": "eval-ignores-no",
+		"file": "packages/pi-switchboard/src/commands/eval.ts",
+		"find": "if (!(await deps.confirm(`Evaluate ${model}?`, message))) return;",
+		"replace": "await deps.confirm(`Evaluate ${model}?`, message);",
+		"tests": ["packages/pi-switchboard/test/tui/models-eval-keys.test.ts"]
+	}
+]
