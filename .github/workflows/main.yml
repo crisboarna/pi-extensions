@@ -118,6 +118,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      packages: ${{ steps.changesets.outputs.published-packages }}
     permissions:
       contents: write # push release tags and create GitHub releases
       id-token: write # npm trusted publishing (OIDC) and provenance
@@ -167,3 +170,56 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/release/github-packages.ts publish
+
+  # What the publish job did, read back from outside: the tag, npm's latest, the provenance, npm's own signature check on a clean install, and real pi installing
+  # the version from npm. It runs only when something was published, holds no secret and cannot publish (scripts/release/verify-published.ts).
+  verify-release:
+    name: verify the release
+    needs: publish
+    if: needs.publish.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read # check out the repository, and read its tags
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false # no caches in the release path
+
+      # Installs the repository's pinned pi, which loads the published packages.
+      - run: npm ci
+
+      - name: Check each published version
+        env:
+          PUBLISHED: ${{ needs.publish.outputs.packages }}
+        run: node scripts/release/verify-published.ts
+
+  report-release:
+    name: report a failed release check
+    needs: verify-release
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write # open the issue, or add to the one that is already open
+    steps:
+      # One open issue at a time, found by its title, as the nightly run does.
+      - name: Open or update the release issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Release verification failed"
+          body="The published versions did not pass the check after the release. Read the run for what is wrong with which package: ${RUN_URL}"
+          number=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$REPO" --body "$body"
+          else
+            gh issue create --repo "$REPO" --title "$title" --body "$body"
+          fi
