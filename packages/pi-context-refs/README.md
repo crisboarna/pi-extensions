@@ -19,7 +19,7 @@ Save the context you keep giving the model (a path, a file, a snippet of text, t
 pi install npm:@crisboarna/pi-context-refs
 ```
 
-Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.
+Restart pi.
 
 ## Quick start
 
@@ -72,6 +72,7 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 
 - [docs/commands.md](docs/commands.md): every `/ref` command and key.
 - [docs/configuration.md](docs/configuration.md): the library files, the fields of a ref, the settings and which ref wins.
+- [docs/upgrading.md](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [docs/headless.md](docs/headless.md): print, JSON and RPC mode, failures and approvals without a UI.
 - [docs/with-other-extensions.md](docs/with-other-extensions.md): the editor, the message and the transcript beside other extensions.
 - [docs/privacy.md](docs/privacy.md): what leaves your machine, what an approval does not cover, and where the guards stop.
@@ -81,6 +82,18 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 - [docs/adr/](docs/adr/): the seven decisions that are hardest to reverse.
 - [docs/manual-checklist.md](docs/manual-checklist.md): the checks that need a person at a real terminal, and their status.
 - [schema/](schema): JSON Schemas for the library files and the approvals file, and [examples/](examples) for a library to copy.
+
+## Requirements
+
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+
+| How pi runs | What works | What does not |
+|---|---|---|
+| Interactive | The `#` list, the `alt+r` overlay, the one-unit placeholder, every `/ref` command, the approval dialog | |
+| Print (`-p`) and JSON | Typed `#name`, `#tag:<tag>` and `[ref:name]` expand; `/ref` output goes to stderr | The list and the overlay. A Project command you have not approved does not run: its block is a failure note |
+| RPC | Typed refs expand; the client answers the approval question | The list and the overlay |
+
+See [docs/headless.md](docs/headless.md).
 
 ## Data and privacy
 

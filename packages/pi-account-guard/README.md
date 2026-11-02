@@ -21,7 +21,7 @@ It is a guard against slips, not a security boundary: it never reads secrets, an
 pi install npm:@crisboarna/pi-account-guard
 ```
 
-Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.
+Restart pi.
 
 ## Quick start
 
@@ -70,8 +70,21 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 - [Footer](docs/footer.md): every footer text, and pi-powerline-footer.
 - [Headless use](docs/headless.md): exit code 77, the process override and RPC.
 - [With other extensions](docs/with-other-extensions.md): claude-bridge, pi-multi-pass, pooled providers and pi-switchboard.
+- [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - [DESIGN.md](DESIGN.md), [GLOSSARY.md](GLOSSARY.md) and the [decision records](docs/adr/).
+
+## Requirements
+
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+
+| How pi runs | What the guard does | Exit code |
+|---|---|---|
+| Interactive | Checks every turn and every model change; a block opens a dialog with the ways out; the footer shows the state; `/guard` commands and `/guard tour` | none |
+| Print (`-p`) and JSON | A block does not send the turn: the reason and the fix go to stderr | **77** |
+| RPC | A block returns success with `disposition: "handled"`, and the message arrives as a `notify` request | none |
+
+`PI_ACCOUNT_GUARD_ALLOW_UNKNOWN=1` lets an account with no tag through in print, JSON and RPC mode, and nothing else. See [docs/headless.md](docs/headless.md).
 
 ## Data and privacy
 
