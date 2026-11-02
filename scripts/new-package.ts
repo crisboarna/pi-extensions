@@ -36,7 +36,7 @@ for (const [file, content] of Object.entries(files)) {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, content);
 }
-for (const template of [".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/feature.yml"]) {
+for (const template of [".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/false-positive.yml", ".github/ISSUE_TEMPLATE/feature.yml"]) {
 	const path = join(ROOT, template);
 	const text = readFileSync(path, "utf8");
 	// Insert the package as the first option, at the indentation of the existing options.

@@ -20,6 +20,18 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Run the check for your package and paste its output. Remove account names and secrets.
+        pi-account-guard: `/guard check here`
+        pi-switchboard: `/tier doctor`
+        pi-context-refs: `/ref doctor`
+      render: text
+    validations:
+      required: true
+  - type: textarea
     id: what
     attributes:
       label: What happened, and what you expected
