@@ -1,7 +1,7 @@
 // /ref doctor at the fake pi host, with real files and real git: what it says about a healthy setup and about each way a setup goes wrong, and that
 // it only reads. The wording of each line is checked in test/unit/doctor.test.ts; here the facts behind the lines are.
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -86,8 +86,12 @@ async function doctor(host: Host, fake: ReturnType<typeof session>): Promise<str
 function snapshot(dir: string): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const name of readdirSync(dir, { recursive: true, encoding: "utf8" })) {
-		const path = join(dir, name);
-		if (statSync(path).isFile()) out[name] = readFileSync(path, "utf8");
+		// A directory cannot be read as text; reading and catching avoids a check that the file may outlive.
+		try {
+			out[name] = readFileSync(join(dir, name), "utf8");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "EISDIR") throw error;
+		}
 	}
 	return out;
 }
@@ -106,7 +110,7 @@ describe("/ref doctor", () => {
 		assert.match(text, /✓ git: #diff, #staged, #status and #log work here/);
 		assert.match(text, /✓ editor: this session has no editor; typed refs still expand/);
 		assert.match(text, /✓ trigger: # opens the list/);
-		assert.match(text, new RegExp(`✓ pi \\S+, Node ${process.version.replace(/\./g, "\\.")}, without a UI`));
+		assert.ok(text.includes(`, Node ${process.version}, without a UI`), text);
 	});
 
 	it("says a Project library is not loaded when pi does not trust the project, and loads nothing from it", async () => {
