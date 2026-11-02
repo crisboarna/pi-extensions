@@ -35,6 +35,18 @@ const LIMITS: Array<[string, number, number | undefined]> = [
 	["Mastodon", 500, 23],
 ];
 
+/** True when some URL in the text is on the family site: the host and the path are compared as parts of a parsed address, not as a substring. */
+function linksSite(text: string): boolean {
+	return (text.match(/https?:\/\/\S+/g) ?? []).some((candidate) => {
+		try {
+			const url = new URL(candidate);
+			return url.origin === "https://crisboarna.github.io" && url.pathname.startsWith("/pi-extensions/");
+		} catch {
+			return false;
+		}
+	});
+}
+
 // Words the rules in docs/launch/README.md forbid in a post.
 const FORBIDDEN = /\b(powerful|seamless(ly)?|blazing|revolutionary|best|first|amazing|game-?changing|secure|effortless(ly)?|supercharge)\b/i;
 
@@ -51,7 +63,7 @@ describe("the social posts", () => {
 
 	test("every post links the site and states a limit or asks for a report", () => {
 		for (const [network, text] of posts) {
-			assert.ok(text.includes("https://crisboarna.github.io/pi-extensions/"), `${network}: no link to the site`);
+			assert.ok(linksSite(text), `${network}: no link to the site`);
 		}
 		assert.match(posts.get("Mastodon") ?? "", /Windows not tested/);
 		assert.match(posts.get("LinkedIn") ?? "", /Windows is not tested/);
