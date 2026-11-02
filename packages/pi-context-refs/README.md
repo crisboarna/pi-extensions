@@ -39,6 +39,8 @@ Four refs work with no setup: `#diff`, `#staged`, `#status` and `#log` send git 
 
 You can also type the ref by hand. `Review #diff` and `Review [ref:diff]` mean the same, and they work in print, JSON and RPC mode too, where there is no picker.
 
+The package ships a skill, `pi-context-refs`, that pi loads with it. Ask the agent why a `#name` did not expand or how to share refs with your team: it reads your libraries, explains which of the usual causes applies and proposes `/ref` commands for you to run. It never approves a command for you.
+
 ## What you get
 
 - **Context without retyping.** A ref is a Path, a File, a Snippet or a Dynamic ref (a command or a URL), saved once with `/ref add`.
