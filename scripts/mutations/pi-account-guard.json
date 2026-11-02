@@ -1,0 +1,9 @@
+[
+	{
+		"id": "checklist-window-pinned-to-top",
+		"file": "packages/pi-account-guard/src/core/checklist.ts",
+		"find": "const from = Math.min(Math.max(0, cursor - Math.floor(size / 2)), rows.length - size);",
+		"replace": "const from = 0;",
+		"tests": ["packages/pi-account-guard/test/unit/checklist.test.ts", "packages/pi-account-guard/test/tui/tag-tour-footer-keys.test.ts"]
+	}
+]

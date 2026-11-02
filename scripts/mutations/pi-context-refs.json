@@ -1,0 +1,37 @@
+[
+	{
+		"id": "approval-once-allows-everything",
+		"file": "packages/pi-context-refs/src/pi/approvals.ts",
+		"find": "if (choice === ONCE) return { allowed: true };",
+		"replace": "return { allowed: true };",
+		"tests": ["packages/pi-context-refs/test/tui/approvals-keys.test.ts"]
+	},
+	{
+		"id": "approve-no-still-approves",
+		"file": "packages/pi-context-refs/src/pi/ref-approvals.ts",
+		"find": "if (!confirmed) return run.say(`Did not approve \"${ref.name}\"`);",
+		"replace": "if (!confirmed) run.say(`Did not approve \"${ref.name}\"`);",
+		"tests": ["packages/pi-context-refs/test/tui/ref-approvals-keys.test.ts"]
+	},
+	{
+		"id": "save-and-approve-ignores-no",
+		"file": "packages/pi-context-refs/src/pi/ref-approvals.ts",
+		"find": "return confirmed ? { save: true, approve: ref } : { save: false };",
+		"replace": "return { save: true, approve: ref };",
+		"tests": ["packages/pi-context-refs/test/tui/ref-approvals-keys.test.ts"]
+	},
+	{
+		"id": "recent-save-accepts-any-name",
+		"file": "packages/pi-context-refs/src/pi/ref-save.ts",
+		"find": "if (problem === undefined) break;",
+		"replace": "break;",
+		"tests": ["packages/pi-context-refs/test/tui/ref-save-keys.test.ts"]
+	},
+	{
+		"id": "ref-edit-writes-an-unchanged-ref",
+		"file": "packages/pi-context-refs/src/pi/commands.ts",
+		"find": "if (edited.trim() === original) return run.say(`Nothing changed in \"${found.name}\"`);",
+		"replace": "",
+		"tests": ["packages/pi-context-refs/test/tui/ref-commands-keys.test.ts"]
+	}
+]
