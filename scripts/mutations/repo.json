@@ -215,5 +215,26 @@
 		"find": "That is 72 characters.",
 		"replace": "That is 70 characters.",
 		"tests": ["test/launch-docs.test.ts"]
+	},
+	{
+		"id": "stats-p-one-sided",
+		"file": "scripts/lib/stats.ts",
+		"find": "p: Math.min(1, 2 * (1 - normalCdf(Math.abs(z))))",
+		"replace": "p: Math.min(1, 1 - normalCdf(Math.abs(z)))",
+		"tests": ["test/stats.test.ts"]
+	},
+	{
+		"id": "stats-regression-ignores-absolute",
+		"file": "scripts/lib/stats.ts",
+		"find": " && headMedian - baseMedian > thresholds.minAbsolute",
+		"replace": "",
+		"tests": ["test/stats.test.ts"]
+	},
+	{
+		"id": "stats-median-even-takes-upper",
+		"file": "scripts/lib/stats.ts",
+		"find": "((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2",
+		"replace": "(sorted[middle] as number)",
+		"tests": ["test/stats.test.ts"]
 	}
 ]
