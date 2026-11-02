@@ -75,6 +75,9 @@ export interface FakeHost {
 	handledEvents(): string[];
 }
 
+/** One turn of the event loop: what an extension that waits a tick, as the editor wrap does, needs before a test looks at what it did. */
+export const nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 export function createFakeHost(): FakeHost {
 	const handlers = new Map<string, Handler[]>();
 	const calls: FakeHost["calls"] = [];

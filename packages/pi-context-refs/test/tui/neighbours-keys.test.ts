@@ -8,7 +8,7 @@ import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
+import { CustomEditor, type ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { neighbour } from "../support/neighbours.ts";
 import { QUIET_REPLY, type Received } from "../support/stub-provider.ts";
 import { TuiSession } from "../support/tui-session.ts";
@@ -28,8 +28,12 @@ const RAINBOW_LETTERS = new RegExp(`${COLOUR}u${COLOUR}l`);
 
 type Order = "before" | "after";
 
-async function withNeighbour(name: string, order: Order, body: (tui: TuiSession, received: () => Received[]) => Promise<void>): Promise<void> {
-	const factory: ExtensionFactory = await neighbour(name);
+async function withNeighbour(
+	neighbourOrFactory: string | ExtensionFactory,
+	order: Order,
+	body: (tui: TuiSession, received: () => Received[]) => Promise<void>,
+): Promise<void> {
+	const factory: ExtensionFactory = typeof neighbourOrFactory === "string" ? await neighbour(neighbourOrFactory) : neighbourOrFactory;
 	const log = join(mkdtempSync(join(tmpdir(), "context-refs-received-")), "received.jsonl");
 	const received = () =>
 		existsSync(log)
@@ -91,9 +95,45 @@ describe("beside an extension that replaces the editor (pi's rainbow-editor exam
 			assert.deepEqual(received(), [{ text: "one Answer in one sentence.", images: 0 }]);
 		}));
 
-	it("loaded after the package: it replaces the editor, Backspace removes one character, and a typed Placeholder still expands", () =>
+	it("loaded after the package: the package wraps that editor one tick later, a Placeholder stays one unit, and the send expands it", () =>
 		withNeighbour("rainbow-editor", "after", async (tui, received) => {
 			assert.ok(await rainbowIsDrawing(tui), "the neighbour's editor is the one in use");
+			tui.terminal.type("one [ref:terse]");
+			await tui.waitForEditor((text) => text === "one [ref:terse]");
+			tui.terminal.press(BACKSPACE);
+			await tui.waitForEditor((text) => text === "one");
+			tui.terminal.type("[ref:terse]");
+			await tui.waitForEditor((text) => text === "one [ref:terse]");
+			tui.terminal.press(ENTER);
+			await tui.terminal.waitForScreen((screen) => screen.includes(QUIET_REPLY));
+			assert.deepEqual(received(), [{ text: "one Answer in one sentence.", images: 0 }]);
+		}));
+});
+
+/** An extension that replaces the editor with a plain one 100 ms after the session starts, later than the package's wrap, without wrapping ours. */
+function lateReplacer(swapped: { done: boolean }): ExtensionFactory {
+	return (pi) => {
+		pi.on("session_start", (_event, ctx) => {
+			setTimeout(() => {
+				ctx.ui.setEditorComponent((tui, theme, keybindings) => new CustomEditor(tui, theme, keybindings));
+				swapped.done = true;
+			}, 100);
+		});
+	};
+}
+
+describe("beside an extension that replaces the editor later than the package wraps it", () => {
+	async function withLateReplacer(body: (tui: TuiSession, received: () => Received[]) => Promise<void>): Promise<void> {
+		const swapped = { done: false };
+		await withNeighbour(lateReplacer(swapped), "after", async (tui, received) => {
+			while (!swapped.done) await new Promise((resolve) => setTimeout(resolve, 20));
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			await body(tui, received);
+		});
+	}
+
+	it("loses the decoration: Backspace removes one character, and a typed Placeholder still expands", () =>
+		withLateReplacer(async (tui, received) => {
 			tui.terminal.type("one [ref:terse]");
 			await tui.waitForEditor((text) => text === "one [ref:terse]");
 			tui.terminal.press(BACKSPACE);
@@ -104,9 +144,9 @@ describe("beside an extension that replaces the editor (pi's rainbow-editor exam
 			await tui.terminal.waitForScreen((screen) => screen.includes(QUIET_REPLY));
 			assert.deepEqual(received(), [{ text: "one Answer in one sentence.", images: 0 }]);
 		}));
-	it("loaded after the package: a Placeholder typed right after a half-deleted one still expands", () =>
-		withNeighbour("rainbow-editor", "after", async (tui, received) => {
-			assert.ok(await rainbowIsDrawing(tui), "the neighbour's editor is the one in use");
+
+	it("a Placeholder typed right after a half-deleted one still expands", () =>
+		withLateReplacer(async (tui, received) => {
 			tui.terminal.type("one [ref:terse]");
 			await tui.waitForEditor((text) => text === "one [ref:terse]");
 			tui.terminal.press(BACKSPACE);

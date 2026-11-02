@@ -9,7 +9,7 @@ import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { Editor, KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { createJiti } from "jiti";
 import { decorateEditor, draftOf, type EditorFactory, registerEditor } from "../../src/pi/editor.ts";
-import { createFakeHost, createFakeSession } from "../support/fake-pi.ts";
+import { createFakeHost, createFakeSession, nextTick } from "../support/fake-pi.ts";
 
 const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
 const KEYS = { backspace: "\x7f", left: "\x1b[D", right: "\x1b[C", ctrlW: "\x17", undo: "\x1f", home: "\x01" };
@@ -226,7 +226,11 @@ async function boot(options: { hasUI?: boolean; slot?: Slot } = {}) {
 }
 
 type Booted = Awaited<ReturnType<typeof boot>>;
-const start = (booted: Booted) => booted.host.fire("session_start", { type: "session_start", reason: "startup" }, booted.session.ctx);
+/** Starts the session and waits the tick the package takes to wrap the editor. */
+const start = async (booted: Booted) => {
+	await booted.host.fire("session_start", { type: "session_start", reason: "startup" }, booted.session.ctx);
+	await nextTick();
+};
 
 /** Another extension's editor, built on top of whatever editor factory was in the slot. */
 const wrapping =
@@ -276,6 +280,45 @@ describe("the extension in a TUI session", () => {
 		await typeText(editor, "see [ref:api]");
 		await press(editor, KEYS.backspace);
 		assert.equal(editor.getText(), "see ");
+	});
+
+	it("wraps one tick after the session starts, on the editor an extension loaded after it installed in its own session_start", async () => {
+		const marked: string[] = [];
+		const booted = await boot();
+		const later: EditorFactory = (tui, theme, kb) => {
+			marked.push("built by the extension loaded after");
+			return new CustomEditor(tui, theme, kb);
+		};
+		const on = booted.host.pi.on as (
+			event: string,
+			handler: (event: unknown, ctx: { ui: { setEditorComponent(factory: EditorFactory): void } }) => void,
+		) => void;
+		on("session_start", (_event, ctx) => ctx.ui.setEditorComponent(later));
+		await booted.host.fire("session_start", { type: "session_start", reason: "startup" }, booted.session.ctx);
+		assert.equal(booted.slot.factory, later, "until the tick the slot holds the other extension's editor");
+		await nextTick();
+		assert.notEqual(booted.slot.factory, later, "after it the package's editor is in the slot");
+		const editor = build(booted.slot.factory);
+		assert.deepEqual(marked, ["built by the extension loaded after"]);
+		await typeText(editor, "see [ref:api]");
+		await press(editor, KEYS.backspace);
+		assert.equal(editor.getText(), "see ", "the Placeholder is one unit in the other extension's editor");
+	});
+
+	it("installs nothing, and leaves no timer behind, when the session shuts down before the tick", async () => {
+		const booted = await boot();
+		await booted.host.fire("session_start", { type: "session_start", reason: "startup" }, booted.session.ctx);
+		await booted.host.fire("session_shutdown", { type: "session_shutdown", reason: "quit" }, booted.session.ctx);
+		await nextTick();
+		assert.equal(booted.writes.length, 0, "the package did not touch the editor slot of a session that is gone");
+	});
+
+	it("wraps once when the session starts twice before the tick", async () => {
+		const booted = await boot();
+		await booted.host.fire("session_start", { type: "session_start", reason: "startup" }, booted.session.ctx);
+		await booted.host.fire("session_start", { type: "session_start", reason: "reload" }, booted.session.ctx);
+		await nextTick();
+		assert.equal(booted.writes.length, 1);
 	});
 
 	it("leaves Placeholders as plain text after an editor swap that does not wrap, and they still expand on send", async () => {
@@ -345,6 +388,7 @@ describe("the editor tap at session shutdown", () => {
 			},
 		});
 		await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+		await nextTick();
 		build(slot.factory);
 		assert.ok(tap.draft(session.ctx), "the draft of the editor in the slot");
 
@@ -352,6 +396,7 @@ describe("the editor tap at session shutdown", () => {
 		assert.equal(tap.draft(session.ctx), undefined);
 
 		await host.fire("session_start", { type: "session_start", reason: "new" }, session.ctx);
+		await nextTick();
 		build(slot.factory);
 		assert.ok(tap.draft(session.ctx));
 	});
