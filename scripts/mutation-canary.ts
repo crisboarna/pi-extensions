@@ -155,8 +155,13 @@ function problemWith(mutation: Mutation, original: string): string | undefined {
 
 async function check(mutation: Mutation): Promise<Verdict> {
 	const path = join(ROOT, mutation.file);
-	if (!existsSync(path)) return { kind: "error", message: `${mutation.file} does not exist` };
-	const original = readFileSync(path, "utf8");
+	let original: string;
+	try {
+		original = readFileSync(path, "utf8");
+	} catch {
+		// read it rather than ask whether it exists first: the answer could change before the read
+		return { kind: "error", message: `${mutation.file} does not exist or cannot be read` };
+	}
 	const problem = problemWith(mutation, original);
 	if (problem) return { kind: "error", message: problem };
 	const base = await baseline(mutation);
