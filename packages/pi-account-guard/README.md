@@ -73,6 +73,15 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - [DESIGN.md](DESIGN.md), [GLOSSARY.md](GLOSSARY.md) and the [decision records](docs/adr/).
 
+## Data and privacy
+
+- **Network:** none. There is no telemetry and no update check.
+- **Processes:** `git remote -v`, run in the directory pi is in, to read the repository's remotes. Nothing else.
+- **Files it reads:** `account-guard.json` and `multi-pass.json` in the agent directory (the second only to name an account), and your git remotes. For a claude-bridge model it also reads `settings.json` in the Claude Code config directory (`CLAUDE_CONFIG_DIR`, else `~/.claude`) to see whether it defines an `apiKeyHelper`; it keeps only that yes or no.
+- **Files it writes:** `account-guard.json`, when you run `/guard tag`, `place` or `zone`, in one step so that a crash cannot leave half a file; and `account-guard.first-run`, one line that records that the first-run notice was shown. Both are in the agent directory.
+- **Credentials:** it asks pi whether a provider has a key and whether you signed in with OAuth. It never asks for a key itself, and it never reads `auth.json`.
+- **Limits:** the config holds paths, remotes and account names in plain text. The guard is not a security boundary; see the [FAQ](docs/faq.md).
+
 ## Limitations
 
 The guard checks the account pi is about to use at the moments below. It does not watch every request.
@@ -94,6 +103,14 @@ Known gaps in account identity, because detecting them needs secrets:
 - The real member behind a virtual model.
 
 Also: the place zone is cached at session start (a hand edit of `places` or a remote change needs `/reload`), and a rule written against a symlink alias of a directory does not match. See [DESIGN.md](DESIGN.md) sections 14 and 15.
+
+## Uninstall
+
+```bash
+pi remove npm:@crisboarna/pi-account-guard
+```
+
+Then delete `account-guard.json` and `account-guard.first-run` from the agent directory (`~/.pi/agent/`) if you want them gone. Without the package, nothing checks which account a turn uses.
 
 ## Development
 
