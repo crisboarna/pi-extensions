@@ -236,5 +236,54 @@
 		"find": "((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2",
 		"replace": "(sorted[middle] as number)",
 		"tests": ["test/stats.test.ts"]
+	},
+	{
+		"id": "release-verify-ignores-missing-tag",
+		"file": "scripts/release/verify-published.ts",
+		"find": "if (facts.tag === false) problems.push(",
+		"replace": "if (false) problems.push(",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-ignores-wrong-latest",
+		"file": "scripts/release/verify-published.ts",
+		"find": "if (facts.latest !== published.version) problems.push(",
+		"replace": "if (false) problems.push(",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-ignores-missing-provenance",
+		"file": "scripts/release/verify-published.ts",
+		"find": "if (facts.provenance !== PROVENANCE) problems.push(",
+		"replace": "if (false) problems.push(",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-ignores-failed-audit",
+		"file": "scripts/release/verify-published.ts",
+		"find": "if (!facts.audit.ok) problems.push(",
+		"replace": "if (false) problems.push(",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-accepts-any-command-source",
+		"file": "scripts/release/verify-published.ts",
+		"find": "else if (found.source !== `npm:${published.name}`)",
+		"replace": "else if (false)",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-retry-one-short",
+		"file": "scripts/release/verify-published.ts",
+		"find": "attempt < options.attempts && !done(value)",
+		"replace": "attempt < options.attempts - 1 && !done(value)",
+		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "release-verify-empty-release-passes",
+		"file": "scripts/release/verify-published.ts",
+		"find": "if (!Array.isArray(value) || value.length === 0) throw",
+		"replace": "if (!Array.isArray(value)) throw",
+		"tests": ["test/verify-published.test.ts"]
 	}
 ]
