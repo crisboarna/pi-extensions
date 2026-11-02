@@ -12,6 +12,7 @@ Settings on GitHub and npmjs.com that the workflows rely on. They live outside t
 - **Pages**: under Settings → Pages, set the source to **GitHub Actions**. The `github-pages` environment it creates must allow deployments from `main` only. On a private repository Pages needs a paid plan, so the `site` job of `main.yml` is skipped until the repository is public. The site is `https://crisboarna.github.io/pi-extensions/`.
 - **Code security**: enable Dependabot alerts and security updates, secret scanning with push protection, private vulnerability reporting, and CodeQL (the workflow uploads results).
 - **General**: disable wikis if unused; enable "Automatically delete head branches".
+- **Social preview**: under Settings → General → Social preview, upload `media/social.png` (1280 by 640, rendered from `media/src/social.html` by `npm run media`). GitHub has no API for this, so it is a manual step; the site's own preview, `media/og.png`, is served with the pages and needs nothing.
 
 ## npmjs.com
 

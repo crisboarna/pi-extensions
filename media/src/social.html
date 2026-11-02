@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/repo/tools/brand/tokens.css">
+<style>
+	/* The card is drawn for 1200 by 630 and centred, so the same page renders the 1280 by 640 GitHub social preview without cropping its content. */
+	* { box-sizing: border-box; margin: 0; }
+	html, body { width: 100%; height: 100%; }
+	body { font-family: var(--text); -webkit-font-smoothing: antialiased; overflow: hidden; display: grid; place-items: center; background: var(--panel-deep); color: var(--cream); }
+	.card { width: 1100px; display: grid; gap: 44px; }
+	.head { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 36px; }
+	.mark { width: 150px; height: 150px; }
+	.word { font-family: var(--sans); font-weight: 600; font-size: 92px; letter-spacing: -0.01em; line-height: 1; }
+	.line { margin-top: 14px; font-size: 29px; color: #d9cfbb; }
+	.packages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+	.package { border: 2px solid var(--idle); border-radius: 14px; background: var(--panel); padding: 22px 24px; display: grid; gap: 14px; }
+	.package img { width: 56px; height: 56px; }
+	.name { font-family: var(--mono); font-size: 23px; color: var(--cream); }
+	.job { font-size: 26px; color: var(--brass); }
+	.url { font-family: var(--mono); font-size: 21px; color: var(--muted); text-align: right; }
+</style>
+</head>
+<body>
+<div class="card">
+	<div class="head">
+		<img class="mark" src="/repo/site/assets/mark.svg" alt="">
+		<div>
+			<div class="word">pi-extensions</div>
+			<p class="line">Extensions for the pi coding agent</p>
+		</div>
+	</div>
+	<div class="packages">
+		<div class="package"><img src="/repo/packages/pi-switchboard/media/src/mark.svg" alt=""><div class="name">pi-switchboard</div><div class="job">Route every request</div></div>
+		<div class="package"><img src="/repo/packages/pi-account-guard/media/src/mark.svg" alt=""><div class="name">pi-account-guard</div><div class="job">Guard every account</div></div>
+		<div class="package"><img src="/repo/packages/pi-context-refs/media/src/mark.svg" alt=""><div class="name">pi-context-refs</div><div class="job">Reuse every context</div></div>
+	</div>
+	<div class="url">crisboarna.github.io/pi-extensions</div>
+</div>
+</body>
+</html>

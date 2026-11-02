@@ -435,7 +435,7 @@ function addSocialTags(out: string): void {
 	const paths = pagePaths(files);
 	for (const path of paths) {
 		const folder = path.includes("/") ? path.slice(0, path.indexOf("/")) : "";
-		const preview = folder ? `${folder}/media/cover.png` : "media/social.png";
+		const preview = folder ? `${folder}/media/cover.png` : "media/og.png";
 		const image = existsSync(join(out, preview)) ? `${SITE_URL}/${preview}` : undefined;
 		write(join(out, path), withSocialTags(readFileSync(join(out, path), "utf8"), path, image));
 	}
@@ -490,6 +490,11 @@ export function buildSite(out: string): string[] {
 	}
 	cpSync(join(SITE, "assets"), join(out, "assets"), { recursive: true });
 	copyFileSync(join(ROOT, "tools", "brand", "tokens.css"), join(out, "assets", "tokens.css"));
+	// The family card is the landing page's preview; it is rendered from media/src/social.html by `npm run media`.
+	if (existsSync(join(ROOT, "media", "og.png"))) {
+		mkdirSync(join(out, "media"), { recursive: true });
+		copyFileSync(join(ROOT, "media", "og.png"), join(out, "media", "og.png"));
+	}
 	addSocialTags(out);
 	writeWorker(out);
 	// Pages publishes the folder as it is; without this file it would run Jekyll over it.

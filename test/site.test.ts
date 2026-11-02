@@ -144,6 +144,12 @@ describe("the family site", () => {
 		assert.ok(seen >= sitePackages().length, "every package page has a preview");
 	});
 
+	it("previews the landing page as the family card", () => {
+		const landing = readFileSync(join(out, "index.html"), "utf8");
+		assert.ok(landing.includes(`<meta property="og:image" content="${SITE_URL}/media/og.png">`));
+		assert.ok(landing.includes('<meta name="twitter:card" content="summary_large_image">'));
+	});
+
 	it("lists in the sitemap exactly the pages that were built", () => {
 		const listed = [...readFileSync(join(out, "sitemap.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]).sort();
 		assert.deepEqual(listed, builtPages().map(pageUrl).sort());
