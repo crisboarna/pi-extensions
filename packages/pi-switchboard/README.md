@@ -1,6 +1,6 @@
 # @crisboarna/pi-switchboard
 
-[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D22.19-green)](package.json)
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/banner-dark.png">
