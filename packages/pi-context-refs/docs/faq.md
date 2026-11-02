@@ -43,3 +43,7 @@ No. Every ref is fixed. Parameters would add token syntax and a way to inject te
 ## Can I use it with `pi -p` and in scripts?
 
 Yes. Typed refs expand in print, JSON and RPC mode. See [Headless use](headless.md).
+
+## Is anything sent anywhere?
+
+A ref sends what it reads to the model you are already using, and an address ref fetches the address you saved. Nothing else leaves your machine: there is no telemetry and no update check, and a test fails if a source file starts reaching the network. See [Privacy](privacy.md).
