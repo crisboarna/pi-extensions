@@ -1,0 +1,16 @@
+[
+	{
+		"id": "pi-host-age-rule-dropped",
+		"file": "scripts/lib/pi-versions.ts",
+		"find": "allowYoung ? [] : problemsWith(",
+		"replace": "true ? [] : problemsWith(",
+		"tests": ["test/pi-versions.test.ts"]
+	},
+	{
+		"id": "pi-host-latest-ignores-range-ceiling",
+		"file": "scripts/lib/pi-versions.ts",
+		"find": "compareVersions(version, range.below) < 0",
+		"replace": "true",
+		"tests": ["test/pi-versions.test.ts"]
+	}
+]
