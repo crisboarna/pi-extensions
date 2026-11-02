@@ -5,11 +5,15 @@
 // dropped file in a release is a reviewed diff, and it must never contain
 // tests, secrets or local state.
 //
+// It also follows the relative imports from every entry point (`pi.extensions` and `bin`) and fails on a file they load that the tarball does
+// not hold: a module imported only on a rare path passes every test that runs from the repository and fails for a user.
+//
 //   node scripts/checks/pack.ts           check
 //   node scripts/checks/pack.ts --update  rewrite the snapshots
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { missingFromPack, reachableFiles } from "../lib/reachable.ts";
 import { listPackages, ROOT, reporter } from "../lib/repo.ts";
 
 const SNAPSHOTS = join(ROOT, "scripts", "pack-snapshots");
@@ -38,6 +42,9 @@ for (const { dir, manifest } of listPackages()) {
 	const files = pack.files.map((entry) => entry.path).sort();
 	for (const file of files) if (DENY.some((pattern) => pattern.test(file))) report.fail(`${manifest.name}: would publish ${file}`);
 	if (pack.unpackedSize > MAX_UNPACKED_BYTES) report.fail(`${manifest.name}: ${pack.unpackedSize} bytes unpacked, budget ${MAX_UNPACKED_BYTES}`);
+	const entries = [...(manifest.pi?.extensions ?? []), ...Object.values(manifest.bin ?? {})];
+	for (const file of missingFromPack(reachableFiles(join(ROOT, "packages", dir), entries), files))
+		report.fail(`${manifest.name}: ${file} is loaded by an entry point but is not in the tarball; add it to "files" in package.json`);
 	const snapshot = join(SNAPSHOTS, `${dir}.txt`);
 	const text = `${files.join("\n")}\n`;
 	if (update) {
