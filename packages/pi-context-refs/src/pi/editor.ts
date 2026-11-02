@@ -78,25 +78,34 @@ export interface EditorTap {
 }
 
 /**
- * Decorates whichever editor is in the slot when the session starts, wrapping the editor factory instead of replacing it.
- * Another extension that later swaps the editor without wrapping ours removes the decoration; Placeholders are then plain text that still expands.
+ * Decorates whichever editor is in the slot one tick after the session starts, wrapping the editor factory instead of replacing it.
+ * Waiting a tick lets every extension's `session_start` run first, so the editor wrapped is the last one installed whatever the load order
+ * (ADR 0007). An extension that swaps the editor later than that, without wrapping ours, removes the decoration; Placeholders are then plain
+ * text that still expands.
  */
 export function registerEditor(pi: ExtensionAPI): EditorTap {
 	let installed: EditorFactory | undefined;
 	let live: EditorComponent | undefined;
+	let pending: ReturnType<typeof setTimeout> | undefined;
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
-		const previous = ctx.ui.getEditorComponent();
-		if (installed !== undefined && previous === installed) return;
-		installed = (tui, theme, keybindings) => {
-			const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
-			decorateEditor(editor);
-			live = editor;
-			return editor;
-		};
-		ctx.ui.setEditorComponent(installed);
+		if (pending !== undefined) clearTimeout(pending);
+		pending = setTimeout(() => {
+			pending = undefined;
+			const previous = ctx.ui.getEditorComponent();
+			if (installed !== undefined && previous === installed) return;
+			installed = (tui, theme, keybindings) => {
+				const editor = previous ? previous(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
+				decorateEditor(editor);
+				live = editor;
+				return editor;
+			};
+			ctx.ui.setEditorComponent(installed);
+		}, 0);
 	});
 	pi.on("session_shutdown", () => {
+		if (pending !== undefined) clearTimeout(pending);
+		pending = undefined;
 		live = undefined;
 	});
 	return {

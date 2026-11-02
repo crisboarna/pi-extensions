@@ -6,9 +6,10 @@
 // What the person's editor does is read from what the model receives, not from the screen, because one of these extensions draws its
 // own prompt in front of the typed text. Two things are checked for every extension and order:
 //   1. a plain message gets through with the extension loaded;
-//   2. a Placeholder typed in the editor, one Backspace, then the character that closes it: if the package's decoration holds, the
-//      Placeholder is one unit and one Backspace removes all of it (the model gets "one ]"); if the extension replaced the editor
-//      after the package, Backspace removes one character and the send still expands the Placeholder (DESIGN.md, load order).
+//   2. a Placeholder typed in the editor, one Backspace, then the character that closes it: the package wraps the editor one tick after
+//      the session starts, whichever extension installed it (ADR 0007), so the Placeholder is one unit and one Backspace removes all of
+//      it and the model gets "one ]". An extension that replaces the editor later than that would lose the decoration (DESIGN.md);
+//      test/tui/neighbours-keys.test.ts covers that case with an extension that swaps the editor after 100 ms.
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,15 +23,11 @@ const ENTER = "\r";
 const BACKSPACE = "\x7f";
 const LIBRARY = { version: 1, refs: [{ name: "terse", kind: "snippet", text: "Answer in one sentence." }] };
 
-type Outcome = "one unit" | "one character";
-/** What one Backspace removes from a Placeholder, per extension and order, as observed against the pinned versions. */
-const NEIGHBOURS: Record<string, { before: Outcome; after: Outcome }> = {
-	// wraps whatever editor is installed, on a timer, so it decorates the package's editor in both orders
-	"pi-cc-steer": { before: "one unit", after: "one unit" },
-	// replaces the editor when loaded after the package; loaded before, the package wraps its editor
-	"pi-image-view": { before: "one unit", after: "one character" },
-	// always replaces the editor with its own, which draws a prompt in front of the text
-	"pi-powerline-footer": { before: "one unit", after: "one character" },
+/** The extensions `scripts/coexist.json` pins, and what each does to the editor slot. */
+const NEIGHBOURS: Record<string, string> = {
+	"pi-cc-steer": "wraps whatever editor is installed, on a timer of its own",
+	"pi-image-view": "replaces the editor when loaded after the package",
+	"pi-powerline-footer": "always replaces the editor with its own, which draws a prompt in front of the text",
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,14 +96,9 @@ async function withNeighbour(
 }
 
 describe("the package beside real third-party extensions", { skip: COEXIST_DIR ? false : "run with `npm run coexist` at the repository root" }, () => {
-	for (const [name, outcomes] of Object.entries(NEIGHBOURS)) {
+	for (const [name, behaviour] of Object.entries(NEIGHBOURS)) {
 		for (const order of ["before", "after"] as const) {
-			const outcome = outcomes[order];
-			const title =
-				outcome === "one unit"
-					? "a Placeholder stays one unit under Backspace"
-					: "Backspace removes one character of a Placeholder and the send still expands it";
-			it(`${name} loaded ${order} the package: a plain message gets through, and ${title}`, () =>
+			it(`${name} (${behaviour}) loaded ${order} the package: a plain message gets through, and a Placeholder stays one unit under Backspace`, () =>
 				withNeighbour(name, order, async (tui, send) => {
 					const plain = await send(() => tui.terminal.type("hello"));
 					assert.deepEqual(plain, { text: "hello", images: 0 });
@@ -115,7 +107,7 @@ describe("the package beside real third-party extensions", { skip: COEXIST_DIR ?
 						tui.terminal.press(BACKSPACE);
 						tui.terminal.type("]");
 					});
-					assert.equal(placeholder.text, outcome === "one unit" ? "one ]" : "one Answer in one sentence.");
+					assert.equal(placeholder.text, "one ]");
 				}));
 		}
 	}

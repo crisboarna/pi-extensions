@@ -10,7 +10,7 @@ import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { CombinedAutocompleteProvider, KeybindingsManager, matchesKey, stripTerminalSequences, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { createJiti } from "jiti";
 import type { EditorFactory } from "../../src/pi/editor.ts";
-import { createFakeHost, createFakeSession, type ShownComponent } from "../support/fake-pi.ts";
+import { createFakeHost, createFakeSession, nextTick, type ShownComponent } from "../support/fake-pi.ts";
 import { initRepo } from "../support/git-repo.ts";
 
 const INDEX = join(import.meta.dirname, "..", "..", "src", "index.ts");
@@ -111,6 +111,7 @@ async function start(options: { trusted?: boolean; answers?: Answers; mode?: "tu
 		confirm: async (title: string, message: string) => options.answers?.confirm?.(title, message) ?? false,
 	});
 	await host.fire("session_start", { type: "session_start", reason: "startup" }, session.ctx);
+	await nextTick();
 	assert.ok(slot.factory, "the package put its editor in the slot");
 	const editor = slot.factory(FAKE_TUI as unknown as Parameters<EditorFactory>[0], THEME, keybindings) as CustomEditor;
 	state.editor = editor;
