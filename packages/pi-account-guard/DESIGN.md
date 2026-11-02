@@ -82,7 +82,7 @@ One file holds all configuration: `~/.pi/agent/account-guard.json`. There is no 
 - When `zones` or `defaultZone` is absent, built-in defaults apply: zones `work` and `personal`, default zone `personal`. A missing file is therefore `{zones: [work, personal], defaultZone: personal, accounts: [], places: []}`. When the guard writes the file, it spells the defaults out.
 - A JSON Schema ships as `schema/account-guard.schema.json`.
 
-Validation is strict and all-or-nothing. Any of these makes the whole file invalid: an unknown field, a duplicate `(provider, source)` entry, an undeclared or reserved zone, an empty zones list, a bad rule. Every error names the file and the JSON path, for example `account-guard.json: accounts[3]: duplicate of accounts[1] (openai-codex-2 · oauth)`.
+Validation is strict and all-or-nothing. Any of these makes the whole file invalid: an unknown field (the `$schema` link to the schema is the one allowed key, kept when the file is written and read for nothing), a duplicate `(provider, source)` entry, an undeclared or reserved zone, an empty zones list, a bad rule. Every error names the file and the JSON path, for example `account-guard.json: accounts[3]: duplicate of accounts[1] (openai-codex-2 · oauth)`.
 
 Reads and writes:
 

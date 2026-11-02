@@ -19,6 +19,35 @@ function writerOver(file: { text: string | undefined }) {
 	return { writer, writes };
 }
 
+describe("the $schema link", () => {
+	const SCHEMA = "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/schema/account-guard.schema.json";
+
+	it("is read, and written back as the first key", () => {
+		const text = `${JSON.stringify({ $schema: SCHEMA, zones: ["work", "personal"] }, null, 2)}\n`;
+		const parsed = parseConfig(text);
+		assert.ok(parsed.ok);
+		assert.equal(parsed.config.$schema, SCHEMA);
+		assert.equal(Object.keys(JSON.parse(serializeConfig(parsed.config) as string))[0], "$schema");
+	});
+
+	it("survives a change made through the writer, so /guard tag does not strip it", () => {
+		const file = { text: `${JSON.stringify({ $schema: SCHEMA, zones: ["work", "personal"], accounts: [] }, null, 2)}\n` as string | undefined };
+		const { writer, writes } = writerOver(file);
+		const outcome = writer.update((config) => setAccountZones(config, acme, ["work"]));
+		assert.ok(outcome.ok);
+		assert.equal(writes.length, 1);
+		assert.equal(JSON.parse(writes[0] as string).$schema, SCHEMA);
+		assert.deepEqual(JSON.parse(writes[0] as string).accounts, [{ ...acme, zones: ["work"] }]);
+	});
+
+	it("is not added to a file that did not have it", () => {
+		const file = { text: undefined as string | undefined };
+		const { writer, writes } = writerOver(file);
+		assert.ok(writer.update((config) => setAccountZones(config, acme, ["work"])).ok);
+		assert.equal("$schema" in JSON.parse(writes[0] as string), false);
+	});
+});
+
 describe("serializeConfig", () => {
 	it("spells out the defaults with a 2-space indent and a final newline", () => {
 		assert.equal(

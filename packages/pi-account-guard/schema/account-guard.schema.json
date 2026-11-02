@@ -47,7 +47,11 @@
 		}
 	},
 	"properties": {
-		"$schema": false,
+		"$schema": {
+			"type": "string",
+			"minLength": 1,
+			"description": "A link to this schema, for editors. The guard keeps it when it writes the file and reads nothing from it."
+		},
 		"zones": {
 			"type": "array",
 			"items": { "type": "string", "minLength": 1, "not": { "const": "unknown" } },

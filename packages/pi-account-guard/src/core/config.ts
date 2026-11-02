@@ -16,6 +16,8 @@ export interface PlaceRuleEntry {
 }
 
 export interface GuardConfig {
+	/** The link to the JSON Schema, kept so that an editor still validates the file after the guard writes it. Nothing reads it. */
+	$schema?: string;
 	zones: string[];
 	defaultZone: string;
 	accounts: AccountTag[];
@@ -82,7 +84,8 @@ function validate(value: unknown, errors: ConfigError[]): GuardConfig | undefine
 		errors.push({ path: "", message: "must be an object" });
 		return undefined;
 	}
-	rejectUnknownFields(value, ["zones", "defaultZone", "accounts", "places"], "", errors);
+	rejectUnknownFields(value, ["$schema", "zones", "defaultZone", "accounts", "places"], "", errors);
+	const schemaLink = readSchemaLink(value.$schema, errors);
 	const zones = readZones(value.zones, errors);
 	// With an unreadable zones list every reference would also fail; report only the root cause.
 	const declared = (zone: string) => zones === undefined || zones.includes(zone);
@@ -96,11 +99,20 @@ function validate(value: unknown, errors: ConfigError[]): GuardConfig | undefine
 	if (!declared(defaultZone)) undeclared("defaultZone", defaultZone);
 
 	return {
+		...(schemaLink === undefined ? {} : { $schema: schemaLink }),
 		zones: zones ?? [],
 		defaultZone,
 		accounts: readAccounts(value.accounts, declared, undeclared, errors),
 		places: readPlaces(value.places, declared, undeclared, errors),
 	};
+}
+
+/** The `$schema` link, which is the one key of the file that is only for editors; anything but a non-empty string is an error. */
+function readSchemaLink(value: unknown, errors: ConfigError[]): string | undefined {
+	if (value === undefined) return undefined;
+	if (isName(value)) return value;
+	errors.push({ path: "$schema", message: "must be a link to the schema, as a string" });
+	return undefined;
 }
 
 function readZones(value: unknown, errors: ConfigError[]): string[] | undefined {

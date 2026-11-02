@@ -1,4 +1,5 @@
 {
+	"$schema": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/schema/account-guard.schema.json",
 	"zones": ["work", "personal"],
 	"defaultZone": "personal",
 	"accounts": [{ "provider": "openai-codex-2", "source": "oauth", "zones": ["work"], "note": "Company API key" }],

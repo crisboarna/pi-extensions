@@ -31,6 +31,7 @@ const valid: Record<string, unknown> = {
 			{ path: "/a", remote: "*/Acme/*", zone: "personal" },
 		],
 	},
+	"a $schema link to the schema": { $schema: "https://example.com/account-guard.schema.json", zones: ["work"], defaultZone: "work" },
 	"one account in several zones": { accounts: [{ ...account, zones: ["work", "personal"] }] },
 	"the same provider on two sources": { accounts: [account, { ...account, source: "stored-key" }] },
 };
@@ -57,7 +58,8 @@ const structurallyInvalid: Record<string, unknown> = {
 	"a note that is not a string": { accounts: [{ ...account, note: 1 }] },
 	"accounts that is not an array": { accounts: {} },
 	"places that is not an array": { places: {} },
-	"a $schema field": { $schema: "https://example.com/schema.json" },
+	"a $schema that is not a string": { $schema: 1 },
+	"an empty $schema": { $schema: "" },
 };
 
 /** Invalid configs that need a comparison between fields. Only the guard can reject them. */

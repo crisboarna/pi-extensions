@@ -12,3 +12,4 @@ First release: the account guard, which blocks a turn when the model account doe
 - **A footer** shows `guard personal ✓`, or `guard personal ✗ openai is work` before a turn would be blocked.
 - **A `pi-account-guard` skill** that explains why a turn was blocked and proposes `/guard` commands for you to run. It never proposes a way around a block.
 - **Tested against a stated range of pi.** It declares pi `>=1.4.0 <2`, the range CI runs the suites against, instead of promising every version.
+- **An editor checks the config as you type.** The example config starts with a `$schema` line, and the guard accepts it and keeps it when it writes the file.

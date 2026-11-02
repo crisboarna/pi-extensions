@@ -17,6 +17,7 @@ One file holds all configuration: `account-guard.json` in the pi agent directory
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/schema/account-guard.schema.json",
   "zones": ["work", "personal"],
   "defaultZone": "personal",
   "accounts": [
@@ -51,6 +52,6 @@ The guard reads the file live, so tags apply at once. The place zone is cached a
 
 ## JSON Schema
 
-[`schema/account-guard.schema.json`](../schema/account-guard.schema.json) describes the file, and [`examples/account-guard.json`](../examples/account-guard.json) is the example above. For editor completion, associate the schema with the file in your editor's settings (for VS Code, `json.schemas`). Do not add a `"$schema"` key to the file: the guard rejects unknown fields. A JSON Schema cannot compare fields, so two rules are checked only by the guard: a zone named in `defaultZone`, a tag or a place rule must be declared in `zones`, and no two accounts may share a `(provider, source)` pair.
+[`schema/account-guard.schema.json`](../schema/account-guard.schema.json) describes the file, and [`examples/account-guard.json`](../examples/account-guard.json) is the example above. For editor completion, keep the `"$schema"` line from the example at the top of the file, or associate the schema with the file in your editor's settings (for VS Code, `json.schemas`). `"$schema"` is the one key the guard reads and ignores: it keeps the line when it writes the file, and it rejects every other field it does not know. A JSON Schema cannot compare fields, so two rules are checked only by the guard: a zone named in `defaultZone`, a tag or a place rule must be declared in `zones`, and no two accounts may share a `(provider, source)` pair.
 
 The design behind these rules is in [DESIGN.md](../DESIGN.md) sections 4 to 6, and the reason for a single file is [ADR 0003](adr/0003-one-global-config-file.md).
