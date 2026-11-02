@@ -1,0 +1,62 @@
+# The real-TUI suites and the tarball smoke on macOS, where terminals, paths and shells differ from the Linux runners everything else uses:
+# /var is a symlink to /private/var, the file system ignores case, git and sed are the BSD builds, and the runners are slower.
+# Targeted on purpose: it runs on every push to main, and on a pull request only when the change can reach those differences. Not a
+# required check: a path-filtered workflow that does not run leaves a required check pending forever, so it would block every other pull
+# request. Windows is not tested and not supported; the READMEs say to use WSL.
+name: macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/*/src/**"
+      - "packages/*/test/support/**"
+      - "packages/*/test/tui/**"
+      - "scripts/smoke-pack.ts"
+      - "package-lock.json"
+      - ".github/workflows/macos.yml"
+  workflow_dispatch:
+    inputs:
+      soak:
+        description: also run the keystroke suites four copies at a time, to measure how flaky they are on macOS
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: tests on macOS
+    # A fixed image, not macos-latest, so a runner upgrade is a change in this file and not a surprise.
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Integration tests through jiti and real-TUI tests
+        run: npm run test:integration
+
+      - name: Install every package from its tarball and load it
+        run: npm run smoke:pack
+
+      - name: Soak the keystroke suites
+        if: ${{ inputs.soak }}
+        run: npm run soak -- --copies 4

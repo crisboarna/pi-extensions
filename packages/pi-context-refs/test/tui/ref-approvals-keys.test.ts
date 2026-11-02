@@ -63,10 +63,10 @@ describe("/ref approvals under the keys of pi's real TUI", () => {
 		withProject(async ({ tui }) => {
 			const listing = await tui.terminal.runCommand("/ref approvals", "Pending (2)");
 			assert.match(listing, /Approved: none/);
-			assert.match(listing, /setup\s+command .*console\.log\('a'\)/);
-			assert.match(listing, /other\s+command .*console\.log\('b'\)/);
-			assert.match(listing, /approve it with\s+\/ref approve setup/);
-			assert.match(listing, /approve it with\s+\/ref approve other/);
+			assert.match(listing, /setup\s+command .*console\.log\('a'\)/s);
+			assert.match(listing, /other\s+command .*console\.log\('b'\)/s);
+			assert.match(listing, /approve\s+it\s+with\s+\/ref\s+approve\s+setup/);
+			assert.match(listing, /approve\s+it\s+with\s+\/ref\s+approve\s+other/);
 		}));
 
 	it("moves a Ref from waiting to approved once it is approved", () =>
@@ -75,7 +75,7 @@ describe("/ref approvals under the keys of pi's real TUI", () => {
 			const listing = await tui.terminal.runCommand("/ref approvals", "Approved (1)");
 			assert.match(listing, /Pending \(1\)/);
 			assert.match(listing, /setup\s+command .*console\.log\('a'\).*approved\s+\d{4}-\d{2}-\d{2}T/s);
-			assert.match(listing, /other\s+command .*approve it with\s+\/ref approve other/s);
+			assert.match(listing, /other\s+command .*approve\s+it\s+with\s+\/ref\s+approve\s+other/s);
 		}));
 });
 
