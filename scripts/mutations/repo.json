@@ -166,5 +166,12 @@
 		"find": "image ? \"summary_large_image\" : \"summary\"",
 		"replace": "\"summary_large_image\"",
 		"tests": ["test/site-social.test.ts"]
+	},
+	{
+		"id": "social-landing-preview-missing",
+		"file": "tools/site/build.ts",
+		"find": "const preview = folder ? `${folder}/media/cover.png` : \"media/og.png\";",
+		"replace": "const preview = folder ? `${folder}/media/cover.png` : \"media/none.png\";",
+		"tests": ["test/site.test.ts"]
 	}
 ]

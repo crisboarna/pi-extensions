@@ -15,6 +15,22 @@
 			"out": "banner-light.png",
 			"width": 1100,
 			"height": 300
+		},
+		{
+			"kind": "png",
+			"page": "social.html",
+			"out": "og.png",
+			"width": 1200,
+			"height": 630,
+			"scale": 1
+		},
+		{
+			"kind": "png",
+			"page": "social.html",
+			"out": "social.png",
+			"width": 1280,
+			"height": 640,
+			"scale": 1
 		}
 	]
 }
