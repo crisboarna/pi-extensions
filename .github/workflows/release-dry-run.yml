@@ -1,0 +1,36 @@
+# Checks what a release would publish, by hand, without publishing anything: that no version is half released, that every version is newer than
+# the newest on npm, and that `npm publish --dry-run` accepts each package. The same check runs on the release pull request (pr.yml). It is a
+# separate workflow, with no publish rights and no secrets, so running it cannot release anything; main.yml, which can, is not run by hand.
+name: Release dry run
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-dry-run
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: release plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository and its tags
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the plan reads the git tags
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: What a release would publish, and a dry run of each package
+        run: node scripts/release/plan.ts

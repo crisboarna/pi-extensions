@@ -32,6 +32,31 @@ jobs:
     permissions:
       contents: read # passed to the reusable workflow's jobs
 
+  # The release pull request (changesets bumps the versions on this branch) is the last place to catch a release that would be half done or
+  # a version that is not newer than npm's: npm cannot unpublish and a tag cannot be reused. Same check as release-dry-run.yml.
+  release-plan:
+    name: release plan
+    if: ${{ github.head_ref == 'changeset-release/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository and its tags
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the plan reads the git tags
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: What the release would publish, and a dry run of each package
+        run: node scripts/release/plan.ts
+
   rules:
     name: pull request rules
     runs-on: ubuntu-latest
