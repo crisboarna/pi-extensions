@@ -40,5 +40,33 @@
 		"find": "if (!(await deps.confirm(`Evaluate ${model}?`, message))) return;",
 		"replace": "await deps.confirm(`Evaluate ${model}?`, message);",
 		"tests": ["packages/pi-switchboard/test/tui/models-eval-keys.test.ts"]
+	},
+	{
+		"id": "classifier-out-of-range-confidence-accepted",
+		"file": "packages/pi-switchboard/src/classifier/system-one.ts",
+		"find": "if (result < -NOISE || result > 1 + NOISE) throw",
+		"replace": "if (false) throw",
+		"tests": ["packages/pi-switchboard/test/unit/system-one-hostile.test.ts"]
+	},
+	{
+		"id": "ledger-negative-cost-trusted",
+		"file": "packages/pi-switchboard/src/selection/ledger.ts",
+		"find": "\t\tcount(entry.cost)",
+		"replace": "\t\ttypeof entry.cost === \"number\"",
+		"tests": ["packages/pi-switchboard/test/integration/hostile-state.test.ts"]
+	},
+	{
+		"id": "mirror-unknown-line-kind-trusted",
+		"file": "packages/pi-switchboard/src/live/live.ts",
+		"find": "MIRROR_KINDS.includes(line.kind) &&",
+		"replace": "true &&",
+		"tests": ["packages/pi-switchboard/test/integration/hostile-state.test.ts"]
+	},
+	{
+		"id": "health-wrong-type-table-trusted",
+		"file": "packages/pi-switchboard/src/selection/health.ts",
+		"find": "members: objectTable(value.members),",
+		"replace": "members: value.members as never,",
+		"tests": ["packages/pi-switchboard/test/integration/hostile-state.test.ts"]
 	}
 ]
