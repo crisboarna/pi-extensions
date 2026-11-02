@@ -142,9 +142,9 @@ function firstSeed(): number {
 	if (given.trim() === "" || !Number.isInteger(seed) || seed < 0) usageError("SOAK_SEED must be a whole number");
 	return seed;
 }
+const baseSeed = options.randomize ? firstSeed() : 0;
 if (options.randomize && spawnSync(process.execPath, ["--test-randomize", "-e", ""], { stdio: "ignore" }).status !== 0)
 	usageError("this Node has no --test-randomize; use Node 24");
-const baseSeed = options.randomize ? firstSeed() : 0;
 const jobs: Job[] = files.flatMap((file) =>
 	Array.from({ length: options.copies }, (_, copy) => ({ file, copy: copy + 1, ...(options.randomize ? { seed: baseSeed + copy } : {}) })),
 );

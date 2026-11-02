@@ -9,6 +9,9 @@ import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const SOAK = fileURLToPath(new URL("../scripts/soak.ts", import.meta.url));
+/** Node 24 can run tests in a random order; the oldest Node the packages support, 22.19, cannot, and soak says so instead of running. */
+const HAS_RANDOMIZE = spawnSync(process.execPath, ["--test-randomize", "-e", ""], { stdio: "ignore" }).status === 0;
+const NEEDS_RANDOMIZE = { skip: HAS_RANDOMIZE ? false : "this Node has no --test-randomize; the next test runs here instead" };
 const made: string[] = [];
 after(() => {
 	for (const dir of made) rmSync(dir, { recursive: true, force: true });
@@ -116,21 +119,21 @@ describe("soak --randomize", () => {
 		assert.doesNotMatch(result.output, /random order/);
 	});
 
-	test("runs each copy in its own seeded random order, says which seed, and finds an order-dependent suite", () => {
+	test("runs each copy in its own seeded random order, says which seed, and finds an order-dependent suite", NEEDS_RANDOMIZE, () => {
 		const result = soak({ ...tui("ordered", ORDER_DEPENDENT) }, ["--randomize", "--copies", "30"], { SOAK_SEED: "1" });
 		assert.equal(result.status, 1, result.output);
 		assert.match(result.output, /random order, seeds 1 to 30 \(replay a run with SOAK_SEED=<its seed> and --copies 1\)/);
 		assert.match(result.output, /first failing run: \S+ \(seed \d+\)/);
 	});
 
-	test("gives every copy an order of its own: an order-dependent suite passes in some copies and fails in others", () => {
+	test("gives every copy an order of its own: an order-dependent suite passes in some copies and fails in others", NEEDS_RANDOMIZE, () => {
 		const result = soak({ ...tui("ordered", ORDER_DEPENDENT) }, ["--randomize", "--copies", "30"], { SOAK_SEED: "1" });
 		const passed = Number(/(\d+)\/30 passed/.exec(result.output)?.[1]);
 		// one shared seed would make all thirty copies do the same thing; thirty seeds make a mix, with a chance of 2^-29 of none
 		assert.ok(passed > 0 && passed < 30, `${passed} of 30 copies passed\n${result.output}`);
 	});
 
-	test("replays: the same seed gives the same first failing run", () => {
+	test("replays: the same seed gives the same first failing run", NEEDS_RANDOMIZE, () => {
 		const args = ["--randomize", "--copies", "30"];
 		const first = soak({ ...tui("ordered", ORDER_DEPENDENT) }, args, { SOAK_SEED: "1" });
 		const second = soak({ ...tui("ordered", ORDER_DEPENDENT) }, args, { SOAK_SEED: "1" });
@@ -141,10 +144,17 @@ describe("soak --randomize", () => {
 		assert.equal(alone.status, 1, "the seed on its own reproduces the failure");
 	});
 
-	test("passes a suite whose tests do not depend on each other, under any order", () => {
+	test("passes a suite whose tests do not depend on each other, under any order", NEEDS_RANDOMIZE, () => {
 		const result = soak({ ...tui("independent", PASS) }, ["--randomize", "--copies", "6"]);
 		assert.equal(result.status, 0, result.output);
 		assert.match(result.output, /random order, seeds \d+ to \d+/);
+	});
+
+	test("says so, and runs nothing, on a Node that has no random order", { skip: HAS_RANDOMIZE ? "only on a Node without --test-randomize" : false }, () => {
+		const result = soak({ ...tui("a", PASS) }, ["--randomize"]);
+		assert.equal(result.status, 2, result.output);
+		assert.match(result.output, /this Node has no --test-randomize; use Node 24/);
+		assert.doesNotMatch(result.output, /soak: \d+ runs/);
 	});
 
 	test("refuses a seed that is not a whole number", () => {
