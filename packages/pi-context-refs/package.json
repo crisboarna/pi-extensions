@@ -7,7 +7,13 @@
 	"author": "Cristian Boarna",
 	"keywords": [
 		"pi-package",
-		"pi-extension"
+		"pi-extension",
+		"context",
+		"refs",
+		"snippets",
+		"placeholder",
+		"picker",
+		"prompt"
 	],
 	"repository": {
 		"type": "git",
@@ -29,12 +35,17 @@
 		"extensions": [
 			"./src/index.ts"
 		],
+		"skills": [
+			"./skills"
+		],
 		"image": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/cover.png",
 		"video": "https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/hero.mp4"
 	},
 	"files": [
 		"src",
+		"skills",
 		"schema",
+		"examples",
 		"README.md",
 		"LICENSE"
 	],
