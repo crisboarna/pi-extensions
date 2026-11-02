@@ -11,6 +11,7 @@ How to test an extension in this repository, and how to know that a test can fai
 | Real TUI | `test/tui` | Real interactive pi in the test process on a virtual terminal: keys in, screen out | `npm run test:integration` and `npm run coverage` |
 | Pty smoke | `test/smoke` | The shipped extension in a pseudo-terminal, as a canary | `npm run test:smoke` (CI) |
 | RPC and print | `test/smoke` | The extension through pi's RPC and print modes | `npm run test:smoke` (CI) |
+| Wire | `test/smoke/wire.test.ts` | Real pi and its own OpenAI client against a server on 127.0.0.1 (`test/support/fake-openai.ts`, no key, no network) that records every request, so what left pi is read from the request body | `npm run test:smoke` (CI) |
 | End to end | `test/e2e` | The packed tarballs in the repository's pinned pi, both packages in one pi | `npm run test:e2e` |
 
 Put a new keystroke check in `test/tui`. A fake `ui` cannot show a dialog that loses its question off a small screen, a key that pi handles before your component, or a timer that keeps the process alive; real pi on a virtual terminal can.

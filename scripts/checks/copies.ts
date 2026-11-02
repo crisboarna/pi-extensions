@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { listPackages, reporter } from "../lib/repo.ts";
 
 /** Package-relative paths. Every package that has the file must hold the same bytes as the others. */
-const COPIES = ["test/support/virtual-terminal.ts"];
+const COPIES = ["test/support/virtual-terminal.ts", "test/support/fake-openai.ts"];
 
 const report = reporter("copies");
 const packages = listPackages();
