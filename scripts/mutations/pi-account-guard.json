@@ -5,5 +5,19 @@
 		"find": "const from = Math.min(Math.max(0, cursor - Math.floor(size / 2)), rows.length - size);",
 		"replace": "const from = 0;",
 		"tests": ["packages/pi-account-guard/test/unit/checklist.test.ts", "packages/pi-account-guard/test/tui/tag-tour-footer-keys.test.ts"]
+	},
+	{
+		"id": "schema-link-dropped-by-the-writer",
+		"file": "packages/pi-account-guard/src/core/config.ts",
+		"find": "...(schemaLink === undefined ? {} : { $schema: schemaLink }),",
+		"replace": "",
+		"tests": ["packages/pi-account-guard/test/unit/config-writer.test.ts"]
+	},
+	{
+		"id": "schema-link-accepts-anything",
+		"file": "packages/pi-account-guard/src/core/config.ts",
+		"find": "if (isName(value)) return value;\n\terrors.push({ path: \"$schema\"",
+		"replace": "if (value !== undefined) return value as string;\n\terrors.push({ path: \"$schema\"",
+		"tests": ["packages/pi-account-guard/test/unit/config-schema.test.ts"]
 	}
 ]
