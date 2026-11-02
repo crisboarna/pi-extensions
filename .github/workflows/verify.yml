@@ -1,8 +1,9 @@
 # Verification shared by pull requests and main: every repository gate
 # (including knip, gitleaks, actionlint and zizmor in pinned Docker images),
 # the tests with 90% coverage thresholds, the same tests on the oldest
-# supported Node, the tarball smoke test, the end-to-end tests in real pi and
-# the dependency audits. Called by pr.yml and main.yml.
+# supported Node, the tarball smoke test, the end-to-end tests in real pi, the
+# same suites against the floor and the newest release of the pi range the
+# packages declare, and the dependency audits. Called by pr.yml and main.yml.
 name: Verify
 
 on:
@@ -134,6 +135,24 @@ jobs:
 
       - name: context-refs smoke tests in real pi
         run: PI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/pi" npm run test:smoke --workspace packages/pi-context-refs
+
+  # The packages declare PI_PEER_RANGE (scripts/lib/repo.ts); these two lanes run the real-pi suites at its bottom and at the newest release
+  # inside it that is old enough, so the declaration is tested at both ends. pi-compat.yml says what a lane runs.
+  pi-floor:
+    name: pi floor
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: floor
+    permissions:
+      contents: read # check out the repository
+
+  pi-latest:
+    name: pi latest
+    uses: ./.github/workflows/pi-compat.yml # zizmor: ignore[self-repository] actionlint 1.7 does not accept the $/ form yet
+    with:
+      pi: latest
+    permissions:
+      contents: read # check out the repository
 
   audit:
     name: dependency audit
