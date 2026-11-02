@@ -388,3 +388,32 @@ describe("commit messages", () => {
 		assert.match(problems("fix: Capitalised subject.").join(), /period/);
 	});
 });
+
+describe("readme", () => {
+	const SOUND = "# demo\n\nRestart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.\n";
+	const ROOT_README = "# root\n";
+	const sound = (readme = SOUND) => repo({ "README.md": ROOT_README, "packages/pi-demo/README.md": readme });
+	test("passes READMEs that state the versions in the convention's words", () => {
+		const result = run("readme", sound());
+		assert.ok(result.ok, result.output);
+	});
+	test("rejects a value typed into a badge, naming the README and the badge", () => {
+		const badge = "[![node](https://img.shields.io/badge/node-%3E%3D22.19-green)](https://example.test)\n\n";
+		const result = run("readme", sound(`# demo\n\n${badge}Restart pi. Requires Node 22.19 or later and pi 1.4 up to, not including, 2.0.\n`));
+		assert.ok(!result.ok);
+		assert.match(result.output, /packages\/pi-demo\/README\.md: badge "node" has a value typed into its address/);
+	});
+	test("rejects a pi range or Node floor that the manifests do not declare", () => {
+		const old = run("readme", sound("# demo\n\nRequires Node 22.19 or later; checked with pi 1.4.\n"));
+		assert.match(old.output, /must say "pi 1\.4 up to, not including, 2\.0"/);
+		const open = run("readme", sound(`${SOUND}Works with pi 1.4 or later.\n`));
+		assert.match(open.output, /says "pi 1\.4 or later"/);
+		const node = run("readme", sound(SOUND.replace("22.19", "20.0")));
+		assert.match(node.output, /must say "Node 22\.19 or later"/);
+	});
+	test("rejects more badges on the root README than the limit", () => {
+		const badges = Array.from({ length: 9 }, (_, index) => `[![b${index}](https://img.shields.io/npm/v/p${index})](https://example.test)`).join(" ");
+		const result = run("readme", repo({ "README.md": `# root\n\n${badges}\n`, "packages/pi-demo/README.md": SOUND }));
+		assert.match(result.output, /README\.md: has 9 badges; the most is 8/);
+	});
+});

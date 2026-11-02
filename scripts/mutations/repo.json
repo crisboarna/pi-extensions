@@ -26,5 +26,26 @@
 		"find": "compareVersions(pin, range.below) < 0",
 		"replace": "true",
 		"tests": ["test/checks.test.ts"]
+	},
+	{
+		"id": "readme-badge-limit-unchecked",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "list.length > MAX_BADGES",
+		"replace": "false",
+		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "readme-typed-badge-allowed",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "alt.toLowerCase() !== STATIC_BADGE_ALLOWED",
+		"replace": "false",
+		"tests": ["test/readme-rules.test.ts"]
+	},
+	{
+		"id": "readme-pi-or-later-allowed",
+		"file": "scripts/lib/readme-rules.ts",
+		"find": "readme.matchAll(/\\bpi \\d+\\.\\d+(?:\\.\\d+)? or later\\b/g)",
+		"replace": "[]",
+		"tests": ["test/readme-rules.test.ts"]
 	}
 ]
