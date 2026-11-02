@@ -24,7 +24,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 
 | Gate | Where | Prevents |
 |---|---|---|
-| Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, unpinned runtime dependencies, an `engines.node` floor that CI does not test |
+| Manifest contract (`scripts/checks/manifests.ts`) | C P CI | Missing npm and gallery metadata, wrong scope, no provenance, pi's packages declared as dependencies, a pi peer range other than `PI_PEER_RANGE`, a root pi pin outside that range, unpinned runtime dependencies, an `engines.node` floor that CI does not test |
 | Copies stay identical (`scripts/checks/copies.ts`) | C P CI | A helper copied between packages (packages cannot import each other) fixed in one package and left stale in the others. Today: the virtual terminal of the `test/tui` suites. Add a path to the script only for a file that must stay byte for byte the same |
 | Keystroke tests for every interactive source file (`scripts/checks/tui-coverage.ts`) | C P CI | A source file that calls `ui.custom`, `ui.select`, `ui.confirm`, `ui.input`, `ui.editor`, `setEditorComponent`, `registerShortcut`, `addAutocompleteProvider` or `onTerminalInput` with no `test/tui` test that presses its keys in real pi. Each such file must be named in a `// covers:` header of a `test/tui` test, and a header may only name a file that exists |
 | Soak of the test suites (`scripts/soak.ts`, `npm run soak`) | D | Tests that pass alone and fail or hang beside other work: a run that fails, or does not exit within the timeout, shows up on your machine before it shows up in CI |

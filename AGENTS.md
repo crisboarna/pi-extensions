@@ -49,7 +49,7 @@ Monorepo of independently published [pi](https://pi.dev) extension packages unde
 
 - Every package must install and work on its own; never import another package by relative path, and never depend on another extension's private files or state.
 - Packages may cooperate only through documented, versioned events or APIs that degrade to standalone behaviour when the other side is absent.
-- Pi's own packages (`@earendil-works/*`, `typebox`) are `"*"` peer dependencies, never dependencies; pi supplies them at runtime.
+- Pi's own packages (`@earendil-works/*`, `typebox`) are peer dependencies, never dependencies; pi supplies them at runtime. `@earendil-works/*` peers use the range CI tests, `PI_PEER_RANGE` in `scripts/lib/repo.ts` (now `>=1.4.0 <2`); `typebox` stays `"*"`.
 - Import typebox only as `typebox`, `typebox/value` or `typebox/compile`; pi does not alias other subpaths.
 - Node built-ins use the `node:` prefix, and relative imports name the file with its extension.
 - Keep `src/index.ts` to registration and wiring, and put behaviour in named modules that tests can import.

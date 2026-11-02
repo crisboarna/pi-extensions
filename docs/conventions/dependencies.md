@@ -11,7 +11,9 @@
 
 - `.npmrc` holds the install guards: `strict-allow-scripts`, `min-release-age=3`, `save-exact`, `engine-strict`. `scripts/checks/npm-policy.ts` fails if any is removed.
 - Every lockfile entry must resolve from `https://registry.npmjs.org/` with a sha512 integrity hash.
-- pi's packages (`@earendil-works/*`, `typebox`) are pinned in the root `devDependencies` to the pi release the packages are tested against, and declared as `"*"` peers in each package.
+- pi's packages (`@earendil-works/*`, `typebox`) are pinned in the root `devDependencies` to the pi release the packages are tested against. Each package declares them as peers: `@earendil-works/*` as `PI_PEER_RANGE` (`scripts/lib/repo.ts`, now `>=1.4.0 <2`), `typebox` as `"*"`. The manifests gate fails on any other value, and on a root pin outside the range.
+- The range is a promise that CI tests it: `npm run pi-host -- floor` and `-- latest` put the bottom and the newest release of the range into `node_modules` so the suites run against both. A bounded range is safe because pi installs extensions with `--omit=peer` (or `--legacy-peer-deps`), so it never fetches a second copy of pi; only a plain `npm install` outside pi sees a peer warning, and that warning is the point.
+- To raise the floor or the ceiling, change `PI_PEER_RANGE`, the three manifests and the root pin together in one pull request, and add a changeset: the gate fails until they agree.
 - Dependabot proposes updates weekly, after a 7-day cooldown. Review the changelog of anything that reaches users before merging.
 - Known vulnerabilities in dev-only packages that come from pi itself are fixed by updating pi, not with `overrides`, unless an advisory affects this repository's tooling directly.
 - Current exception: `overrides` pins `undici` to 8.12.3 because pi 1.4.0 pins 8.10.2, which has advisories GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c, and the runtime audit counts pi's packages. Remove the override once a pi release depends on `undici` 8.12.2 or later.

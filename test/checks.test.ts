@@ -35,7 +35,7 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 	engines: { node: ">=22.19.0" },
 	pi: { extensions: ["./src/index.ts"] },
 	files: ["src", "README.md", "LICENSE"],
-	peerDependencies: { "@earendil-works/pi-coding-agent": "*" },
+	peerDependencies: { "@earendil-works/pi-coding-agent": ">=1.4.0 <2" },
 	scripts: {
 		test: "node --test",
 		coverage: "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90",
@@ -44,7 +44,12 @@ const manifest = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const CLEAN: Record<string, string> = {
-	"package.json": JSON.stringify({ name: "root", private: true, engines: { node: ">=22.19.0" }, devDependencies: { typescript: "7.0.2" } }),
+	"package.json": JSON.stringify({
+		name: "root",
+		private: true,
+		engines: { node: ">=22.19.0" },
+		devDependencies: { typescript: "7.0.2", "@earendil-works/pi-coding-agent": "1.4.0" },
+	}),
 	"packages/pi-demo/package.json": JSON.stringify(manifest()),
 	"packages/pi-demo/README.md": "# demo\n\nSee [the source](src/index.ts).\n",
 	"packages/pi-demo/LICENSE": "MIT\n",
@@ -92,11 +97,40 @@ describe("manifests", () => {
 		assert.ok(!result.ok);
 		assert.match(result.output, /name must be "@crisboarna\/pi-demo"/);
 	});
-	test("rejects pi's packages as dependencies and narrowed peers", () => {
-		const bad = manifest({ dependencies: { typebox: "1.3.27" }, peerDependencies: { "@earendil-works/pi-coding-agent": "^1.4.0" } });
+	test("rejects pi's packages as dependencies", () => {
+		const bad = manifest({ dependencies: { typebox: "1.3.27" } });
 		const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(bad) }));
 		assert.match(result.output, /typebox is provided by pi/);
-		assert.match(result.output, /must use "\*"/);
+	});
+	test("requires the range CI tests on every pi peer, with a floor and a ceiling", () => {
+		for (const range of ["*", ">=1.4.0", "^1.4.0", "~1.4.0", "1.4.0", ">=1.3.0 <2", ">=1.4.0 <3"]) {
+			const bad = manifest({ peerDependencies: { "@earendil-works/pi-coding-agent": range } });
+			const result = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(bad) }));
+			assert.ok(!result.ok, range);
+			assert.match(result.output, /peer @earendil-works\/pi-coding-agent must be ">=1.4.0 <2"/, range);
+		}
+		const ok = manifest({ peerDependencies: { "@earendil-works/pi-coding-agent": ">=1.4.0 <2", "@earendil-works/pi-tui": ">=1.4.0 <2" } });
+		assert.ok(run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(ok) })).ok);
+	});
+	test('keeps typebox a "*" peer, since pi bundles it', () => {
+		const peers = { "@earendil-works/pi-coding-agent": ">=1.4.0 <2" };
+		const star = run("manifests", repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ peerDependencies: { ...peers, typebox: "*" } })) }));
+		assert.ok(star.ok, star.output);
+		const ranged = run(
+			"manifests",
+			repo({ "packages/pi-demo/package.json": JSON.stringify(manifest({ peerDependencies: { ...peers, typebox: ">=1 <2" } })) }),
+		);
+		assert.match(ranged.output, /peer typebox must use "\*"/);
+	});
+	test("requires the pi the repository tests with to be pinned inside the declared range", () => {
+		const root = (devDependencies: Record<string, string>) =>
+			JSON.stringify({ name: "root", private: true, engines: { node: ">=22.19.0" }, devDependencies });
+		for (const pin of [undefined, "^1.4.0", "1.3.0", "2.0.0"]) {
+			const devDependencies: Record<string, string> = pin ? { "@earendil-works/pi-coding-agent": pin } : { typescript: "7.0.2" };
+			const result = run("manifests", repo({ "package.json": root(devDependencies) }));
+			assert.match(result.output, /root devDependencies must pin @earendil-works\/pi-coding-agent exactly, inside >=1.4.0 <2/, String(pin));
+		}
+		assert.ok(run("manifests", repo({ "package.json": root({ "@earendil-works/pi-coding-agent": "1.5.0" }) })).ok);
 	});
 	test("rejects missing provenance and a pi entry outside files", () => {
 		const bad = manifest({ publishConfig: { access: "public" }, files: ["README.md", "LICENSE"] });
