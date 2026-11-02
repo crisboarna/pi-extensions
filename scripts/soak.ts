@@ -6,18 +6,26 @@
 //   npm run soak                                  every test/tui suite of every package, 4 copies each
 //   npm run soak -- pi-context-refs               the test/tui suites of one package
 //   npm run soak -- packages/pi-switchboard/test/tui/tier-editor-keys.test.ts --copies 24 --parallel 12
+//   npm run soak -- --randomize --suites unit,integration,tui --copies 3     run every test in a random order, to find tests that depend on each other
+//   SOAK_SEED=1234 npm run soak -- --randomize --copies 1 <test file>        replay the order a failing run printed
 //
 // It prints one line per file, the folder with every run's log, and the failing lines of the first failing log. A run that does not exit
 // within the timeout is killed and counted as a hang. The exit code is 1 when any run fails or hangs, 2 for a usage error.
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { runNodeTest } from "./lib/node-test.ts";
 import { ROOT } from "./lib/repo.ts";
 
-const USAGE = "usage: npm run soak -- [--copies N] [--parallel N] [--timeout SECONDS] [test file | package]...";
+const USAGE = "usage: npm run soak -- [--copies N] [--parallel N] [--timeout SECONDS] [--randomize] [--suites unit,integration,tui] [test file | package]...";
+const SUITES = ["unit", "integration", "tui"];
 
 interface Options {
+	/** Run each copy in a random test order, seeded; Node 24 has the flag, Node 22 does not. */
+	randomize: boolean;
+	/** The folders of test/ that a package target runs. */
+	suites: string[];
 	copies: number;
 	parallel: number;
 	timeoutSeconds: number;
@@ -28,6 +36,8 @@ interface Job {
 	/** The test file, relative to the repository. */
 	file: string;
 	copy: number;
+	/** The seed of this copy's random order, when the run is randomized. */
+	seed?: number;
 }
 
 interface Outcome {
@@ -43,7 +53,7 @@ function usageError(message: string): never {
 }
 
 function parseArgs(args: string[]): Options {
-	const options: Options = { copies: 4, parallel: availableParallelism(), timeoutSeconds: 120, targets: [] };
+	const options: Options = { randomize: false, suites: ["tui"], copies: 4, parallel: availableParallelism(), timeoutSeconds: 120, targets: [] };
 	const numeric: Record<string, "copies" | "parallel" | "timeoutSeconds"> = { "--copies": "copies", "--parallel": "parallel", "--timeout": "timeoutSeconds" };
 	for (let index = 0; index < args.length; index++) {
 		const arg = args[index] as string;
@@ -52,20 +62,28 @@ function parseArgs(args: string[]): Options {
 			const value = Number(args[++index]);
 			if (!Number.isInteger(value) || value < 1) usageError(`${arg} needs a whole number of at least 1`);
 			options[key] = value;
+		} else if (arg === "--randomize") options.randomize = true;
+		else if (arg === "--suites") {
+			const names = (args[++index] ?? "").split(",").filter(Boolean);
+			const unknown = names.find((name) => !SUITES.includes(name));
+			if (names.length === 0 || unknown !== undefined) usageError(`--suites takes unit, integration and tui, not "${unknown ?? ""}"`);
+			options.suites = names;
 		} else if (arg.startsWith("--")) usageError(`unknown option ${arg}`);
 		else options.targets.push(arg);
 	}
 	return options;
 }
 
-/** The `test/tui` suites of a package folder, relative to the repository. */
-function tuiSuites(packageDir: string): string[] {
-	const dir = join(ROOT, packageDir, "test", "tui");
-	if (!existsSync(dir)) return [];
-	return readdirSync(dir)
-		.filter((name) => name.endsWith(".test.ts"))
-		.sort()
-		.map((name) => `${packageDir}/test/tui/${name}`);
+/** The test files of a package folder in the suites `--suites` names (test/tui by default), relative to the repository. */
+function suiteFiles(packageDir: string): string[] {
+	return options.suites.flatMap((suite) => {
+		const dir = join(ROOT, packageDir, "test", suite);
+		if (!existsSync(dir)) return [];
+		return readdirSync(dir, { recursive: true, encoding: "utf8" })
+			.filter((name) => name.endsWith(".test.ts"))
+			.sort()
+			.map((name) => `${packageDir}/test/${suite}/${name.split("\\").join("/")}`);
+	});
 }
 
 function allPackages(): string[] {
@@ -82,7 +100,7 @@ function filesOf(target: string): string[] {
 	const path = resolve(ROOT, target);
 	if (existsSync(path) && statSync(path).isFile()) return [relative(ROOT, path).split("\\").join("/")];
 	const packageDir = allPackages().find((dir) => dir === target.replace(/\/$/, "") || dir === `packages/${target}`);
-	if (packageDir) return tuiSuites(packageDir);
+	if (packageDir) return suiteFiles(packageDir);
 	return usageError(`${target} is neither a test file nor a package`);
 }
 
@@ -114,13 +132,28 @@ function failingLines(log: string): string[] {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const files = [...new Set(options.targets.length > 0 ? options.targets.flatMap(filesOf) : allPackages().flatMap(tuiSuites))];
+const files = [...new Set(options.targets.length > 0 ? options.targets.flatMap(filesOf) : allPackages().flatMap(suiteFiles))];
 if (files.length === 0) usageError("there are no test files to run");
-const jobs: Job[] = files.flatMap((file) => Array.from({ length: options.copies }, (_, copy) => ({ file, copy: copy + 1 })));
+/** The seed of the first copy: SOAK_SEED to replay a run, else any number. Each later copy adds one, so every copy has an order of its own. */
+function firstSeed(): number {
+	const given = process.env.SOAK_SEED;
+	if (given === undefined) return Math.floor(Math.random() * 2 ** 31);
+	const seed = Number(given);
+	if (given.trim() === "" || !Number.isInteger(seed) || seed < 0) usageError("SOAK_SEED must be a whole number");
+	return seed;
+}
+if (options.randomize && spawnSync(process.execPath, ["--test-randomize", "-e", ""], { stdio: "ignore" }).status !== 0)
+	usageError("this Node has no --test-randomize; use Node 24");
+const baseSeed = options.randomize ? firstSeed() : 0;
+const jobs: Job[] = files.flatMap((file) =>
+	Array.from({ length: options.copies }, (_, copy) => ({ file, copy: copy + 1, ...(options.randomize ? { seed: baseSeed + copy } : {}) })),
+);
 const logs = mkdtempSync(join(tmpdir(), "soak-"));
 console.log(
 	`soak: ${jobs.length} runs (${files.length} files x ${options.copies} copies), ${options.parallel} at a time, ${options.timeoutSeconds} s each; logs in ${logs}`,
 );
+if (options.randomize)
+	console.log(`soak: random order, seeds ${baseSeed} to ${baseSeed + options.copies - 1} (replay a run with SOAK_SEED=<its seed> and --copies 1)`);
 
 const outcomes: Outcome[] = [];
 await pool(jobs, options.parallel, async (job) => {
@@ -131,6 +164,7 @@ await pool(jobs, options.parallel, async (job) => {
 		files: [relative(packageDir, job.file)],
 		timeoutMs: options.timeoutSeconds * 1000,
 		logPath: log,
+		args: job.seed === undefined ? [] : ["--test-randomize", `--test-random-seed=${job.seed}`],
 	});
 	outcomes.push({ job, log, exitCode: run.exitCode, hung: run.hung });
 });
@@ -151,7 +185,8 @@ for (const file of files) {
 	console.log(`${bad.length === 0 ? "pass" : "FAIL"}  ${file}  ${summary}`);
 }
 if (firstFailure) {
-	console.log(`\nfirst failing run: ${firstFailure.log}${firstFailure.hung ? " (it did not exit before the timeout and was killed)" : ""}`);
+	const seed = firstFailure.job.seed === undefined ? "" : ` (seed ${firstFailure.job.seed})`;
+	console.log(`\nfirst failing run: ${firstFailure.log}${seed}${firstFailure.hung ? " (it did not exit before the timeout and was killed)" : ""}`);
 	for (const line of failingLines(firstFailure.log)) console.log(`  ${line.trim().slice(0, 200)}`);
 }
 process.exit(failed ? 1 : 0);

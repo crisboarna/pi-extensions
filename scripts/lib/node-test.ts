@@ -30,14 +30,22 @@ export function killRunningTests(): void {
 }
 
 /** Runs the test `files` (paths relative to `cwd`) and writes everything they print to `logPath`. */
-export function runNodeTest(options: { cwd: string; files: string[]; timeoutMs: number; logPath: string; env?: NodeJS.ProcessEnv }): Promise<NodeTestRun> {
+export function runNodeTest(options: {
+	cwd: string;
+	files: string[];
+	timeoutMs: number;
+	logPath: string;
+	env?: NodeJS.ProcessEnv;
+	/** Flags for `node --test` itself, such as the random order. */
+	args?: string[];
+}): Promise<NodeTestRun> {
 	return new Promise((resolve) => {
 		const started = Date.now();
 		const log = createWriteStream(options.logPath);
 		// a run started from inside another `node --test` would inherit this and report its failures as a nested run does: exit code 0
 		const { NODE_TEST_CONTEXT: _outer, ...inherited } = process.env;
 		// the spec reporter on every Node: before Node 24 a piped run prints TAP, which has no ✖ line to find in the log
-		const child = spawn(process.execPath, ["--test", "--test-reporter=spec", ...options.files], {
+		const child = spawn(process.execPath, ["--test", "--test-reporter=spec", ...(options.args ?? []), ...options.files], {
 			cwd: options.cwd,
 			env: { ...inherited, ...options.env },
 			stdio: ["ignore", "pipe", "pipe"],
