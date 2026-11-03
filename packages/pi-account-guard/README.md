@@ -71,6 +71,7 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 - [Headless use](docs/headless.md): exit code 77, the process override and RPC.
 - [With other extensions](docs/with-other-extensions.md): claude-bridge, pi-multi-pass, pooled providers and pi-switchboard.
 - [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
+- [Benchmarks](docs/benchmarks.md): what loading the package adds to pi's start, measured and charted.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - [DESIGN.md](DESIGN.md), [GLOSSARY.md](GLOSSARY.md) and the [decision records](docs/adr/).
 

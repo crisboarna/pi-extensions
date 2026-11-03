@@ -181,7 +181,7 @@ function rewriteLinks(html: string, page: SitePage, pages: Map<string, string>, 
 		const source = posix.normalize(posix.join(sourceDir, decodeURIComponent(path)));
 		const generated = pages.get(source);
 		if (generated) return `${toOut(generated)}${anchor ? `#${anchor}` : ""}`;
-		if (/^packages\/[^/]+\/media\/[^/]+$/.test(source) && existsSync(join(ROOT, source))) {
+		if (/^packages\/[^/]+\/(media|docs\/benchmarks)\/[^/]+$/.test(source) && existsSync(join(ROOT, source))) {
 			copies.add(source);
 			return toOut(source.replace(/^packages\//, ""));
 		}
