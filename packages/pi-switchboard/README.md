@@ -110,6 +110,7 @@ A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it ca
 - [Inspector, replay and report](docs/inspector.md): the HTML inspector and the `pi-switchboard` CLI.
 - [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [Benchmarks](docs/benchmarks.md): what loading the package adds to pi's start and how long a routing decision takes, measured and charted.
+- [Alternatives](docs/alternatives.md): other routers and failover tools, and when to choose them.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - Design of record: [DESIGN.md](DESIGN.md), terms: [GLOSSARY.md](GLOSSARY.md), decisions: [docs/adr/](docs/adr/).
 

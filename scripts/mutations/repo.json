@@ -334,5 +334,12 @@
 		"find": "(media|docs\\/benchmarks)",
 		"replace": "(media)",
 		"tests": ["test/site.test.ts"]
+	},
+	{
+		"id": "alternatives-age-stale-limit",
+		"file": "scripts/comparison-age.ts",
+		"find": "days > MAX_AGE_DAYS",
+		"replace": "days > MAX_AGE_DAYS * 100",
+		"tests": ["test/alternatives.test.ts"]
 	}
 ]
