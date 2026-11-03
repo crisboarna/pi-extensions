@@ -38,6 +38,7 @@
 		"mutation-canary": "node scripts/mutation-canary.ts",
 		"coexist": "node scripts/coexist.ts",
 		"bench": "node scripts/bench.ts",
+		"charts": "node scripts/charts.ts",
 		"pi-host": "node scripts/pi-host.ts",
 		"site:snapshots": "node tools/site/snapshot.ts",
 		"site": "node scripts/tools/site.ts",
