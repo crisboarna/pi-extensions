@@ -112,6 +112,13 @@ describe("benchmarkFiles", () => {
 		assert.doesNotMatch(slightlyFaster, /adds about -/);
 	});
 
+	test("calls a small slowdown noise when it is under half the spread of the runs, and an effect when it is over", () => {
+		const small = benchmarkFiles([baseline, result("pi-a", "load", around(101, 1))])["packages/pi-a/docs/benchmarks.md"] ?? "";
+		assert.match(small, /adds 1\.0 ms at the median, which is within the spread of the runs/);
+		const large = benchmarkFiles([baseline, result("pi-a", "load", around(104, 1))])["packages/pi-a/docs/benchmarks.md"] ?? "";
+		assert.match(large, /adds about 4\.0 ms to pi's start/);
+	});
+
 	test("divides the routing time by the decisions in a sample", () => {
 		const page =
 			benchmarkFiles([baseline, result("pi-b", "load", around(130, 1)), result("pi-b", "route", around(2.4, 0), { perSample: 4800 })])[
