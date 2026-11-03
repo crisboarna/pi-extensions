@@ -76,6 +76,7 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 - [docs/configuration.md](docs/configuration.md): the library files, the fields of a ref, the settings and which ref wins.
 - [docs/upgrading.md](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [docs/benchmarks.md](docs/benchmarks.md): what loading the package adds to pi's start, measured and charted.
+- [docs/alternatives.md](docs/alternatives.md): other extensions that touch the same job, and when to choose them.
 - [docs/headless.md](docs/headless.md): print, JSON and RPC mode, failures and approvals without a UI.
 - [docs/with-other-extensions.md](docs/with-other-extensions.md): the editor, the message and the transcript beside other extensions.
 - [docs/privacy.md](docs/privacy.md): what leaves your machine, what an approval does not cover, and where the guards stop.

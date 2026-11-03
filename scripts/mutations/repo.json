@@ -334,5 +334,40 @@
 		"find": "(media|docs\\/benchmarks)",
 		"replace": "(media)",
 		"tests": ["test/site.test.ts"]
+	},
+	{
+		"id": "alternatives-no-checked-date",
+		"file": "packages/pi-switchboard/docs/alternatives.md",
+		"find": "Checked 2026-11-03 against",
+		"replace": "Looked at it against",
+		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "alternatives-superlative",
+		"file": "packages/pi-context-refs/docs/alternatives.md",
+		"find": "Where it is stronger:** a template can change",
+		"replace": "Where it is stronger:** it is the best, a template can change",
+		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "alternatives-unlinked-project",
+		"file": "packages/pi-account-guard/docs/alternatives.md",
+		"find": "[kenryu42/cc-safety-net](https://github.com/kenryu42/cc-safety-net), version 2.7.2",
+		"replace": "kenryu42/cc-safety-net, version 2.7.2",
+		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "alternatives-claims-it-cannot",
+		"file": "packages/pi-switchboard/docs/alternatives.md",
+		"find": "- **Not established:** how it behaves with pi-subagents children.",
+		"replace": "- It cannot work with pi-subagents children.",
+		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "alternatives-age-stale-limit",
+		"file": "scripts/comparison-age.ts",
+		"find": "days > MAX_AGE_DAYS",
+		"replace": "days > MAX_AGE_DAYS * 100",
+		"tests": ["test/alternatives.test.ts"]
 	}
 ]
