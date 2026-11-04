@@ -1,6 +1,6 @@
 {
 	"name": "@crisboarna/pi-switchboard",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Classifier-driven model tiers for pi: routes the main session and pi-subagents children by complexity, with several models per tier, health tracking and an audit trail.",
 	"type": "module",
 	"license": "MIT",

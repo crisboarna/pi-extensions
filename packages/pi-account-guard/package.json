@@ -1,6 +1,6 @@
 {
 	"name": "@crisboarna/pi-account-guard",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Stops a pi session from sending a user turn to a model account that does not belong to the zone of the directory the session works in.",
 	"type": "module",
 	"license": "MIT",

@@ -1,6 +1,6 @@
 {
 	"name": "@crisboarna/pi-context-refs",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Save context refs and insert them from a picker as compact placeholders that expand to real content when the message is sent.",
 	"type": "module",
 	"license": "MIT",
