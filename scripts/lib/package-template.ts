@@ -129,7 +129,7 @@ Run \`/${command}\` in pi.
 
 ## Requirements
 
-Node ${nodeFloor} or later; pi ${piMin} up to, not including, ${piBelow}, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node ${nodeFloor} or later; pi ${piMin} up to, not including, ${piBelow}, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What works | What does not |
 |---|---|---|
