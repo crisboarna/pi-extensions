@@ -78,7 +78,7 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 
 ## Requirements
 
-Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What the guard does | Exit code |
 |---|---|---|

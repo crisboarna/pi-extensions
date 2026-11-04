@@ -26,7 +26,7 @@ Source: https://github.com/crisboarna/pi-extensions
 
 How it is tested, since that is the part I care about: the keystroke flows run in a real pi on a virtual terminal, and there is a mutation canary that breaks the source on purpose to check that the tests can fail. Details: https://github.com/crisboarna/pi-extensions/blob/main/docs/conventions/testing.md
 
-Limits: pi 1.4 up to, not including, 2.0; Node 22.19 or later; Linux and macOS are tested, Windows is not. Each package README says what it reads, sends and starts.
+Limits: pi 1.4 up to, not including, 2.0; Node 22.19 or later; Linux is tested in CI, macOS is checked by hand, Windows is not tested. Each package README says what it reads, sends and starts.
 
 What I would like to hear: a bug, or a false positive from the guard. /guard check, /tier doctor and /ref doctor print what to paste into an issue.
 ```

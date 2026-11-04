@@ -33,7 +33,7 @@ Design notes go in `DESIGN.md`, terms in `GLOSSARY.md`, decisions in `docs/adr/`
 | `homepage`, `bugs` | the package folder, the repository issues | npm page links |
 | `publishConfig` | `access: public`, `provenance: true` | Scoped packages are private by default; provenance ties each release to its commit and workflow |
 | `engines.node` | the root's value (`>=22.19.0`, pi's own floor), which the `floor` CI job tests on exactly | A package never claims support for a Node version nothing tests |
-| Platforms | Linux (every CI job) and macOS (`macos.yml`: the real-TUI suites and the tarball smoke) | Windows is not tested and not supported; each README says to use WSL. The manifests carry no `os` field, because it blocks the install outright and the claim is already in the README |
+| Platforms | Linux (every CI job); macOS only when someone starts `macos.yml` by hand (the real-TUI suites and the tarball smoke) | Windows is not tested and not supported; each README says to use WSL. The manifests carry no `os` field, because it blocks the install outright and the claim is already in the README |
 | `files` | everything published, and nothing else | The pack snapshot shows every change to this list |
 | `pi` | `extensions` (and `skills`, `prompts`, `themes`), optional `image`, `video` | pi loads these entries; the gallery shows the image or video |
 | `peerDependencies` | `@earendil-works/*` as `PI_PEER_RANGE` (`>=1.4.0 <2`), `typebox` as `"*"` | pi supplies them at runtime; a second copy breaks `instanceof` checks and typebox schemas. The range is the one CI tests (its floor and the newest release inside it), so it never promises a pi nothing has run against |
