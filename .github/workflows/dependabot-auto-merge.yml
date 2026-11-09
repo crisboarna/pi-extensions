@@ -1,0 +1,55 @@
+# Lets a Dependabot pull request merge itself once every required check is green, for the updates scripts/lib/dependabot-policy.ts allows (Actions and
+# Docker updates that are not majors; development-only npm patches, and minors of packages at 1.0 or later). Everything else stays open for the maintainer.
+#
+# It only turns on GitHub's auto-merge. The merge itself waits for the required checks of the `main` ruleset, so a red check still blocks it, and this
+# workflow cannot merge a pull request whose checks have not passed. It needs the repository setting "Allow auto-merge" (docs/repository-settings.md).
+#
+# It runs on `pull_request`, never on the privileged variant that checks out the base branch with secrets: the workflow file comes from the pull request, which only Dependabot can open here, and the
+# policy code is checked out from the default branch, never from the pull request. The author of the pull request is the test, not the actor of the
+# event, because zizmor (rightly) calls an actor check spoofable.
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: enable auto-merge
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # enabling auto-merge asks GitHub to merge the branch later
+      pull-requests: write # enabling auto-merge is a change to the pull request
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }} # the policy is the one on main, not whatever the pull request carries
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - id: metadata
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
+
+      - id: policy
+        name: Decide from what the pull request updates
+        env:
+          DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: node scripts/dependabot-auto-merge.ts
+
+      - name: Enable auto-merge by squash
+        if: steps.policy.outputs.allowed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
