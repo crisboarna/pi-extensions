@@ -1,6 +1,6 @@
 # @crisboarna/pi-account-guard
 
-[![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-account-guard)](https://www.npmjs.com/package/@crisboarna/pi-account-guard) [![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-account-guard%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-account-guard/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/banner-dark.png">
@@ -71,12 +71,14 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 - [Headless use](docs/headless.md): exit code 77, the process override and RPC.
 - [With other extensions](docs/with-other-extensions.md): claude-bridge, pi-multi-pass, pooled providers and pi-switchboard.
 - [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
+- [Benchmarks](docs/benchmarks.md): what loading the package adds to pi's start, measured and charted.
+- [Alternatives](docs/alternatives.md): other extensions that protect a session in a nearby way, and when to choose them.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - [DESIGN.md](DESIGN.md), [GLOSSARY.md](GLOSSARY.md) and the [decision records](docs/adr/).
 
 ## Requirements
 
-Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What the guard does | Exit code |
 |---|---|---|

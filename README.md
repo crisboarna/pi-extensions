@@ -11,6 +11,10 @@ Extensions for the [pi](https://pi.dev) coding agent: pi-switchboard routes ever
 
 **[The site](https://crisboarna.github.io/pi-extensions/)** has each package's docs, its demo video, an explainer that runs the package's own code on your config, and a live demo: real pi and the extension in a container in your browser.
 
+**Benchmarks:** what each package adds to pi's start, measured and charted: [pi-switchboard](packages/pi-switchboard/docs/benchmarks.md), [pi-account-guard](packages/pi-account-guard/docs/benchmarks.md), [pi-context-refs](packages/pi-context-refs/docs/benchmarks.md).
+
+**Alternatives:** other extensions that overlap, and when to choose them: [pi-switchboard](packages/pi-switchboard/docs/alternatives.md), [pi-account-guard](packages/pi-account-guard/docs/alternatives.md), [pi-context-refs](packages/pi-context-refs/docs/alternatives.md).
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/hero-dark.png">
   <img alt="Three real pi sessions: pi-switchboard moves a subagent to the next account after a usage limit, pi-account-guard blocks a work account in a personal repository before the turn is sent, and pi-context-refs lists saved refs when you type #." src="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/media/hero-light.png">

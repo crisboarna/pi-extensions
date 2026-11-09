@@ -18,23 +18,28 @@ import { type Comparison, compareTimings, median, type Thresholds } from "./lib/
 const PI_CLI = join(ROOT, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
 const WARMUP = 2;
 const REPEATS_PER_ROUTE_SAMPLE = 200;
+const CALIBRATION_CASES = (
+	JSON.parse(readFileSync(join(ROOT, "packages", "pi-switchboard", "test", "fixtures", "h2o-calibration.json"), "utf8")) as { cases: unknown[] }
+).cases.length;
 
 interface Bench {
 	package: string;
 	name: string;
 	method: string;
 	thresholds: Thresholds;
+	/** How many decisions one sample covers, when it is a batch of them; the page for the benchmark divides by it. */
+	perSample?: number;
 	/** One timing, in milliseconds, of the tree at `root`. */
 	run(root: string): Promise<number>;
 }
 
 /** Real pi, started on an empty agent directory with this package's extension loaded, until it answers `get_commands`. */
-function loadTime(root: string, packageDir: string): Promise<number> {
+function loadTime(root: string, packageDir: string | undefined): Promise<number> {
 	return new Promise((resolveTime, reject) => {
 		const home = mkdtempSync(join(tmpdir(), "bench-"));
-		const extension = join(root, "packages", packageDir, "src", "index.ts");
+		const extensionArguments = packageDir === undefined ? [] : ["-e", join(root, "packages", packageDir, "src", "index.ts")];
 		const started = performance.now();
-		const child = spawn(process.execPath, [PI_CLI, "--mode", "rpc", "--no-session", "--offline", "-ne", "-e", extension], {
+		const child = spawn(process.execPath, [PI_CLI, "--mode", "rpc", "--no-session", "--offline", "-ne", ...extensionArguments], {
 			cwd: home,
 			env: { ...process.env, HOME: home, PI_CODING_AGENT_DIR: join(home, "agent"), PI_OFFLINE: "1" },
 			stdio: ["pipe", "pipe", "pipe"],
@@ -43,7 +48,7 @@ function loadTime(root: string, packageDir: string): Promise<number> {
 		let stderr = "";
 		const timer = setTimeout(() => {
 			child.kill();
-			reject(new Error(`${packageDir}: pi did not answer get_commands in 60 s\n${stderr}`));
+			reject(new Error(`${packageDir ?? "pi alone"}: pi did not answer get_commands in 60 s\n${stderr}`));
 		}, 60_000);
 		child.stderr.on("data", (data) => {
 			stderr += data;
@@ -104,6 +109,13 @@ async function routeTime(root: string): Promise<number> {
 }
 
 const BENCHES: Bench[] = [
+	{
+		package: "pi",
+		name: "baseline",
+		method: "Real pi in RPC mode on an empty agent directory with no extension loaded; wall time from spawn to the get_commands answer. What each package's load time is read against.",
+		thresholds: { alpha: 0.01, minSlowdown: 0.25, minAbsolute: 25 },
+		run: (root: string) => loadTime(root, undefined),
+	},
 	...listPackages()
 		.filter(({ manifest }) => manifest.private !== true)
 		.map(({ dir }) => ({
@@ -118,6 +130,7 @@ const BENCHES: Bench[] = [
 		name: "route",
 		method: `Rule evaluation of the 24 calibration requests, ${REPEATS_PER_ROUTE_SAMPLE} times over, in one process.`,
 		thresholds: { alpha: 0.01, minSlowdown: 0.25, minAbsolute: 0.3 },
+		perSample: CALIBRATION_CASES * REPEATS_PER_ROUTE_SAMPLE,
 		run: routeTime,
 	},
 ];
@@ -247,6 +260,7 @@ for (const bench of BENCHES.filter(
 		unit: "ms",
 		method: bench.method,
 		samples: timings.head,
+		...(bench.perSample === undefined ? {} : { perSample: bench.perSample }),
 		environment,
 		commit,
 		date,
@@ -256,10 +270,10 @@ for (const bench of BENCHES.filter(
 	if (options.write) {
 		const folder = join(options.write, bench.package, bench.name);
 		mkdirSync(folder, { recursive: true });
-		const { schema, package: pkg, name, unit, method, samples, environment: env, commit: sha, date: day } = record;
+		const { schema, package: pkg, name, unit, method, samples, perSample, environment: env, commit: sha, date: day } = record;
 		writeFileSync(
 			join(folder, "results.json"),
-			`${JSON.stringify({ schema, package: pkg, name, unit, method, samples, environment: env, commit: sha, date: day }, null, "\t")}\n`,
+			`${JSON.stringify({ schema, package: pkg, name, unit, method, samples, ...(perSample === undefined ? {} : { perSample }), environment: env, commit: sha, date: day }, null, "\t")}\n`,
 		);
 	}
 }

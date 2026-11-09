@@ -285,5 +285,82 @@
 		"find": "if (!Array.isArray(value) || value.length === 0) throw",
 		"replace": "if (!Array.isArray(value)) throw",
 		"tests": ["test/verify-published.test.ts"]
+	},
+	{
+		"id": "chart-axis-not-from-zero",
+		"file": "tools/charts/render.ts",
+		"find": "for (let tick = 0; tick <= max; tick += step) {",
+		"replace": "for (let tick = step; tick <= max; tick += step) {",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "chart-drops-first-sample",
+		"file": "tools/charts/render.ts",
+		"find": "row.samples.forEach((sample, position) => {",
+		"replace": "row.samples.slice(1).forEach((sample, position) => {",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "chart-text-not-escaped",
+		"file": "tools/charts/render.ts",
+		"find": "text.replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\")",
+		"replace": "text.replace(/</g, \"&lt;\")",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "page-calls-noise-an-effect",
+		"file": "scripts/lib/benchmark-pages.ts",
+		"find": "added > spread / 2",
+		"replace": "added > spread / 1000",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "page-negative-cost",
+		"file": "scripts/lib/benchmark-pages.ts",
+		"find": "ms(Math.max(0, added))",
+		"replace": "ms(added)",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "page-per-decision-unit",
+		"file": "scripts/lib/benchmark-pages.ts",
+		"find": "route.perSample) * 1000).toFixed(2)",
+		"replace": "route.perSample) * 100).toFixed(2)",
+		"tests": ["test/charts.test.ts"]
+	},
+	{
+		"id": "site-benchmark-charts-not-copied",
+		"file": "tools/site/build.ts",
+		"find": "(media|docs\\/benchmarks)",
+		"replace": "(media)",
+		"tests": ["test/site.test.ts"]
+	},
+	{
+		"id": "alternatives-age-stale-limit",
+		"file": "scripts/comparison-age.ts",
+		"find": "days > MAX_AGE_DAYS",
+		"replace": "days > MAX_AGE_DAYS * 100",
+		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-pi-host-guard",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (PI_HOST_PATTERNS.some(",
+		"replace": "if (false && PI_HOST_PATTERNS.some(",
+		"tests": ["test/dependabot-policy.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-major-guard",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (dep.updateType === MAJOR) return no(",
+		"replace": "if (false && dep.updateType === MAJOR) return no(",
+		"tests": ["test/dependabot-policy.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-zero-point-minor",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (major !== undefined && major >= 1)",
+		"replace": "if (major !== undefined && major >= 0)",
+		"tests": ["test/dependabot-policy.test.ts"]
 	}
 ]

@@ -2,7 +2,7 @@
 // (every possible split of the ranks, enumerated) for the p value, tabulated normal values for the cdf, and invented timings whose answer is known.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { compareTimings, mannWhitneyU, median, normalCdf } from "../scripts/lib/stats.ts";
+import { compareTimings, mannWhitneyU, median, normalCdf, quantile } from "../scripts/lib/stats.ts";
 
 /** The exact two-sided p of the rank test for samples with no ties: the share of all ways to choose the first sample's ranks that are at least as far from the mean. */
 function exactP(a: number[], b: number[]): number {
@@ -53,6 +53,25 @@ describe("median", () => {
 
 	test("is not moved by one extreme value, which is why the gate uses it", () => {
 		assert.equal(median([10, 11, 10, 12, 11, 10_000]), 11);
+	});
+});
+
+describe("quantile", () => {
+	test("is the median at one half, the ends at 0 and 1, and interpolates between ranks", () => {
+		const values = [10, 20, 30, 40, 50];
+		assert.equal(quantile(values, 0.5), median(values));
+		assert.equal(quantile(values, 0), 10);
+		assert.equal(quantile(values, 1), 50);
+		assert.equal(quantile(values, 0.1), 14);
+		assert.equal(quantile(values, 0.9), 46);
+		assert.equal(quantile([4, 1, 3, 2], 0.5), 2.5);
+	});
+
+	test("clamps a share outside 0 to 1, takes the one value of a single value, and is NaN for none", () => {
+		assert.equal(quantile([1, 2, 3], -1), 1);
+		assert.equal(quantile([1, 2, 3], 2), 3);
+		assert.equal(quantile([7], 0.9), 7);
+		assert.ok(Number.isNaN(quantile([], 0.5)));
 	});
 });
 
