@@ -341,5 +341,26 @@
 		"find": "days > MAX_AGE_DAYS",
 		"replace": "days > MAX_AGE_DAYS * 100",
 		"tests": ["test/alternatives.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-pi-host-guard",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (PI_HOST_PATTERNS.some(",
+		"replace": "if (false && PI_HOST_PATTERNS.some(",
+		"tests": ["test/dependabot-policy.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-major-guard",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (dep.updateType === MAJOR) return no(",
+		"replace": "if (false && dep.updateType === MAJOR) return no(",
+		"tests": ["test/dependabot-policy.test.ts"]
+	},
+	{
+		"id": "dependabot-policy-zero-point-minor",
+		"file": "scripts/lib/dependabot-policy.ts",
+		"find": "if (major !== undefined && major >= 1)",
+		"replace": "if (major !== undefined && major >= 0)",
+		"tests": ["test/dependabot-policy.test.ts"]
 	}
 ]
