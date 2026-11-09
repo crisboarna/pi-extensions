@@ -1,6 +1,6 @@
 # @crisboarna/pi-context-refs
 
-[![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-context-refs/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-context-refs)](https://www.npmjs.com/package/@crisboarna/pi-context-refs) [![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-context-refs%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-context-refs/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-context-refs/media/banner-dark.png">
@@ -75,6 +75,8 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 - [docs/commands.md](docs/commands.md): every `/ref` command and key.
 - [docs/configuration.md](docs/configuration.md): the library files, the fields of a ref, the settings and which ref wins.
 - [docs/upgrading.md](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
+- [docs/benchmarks.md](docs/benchmarks.md): what loading the package adds to pi's start, measured and charted.
+- [docs/alternatives.md](docs/alternatives.md): other extensions that touch the same job, and when to choose them.
 - [docs/headless.md](docs/headless.md): print, JSON and RPC mode, failures and approvals without a UI.
 - [docs/with-other-extensions.md](docs/with-other-extensions.md): the editor, the message and the transcript beside other extensions.
 - [docs/privacy.md](docs/privacy.md): what leaves your machine, what an approval does not cover, and where the guards stop.
@@ -87,7 +89,7 @@ Limits, the order in which refs win, scopes and every field of a ref are in [doc
 
 ## Requirements
 
-Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What works | What does not |
 |---|---|---|

@@ -1,6 +1,6 @@
 # @crisboarna/pi-switchboard
 
-[![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
+[![npm](https://img.shields.io/npm/v/@crisboarna/pi-switchboard)](https://www.npmjs.com/package/@crisboarna/pi-switchboard) [![ci](https://img.shields.io/github/actions/workflow/status/crisboarna/pi-extensions/main.yml?branch=main&label=ci)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fcoverage.json)](https://github.com/crisboarna/pi-extensions/actions/workflows/main.yml) [![pi](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fpi.json)](https://pi.dev) [![node](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fnode.json)](https://nodejs.org) [![runtime dependencies](https://img.shields.io/endpoint?url=https%3A%2F%2Fcrisboarna.github.io%2Fpi-extensions%2Fbadges%2Fpi-switchboard%2Fdependencies.json)](https://github.com/crisboarna/pi-extensions/blob/main/packages/pi-switchboard/package.json) [![scorecard](https://api.scorecard.dev/projects/github.com/crisboarna/pi-extensions/badge)](https://scorecard.dev/viewer/?uri=github.com/crisboarna/pi-extensions) [![license](https://img.shields.io/github/license/crisboarna/pi-extensions)](LICENSE)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-switchboard/media/banner-dark.png">
@@ -109,12 +109,14 @@ A trusted project may add or adjust profiles in `.pi/pi-switchboard.json`; it ca
 - [Footer](docs/footer.md): the powerline items and placeholders.
 - [Inspector, replay and report](docs/inspector.md): the HTML inspector and the `pi-switchboard` CLI.
 - [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
+- [Benchmarks](docs/benchmarks.md): what loading the package adds to pi's start and how long a routing decision takes, measured and charted.
+- [Alternatives](docs/alternatives.md): other routers and failover tools, and when to choose them.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - Design of record: [DESIGN.md](DESIGN.md), terms: [GLOSSARY.md](GLOSSARY.md), decisions: [docs/adr/](docs/adr/).
 
 ## Requirements
 
-Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What works | What does not |
 |---|---|---|

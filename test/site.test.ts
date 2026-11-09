@@ -169,6 +169,15 @@ describe("the family site", () => {
 		}
 	});
 
+	it("serves the benchmark charts each package's page shows", () => {
+		for (const pkg of sitePackages()) {
+			const page = readFileSync(join(out, pkg.folder, "docs", "benchmarks.html"), "utf8");
+			const charts = [...page.matchAll(/src="(benchmarks\/[^"]+\.svg)"/g)].map((match) => match[1] ?? "");
+			assert.ok(charts.length >= 1, `${pkg.folder}: its benchmarks page shows a chart from this site, not a link to GitHub`);
+			for (const chart of charts) assert.ok(existsSync(join(out, pkg.folder, "docs", chart)), `${pkg.folder}: ${chart} is in the build`);
+		}
+	});
+
 	it("lists in the sitemap exactly the pages that were built", () => {
 		const listed = [...readFileSync(join(out, "sitemap.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]).sort();
 		assert.deepEqual(listed, builtPages().map(pageUrl).sort());

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 258" width="760" height="258" role="img" aria-labelledby="chart-title chart-desc" font-family='"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif'>
+<title id="chart-title">Time for pi to answer get_commands</title>
+<desc id="chart-desc">30 runs each. The tick is the median; the band is the 10th to 90th percentile. pi alone: median 117.5 ms. pi with pi-account-guard: median 133.5 ms.</desc>
+<rect width="760" height="258" rx="12" fill="#1a2431"/>
+<text x="24" y="34" font-size="18" font-weight="600" fill="#f1e6cf">Time for pi to answer get_commands</text>
+<text x="24" y="56" font-size="13" fill="#9aa7b5">30 runs each. The tick is the median; the band is the 10th to 90th percentile.</text>
+<line x1="230.0" y1="72" x2="230.0" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="230.0" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">0</text>
+<line x1="292.5" y1="72" x2="292.5" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="292.5" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">20</text>
+<line x1="355.0" y1="72" x2="355.0" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="355.0" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">40</text>
+<line x1="417.5" y1="72" x2="417.5" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="417.5" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">60</text>
+<line x1="480.0" y1="72" x2="480.0" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="480.0" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">80</text>
+<line x1="542.5" y1="72" x2="542.5" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="542.5" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">100</text>
+<line x1="605.0" y1="72" x2="605.0" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="605.0" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">120</text>
+<line x1="667.5" y1="72" x2="667.5" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="667.5" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">140</text>
+<line x1="730.0" y1="72" x2="730.0" y2="202" stroke="#33414f" stroke-width="1"/>
+<text x="730.0" y="228" font-size="12" text-anchor="middle" fill="#9aa7b5">160</text>
+<text x="730" y="250" font-size="12" text-anchor="end" fill="#9aa7b5">ms, from starting pi</text>
+<text x="24" y="105.0" font-size="14" fill="#f1e6cf">pi alone</text>
+<text x="24" y="124.0" font-size="12" fill="#9aa7b5">median 117.5 ms</text>
+<rect x="593.9" y="94.0" width="11.1" height="30" rx="4" fill="#8a9bb0" fill-opacity="0.18"/>
+<circle cx="600.9" cy="99.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="604.1" cy="113.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="608.0" cy="105.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="602.0" cy="119.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="598.4" cy="111.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.8" cy="103.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.9" cy="117.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="597.5" cy="109.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="595.1" cy="101.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="593.9" cy="115.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="595.2" cy="107.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.6" cy="99.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="599.5" cy="113.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.9" cy="105.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.1" cy="119.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.5" cy="111.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="596.7" cy="103.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="597.6" cy="117.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="593.0" cy="109.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="591.4" cy="101.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="605.0" cy="115.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="593.0" cy="107.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="597.2" cy="99.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="604.9" cy="113.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="595.2" cy="105.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="600.4" cy="119.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="594.5" cy="111.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="597.4" cy="103.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="604.8" cy="117.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<circle cx="605.6" cy="109.0" r="2.6" fill="#8a9bb0" fill-opacity="0.85"/>
+<line x1="597.0" y1="90.0" x2="597.0" y2="128.0" stroke="#f1e6cf" stroke-width="2.5" stroke-linecap="round"/>
+<text x="24" y="167.0" font-size="14" fill="#f1e6cf">pi with pi-account-guard</text>
+<text x="24" y="186.0" font-size="12" fill="#9aa7b5">median 133.5 ms</text>
+<rect x="643.7" y="156.0" width="7.8" height="30" rx="4" fill="#c9a34e" fill-opacity="0.18"/>
+<circle cx="644.0" cy="161.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="657.5" cy="175.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="643.8" cy="167.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="650.8" cy="181.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="648.8" cy="173.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="645.2" cy="165.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="654.9" cy="179.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="643.6" cy="171.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="645.2" cy="163.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="647.7" cy="177.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="644.5" cy="169.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="655.2" cy="161.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="650.9" cy="175.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="647.4" cy="167.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="645.7" cy="181.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="650.6" cy="173.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="650.1" cy="165.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="642.5" cy="179.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="648.1" cy="171.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="645.1" cy="163.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="643.7" cy="177.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="647.0" cy="169.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="643.8" cy="161.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="646.0" cy="175.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="651.2" cy="167.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="647.1" cy="181.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="649.6" cy="173.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="648.6" cy="165.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="648.5" cy="179.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<circle cx="644.7" cy="171.0" r="2.6" fill="#c9a34e" fill-opacity="0.85"/>
+<line x1="647.3" y1="152.0" x2="647.3" y2="190.0" stroke="#f1e6cf" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

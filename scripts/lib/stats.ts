@@ -8,6 +8,16 @@ export function median(values: readonly number[]): number {
 	return sorted.length % 2 === 1 ? (sorted[middle] as number) : ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2;
 }
 
+/** The value below which a share `q` (0 to 1) of the values lie, by linear interpolation between the two nearest ranks; NaN for no values. */
+export function quantile(values: readonly number[], q: number): number {
+	if (values.length === 0) return Number.NaN;
+	const sorted = [...values].sort((a, b) => a - b);
+	const position = Math.min(1, Math.max(0, q)) * (sorted.length - 1);
+	const below = Math.floor(position);
+	const above = Math.ceil(position);
+	return (sorted[below] as number) + ((sorted[above] as number) - (sorted[below] as number)) * (position - below);
+}
+
 /** The complementary error function, to a relative error under 1.2e-7 everywhere (Numerical Recipes, erfcc). */
 function erfc(x: number): number {
 	const z = Math.abs(x);
