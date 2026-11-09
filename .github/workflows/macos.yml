@@ -1,22 +1,11 @@
 # The real-TUI suites and the tarball smoke on macOS, where terminals, paths and shells differ from the Linux runners everything else uses:
 # /var is a symlink to /private/var, the file system ignores case, git and sed are the BSD builds, and the runners are slower.
-# Targeted on purpose: it runs on every push to main, and on a pull request only when the change can reach those differences. Not a
-# required check: a path-filtered workflow that does not run leaves a required check pending forever, so it would block every other pull
-# request. Windows is not tested and not supported; the READMEs say to use WSL.
+# Switched off for push and pull request runs: it runs only when started by hand (Actions, "Run workflow"). Not a required check, so
+# turning it off blocks nothing. To bring it back, restore the push and pull_request triggers (the history of this file has them).
+# Windows is not tested and not supported; the READMEs say to use WSL.
 name: macOS
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-    paths:
-      - "packages/*/src/**"
-      - "packages/*/test/support/**"
-      - "packages/*/test/tui/**"
-      - "scripts/smoke-pack.ts"
-      - "package-lock.json"
-      - ".github/workflows/macos.yml"
   workflow_dispatch:
     inputs:
       soak:

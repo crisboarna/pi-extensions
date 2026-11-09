@@ -72,12 +72,13 @@ The full format, validation and the JSON Schema are in [configuration](docs/conf
 - [With other extensions](docs/with-other-extensions.md): claude-bridge, pi-multi-pass, pooled providers and pi-switchboard.
 - [Upgrading](docs/upgrading.md): what an upgrade keeps and how a breaking change is announced.
 - [Benchmarks](docs/benchmarks.md): what loading the package adds to pi's start, measured and charted.
+- [Alternatives](docs/alternatives.md): other extensions that protect a session in a nearby way, and when to choose them.
 - [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md).
 - [DESIGN.md](DESIGN.md), [GLOSSARY.md](GLOSSARY.md) and the [decision records](docs/adr/).
 
 ## Requirements
 
-Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux and macOS are tested; Windows is not, so use WSL.
+Node 22.19 or later; pi 1.4 up to, not including, 2.0, the range CI tests. Linux is tested in CI; macOS is checked by hand, not in CI; Windows is not tested, so use WSL.
 
 | How pi runs | What the guard does | Exit code |
 |---|---|---|
