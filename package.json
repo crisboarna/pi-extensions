@@ -52,7 +52,7 @@
 		"prepare": "husky"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.2",
+		"@biomejs/biome": "2.6.3",
 		"@changesets/changelog-github": "1.0.1",
 		"@changesets/cli": "3.0.3",
 		"@earendil-works/pi-agent-core": "1.4.0",
@@ -68,9 +68,9 @@
 		"husky": "9.1.7",
 		"jiti": "2.7.0",
 		"markdownlint-cli2": "0.24.0",
-		"marked": "18.1.1",
-		"pi-powerline-footer": "0.20.2",
-		"pi-subagents": "0.81.0",
+		"marked": "18.1.2",
+		"pi-powerline-footer": "0.21.0",
+		"pi-subagents": "0.83.0",
 		"typebox": "1.4.2",
 		"typescript": "7.0.2"
 	},
