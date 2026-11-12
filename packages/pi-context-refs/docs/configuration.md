@@ -36,13 +36,13 @@ Relative paths in either library resolve against the directory pi started in, an
 | `url` | `dynamic` | A plain `GET` over `http` or `https`; up to five redirects |
 | `cwd` | `dynamic` command | Where it runs; defaults to the directory pi started in. Inside the project for a Project library ref |
 | `max_bytes` | `file` | The most bytes to send. Default 50 KB, at most 1 MB |
-| `timeout` | `dynamic` | Seconds before it is stopped. Default 10, at most 120 |
+| `timeout` | `dynamic` | Seconds before the command and every process it started are stopped. Default 10, at most 120 |
 | `max_output` | `dynamic` | The most output to send. Default 50 KB, at most 1 MB |
 | `description` | all | Shown in the list |
 | `tags` | all | `#tag:<tag>` sends every visible ref with that tag |
 | `scope` | Global library | Where the ref appears: `path` (a directory means its subtree, otherwise a glob) and/or `remote` (a git remote of the repository, as `host/path`). With both, both must match |
 
-A command inherits pi's environment and has no `env` field. A command that exits non-zero is not a failure: its output is used and the exit code appears in the block. A command that cannot start, times out, is denied, or prints binary output is a failure. A cut at a limit is marked in the Expansion.
+A command inherits pi's environment and has no `env` field. A command that exits non-zero is not a failure: its output is used and the exit code appears in the block. A command that cannot start, times out, is denied, or prints binary output is a failure. A command that times out, is cancelled with Esc, or writes past `max_output` is stopped together with every process it started; a command that exits by itself leaves its background processes running. A cut at a limit is marked in the Expansion.
 
 ## Settings
 
