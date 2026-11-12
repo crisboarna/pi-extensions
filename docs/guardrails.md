@@ -82,7 +82,7 @@ Tools that are not npm packages of this repository (knip, gitleaks, actionlint, 
 | Dependency review | CI (PR), public repository only | New dependencies with known vulnerabilities or licences outside the allow-list |
 | Dependabot with a 7-day cooldown | weekly | Stale dependencies and actions, without jumping on brand-new releases |
 | Dependabot auto-merge (`dependabot-auto-merge.yml`, policy in `scripts/lib/dependabot-policy.ts`) | each Dependabot pull request | Green updates that cannot change what users get or which pi is tested merge themselves once the required checks pass: Actions and Docker updates that are not majors, and development-only npm patches and minors of packages at 1.0 or later. The `pi-host` group, majors, 0.x minors, runtime dependencies and anything the policy cannot read stay open for the maintainer |
-| gitleaks (in Docker) | C (staged changes) P CI (whole history) | Committed secrets. Deliberate fakes in tests are allow-listed narrowly in `.gitleaks.toml` |
+| gitleaks (in Docker) | C (staged changes) P CI (whole history) | Committed secrets. Deliberate fakes in tests are allow-listed narrowly in `.gitleaks.toml`. In a linked worktree the main repository's `.git` is mounted too, so the scan sees the commits |
 | actionlint and zizmor (pedantic), in Docker | P CI | Broken workflows and workflow security mistakes (template injection, excessive or undocumented permissions, credential persistence, cache poisoning, impostor commits when online) |
 | Actions pinned to full commit SHAs | CI | A moved tag changing the code a workflow runs |
 | `permissions: {}` by default, per-job grants | CI R | Workflows holding more token scope than a job needs |
