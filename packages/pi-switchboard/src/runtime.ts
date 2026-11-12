@@ -26,6 +26,7 @@ import {
 	type ProfileSnapshotEntry,
 } from "./record/types.ts";
 import { ExhaustedError, type LeaseRef, type ModelChoice, type RouterState, SwitchboardEngine } from "./router/engine.ts";
+import { listenForMembers } from "./router/members.ts";
 import {
 	agentFromMessages,
 	catalogView,
@@ -119,6 +120,7 @@ export class Runtime {
 	/** pi-usage quota, refreshed in the background for providers a quota strategy needs. */
 	readonly usage: UsageCache;
 	private stopUsageListener?: (() => void) | undefined;
+	private stopMembersResponder?: (() => void) | undefined;
 
 	private debugLog?: DebugLog | undefined;
 	/** Set in subagent children: publishes live status and the transcript mirror. */
@@ -260,6 +262,13 @@ export class Runtime {
 			})),
 		);
 		this.startUsage();
+		this.stopMembersResponder?.();
+		this.stopMembersResponder = listenForMembers(this.pi.events, {
+			config: () => this.config,
+			active: (id) => !this.blocked && this.registered.has(id),
+			subscriptions: () => readMultiPassSubscriptions(this.agentDir),
+			isProvider: (name) => this.ctx?.modelRegistry.getProvider(name) !== undefined,
+		});
 		await this.setupChildren(ctx);
 		this.setupLive(ctx);
 		this.setupAccountAffinity(ctx);
@@ -731,6 +740,7 @@ export class Runtime {
 	shutdown(): void {
 		this.stopUsageListener?.();
 		this.stopUsageListener = undefined;
+		this.stopMembersResponder?.();
 		this.engine.endRequest();
 		for (const leases of this.launchLeases.values()) for (const lease of leases) this.engine.releaseLease(lease);
 		this.launchLeases.clear();

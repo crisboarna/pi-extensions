@@ -185,6 +185,8 @@ All virtual models are registered in the extension factory, from config loaded s
 
 Profile and tier names must match `[a-z0-9][a-z0-9-]*`. `/reload` re-registers them after a config change.
 
+**Members for other extensions.** pi-switchboard answers `switchboard:members:v1` on pi's event bus with every physical model a virtual model can route to: each enabled member of its profile (of every profile for `auto`), across all tiers, plus the account siblings that failover or subagent account affinity can reach. pi-account-guard checks each one's account before a turn starts. The answer is given during `emit` from the live config; a failure is answered as `{ error }`, never thrown. Decision recorded in ADR-0004 (`src/router/members.ts`).
+
 ### 4.6 Leaving and re-entering routing
 
 A `model_select` to a physical model with source `set` or `cycle` ends routing: the footer shows `switchboard off`, and the selected physical model is remembered as the origin model. Selecting the virtual model again resumes routing with the session's last router state. A `restore` (session resume) to the virtual model resumes silently.
