@@ -28,6 +28,15 @@ describe("/tier inspect", () => {
 		assert.match(html, /scan the repo/u);
 	});
 
+	it("writes the session text through the redactor it is given", () => {
+		const dir = mkdtempSync(join(tmpdir(), "switchboard-inspect-"));
+		const entries = [{ type: "message", timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: "fix /home/alice/app" } }];
+		const out = writeInspector({ entries, sessionId: "s", dataDir: dir, redact: createRedactor({ home: "/home/alice" }) });
+		const html = readFileSync(out, "utf8");
+		assert.match(html, /fix ~\/app/u);
+		assert.doesNotMatch(html, /\/home\/alice/u);
+	});
+
 	it("honours an explicit output path", () => {
 		const dir = mkdtempSync(join(tmpdir(), "switchboard-inspect-"));
 		const out = join(dir, "nested", "report.html");

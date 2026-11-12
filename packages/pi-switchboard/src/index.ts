@@ -4,6 +4,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { mergeProposal, proposeConfig } from "./autotier/propose.ts";
 import { textOf } from "./classifier/evidence.ts";
 import { isLocalClassifier } from "./classifier/pi-adapter.ts";
+import { createRedactor } from "./classifier/redact.ts";
 import { doctorLines, gatherDoctorFacts } from "./commands/doctor.ts";
 import { runEval } from "./commands/eval.ts";
 import { openFile, writeInspector } from "./commands/inspect.ts";
@@ -50,6 +51,7 @@ export default function switchboard(pi: ExtensionAPI): void {
 				sessionId: ctx.sessionManager.getSessionId(),
 				...(sessionFile ? { sessionFile } : {}),
 				dataDir: runtime.dir,
+				redact: createRedactor({ home: runtime.home, extra: runtime.config.classification.evidence.redact }),
 				...(outIndex >= 0 && args[outIndex + 1] ? { out: args[outIndex + 1] as string } : {}),
 			});
 			const opened = args.includes("--open") ? await openFile(out) : undefined;

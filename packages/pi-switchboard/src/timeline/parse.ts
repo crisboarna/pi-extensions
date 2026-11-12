@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { createRedactor, type Redactor } from "../classifier/redact.ts";
 import type { MirrorLine } from "../live/live.ts";
 import { DECISION_TYPE, type DecisionEntry, LINK_TYPE, type LinkEntry, PROFILE_TYPE, type ProfileSnapshotEntry } from "../record/types.ts";
 
@@ -76,6 +77,10 @@ function num(value: unknown): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function toolRecord(message: Record<string, unknown>, ts: string, redact: Redactor): ToolRecord {
+	return { ts, name: String(message.toolName ?? "tool"), isError: message.isError === true, preview: redact(text(message.content)).slice(0, 300) };
+}
+
 export function readEntries(file: string): Entry[] {
 	const out: Entry[] = [];
 	for (const line of readFileSync(file, "utf8").split("\n")) {
@@ -93,11 +98,19 @@ export function readEntries(file: string): Entry[] {
  * Turns a pi session (JSONL) into tasks: each user message with its routing
  * decisions, model requests (tokens, cost, switches), tool calls and the
  * subagent runs it launched, parsed recursively when their files exist.
+ * Request text, provider errors and tool output are redacted before they are
+ * cut, with `redact` (the default rules when it is not given).
  */
 export function buildTimeline(
 	entries: readonly Entry[],
-	options: { file?: string; depth?: number; childMirror?: (link: { decisionId: string; runId?: string; sessionFile?: string }) => Timeline | undefined } = {},
+	options: {
+		file?: string;
+		depth?: number;
+		redact?: Redactor;
+		childMirror?: (link: { decisionId: string; runId?: string; sessionFile?: string }) => Timeline | undefined;
+	} = {},
 ): Timeline {
+	const redact = options.redact ?? createRedactor();
 	const tasks: Task[] = [];
 	const profiles: ProfileSnapshotEntry[] = [];
 	const links = new Map<string, { runId?: string; sessionFile?: string }>();
@@ -156,7 +169,7 @@ export function buildTimeline(
 			current = {
 				index: tasks.length + 1,
 				ts,
-				request: text(message.content).slice(0, 2000),
+				request: redact(text(message.content)).slice(0, 2000),
 				decisions: [...pendingDecisions],
 				requests: [],
 				tools: [],
@@ -179,7 +192,7 @@ export function buildTimeline(
 				model: String(message.model ?? ""),
 				...(typeof message.thinkingLevel === "string" ? { thinking: message.thinkingLevel } : {}),
 				...(typeof message.stopReason === "string" ? { stopReason: message.stopReason } : {}),
-				...(typeof message.errorMessage === "string" ? { error: message.errorMessage.slice(0, 300) } : {}),
+				...(typeof message.errorMessage === "string" ? { error: redact(message.errorMessage).slice(0, 300) } : {}),
 				input: num(usage.input),
 				output: num(usage.output),
 				cacheRead: num(usage.cacheRead),
@@ -199,12 +212,7 @@ export function buildTimeline(
 			continue;
 		}
 		if (role === "toolResult") {
-			ensureTask(ts).tools.push({
-				ts,
-				name: String(message.toolName ?? "tool"),
-				isError: message.isError === true,
-				preview: text(message.content).slice(0, 300),
-			});
+			ensureTask(ts).tools.push(toolRecord(message, ts, redact));
 		}
 	}
 	if (pendingDecisions.length && current) current.decisions.push(...pendingDecisions);
@@ -219,6 +227,7 @@ export function buildTimeline(
 				child.timeline = buildTimeline(readEntries(link.sessionFile), {
 					file: link.sessionFile,
 					depth: depth + 1,
+					redact,
 					...(options.childMirror ? { childMirror: options.childMirror } : {}),
 				});
 			} else if (options.childMirror) {
