@@ -17,6 +17,7 @@ src/core/footer.ts
 src/core/glob.ts
 src/core/guard-command.ts
 src/core/known-accounts.ts
+src/core/members.ts
 src/core/messages.ts
 src/core/mid-turn.ts
 src/core/multi-pass.ts
@@ -40,6 +41,7 @@ src/pi/git.ts
 src/pi/handler-errors.ts
 src/pi/hooks.ts
 src/pi/interactive-block.ts
+src/pi/members.ts
 src/pi/mid-turn-block.ts
 src/pi/model-guard.ts
 src/pi/place-zone-commands.ts

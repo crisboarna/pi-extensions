@@ -47,6 +47,7 @@ src/record/describe.ts
 src/record/footer.ts
 src/record/types.ts
 src/router/engine.ts
+src/router/members.ts
 src/router/pi-glue.ts
 src/router/profiles.ts
 src/rules/builtin.ts
