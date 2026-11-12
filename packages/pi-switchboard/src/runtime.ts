@@ -33,7 +33,6 @@ import {
 	engineCatalog,
 	estimateTokens,
 	queryPlanPhase,
-	type RegistryLike,
 	StateFile,
 	virtualModelIds,
 } from "./router/pi-glue.ts";
@@ -169,10 +168,10 @@ export class Runtime {
 			config: this.config,
 			missingConfig: this.missingConfig,
 			catalog: {
-				find: (provider, id) => (this.ctx ? engineCatalog(this.ctx.modelRegistry as unknown as RegistryLike).find(provider, id) : undefined),
+				find: (provider, id) => (this.ctx ? engineCatalog(this.ctx.modelRegistry).find(provider, id) : undefined),
 				hasAuth: (provider) => (this.ctx ? this.ctx.modelRegistry.getProviderAuthStatus(provider).configured : true),
 				isProvider: (name) => (this.ctx ? this.ctx.modelRegistry.getProvider(name) !== undefined : false),
-				subscription: (provider) => (this.ctx ? engineCatalog(this.ctx.modelRegistry as unknown as RegistryLike).subscription(provider) : false),
+				subscription: (provider) => (this.ctx ? engineCatalog(this.ctx.modelRegistry).subscription(provider) : false),
 			},
 			store: this.store,
 			classify: createClassifyFn(() => this.ctx),
@@ -212,7 +211,7 @@ export class Runtime {
 				id,
 				name,
 				thinkingLevels: VIRTUAL_THINKING,
-				route: (request, ctx) => this.route(id, request as unknown as RouteRequestLike, ctx),
+				route: (request, ctx) => this.route(id, request, ctx),
 			});
 		}
 	}
@@ -230,7 +229,7 @@ export class Runtime {
 			agentDir: this.agentDir,
 			cwd: ctx.cwd,
 			projectTrusted: ctx.isProjectTrusted(),
-			catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike),
+			catalog: catalogView(ctx.modelRegistry),
 		});
 		this.config = loaded.config;
 		this.missingConfig = loaded.missing;

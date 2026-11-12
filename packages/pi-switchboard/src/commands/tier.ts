@@ -2,7 +2,7 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "../config/load.ts";
 import { explain, responseCount, summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
-import { catalogView, type RegistryLike } from "../router/pi-glue.ts";
+import { catalogView } from "../router/pi-glue.ts";
 import type { Runtime } from "../runtime.ts";
 import { liveLeases } from "../selection/health.ts";
 
@@ -222,7 +222,7 @@ export function registerTierCommand(runtime: Runtime, handlers: CommandHandlers 
 						agentDir: runtime.agentDir,
 						cwd: ctx.cwd,
 						projectTrusted: ctx.isProjectTrusted(),
-						catalog: catalogView(ctx.modelRegistry as unknown as RegistryLike),
+						catalog: catalogView(ctx.modelRegistry),
 					});
 					const invalid = Object.entries(loaded.config.invalidProfiles);
 					show(ctx, [

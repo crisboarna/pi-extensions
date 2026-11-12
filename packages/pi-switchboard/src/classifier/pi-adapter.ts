@@ -1,6 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ClassifierProviderConfig } from "../config/types.ts";
-import type { Answers } from "../rules/types.ts";
 import { parseModelRef } from "../util/model-ref.ts";
 import type { ClassifyFn } from "./chain.ts";
 import { toWireQuestions } from "./questions.ts";
@@ -57,7 +56,7 @@ export function createClassifyFn(getContext: () => ExtensionContext | undefined)
 		);
 		return {
 			stopReason: result.stopReason,
-			...(result.answers ? { answers: result.answers as unknown as Answers } : {}),
+			...(result.answers ? { answers: result.answers } : {}),
 			...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
 			...(result.usage ? { usage: { input: result.usage.input, output: result.usage.output, cost: { total: result.usage.cost.total } } } : {}),
 		};
