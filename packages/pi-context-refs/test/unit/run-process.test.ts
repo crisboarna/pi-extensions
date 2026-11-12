@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { describe, it } from "node:test";
 import type { CommandRequest } from "../../src/core/dynamic.ts";
 import { runProcess } from "../../src/pi/run-process.ts";
@@ -69,6 +70,101 @@ describe("runProcess", () => {
 		setTimeout(() => controller.abort(), 100);
 		assert.equal((await running).killed, true);
 		assert.equal((await runProcess(node("setTimeout(() => {}, 60000)", { signal: AbortSignal.abort() }), noProblem)).killed, true);
+	});
+
+	describe("the processes a command started", () => {
+		// The command starts one child that writes its pid and then sleeps. `ignoreTerm` makes that child survive SIGTERM.
+		const withChild = (rest: string, ignoreTerm = false) =>
+			`const c = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(
+				`${ignoreTerm ? "process.on('SIGTERM', () => {}); " : ""}setTimeout(() => {}, 60000)`,
+			)}], { stdio: 'ignore' }); c.unref(); require('node:fs').writeSync(1, String(c.pid) + '\\n'); ${rest}`;
+		const childPid = (stdout: string): number => Number(stdout.split("\n")[0]);
+		const goneWithin = async (pid: number, ms: number): Promise<boolean> => {
+			const deadline = Date.now() + ms;
+			while (Date.now() < deadline) {
+				if (!alive(pid)) return true;
+				await new Promise((settle) => setTimeout(settle, 25));
+			}
+			return !alive(pid);
+		};
+		const reap = (pid: number) => {
+			try {
+				process.kill(pid, "SIGKILL");
+			} catch {
+				// Already gone.
+			}
+		};
+
+		it("are stopped with the command at its timeout", async () => {
+			const result = await runProcess(node(withChild("setTimeout(() => {}, 60000)"), { timeoutMs: 300 }), noProblem);
+			const pid = childPid(result.stdout);
+			assert.equal(result.killed, true);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} outlived the timeout`);
+			reap(pid);
+		});
+
+		it("are stopped with the command when the signal aborts", async () => {
+			const controller = new AbortController();
+			const running = runProcess(node(withChild("setTimeout(() => {}, 60000)"), { signal: controller.signal }), noProblem);
+			setTimeout(() => controller.abort(), 300);
+			const result = await running;
+			const pid = childPid(result.stdout);
+			assert.equal(result.killed, true);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} outlived the abort`);
+			reap(pid);
+		});
+
+		it("are stopped with a command that writes past the cap", async () => {
+			const result = await runProcess(node(withChild("setInterval(() => process.stdout.write('x'.repeat(65536)), 0)")), noProblem);
+			const pid = childPid(result.stdout);
+			assert.equal(result.overflow, true);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} outlived the overflow`);
+			reap(pid);
+		});
+
+		it("are stopped even when they ignore SIGTERM and the command does not", async () => {
+			const result = await runProcess(node(withChild("setTimeout(() => {}, 60000)", true), { timeoutMs: 300 }), noProblem);
+			const pid = childPid(result.stdout);
+			assert.equal(result.killed, true);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} survived SIGTERM and was never sent SIGKILL`);
+			reap(pid);
+		});
+
+		it("are stopped with SIGKILL when the command itself ignores SIGTERM", async () => {
+			const result = await runProcess(node(withChild("process.on('SIGTERM', () => {}); setTimeout(() => {}, 60000)"), { timeoutMs: 300 }), noProblem);
+			const pid = childPid(result.stdout);
+			assert.equal(result.killed, true);
+			assert.equal(result.code, 137);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} outlived the SIGKILL`);
+			reap(pid);
+		});
+
+		it("are stopped when pi exits while the command is still running", async () => {
+			// A host process starts a long command, prints the command's child pid, and exits without stopping it.
+			const runner = new URL("../../src/pi/run-process.ts", import.meta.url).href;
+			const host = `import { execFileSync } from "node:child_process";
+				import { runProcess } from ${JSON.stringify(runner)};
+				const script = ${JSON.stringify(withChild("setTimeout(() => {}, 60000)"))};
+				runProcess({ name: "t", argv: [process.execPath, "-e", script], cwd: process.cwd(), timeoutMs: 0, maxOutputBytes: 1000 }, () => undefined);
+				setTimeout(() => {
+					const command = execFileSync("pgrep", ["-P", String(process.pid)]).toString().trim();
+					process.stdout.write(execFileSync("pgrep", ["-P", command]).toString().trim());
+					process.exit(0);
+				}, 500);`;
+			const out = execFileSync(process.execPath, ["--input-type=module", "-e", host]).toString();
+			const pid = Number(out.trim());
+			assert.ok(pid > 0, `host printed ${JSON.stringify(out)}`);
+			assert.equal(await goneWithin(pid, 2000), true, `child ${pid} outlived pi`);
+			reap(pid);
+		});
+
+		it("are left running when the command finishes by itself", async () => {
+			const result = await runProcess(node(withChild("")), noProblem);
+			const pid = childPid(result.stdout);
+			assert.equal(result.killed, false);
+			assert.equal(alive(pid), true, "a command that exits normally keeps the processes it started");
+			reap(pid);
+		});
 	});
 
 	it("rejects with the reason a program cannot start", async () => {
