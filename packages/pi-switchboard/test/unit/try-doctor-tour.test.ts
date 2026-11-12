@@ -257,9 +257,21 @@ describe("/tier doctor", () => {
 	});
 
 	it("treats a missing pi-subagents as information, not a warning", () => {
-		const lines = doctorLines({ ...healthy, subagents: { enabled: true, launchModeReason: "pi-subagents is not installed" } });
+		const lines = doctorLines({
+			...healthy,
+			subagents: {
+				enabled: true,
+				launchModeReason: "pi-subagents is not installed",
+				searched: ["/p/.pi/npm/node_modules/pi-subagents", "/a/npm/node_modules/pi-subagents"],
+			},
+		});
 		assert.equal(lines[0], "pi-switchboard doctor: everything looks right");
-		assert.ok(lines.includes("✓ pi-subagents is not installed; subagents are routed once it is"));
+		assert.ok(
+			lines.includes(
+				"✓ pi-subagents is not installed; subagents are routed once it is (looked in /p/.pi/npm/node_modules/pi-subagents and /a/npm/node_modules/pi-subagents; a global npm or git install is not found)",
+			),
+			lines.join("\n"),
+		);
 	});
 
 	it("covers no classifiers, subagents off and no quota strategies", () => {

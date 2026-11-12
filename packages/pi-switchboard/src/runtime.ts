@@ -106,6 +106,8 @@ export class Runtime {
 	private childRegistration?: RequiredRegistration | undefined;
 	/** Why subagent launches use physical models instead of tier-pinned virtual ones. */
 	launchModeReason?: string;
+	/** Where pi-subagents was looked for, when it was not found. */
+	subagentsSearched?: string[];
 	private readonly launches = new Map<string, DecisionEntry[]>();
 	/** Recent launch decisions; the navigator joins running children to them. The engine's own recent list stays main-session routing. */
 	readonly launchDecisions: DecisionEntry[] = [];
@@ -275,7 +277,10 @@ export class Runtime {
 			this.launchModeReason = "subagents.mode is launch";
 			return;
 		}
-		const { registration, reason } = await registerChildExtension(this.agentDir, ctx.sessionManager.getSessionId(), this.entryPath);
+		const lookup = { agentDir: this.agentDir, cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() };
+		const { registration, reason, searched } = await registerChildExtension(lookup, ctx.sessionManager.getSessionId(), this.entryPath);
+		if (searched) this.subagentsSearched = searched;
+		else delete this.subagentsSearched;
 		if (registration) {
 			this.childRegistration = registration;
 			delete this.launchModeReason;

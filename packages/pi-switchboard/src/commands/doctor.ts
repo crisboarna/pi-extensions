@@ -25,7 +25,7 @@ export interface DoctorFacts {
 	}>;
 	routingSelected: boolean;
 	blocked?: string | undefined;
-	subagents: { enabled: boolean; launchModeReason?: string | undefined };
+	subagents: { enabled: boolean; launchModeReason?: string | undefined; searched?: string[] | undefined };
 	footer: boolean;
 	/** classification.decisionBudgetMs: how long one decision may take before the fallback tier is used. */
 	decisionBudgetMs: number;
@@ -89,8 +89,12 @@ function sessionLines(facts: DoctorFacts, out: Lines): void {
 	if (facts.routingSelected) out.ok.push("✓ a switchboard model is selected");
 	else out.warn.push("! not routing: pick switchboard/auto (or switchboard/<profile>) in /model");
 	if (!facts.subagents.enabled) out.ok.push("✓ subagent routing is off (subagents.enabled is false)");
-	else if (facts.subagents.launchModeReason === PI_SUBAGENTS_MISSING) out.ok.push("✓ pi-subagents is not installed; subagents are routed once it is");
-	else if (facts.subagents.launchModeReason) out.warn.push(`! subagents use launch-time models: ${facts.subagents.launchModeReason}`);
+	else if (facts.subagents.launchModeReason === PI_SUBAGENTS_MISSING) {
+		const searched = facts.subagents.searched?.length
+			? ` (looked in ${facts.subagents.searched.join(" and ")}; a global npm or git install is not found)`
+			: "";
+		out.ok.push(`✓ pi-subagents is not installed; subagents are routed once it is${searched}`);
+	} else if (facts.subagents.launchModeReason) out.warn.push(`! subagents use launch-time models: ${facts.subagents.launchModeReason}`);
 	else out.ok.push("✓ subagents are routed inside their children");
 	if (facts.footer) out.ok.push("✓ the footer shows the tier");
 	else
@@ -223,7 +227,7 @@ export async function gatherDoctorFacts(runtime: Runtime, ctx: ExtensionContext,
 		classifiers,
 		routingSelected: runtime.routingSelected,
 		blocked: runtime.blocked,
-		subagents: { enabled: config.subagents.enabled, launchModeReason: runtime.launchModeReason },
+		subagents: { enabled: config.subagents.enabled, launchModeReason: runtime.launchModeReason, searched: runtime.subagentsSearched },
 		footer: footerShowsTier(settings),
 		decisionBudgetMs: config.classification.decisionBudgetMs,
 		quotaProviders: quotaProviders(Object.values(config.profiles)),

@@ -26,6 +26,8 @@ With [pi-subagents](https://www.npmjs.com/package/pi-subagents) installed, every
 
 `/tier doctor` says which mode is active and why.
 
+pi-switchboard finds pi-subagents where `pi install` puts it: in the project's `.pi/npm` when the project is trusted, then in the agent directory's `npm`. pi-subagents installed from git or into the global npm root is not found, and subagents are not routed; `/tier doctor` lists the paths it checked.
+
 ## Accounts
 
 `subagents.accountAffinity: "parent"` (default) runs a child on the account the parent last used for that provider, when the same model exists there. `"none"` lets the child's strategy choose freely.

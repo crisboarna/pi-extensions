@@ -6,10 +6,26 @@ import type { PinInfo, PinLookup } from "./launch.ts";
 /** Why subagents are not routed when pi-subagents is absent; `/tier doctor` tells it apart from real problems. */
 export const PI_SUBAGENTS_MISSING = "pi-subagents is not installed";
 
-/** pi-subagents' package root under pi's npm directory, if installed. */
-export function subagentsRoot(agentDir: string): string | undefined {
-	const root = join(agentDir, "npm", "node_modules", "pi-subagents");
-	return existsSync(join(root, "package.json")) ? root : undefined;
+/** What decides where pi installed pi-subagents. */
+export interface SubagentsLookup {
+	agentDir: string;
+	cwd: string;
+	/** pi installs and loads project packages only in a trusted project. */
+	projectTrusted: boolean;
+}
+
+/**
+ * Where pi installs pi-subagents from npm, in the order this looks: the project's `.pi/npm` when the project is trusted, then the agent
+ * directory's `npm`. pi's legacy global npm root and git installs are not looked in: finding them means running npm.
+ */
+export function subagentsPaths({ agentDir, cwd, projectTrusted }: SubagentsLookup): string[] {
+	const user = join(agentDir, "npm", "node_modules", "pi-subagents");
+	return projectTrusted ? [join(cwd, ".pi", "npm", "node_modules", "pi-subagents"), user] : [user];
+}
+
+/** pi-subagents' package root, if it is installed in one of `subagentsPaths`. */
+export function subagentsRoot(lookup: SubagentsLookup): string | undefined {
+	return subagentsPaths(lookup).find((root) => existsSync(join(root, "package.json")));
 }
 
 async function importExport(root: string, name: string): Promise<Record<string, unknown> | undefined> {
@@ -36,12 +52,12 @@ export interface RequiredRegistration {
  * reason when that is not possible, so launches fall back to physical models.
  */
 export async function registerChildExtension(
-	agentDir: string,
+	lookup: SubagentsLookup,
 	sessionId: string,
 	entryPath: string,
-): Promise<{ registration?: RequiredRegistration; reason?: string }> {
-	const root = subagentsRoot(agentDir);
-	if (!root) return { reason: PI_SUBAGENTS_MISSING };
+): Promise<{ registration?: RequiredRegistration; reason?: string; searched?: string[] }> {
+	const root = subagentsRoot(lookup);
+	if (!root) return { reason: PI_SUBAGENTS_MISSING, searched: subagentsPaths(lookup) };
 	const api = await importExport(root, "required-child-extensions");
 	const register = api?.registerRequiredChildExtensions;
 	if (typeof register !== "function") return { reason: "this pi-subagents version has no required child extensions" };
@@ -72,7 +88,7 @@ export function runnerOf(filePath: string | undefined): "native" | "external" {
  * fails, so the caller treats the agent as pinned.
  */
 export async function createPinLookup(agentDir: string, cwd: string, projectTrusted: boolean): Promise<PinLookup> {
-	const root = subagentsRoot(agentDir);
+	const root = subagentsRoot({ agentDir, cwd, projectTrusted });
 	const api = root ? await importExport(root, "preflight") : undefined;
 	const resolve = api?.resolveSubagentLaunchContract;
 	if (typeof resolve !== "function") return async () => "unknown";
