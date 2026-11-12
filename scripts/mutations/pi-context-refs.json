@@ -82,5 +82,47 @@
 		"find": ".replace(/\\p{Cc}/gu, \" \")",
 		"replace": ".replace(/$^/gu, \" \")",
 		"tests": ["packages/pi-context-refs/test/integration/hostile-library.test.ts"]
+	},
+	{
+		"id": "project-command-runs-without-approval",
+		"file": "packages/pi-context-refs/src/core/expand.ts",
+		"find": "(env.layers !== undefined && layer !== \"project\")) continue;",
+		"replace": "true) continue;",
+		"tests": ["packages/pi-context-refs/test/unit/expand.test.ts"]
+	},
+	{
+		"id": "project-ref-leaves-the-project",
+		"file": "packages/pi-context-refs/src/core/confine.ts",
+		"find": "\tif (isInside(root, real)) return undefined;\n\treturn {\n\t\tfield: target.field,",
+		"replace": "\treturn undefined;\n\treturn {\n\t\tfield: target.field,",
+		"tests": ["packages/pi-context-refs/test/unit/confine.test.ts"]
+	},
+	{
+		"id": "confinement-ignores-symlinks",
+		"file": "packages/pi-context-refs/src/core/confine.ts",
+		"find": "const real = resolveThroughSymlinks(resolve(env.cwd, expandHome(target.path, env.home)), env, 0);",
+		"replace": "const real: string | undefined = resolve(env.cwd, expandHome(target.path, env.home));",
+		"tests": ["packages/pi-context-refs/test/unit/confine.test.ts"]
+	},
+	{
+		"id": "redirect-to-a-local-address-allowed",
+		"file": "packages/pi-context-refs/src/pi/fetch.ts",
+		"find": "if (isLocalHost(next.hostname)) throw",
+		"replace": "if (false) throw",
+		"tests": ["packages/pi-context-refs/test/unit/fetch.test.ts"]
+	},
+	{
+		"id": "approval-hash-ignores-cwd",
+		"file": "packages/pi-context-refs/src/core/approval.ts",
+		"find": "? { source: \"command\", argv: definition.argv, cwd: definition.cwd }",
+		"replace": "? { source: \"command\", argv: definition.argv }",
+		"tests": ["packages/pi-context-refs/test/unit/approval.test.ts"]
+	},
+	{
+		"id": "https-to-http-redirect-allowed",
+		"file": "packages/pi-context-refs/src/pi/fetch.ts",
+		"find": "if (from?.protocol === \"https:\" && next.protocol === \"http:\") throw",
+		"replace": "if (false) throw",
+		"tests": ["packages/pi-context-refs/test/unit/fetch.test.ts"]
 	}
 ]
