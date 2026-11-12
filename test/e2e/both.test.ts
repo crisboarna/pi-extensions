@@ -128,6 +128,12 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 		assert.match(blockTitle(blocked.pi, from) ?? "", /^BLOCKED +beta \(fallback\) is zone work/u, explain("no Block select"));
 		assert.deepEqual(blocked.requests(), [], explain("a stand-in model was asked"));
 		assert.deepEqual(classifier.requests, [], explain("the classifier was asked"));
+
+		const checked = await open("member-check", personal);
+		const text = await checked.pi.command("/guard check here");
+		assert.match(text, /^ Members +alpha\/\S+: alpha \(fallback\) -> personal +✓ Match$/mu, explain(text));
+		assert.match(text, /^ +beta\/\S+: beta \(fallback\) -> work +✗ no Match$/mu, explain(text));
+		assert.match(text, /^ Verdict +a turn here would be blocked: beta \(fallback\) is zone work, this place is personal$/mu, explain(text));
 	});
 
 	it("exits with 77 and the reason on stderr for a blocked `pi -p`, and sends nothing", async () => {

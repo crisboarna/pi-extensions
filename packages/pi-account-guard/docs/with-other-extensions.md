@@ -16,7 +16,7 @@ A provider id that pools several accounts gets a warning in the tag prompt: tag 
 
 ## Virtual routing models
 
-such as `switchboard/auto` are checked through the models behind them. pi-switchboard lists every model a virtual model can route to, including the account siblings failover can move to, and the guard checks each one's account: a turn runs only when every one of them is in the place's zone. The Block names the member that is not, so you tag that account, not `switchboard/auto`. A router that does not list its members is checked as one account, tagged like any other; tag it only with zones in which every possible member is allowed.
+such as `switchboard/auto` are checked through the models behind them. pi-switchboard lists every model a virtual model can route to, including the account siblings failover can move to, and the guard checks each one's account: a turn runs only when every one of them is in the place's zone. The Block names the member that is not, so you tag that account, not `switchboard/auto`. `/guard check here` lists every member with its account before you send a turn. A router that does not list its members is checked as one account, tagged like any other; tag it only with zones in which every possible member is allowed.
 
 ![With pi-switchboard, a turn on switchboard/auto in a personal place is blocked because its deep tier runs on openai, an account tagged work; the Block names that member and the footer reads guard personal ✗ openai is work](https://raw.githubusercontent.com/crisboarna/pi-extensions/main/packages/pi-account-guard/media/with-switchboard.gif)
 

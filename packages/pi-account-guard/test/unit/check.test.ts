@@ -70,3 +70,63 @@ describe("/guard check text", () => {
 		);
 	});
 });
+
+describe("/guard check text for a virtual model whose router lists its members", () => {
+	const virtual = { provider: "switchboard", source: "env:virtual" };
+	const spare = { provider: "spare", source: "oauth" };
+	const tagged = {
+		...config,
+		accounts: [
+			{ ...acme, zones: ["work"] },
+			{ ...spare, zones: ["personal"] },
+		],
+	};
+	const member = (provider: string, account: typeof acme | undefined) => ({ ref: { provider, id: "mid" }, account });
+
+	it("lists each member with its account and decides on all of them", () => {
+		const text = checkText({ ...context, place: work, account: virtual, config, members: { status: "members", members: [member("acme", acme)] } });
+		assert.equal(
+			text,
+			[
+				"guard check (nothing is written)",
+				" Place     ~/work/api -> work (rule 1: remote */acme-corp/*)",
+				" Account   switchboard (env:virtual) -> unknown  ? Unknown (no zone tag)",
+				" Members   acme/mid: acme (env:ACME_KEY) -> work  ✓ Match",
+				" Verdict   a turn here would go",
+			].join("\n"),
+		);
+	});
+
+	it("names the member whose account is in another zone", () => {
+		const text = checkText({
+			...context,
+			place: work,
+			account: virtual,
+			config: tagged,
+			members: { status: "members", members: [member("acme", acme), member("spare", spare)] },
+		});
+		assert.match(text, /Members {3}acme\/mid: acme \(env:ACME_KEY\) -> work {2}✓ Match\n {11}spare\/mid: spare \(oauth\) -> personal {2}✗ no Match/u);
+		assert.match(text, /Verdict {3}a turn here would be blocked: spare \(oauth\) is zone personal, this place is work$/u);
+	});
+
+	it("blocks on a member pi does not list, and on a router that cannot list its members", () => {
+		const unlisted = checkText({
+			...context,
+			place: work,
+			account: virtual,
+			config,
+			members: { status: "members", members: [member("ghost", undefined)] },
+		});
+		assert.match(unlisted, /Members {3}ghost\/mid: not listed by pi {2}! cannot decide/u);
+		assert.match(unlisted, /Verdict {3}a turn here would be blocked: switchboard routes to ghost\/mid, which pi does not list$/u);
+		const invalid = checkText({
+			...context,
+			place: work,
+			account: virtual,
+			config,
+			members: { status: "invalid", reason: "switchboard could not list its members: config is invalid" },
+		});
+		assert.match(invalid, /Members {3}unknown \(switchboard could not list its members: config is invalid\)/u);
+		assert.match(invalid, /Verdict {3}a turn here would be blocked: switchboard could not list its members: config is invalid$/u);
+	});
+});
