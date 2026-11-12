@@ -83,7 +83,7 @@ function run(check: string, root: string, ...args: string[]): { ok: boolean; out
 }
 
 describe("every gate passes a clean tree", () => {
-	for (const check of ["manifests", "imports", "copies", "tui-coverage", "text", "file-sizes", "links", "licenses"]) {
+	for (const check of ["manifests", "imports", "copies", "casts", "tui-coverage", "text", "file-sizes", "links", "licenses"]) {
 		test(check, () => {
 			const result = run(check, repo());
 			assert.ok(result.ok, result.output);
@@ -194,6 +194,27 @@ describe("copies", () => {
 		assert.ok(!result.ok);
 		assert.match(result.output, /test\/support\/virtual-terminal\.ts: the copy in pi-third is not the copy in pi-demo, pi-other\n/);
 		assert.match(result.output, /How to fix/);
+	});
+});
+
+describe("casts", () => {
+	test("fails a double cast in published code and names the file and line", () => {
+		const result = run(
+			"casts",
+			repo({ "packages/pi-demo/src/helper.ts": "export function helper(value: string): number {\n\treturn value as unknown as number;\n}\n" }),
+		);
+		assert.ok(!result.ok);
+		assert.match(result.output, /packages\/pi-demo\/src\/helper\.ts:2: `as unknown as`/);
+		assert.match(result.output, /How to fix/);
+	});
+	test("fails one in bin/ too, across a line break", () => {
+		const result = run("casts", repo({ "packages/pi-demo/bin/cli.mjs": "const n = value as\n\tunknown as number;\n" }));
+		assert.ok(!result.ok);
+		assert.match(result.output, /packages\/pi-demo\/bin\/cli\.mjs:1:/);
+	});
+	test("allows one in tests, where a fake stands in for pi", () => {
+		const result = run("casts", repo({ "packages/pi-demo/test/fake.test.ts": "const ctx = {} as unknown as Context;\n" }));
+		assert.ok(result.ok, result.output);
 	});
 });
 

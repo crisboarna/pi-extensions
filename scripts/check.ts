@@ -13,6 +13,7 @@ const GATES = [
 	{ name: "manifests", fast: true, command: node("scripts/checks/manifests.ts") },
 	{ name: "imports", fast: true, command: node("scripts/checks/imports.ts") },
 	{ name: "copies", fast: true, command: node("scripts/checks/copies.ts") },
+	{ name: "casts", fast: true, command: node("scripts/checks/casts.ts") },
 	{ name: "tui-coverage", fast: true, command: node("scripts/checks/tui-coverage.ts") },
 	{ name: "text", fast: true, command: node("scripts/checks/text.ts") },
 	{ name: "file-sizes", fast: true, command: node("scripts/checks/file-sizes.ts") },
