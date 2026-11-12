@@ -1,12 +1,15 @@
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { createRedactor } from "../classifier/redact.ts";
 import { responseCount, summarize } from "../record/describe.ts";
 import { DECISION_TYPE, type DecisionEntry } from "../record/types.ts";
 import { liveChildMirror, liveDirOf } from "../timeline/mirror.ts";
 import { aggregate, readEntries, type Timeline, timelineFromFile } from "../timeline/parse.ts";
 import { renderInspector } from "./inspector.ts";
 
+/** Session files hold raw text; the CLI masks secrets and the home directory in everything it prints or writes. */
+const redact = createRedactor({ home: homedir() });
 /** Subagent transcript mirrors live next to the other pi-switchboard data. */
 const childMirror = () => liveChildMirror(liveDirOf(join(homedir(), ".pi", "agent", "pi-switchboard")));
 
@@ -107,7 +110,7 @@ export async function main(argv: string[]): Promise<number> {
 	switch (command) {
 		case "replay": {
 			if (!file) break;
-			const timeline = timelineFromFile(resolve(file), { childMirror: childMirror() });
+			const timeline = timelineFromFile(resolve(file), { childMirror: childMirror(), redact });
 			process.stdout.write(rest.includes("--json") ? `${JSON.stringify(timeline, null, 2)}\n` : `${formatReplay(timeline)}\n`);
 			if (rest.includes("--reclassify")) process.stdout.write(`${(await reclassify(resolve(file))).join("\n")}\n`);
 			return 0;
@@ -115,7 +118,7 @@ export async function main(argv: string[]): Promise<number> {
 		case "inspect": {
 			if (!file) break;
 			const out = resolve(flag("-o") ?? `${file.replace(/\.jsonl$/u, "")}.switchboard.html`);
-			writeFileSync(out, renderInspector(timelineFromFile(resolve(file), { childMirror: childMirror() })));
+			writeFileSync(out, renderInspector(timelineFromFile(resolve(file), { childMirror: childMirror(), redact })));
 			process.stdout.write(`${out}\n`);
 			return 0;
 		}
@@ -126,7 +129,7 @@ export async function main(argv: string[]): Promise<number> {
 			let cost = 0;
 			let files = 0;
 			for (const path of sessionFiles(dir, since)) {
-				const timeline = timelineFromFile(path);
+				const timeline = timelineFromFile(path, { redact });
 				if (timeline.totals.decisions === 0) continue;
 				files++;
 				cost += timeline.totals.cost;
