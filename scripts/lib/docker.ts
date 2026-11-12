@@ -7,8 +7,8 @@
 // directory between runs.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import { ROOT } from "./repo.ts";
 
 export interface DockerTool {
@@ -57,6 +57,24 @@ export function ensureImage(tool: DockerTool): string {
 		docker(["save", "--output", tarball, reference]);
 	}
 	return reference;
+}
+
+/**
+ * The volumes a tool that runs git needs beyond the repository at /repo. In a linked worktree `.git` is a file naming a
+ * directory inside the main repository's `.git`, at a host path the container cannot see; git then fails, and gitleaks
+ * scans 0 commits and reports no leaks. Mounting that `.git` read-only at the same path lets git resolve the pointer.
+ */
+export function gitMounts(root: string): string[] {
+	const dotGit = join(root, ".git");
+	if (!existsSync(dotGit) || statSync(dotGit).isDirectory()) return [];
+	const pointer = /^gitdir:\s*(.+?)\s*$/mu.exec(readFileSync(dotGit, "utf8"))?.[1];
+	if (!pointer) throw new Error(`${dotGit} names no git directory`);
+	const gitDir = isAbsolute(pointer) ? pointer : resolve(root, pointer);
+	if (!existsSync(gitDir)) throw new Error(`${dotGit} names ${gitDir}, which does not exist`);
+	const commonFile = join(gitDir, "commondir");
+	const common = existsSync(commonFile) ? resolve(gitDir, readFileSync(commonFile, "utf8").trim()) : gitDir;
+	const dirs = gitDir.startsWith(`${common}/`) || gitDir === common ? [common] : [common, gitDir];
+	return dirs.map((dir) => `${dir}:${dir}:ro`);
 }
 
 export interface RunOptions {
