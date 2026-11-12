@@ -33,5 +33,47 @@
 		"find": "if (!allowed.includes(field))",
 		"replace": "if (false)",
 		"tests": ["packages/pi-account-guard/test/integration/hostile-config.test.ts"]
+	},
+	{
+		"id": "before-agent-start-lets-a-blocked-turn-run",
+		"file": "packages/pi-account-guard/src/pi/model-guard.ts",
+		"find": "if (!blocked) return;\n\t\t\tctx.abort();\n\t\t\treleaseOnceGrant(ctx);\n\t\t\tpi.appendEntry(\"guard.block\", logData(blocked.cause, blocked.place));\n\t\t\tif (ctx.hasUI) ctx.ui.notify(blockedBeforeSendNotice",
+		"replace": "if (!blocked) return;\n\t\t\treleaseOnceGrant(ctx);\n\t\t\tpi.appendEntry(\"guard.block\", logData(blocked.cause, blocked.place));\n\t\t\tif (ctx.hasUI) ctx.ui.notify(blockedBeforeSendNotice",
+		"tests": ["packages/pi-account-guard/test/integration/model-change.test.ts"]
+	},
+	{
+		"id": "allow-once-ignores-the-place",
+		"file": "packages/pi-account-guard/src/core/overrides.ts",
+		"find": " && overrides.once.placeId === placeId(place)",
+		"replace": "",
+		"tests": ["packages/pi-account-guard/test/unit/overrides.test.ts"]
+	},
+	{
+		"id": "session-override-covers-any-account",
+		"file": "packages/pi-account-guard/src/core/overrides.ts",
+		"find": "if (overrides.session && sameAccount(overrides.session.account, account))",
+		"replace": "if (overrides.session)",
+		"tests": ["packages/pi-account-guard/test/unit/overrides.test.ts"]
+	},
+	{
+		"id": "check-error-lets-the-turn-through",
+		"file": "packages/pi-account-guard/src/pi/hooks.ts",
+		"find": "\t\t} catch (error) {\n\t\t\treturn {\n\t\t\t\tdecision: { verdict: \"block\", cause: { kind: \"internal-error\"",
+		"replace": "\t\t} catch (error) {\n\t\t\tif (error) return undefined;\n\t\t\treturn {\n\t\t\t\tdecision: { verdict: \"block\", cause: { kind: \"internal-error\"",
+		"tests": ["packages/pi-account-guard/test/integration/fail-closed.test.ts"]
+	},
+	{
+		"id": "path-rule-matches-a-name-prefix",
+		"file": "packages/pi-account-guard/src/core/place.ts",
+		"find": "return (placePath) => placePath === base || placePath.startsWith(`${base}/`);",
+		"replace": "return (placePath) => placePath.startsWith(base);",
+		"tests": ["packages/pi-account-guard/test/unit/place.test.ts"]
+	},
+	{
+		"id": "git-failure-still-gives-a-zone",
+		"file": "packages/pi-account-guard/src/core/place.ts",
+		"find": "if (!known.ok) return { ok: false, reason: known.reason };",
+		"replace": "if (!known.ok) continue;",
+		"tests": ["packages/pi-account-guard/test/unit/place.test.ts"]
 	}
 ]

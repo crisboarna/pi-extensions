@@ -96,5 +96,19 @@
 		"find": "What kind of work does the latest request ask for?",
 		"replace": "What kind of work is asked for?",
 		"tests": ["packages/pi-switchboard/test/integration/classifier-contract.test.ts"]
+	},
+	{
+		"id": "remote-classifier-runs-without-allow-remote",
+		"file": "packages/pi-switchboard/src/classifier/chain.ts",
+		"find": "if (entry.remote && !entry.allowRemote) {",
+		"replace": "if (false) {",
+		"tests": ["packages/pi-switchboard/test/unit/classifier.test.ts"]
+	},
+	{
+		"id": "project-config-sets-classifiers",
+		"file": "packages/pi-switchboard/src/config/load.ts",
+		"find": "\"profileSelection\", \"subagents\"]);",
+		"replace": "\"profileSelection\", \"subagents\", \"classification\", \"classifiers\", \"classifierProviders\"]);",
+		"tests": ["packages/pi-switchboard/test/unit/config.test.ts"]
 	}
 ]
