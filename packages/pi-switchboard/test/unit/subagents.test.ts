@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -10,7 +10,7 @@ import type { Answers } from "../../src/rules/types.ts";
 import { MemoryHealthStore } from "../../src/selection/health.ts";
 import { attachBinding, BINDING_NAMESPACE, matchLaunch, readBinding, taskDigest } from "../../src/subagents/binding.ts";
 import { type LaunchContext, routeLaunch } from "../../src/subagents/launch.ts";
-import { runnerOf } from "../../src/subagents/pi-subagents.ts";
+import { PI_SUBAGENTS_MISSING, registerChildExtension, runnerOf, subagentsPaths, subagentsRoot } from "../../src/subagents/pi-subagents.ts";
 import { extractTasks, isAsyncLaunch, resultLinks } from "../../src/subagents/tasks.ts";
 import { seededRng } from "../../src/util/runtime.ts";
 
@@ -318,5 +318,45 @@ describe("launch bindings", () => {
 		assert.equal(matchLaunch(binding, "scout", "something else"), undefined, "ambiguous");
 		assert.equal(readBinding({}), undefined);
 		assert.equal(readBinding({ PI_SUBAGENT_EXTENSION_BINDINGS: "{bad" }), undefined);
+	});
+});
+
+describe("finding pi-subagents", () => {
+	/** An agent directory and a project, with pi-subagents installed where `where` says. */
+	function layout(where: ("user" | "project")[]) {
+		const base = mkdtempSync(join(tmpdir(), "switchboard-subagents-"));
+		const agentDir = join(base, "agent");
+		const cwd = join(base, "project");
+		const roots = { user: join(agentDir, "npm", "node_modules", "pi-subagents"), project: join(cwd, ".pi", "npm", "node_modules", "pi-subagents") };
+		mkdirSync(cwd, { recursive: true });
+		for (const scope of where) {
+			mkdirSync(roots[scope], { recursive: true });
+			writeFileSync(join(roots[scope], "package.json"), JSON.stringify({ name: "pi-subagents", version: "0.0.0-test" }));
+		}
+		return { agentDir, cwd, roots };
+	}
+
+	it("finds a user install in the agent directory", () => {
+		const { agentDir, cwd, roots } = layout(["user"]);
+		assert.equal(subagentsRoot({ agentDir, cwd, projectTrusted: false }), roots.user);
+	});
+
+	it("finds a project install when the project is trusted, before a user install", () => {
+		const { agentDir, cwd, roots } = layout(["user", "project"]);
+		assert.equal(subagentsRoot({ agentDir, cwd, projectTrusted: true }), roots.project);
+	});
+
+	it("ignores a project install in a project that is not trusted, as pi does", () => {
+		const { agentDir, cwd } = layout(["project"]);
+		assert.equal(subagentsRoot({ agentDir, cwd, projectTrusted: false }), undefined);
+	});
+
+	it("says where it looked when pi-subagents is missing", async () => {
+		const { agentDir, cwd, roots } = layout([]);
+		assert.deepEqual(subagentsPaths({ agentDir, cwd, projectTrusted: true }), [roots.project, roots.user]);
+		assert.deepEqual(subagentsPaths({ agentDir, cwd, projectTrusted: false }), [roots.user]);
+		const result = await registerChildExtension({ agentDir, cwd, projectTrusted: true }, "session", "/entry.ts");
+		assert.equal(result.reason, PI_SUBAGENTS_MISSING);
+		assert.deepEqual(result.searched, [roots.project, roots.user]);
 	});
 });
