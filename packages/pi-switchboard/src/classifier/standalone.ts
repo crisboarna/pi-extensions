@@ -1,4 +1,3 @@
-import type { Answers } from "../rules/types.ts";
 import type { ClassifyFn } from "./chain.ts";
 import { toWireQuestions } from "./questions.ts";
 import { classifySystemOne } from "./system-one.ts";
@@ -49,7 +48,7 @@ export function systemOneClassify(servers: readonly SystemOneServer[], fetcher?:
 		);
 		return {
 			stopReason: result.stopReason,
-			...(Object.keys(result.answers).length > 0 ? { answers: result.answers as unknown as Answers } : {}),
+			...(Object.keys(result.answers).length > 0 ? { answers: result.answers } : {}),
 			...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
 		};
 	};
