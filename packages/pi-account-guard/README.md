@@ -115,7 +115,7 @@ Known gaps in account identity, because detecting them needs secrets:
 - Re-login into the same provider id as a different human account, a direnv-swapped key under the same variable name, and an `auth.json` edit made outside pi (seen one refresh late).
 - A claude-bridge credential defined only in the `env` block of Claude Code's own `settings.json`.
 - Pooled providers: the guard only warns.
-- The real member behind a virtual model.
+- The members behind a virtual model whose router does not list them on the event bus. pi-switchboard lists them, and the guard checks each one's account ([with other extensions](docs/with-other-extensions.md)).
 
 Also: the place zone is cached at session start (a hand edit of `places` or a remote change needs `/reload`), and a rule written against a symlink alias of a directory does not match. See [DESIGN.md](DESIGN.md) sections 14 and 15.
 

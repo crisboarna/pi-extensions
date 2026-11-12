@@ -17,6 +17,8 @@ export interface GuardScene {
 	model: string;
 	/** Other extensions to load next to the guard. */
 	with?: Array<"switchboard" | "powerline">;
+	/** pi-switchboard's config, when it is loaded; defaults to SWITCHBOARD. */
+	switchboard?: Record<string, unknown>;
 	/** The guard's config; false for none (the defaults). */
 	config?: Record<string, unknown> | false;
 	/** Extra pi settings, such as powerline's customItems. */
@@ -73,6 +75,17 @@ const SWITCHBOARD = {
 	profileSelection: { default: "home" },
 };
 
+/** pi-switchboard with a deep tier on the work account (openai), next to the personal anthropic tier. */
+export const SWITCHBOARD_WITH_WORK_MEMBER = {
+	profiles: {
+		home: {
+			tiers: { light: { rank: 1, members: ["anthropic/claude-sonnet-5"] }, deep: { rank: 2, members: ["openai/gpt-5.5"] } },
+			fallbackTier: "light",
+		},
+	},
+	profileSelection: { default: "home" },
+};
+
 export const REPOSITORIES = {
 	work: { path: "work/payments-api", remote: "git@github.com:my-company/payments-api.git", file: "src/server.ts" },
 	personal: { path: "code/dotfiles", remote: "git@github.com:me/dotfiles.git", file: "install.sh" },
@@ -91,7 +104,7 @@ export default async function setup(item: { scene: string; variant?: string }) {
 	const home = createSceneHome(scene.settings ?? {});
 	home.write(".pi/agent/extensions/demo-accounts.js", providerExtension(llm.url, scene.bridge === true));
 	if (scene.config !== false) home.write(".pi/agent/account-guard.json", `${JSON.stringify(scene.config ?? CONFIG, null, 2)}\n`);
-	if (scene.with?.includes("switchboard")) home.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(SWITCHBOARD, null, "\t")}\n`);
+	if (scene.with?.includes("switchboard")) home.write(".pi/agent/pi-switchboard.json", `${JSON.stringify(scene.switchboard ?? SWITCHBOARD, null, "\t")}\n`);
 	for (const { path, remote, file } of Object.values(REPOSITORIES)) {
 		const dir = join(home.home, path);
 		home.write(`${path}/${file}`, file.endsWith(".sh") ? '#!/bin/sh\nln -sf "$PWD/home/.zshrc" ~/.zshrc\n' : "export const ready = true;\n");

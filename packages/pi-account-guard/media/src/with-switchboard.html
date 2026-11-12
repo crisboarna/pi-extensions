@@ -10,24 +10,17 @@
 </head>
 <body>
 <script>
-// pi-switchboard: switchboard/auto is one account, tagged like any other.
+// pi-switchboard: the guard checks the account of every model behind switchboard/auto.
 clip(async (stage) => {
-	stage.caption("With pi-switchboard, <b>switchboard/auto</b> is one account.", "with-switchboard");
+	stage.caption("With pi-switchboard, the guard checks <b>every model</b> behind switchboard/auto.", "with-switchboard");
 	await stage.type("what does install.sh do?");
 	await stage.press("Enter");
-	await stage.waitFor(/Which zones does switchboard/);
+	await stage.waitFor(/BLOCKED +openai \(env:OPENAI_API_KEY\) is zone work/);
 	await sleep(400);
-	stage.callout(/Which zones does switchboard/, "tag it only with zones where <b>every</b> model it can pick is allowed", { place: "above", last: true });
+	stage.callout(/BLOCKED +openai/, "the deep tier runs on the <b>work</b> account", { place: "below", last: true });
 	await sleep(3000);
 	stage.clear();
-	for (let i = 0; i < 4 && !stage.find(/> \[ \] personal/); i++) await stage.press("ArrowDown", { after: 300 });
-	await stage.press(" ", { after: 500 });
-	await stage.press("Enter");
-	await stage.waitFor(/login shell\./, { timeout: 15000 });
-	stage.caption("The guard checks the virtual model; switchboard picks the member behind it.", "with-switchboard");
-	await stage.command("/guard");
-	await stage.waitFor(/Account\s+switchboard \(env:virtual\) -> personal\s+✓ Match/);
-	stage.callout(/Account\s+switchboard \(env:virtual\) -> personal\s+✓ Match/, "one account, <b>Match</b>", { place: "right", last: true });
+	stage.caption("Blocked before the classifier or any model sees the prompt.", "with-switchboard");
 	await stage.still();
 	await sleep(3000);
 }, { title: "~/code/dotfiles — pi" });

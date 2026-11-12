@@ -17,6 +17,33 @@ describe("extension loaded through jiti", () => {
 		}
 	});
 
+	it("lists the models behind its virtual models for pi-account-guard, and stops answering at shutdown", async () => {
+		const { host, session } = await boot();
+		const ask = (provider: string, id: string) => {
+			const answers: unknown[] = [];
+			(host.pi.events as { emit(channel: string, data: unknown): void }).emit("switchboard:members:v1", {
+				provider,
+				id,
+				respond: (value: unknown) => answers.push(value) > 0,
+			});
+			return answers;
+		};
+		assert.deepEqual(ask("switchboard", "work.light"), [
+			{
+				members: [
+					{ provider: "acme", id: "small" },
+					{ provider: "acme", id: "mid" },
+					{ provider: "zen", id: "mid" },
+					{ provider: "acme", id: "big" },
+				],
+			},
+		]);
+		assert.deepEqual(ask("switchboard", "nope"), [], "not one of its models");
+		assert.deepEqual(ask("acme", "mid"), [], "a physical model");
+		await host.fire("session_shutdown", {}, session.ctx);
+		assert.deepEqual(ask("switchboard", "auto"), [], "nothing answers after shutdown");
+	});
+
 	it("stays inactive and explains why when there is no config", async () => {
 		const { host, session, route } = await boot({ config: { profiles: {}, profileSelection: {} } });
 		assert.match(session.statuses.get("tier") ?? "", /switchboard inactive/u);

@@ -54,6 +54,7 @@ export function attachDialogs(host: FakeHost, session: FakeSession, models: Fake
 		on: host.pi.on,
 		registerCommand: host.pi.registerCommand,
 		appendEntry: host.pi.appendEntry,
+		events: host.events,
 		setModel: async (model: FakeModel) => {
 			dialogs.modelChanges.push(`${model.provider}/${model.id}`);
 			ctx.model = model;

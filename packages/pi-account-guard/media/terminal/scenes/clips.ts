@@ -1,6 +1,6 @@
 // The README and docs clips: one scene per clip, demo accounts and repositories only.
 import type { LlmRequest } from "../../../../../tools/media/terminal-kit/fake-llm.ts";
-import type { GuardScene } from "../setup.ts";
+import { type GuardScene, SWITCHBOARD_WITH_WORK_MEMBER } from "../setup.ts";
 
 export const reply = (request: LlmRequest) => {
 	// A long answer streams slowly, so a model change lands while it runs.
@@ -23,4 +23,10 @@ export const midTurnScene: GuardScene = { place: "personal", model: "anthropic/c
 export const workScene: GuardScene = { place: "work", model: "openai/gpt-5.5", llm: reply };
 export const clientScene: GuardScene = { place: "client", model: "openai/gpt-5.5", llm: reply };
 export const headlessScene: GuardScene = { place: "personal", model: "openai/gpt-5.5", shell: true, llm: reply };
-export const switchboardScene: GuardScene = { place: "personal", model: "switchboard/auto", with: ["switchboard"], llm: reply };
+export const switchboardScene: GuardScene = {
+	place: "personal",
+	model: "switchboard/auto",
+	with: ["switchboard"],
+	switchboard: SWITCHBOARD_WITH_WORK_MEMBER,
+	llm: reply,
+};

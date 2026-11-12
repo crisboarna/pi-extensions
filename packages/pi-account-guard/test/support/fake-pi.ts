@@ -17,11 +17,14 @@ export interface FakeHost {
 	handlerCount(event: string): number;
 	/** Names of events with at least one handler. */
 	handledEvents(): string[];
+	/** pi's event bus between extensions: `emit` calls every handler at once, as pi's does. */
+	events: { emit(channel: string, data: unknown): void; on(channel: string, handler: (data: any) => unknown): () => void };
 }
 
 export function createFakeHost(): FakeHost {
 	const handlers = new Map<string, Handler[]>();
 	const calls: FakeHost["calls"] = [];
+	const channels = new Map<string, Array<(data: any) => unknown>>();
 	const host: FakeHost = {
 		pi: {},
 		commands: new Map(),
@@ -39,6 +42,19 @@ export function createFakeHost(): FakeHost {
 		},
 		handlerCount: (event) => handlers.get(event)?.length ?? 0,
 		handledEvents: () => [...handlers.entries()].filter(([, list]) => list.length > 0).map(([event]) => event),
+		events: {
+			emit(channel, data) {
+				for (const handler of channels.get(channel) ?? []) handler(data);
+			},
+			on(channel, handler) {
+				channels.set(channel, [...(channels.get(channel) ?? []), handler]);
+				return () =>
+					channels.set(
+						channel,
+						(channels.get(channel) ?? []).filter((h) => h !== handler),
+					);
+			},
+		},
 	};
 	const known: Record<string, (...args: any[]) => unknown> = {
 		on: (event: string, handler: Handler) => handlers.set(event, [...(handlers.get(event) ?? []), handler]),
@@ -52,6 +68,7 @@ export function createFakeHost(): FakeHost {
 	host.pi = new Proxy(known, {
 		get(target, method) {
 			if (typeof method !== "string") return undefined;
+			if (method === "events") return host.events;
 			return (...args: unknown[]) => {
 				calls.push({ method, args });
 				return target[method]?.(...args);
@@ -75,7 +92,17 @@ export interface FakeAuth {
 }
 
 export function createFakeSession(
-	options: { cwd?: string; model?: { provider: string; id: string } | null; hasUI?: boolean; idle?: boolean; auth?: FakeAuth } = {},
+	options: {
+		cwd?: string;
+		model?: { provider: string; id: string } | null;
+		hasUI?: boolean;
+		idle?: boolean;
+		auth?: FakeAuth;
+		/** Auth per provider id; a provider not named here uses `auth`. */
+		authByProvider?: Record<string, FakeAuth>;
+		/** The models `modelRegistry.find` knows. */
+		models?: Array<{ provider: string; id: string }>;
+	} = {},
 ): FakeSession {
 	const statuses = new Map<string, string | undefined>();
 	const notices: FakeSession["notices"] = [];
@@ -90,12 +117,13 @@ export function createFakeSession(
 			hasUI: options.hasUI ?? false,
 			model: options.model === null ? undefined : (options.model ?? { provider: "acme", id: "mid" }),
 			modelRegistry: {
-				isUsingOAuth: () => options.auth?.usingOAuth ?? false,
-				getProviderAuthStatus: () => options.auth?.status ?? { configured: true, source: "stored" },
+				isUsingOAuth: (model: { provider: string }) => (options.authByProvider?.[model.provider] ?? options.auth)?.usingOAuth ?? false,
+				getProviderAuthStatus: (provider: string) =>
+					(options.authByProvider?.[provider] ?? options.auth)?.status ?? { configured: true, source: "stored" },
 				getAvailable: () => [],
 				getAll: () => [],
 				getProvider: () => undefined,
-				find: () => undefined,
+				find: (provider: string, id: string) => options.models?.find((model) => model.provider === provider && model.id === id),
 			},
 			ui: {
 				notify: (message: string, type?: string) => notices.push({ message, ...(type ? { type } : {}) }),

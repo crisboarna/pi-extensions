@@ -1,7 +1,7 @@
 // The manual checklist (docs/manual-checklist.md) run as scenes: demo
 // accounts and repositories only. One scene per item; the page holds the steps.
 import type { LlmRequest } from "../../../../../tools/media/terminal-kit/fake-llm.ts";
-import type { GuardScene } from "../setup.ts";
+import { type GuardScene, SWITCHBOARD_WITH_WORK_MEMBER } from "../setup.ts";
 
 const reply = (request: LlmRequest) => {
 	// A long answer streams slowly, so a model change can land while it runs.
@@ -27,6 +27,13 @@ export const footerAbsentScene = powerline([]);
 export const footerPlacedScene = powerline([{ id: "guard", statusKey: "guard", position: "left" }]);
 export const switchboardWorkScene: GuardScene = { place: "work", model: "switchboard/auto", with: ["switchboard"], llm: reply };
 export const switchboardPersonalScene: GuardScene = { place: "personal", model: "switchboard/auto", with: ["switchboard"], llm: reply };
+export const switchboardWorkMemberScene: GuardScene = {
+	place: "personal",
+	model: "switchboard/auto",
+	with: ["switchboard"],
+	switchboard: SWITCHBOARD_WITH_WORK_MEMBER,
+	llm: reply,
+};
 
 const bridge = (env: Record<string, string>): GuardScene => ({ place: "personal", model: "claude-bridge/bridge-model", bridge: true, env, llm: reply });
 export const bridgeKeyScene = bridge({ ANTHROPIC_API_KEY: "demo-not-a-secret" });
