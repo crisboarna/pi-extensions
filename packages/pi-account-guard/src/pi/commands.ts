@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type AccountKey, describeAccount } from "../core/account.ts";
-import { checkPath, checkText } from "../core/check.ts";
+import { type CheckMembers, checkPath, checkText } from "../core/check.ts";
 import { accountZones, type ConfigError, formatConfigErrors, type GuardConfig } from "../core/config.ts";
 import type { ConfigSnapshot, ConfigState } from "../core/config-state.ts";
 import { type ConfigWriter, createConfigFileWriter, removeAccount, setAccountZones } from "../core/config-writer.ts";
@@ -27,6 +27,7 @@ import { accountInWords, parseZoneList } from "../core/tag-prompt.ts";
 import type { AccountOfModel } from "./account-of.ts";
 import { type FailHeadless, reportOnError } from "./handler-errors.ts";
 import { offersOf } from "./interactive-block.ts";
+import { askMembers } from "./members.ts";
 import { createPlaceZoneCommands } from "./place-zone-commands.ts";
 import { askZones } from "./tag-prompt.ts";
 import { runTour } from "./tour.ts";
@@ -233,8 +234,31 @@ export function registerGuardCommand(pi: ExtensionAPI, deps: GuardCommandDeps): 
 		const account =
 			named.provider === undefined && !ctx.model ? undefined : await chooseAccount(ctx, named, candidatesOf(ctx, result.config), CHECK_USAGE, false);
 		if (named.provider !== undefined && !account) return;
-		const text = checkText({ home: deps.home, configPath: deps.configPath, place: deps.placeAt(real, result.config), account, config: result.config });
+		const members = named.provider === undefined ? membersOf(ctx) : undefined;
+		const text = checkText({
+			home: deps.home,
+			configPath: deps.configPath,
+			place: deps.placeAt(real, result.config),
+			account,
+			config: result.config,
+			...(members ? { members } : {}),
+		});
 		ctx.ui.notify(text, "info");
+	}
+
+	/** The models a router lists behind the selected virtual model, each with its account, as the turn check sees them (ADR 0006). */
+	function membersOf(ctx: ExtensionContext): CheckMembers | undefined {
+		if (!ctx.model) return undefined;
+		const answer = askMembers(pi.events, ctx.model);
+		if (answer.status === "none") return undefined;
+		if (answer.status === "invalid") return answer;
+		return {
+			status: "members",
+			members: answer.members.map((ref) => {
+				const model = ctx.modelRegistry.find(ref.provider, ref.id);
+				return { ref, account: model ? deps.accountOfModel(ctx, model) : undefined };
+			}),
+		};
 	}
 
 	const placeZone = createPlaceZoneCommands({

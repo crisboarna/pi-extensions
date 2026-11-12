@@ -123,6 +123,50 @@ describe("a virtual model whose router lists its members", () => {
 	});
 });
 
+describe("/guard check on a virtual model whose router lists its members", () => {
+	async function check(zones: string[], answer = members) {
+		const host = createFakeHost();
+		host.events.on("switchboard:members:v1", answer);
+		registerGuard(host.pi as never, {
+			home: "/home/me",
+			configPath: "/home/me/.pi/agent/account-guard.json",
+			readConfigText: () => JSON.stringify({ accounts: [tag("acme", "stored-key", ["personal"]), tag("acme-2", "stored-key", zones)] }),
+			realpath: (path) => path,
+			readRemoteUrls: () => ({ ok: true, urls: [] }),
+			writeStderr: () => {},
+			setExitCode: () => {},
+		});
+		const s = createFakeSession({
+			cwd: "/srv/app",
+			hasUI: true,
+			model: VIRTUAL,
+			models: MEMBERS,
+			authByProvider: { switchboard: virtualAuth, acme: stored, "acme-2": stored },
+		});
+		await host.fire("session_start", { reason: "startup" }, s.ctx);
+		await host.commands.get("guard")?.handler("check here", s.ctx);
+		return s.notices.at(-1)?.message ?? "";
+	}
+
+	it("lists every member and says a turn would go when all of them match", async () => {
+		const text = await check(["personal"]);
+		assert.match(text, /Members {3}acme\/mid: acme \(stored-key\) -> personal {2}✓ Match\n {11}acme-2\/mid: acme-2 \(stored-key\) -> personal {2}✓ Match/u);
+		assert.match(text, /Verdict {3}a turn here would go$/u);
+	});
+
+	it("names the member that would block the turn", async () => {
+		const text = await check(["work"]);
+		assert.match(text, /acme-2\/mid: acme-2 \(stored-key\) -> work {2}✗ no Match/u);
+		assert.match(text, /Verdict {3}a turn here would be blocked: acme-2 \(stored-key\) is zone work, this place is personal$/u);
+	});
+
+	it("describes the virtual model alone when no router answers", async () => {
+		const text = await check(["work"], () => {});
+		assert.doesNotMatch(text, /Members/u);
+		assert.match(text, /Account {3}switchboard \(env:virtual\) -> unknown/u);
+	});
+});
+
 describe("a virtual model with no router answering", () => {
 	it("checks the virtual model as its own account, as before", async () => {
 		const tagged = rig([tag("switchboard", "env:virtual", ["personal"]), tag("acme-2", "stored-key", ["work"])]);

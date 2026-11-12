@@ -128,3 +128,41 @@ describe("child transcript mirrors", () => {
 		assert.ok(aggregate(timeline, (r) => `${r.provider}/${r.model}`).has("acme/small"));
 	});
 });
+
+describe("timeline redaction", () => {
+	// Built from parts, so the secret scan sees no literal key.
+	const key = ["sk", "-", "a1B2".repeat(10)].join("");
+	const entries = [
+		{ type: "message", timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: `use ${key} from /home/alice/app` } },
+		{
+			type: "message",
+			timestamp: "2026-01-01T00:00:01.000Z",
+			message: { role: "assistant", provider: "acme", model: "big", errorMessage: `401: invalid key ${key}`, usage: {} },
+		},
+		{
+			type: "message",
+			timestamp: "2026-01-01T00:00:02.000Z",
+			message: { role: "toolResult", toolName: "bash", content: [{ type: "text", text: `export TOKEN=${key}` }] },
+		},
+	];
+
+	it("redacts the request, provider errors and tool output by default", () => {
+		const task = buildTimeline(entries as never).tasks[0];
+		const texts = [task?.request ?? "", task?.requests[0]?.error ?? "", task?.tools[0]?.preview ?? ""];
+		for (const text of texts) {
+			assert.ok(!text.includes(key), text);
+			assert.match(text, /«redacted»/u);
+		}
+	});
+
+	it("uses the redactor it is given, with the home directory", () => {
+		const task = buildTimeline(entries as never, { redact: createRedactor({ home: "/home/alice" }) }).tasks[0];
+		assert.match(task?.request ?? "", /from ~\/app/u);
+	});
+
+	it("redacts before it cuts, so a key at the cut is still masked", () => {
+		const long = [{ ...entries[0], message: { role: "user", content: `${"x ".repeat(990)}${key}` } }];
+		const request = buildTimeline(long as never).tasks[0]?.request ?? "";
+		assert.ok(!request.includes(key.slice(0, 20)), request.slice(-60));
+	});
+});
