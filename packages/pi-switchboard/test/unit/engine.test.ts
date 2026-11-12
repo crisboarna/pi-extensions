@@ -33,6 +33,12 @@ describe("engine: user turns", () => {
 		assert.equal(out.decision?.classifier?.attempts[0]?.error, "connection refused");
 	});
 
+	it("redacts a key that a classifier echoes in its error", async () => {
+		const { e } = engine({ classify: async () => ({ stopReason: "error", errorMessage: "401 bad key sk-abcdefghijklmnopqrstuvwx" }) });
+		const out = await e.route(input());
+		assert.equal(out.decision?.classifier?.attempts[0]?.error, "401 bad key «redacted»");
+	});
+
 	it("uses the baseline tier in dry-run but still classifies", async () => {
 		const { e } = engine({ classify: async () => ({ stopReason: "stop", answers: answers("plan") }) });
 		e.controls.dryRun = true;
@@ -240,6 +246,19 @@ describe("engine: continuation, escalation, retry and direct", () => {
 		assert.deepEqual([out.provider, out.id], ["zen", "mid"]);
 		assert.equal(out.decision?.error?.class, "rate-limit");
 		assert.equal(out.state?.tier, "standard");
+	});
+
+	it("redacts a key that the provider echoes in its error", async () => {
+		const { e, state } = await started();
+		const out = await e.route(
+			input({
+				reason: "retry",
+				state,
+				failed: { provider: "acme", id: "mid", errorMessage: "429 rate limit for key sk-abcdefghijklmnopqrstuvwx in /home/dev/app" },
+			}),
+		);
+		assert.equal(out.decision?.kind, "failover");
+		assert.equal(out.decision?.error?.message, "429 rate limit for key «redacted» in ~/app");
 	});
 
 	it("benches a rate-limited member for the tier's cooldown.defaultMs when the provider gives no time", async () => {
