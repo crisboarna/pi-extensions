@@ -80,12 +80,21 @@ export class WarmupTracker {
 	}
 }
 
-/** Loopback hosts count as local. */
+/**
+ * Loopback in the canonical forms the URL parser writes: IPv4 as four decimal parts (`127.1` becomes `127.0.0.1`), IPv6 compressed and
+ * lower-case (`::ffff:127.0.0.1` becomes `::ffff:7f00:1`). Matched as text so this module stays free of network modules.
+ */
+const LOOPBACK = /^(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|::1|::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4})$/u;
+
+/**
+ * A URL is local when its host is `localhost` or a loopback address. A hostname that only starts like one, such as
+ * `127.attacker.example`, is a name that DNS resolves anywhere, so it is not local. A private LAN address is not this machine either.
+ */
 export function isLocalUrl(url: string | undefined): boolean {
 	if (!url) return false;
 	try {
 		const host = new URL(url).hostname.replace(/^\[|\]$/gu, "");
-		return host === "localhost" || host === "::1" || host === "0.0.0.0" || host.startsWith("127.");
+		return host === "localhost" || LOOPBACK.test(host);
 	} catch {
 		return false;
 	}
