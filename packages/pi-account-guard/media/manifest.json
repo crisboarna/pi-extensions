@@ -316,6 +316,18 @@
 		},
 		{
 			"kind": "terminal",
+			"page": "check-7c.html",
+			"setup": "terminal/setup.ts",
+			"scene": "checks",
+			"variant": "switchboardWorkMemberScene",
+			"out": "check-7c",
+			"width": 1280,
+			"height": 720,
+			"gif": false,
+			"tailMs": 100
+		},
+		{
+			"kind": "terminal",
 			"page": "check-8a.html",
 			"setup": "terminal/setup.ts",
 			"scene": "checks",

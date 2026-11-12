@@ -10,15 +10,11 @@
 </head>
 <body>
 <script>
-// Checklist item 7, work place: switchboard/auto tagged personal is blocked here.
+// Checklist item 7, work place: switchboard/auto routes only to the personal anthropic account, so the Block names that member.
 clip(async (stage) => {
-	await stage.command("/guard tag switchboard personal");
-	await stage.waitFor(/switchboard/);
-	await sleep(800);
-	await stage.still("7-tag");
 	await stage.type("summarize the server");
 	await stage.press("Enter");
-	await stage.waitFor("BLOCKED  switchboard");
+	await stage.waitFor(/BLOCKED +anthropic \(env:ANTHROPIC_API_KEY\) is zone personal/);
 	await stage.still("7-work-blocked");
 }, { title: "~/work/payments-api — pi" });
 </script>

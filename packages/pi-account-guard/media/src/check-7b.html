@@ -10,15 +10,12 @@
 </head>
 <body>
 <script>
-// Checklist item 7, personal place: the same tag lets the turn through.
+// Checklist item 7, personal place: every member of switchboard/auto is on the personal account, so the turn is sent; the virtual model itself is untagged.
 clip(async (stage) => {
-	await stage.command("/guard tag switchboard personal");
-	await sleep(1000);
 	await stage.type("what does install.sh do?");
 	await stage.press("Enter");
 	await stage.waitFor(/Done on anthropic\/claude-sonnet-5/, { timeout: 20000 });
-	await stage.command("/guard");
-	await stage.waitFor(/Account\s+switchboard/);
+	await sleep(800);
 	await stage.still("7-personal-sent");
 }, { title: "~/code/dotfiles — pi" });
 </script>

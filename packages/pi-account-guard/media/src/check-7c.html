@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/stage/stage.css">
+<script src="/modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="/stage/stage.js"></script>
+<script src="/stage/clip.js"></script>
+</head>
+<body>
+<script>
+// Checklist item 7, personal place: a deep tier on the work account (openai) Blocks the turn before any model sees it.
+clip(async (stage) => {
+	await stage.type("what does install.sh do?");
+	await stage.press("Enter");
+	await stage.waitFor(/BLOCKED +openai \(env:OPENAI_API_KEY\) is zone work/);
+	await stage.still("7-work-member-blocked");
+}, { title: "~/code/dotfiles — pi" });
+</script>
+</body>
+</html>
