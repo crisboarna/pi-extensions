@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import type { Redactor } from "../classifier/redact.ts";
 import { renderInspector } from "../cli/inspector.ts";
 import { liveChildMirror } from "../timeline/mirror.ts";
 import { buildTimeline } from "../timeline/parse.ts";
@@ -14,6 +15,8 @@ export interface InspectInput {
 	dataDir: string;
 	/** Explicit output path (`-o`). */
 	out?: string;
+	/** Masks secrets and the home directory in what the session holds; the default rules when absent. */
+	redact?: Redactor;
 }
 
 /** Writes the offline HTML inspector for a live session and returns its path. */
@@ -21,6 +24,7 @@ export function writeInspector(input: InspectInput): string {
 	const timeline = buildTimeline(input.entries as never, {
 		...(input.sessionFile ? { file: input.sessionFile } : {}),
 		childMirror: liveChildMirror(join(input.dataDir, "live")),
+		...(input.redact ? { redact: input.redact } : {}),
 	});
 	const out = resolve(input.out ?? join(input.dataDir, "inspect", `${input.sessionId.replace(/[^A-Za-z0-9._-]/gu, "_")}.html`));
 	mkdirSync(dirname(out), { recursive: true });
