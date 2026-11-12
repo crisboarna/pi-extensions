@@ -53,7 +53,7 @@ Inside pi:
 
 ## Remote classifiers
 
-A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address, so pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them. A local proxy that forwards to a cloud, such as LiteLLM, counts as local by its address; see [other servers](classifier-other-servers.md).
+A classifier whose server is not on this machine receives your request text. pi-switchboard skips it, and the decision record says so, unless its entry sets `"allowRemote": true`. Whether a classifier is remote comes from its server's address: only `localhost` and loopback addresses (`127.0.0.0/8`, `::1`) count as this machine, so a LAN address or a hostname such as `127.example.com` is remote. pi's built-in hosted classifiers (Luna, Jev, Clef) count as remote. Ollama's cloud models (`clef:cloud` and other ids ending in `:cloud` or `-cloud`) count as remote too, although a local Ollama server relays them. A local proxy that forwards to a cloud, such as LiteLLM, counts as local by its address; see [other servers](classifier-other-servers.md).
 
 ## How these guides are checked
 

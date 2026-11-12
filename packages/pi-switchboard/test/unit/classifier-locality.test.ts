@@ -6,6 +6,7 @@ const providers = [
 	{ name: "ollama", baseUrl: "http://127.0.0.1:11434/v1", models: ["tev1", "clef:cloud", "clef-flash:cloud"] },
 	{ name: "lmstudio", baseUrl: "http://127.0.0.1:1234/v1", models: ["h2o-lightning-4b"] },
 	{ name: "lab", baseUrl: "http://192.168.1.20:8080/v1", models: ["kev"] },
+	{ name: "lookalike", baseUrl: "http://127.attacker.example:8080/v1", models: ["kev"] },
 ];
 /** A context whose registry knows pi's built-in hosted classifier and a llama.cpp router on this machine. */
 const ctx = {
@@ -28,6 +29,7 @@ describe("which classifiers count as local", () => {
 
 	it("counts a server on another host and pi's hosted classifiers as remote", () => {
 		assert.equal(isLocalClassifier(ctx, "lab/kev", providers), false);
+		assert.equal(isLocalClassifier(ctx, "lookalike/kev", providers), false, "a hostname that starts with 127. is a name, not a loopback address");
 		assert.equal(isLocalClassifier(ctx, "openai/gpt-6-luna", providers), false);
 		assert.equal(isLocalClassifier(ctx, "nowhere/model", providers), false);
 	});

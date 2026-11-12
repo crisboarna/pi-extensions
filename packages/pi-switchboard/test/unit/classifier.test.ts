@@ -277,5 +277,22 @@ describe("warm-up", () => {
 		assert.ok(isLocalUrl("http://[::1]:8000"));
 		assert.ok(!isLocalUrl("https://api.example.com/v1"));
 		assert.ok(!isLocalUrl(undefined));
+		assert.ok(!isLocalUrl("127.0.0.1:1234"), "not a URL: no scheme");
+	});
+
+	it("counts every loopback address as local, in each form the URL parser gives", () => {
+		for (const url of ["http://127.1.2.3/v1", "http://127.1/v1", "http://0.0.0.0:1234", "http://[::ffff:127.0.0.1]:1234", "http://LOCALHOST:1"])
+			assert.ok(isLocalUrl(url), url);
+	});
+
+	it("does not count a hostname that only starts like a loopback address as local", () => {
+		for (const url of [
+			"http://127.attacker.example:8080/v1",
+			"http://127.0.0.1.nip.io/v1",
+			"http://localhost.evil.com/v1",
+			"http://[::2]/v1",
+			"http://192.168.1.10:1234/v1",
+		])
+			assert.ok(!isLocalUrl(url), url);
 	});
 });
