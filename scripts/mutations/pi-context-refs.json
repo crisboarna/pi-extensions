@@ -124,5 +124,19 @@
 		"find": "if (from?.protocol === \"https:\" && next.protocol === \"http:\") throw",
 		"replace": "if (false) throw",
 		"tests": ["packages/pi-context-refs/test/unit/fetch.test.ts"]
+	},
+	{
+		"id": "command-stop-spares-its-children",
+		"file": "packages/pi-context-refs/src/pi/run-process.ts",
+		"find": "process.kill(-pid, signal);",
+		"replace": "process.kill(pid, signal);",
+		"tests": ["packages/pi-context-refs/test/unit/run-process.test.ts"]
+	},
+	{
+		"id": "stopped-command-group-not-killed-at-finish",
+		"file": "packages/pi-context-refs/src/pi/run-process.ts",
+		"find": "if (stopping) signalTree(pid, \"SIGKILL\");",
+		"replace": "",
+		"tests": ["packages/pi-context-refs/test/unit/run-process.test.ts"]
 	}
 ]

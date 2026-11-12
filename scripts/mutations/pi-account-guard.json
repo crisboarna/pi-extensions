@@ -75,5 +75,26 @@
 		"find": "if (!known.ok) return { ok: false, reason: known.reason };",
 		"replace": "if (!known.ok) continue;",
 		"tests": ["packages/pi-account-guard/test/unit/place.test.ts"]
+	},
+	{
+		"id": "members-covered-block-wins-over-uncovered",
+		"file": "packages/pi-account-guard/src/core/members.ts",
+		"find": "if (!passes(decision)) return decision;",
+		"replace": "if (!passes(decision)) continue;",
+		"tests": ["packages/pi-account-guard/test/unit/members.test.ts"]
+	},
+	{
+		"id": "members-empty-list-accepted",
+		"file": "packages/pi-account-guard/src/core/members.ts",
+		"find": "list.length === 0 || ",
+		"replace": "",
+		"tests": ["packages/pi-account-guard/test/unit/members.test.ts"]
+	},
+	{
+		"id": "members-invalid-answer-lets-the-turn-through",
+		"file": "packages/pi-account-guard/src/pi/hooks.ts",
+		"find": "if (members.status === \"invalid\") return { verdict: \"block\", cause: { kind: \"internal-error\", account, reason: members.reason } };",
+		"replace": "if (members.status === \"invalid\") return decide({ place, account, config });",
+		"tests": ["packages/pi-account-guard/test/integration/virtual-members.test.ts"]
 	}
 ]
