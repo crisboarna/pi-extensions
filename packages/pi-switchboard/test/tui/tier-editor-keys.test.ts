@@ -33,6 +33,29 @@ interface Saved {
 /** Whether `screen` shows `text`, whatever the terminal broke across rows: all whitespace is left out on both sides. */
 const shows = (screen: string, text: string): boolean => screen.replace(/\s+/g, "").includes(text.replace(/\s+/g, ""));
 
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Rows that make a menu one block: the selected row has an arrow, the others are indented. */
+const rowsPattern = (rows: string[], selected: number): RegExp =>
+	new RegExp(rows.map((row, index) => `${index === selected ? "→ " : ""}${escapeRegExp(row)}`).join("\\s*\\n\\s+"));
+/** The most rows of a select that pi 1.5 shows at once; pi 1.4 shows them all. */
+const SELECT_WINDOW = 10;
+
+/**
+ * Checks that a menu offers `rows` in order, under the first row selected, however much of it pi shows. Pi 1.4 shows every row. Pi 1.5 shows ten, and a
+ * "(1/n)" counter under them, so the rest is reached by moving down; this goes down to the last row and checks that the last rows are there too.
+ */
+async function expectMenu(editor: Editor, screen: string, rows: string[]): Promise<void> {
+	if (rowsPattern(rows, 0).test(screen)) return;
+	assert.match(screen, rowsPattern(rows.slice(0, SELECT_WINDOW), 0), "the first rows, with the first selected");
+	assert.ok(shows(screen, `(1/${rows.length})`), `a counter for the ${rows.length} rows that are not all shown`);
+	for (let step = 1; step < rows.length; step++) editor.tui.terminal.press("\x1b[B");
+	const last = rows[rows.length - 1] as string;
+	const end = await editor.tui.terminal.waitForScreen((text) => text.includes(`→ ${last}`));
+	assert.match(end, rowsPattern(rows.slice(-SELECT_WINDOW), SELECT_WINDOW - 1), "the last rows, with the last selected");
+	for (let step = 1; step < rows.length; step++) editor.tui.terminal.press("\x1b[A");
+	await editor.tui.terminal.waitForScreen((text) => text.includes(`→ ${rows[0]}`));
+}
+
 interface Editor {
 	tui: TuiSession;
 	/** The config file as saved. */
@@ -112,10 +135,19 @@ describe("the tier editor's menus under the keys of pi's real TUI", () => {
 	it("lists a profile's tiers weakest first, then what can be done to the profile", () =>
 		withEditor(async (editor) => {
 			const profile = await editor.go("profile: work (default)", "Profile work");
-			assert.match(
-				profile,
-				/→ tier: light\s*\n\s+tier: standard\s*\n\s+tier: deep\s*\n\s+\+ add tier\s*\n\s+fallback tier\s*\n\s+baseline tier\s*\n\s+direct tier\s*\n\s+make default\s*\n\s+rename\s*\n\s+delete profile\s*\n\s+← back/,
-			);
+			await expectMenu(editor, profile, [
+				"tier: light",
+				"tier: standard",
+				"tier: deep",
+				"+ add tier",
+				"fallback tier",
+				"baseline tier",
+				"direct tier",
+				"make default",
+				"rename",
+				"delete profile",
+				BACK,
+			]);
 		}));
 
 	it("shows a tier's rank, strategy and member count in its title, and what can be done to it", () =>
@@ -194,7 +226,7 @@ describe("the tier editor's tiers and profiles under the keys of pi's real TUI",
 			await editor.answer("5");
 			await editor.tui.terminal.waitForScreen((screen) => screen.includes("Tier standard (rank 5, ordered, 2 members)"));
 			const strategies = await editor.go("strategy", "Strategy");
-			assert.match(strategies, new RegExp(STRATEGY_NAMES.map((name, index) => `${index === 0 ? "→ " : "\\s+"}${name}\\s*\\n`).join("")));
+			await expectMenu(editor, strategies, [...STRATEGY_NAMES]);
 			await editor.tui.terminal.chooseRow(STRATEGY_NAMES[1] as string);
 			await editor.tui.terminal.waitForScreen((screen) => screen.includes(`Tier standard (rank 5, ${STRATEGY_NAMES[1]}, 2 members)`));
 		}));

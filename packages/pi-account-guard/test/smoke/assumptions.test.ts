@@ -32,13 +32,18 @@ function probe(scenario: string): Probe {
 const mentionsReply = (records: RpcRecord[]) => records.some((record) => JSON.stringify(record).includes(STUB_REPLY));
 const isUiRequest = (method: string) => (record: RpcRecord) => record.type === "extension_ui_request" && record.method === method;
 
-/** Stop reason and error text of every assistant message in the session. */
+/**
+ * Stop reason and error text of every assistant message in the session. A turn that an extension aborted is recorded as "error" by pi 1.4 and as
+ * "aborted" by pi 1.5; the assumption under test is that the turn stops and no request is sent, so both are reported as "error".
+ */
 async function assistantOutcomes(rpc: RpcSession): Promise<Array<{ stopReason: unknown; errorMessage: unknown }>> {
 	const id = `messages-${rpc.records.length}`;
 	rpc.send({ id, type: "get_messages" });
 	const response = await rpc.waitFor((record) => record.type === "response" && record.id === id);
 	const messages = (response.data as { messages: Array<Record<string, unknown>> }).messages;
-	return messages.filter((message) => message.role === "assistant").map(({ stopReason, errorMessage }) => ({ stopReason, errorMessage }));
+	return messages
+		.filter((message) => message.role === "assistant")
+		.map(({ stopReason, errorMessage }) => ({ stopReason: stopReason === "aborted" ? "error" : stopReason, errorMessage }));
 }
 
 async function withRpc(scenario: string, body: (rpc: RpcSession, observed: Probe) => Promise<void>): Promise<void> {
