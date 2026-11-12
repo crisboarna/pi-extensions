@@ -604,7 +604,7 @@ Score answers are expected level indexes (floats from 0 to 2), so `depth: "<0.5"
 
 Bounds (configurable): 4,000 tokens in total, estimated at 4 characters per token. The request gets up to 2,500 tokens, keeping its head and tail. At most 5 tool errors of 200 characters each. Tool output bodies are never included.
 
-Redaction runs before anything leaves the process: `$HOME` becomes `~`, and bearer tokens, API-key shapes (`sk-…`, `ghp_…`, `AKIA…`, `xox…`), JWTs, private-key blocks and long hex or base64 runs become `«redacted»`. User patterns in `classification.evidence.redact` are added.
+Redaction runs before anything leaves the process: `$HOME` becomes `~` when it is a whole path, and bearer tokens, API-key shapes (`sk-…`, `ghp_…`, `github_pat_…`, `AKIA…`, `xox…`, `AIza…`, `npm_…`, `glpat-…`), AWS secret access keys, the user and password in a URL, values of names that end in `secret`, `token`, `password` or `api_key`, JWTs, private-key blocks and long hex or base64 runs become `«redacted»`. User patterns in `classification.evidence.redact` are added. Provider errors in failover decisions and classifier errors in decision attempts go through the same redactor before they are recorded.
 
 ### 8.3 Classifier chain
 

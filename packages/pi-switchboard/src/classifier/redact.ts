@@ -19,9 +19,20 @@ const RULES: Rule[] = [
 	{ pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}/gu, replace: REDACTED },
 	{ pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/gu, replace: REDACTED },
 	{ pattern: /\bxox[abprs]-[A-Za-z0-9-]{10,}/gu, replace: REDACTED },
+	{ pattern: /\bAIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/gu, replace: REDACTED },
+	{ pattern: /\bnpm_[A-Za-z0-9]{36}\b/gu, replace: REDACTED },
+	{ pattern: /\bglpat-[A-Za-z0-9_-]{20,}/gu, replace: REDACTED },
+	// The user and password in `scheme://user:password@host`; the host and the path stay.
+	{ pattern: /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/giu, replace: (_m, scheme) => `${scheme}${REDACTED}@` },
 	{
-		pattern: /\b(api[_-]?key|secret|token|password|passwd|access[_-]?key)(\s*[:=]\s*)["']?[^\s"']{6,}["']?/giu,
+		// The name may carry a prefix: `aws_secret_access_key`, `MY_TOKEN`.
+		pattern: /\b([\w.-]*?(?:api[_-]?key|secret|token|password|passwd|access[_-]?key))(\s*[:=]\s*)["']?[^\s"']{6,}["']?/giu,
 		replace: (_m, key, sep) => `${key}${sep}${REDACTED}`,
+	},
+	// An AWS secret access key: exactly 40 base64 characters, which may include `/`. A path that starts with `/` is not one.
+	{
+		pattern: /(?<![A-Za-z0-9/+])[A-Za-z0-9+][A-Za-z0-9/+]{39}(?![A-Za-z0-9/+=])/gu,
+		replace: (run) => (looksRandom(run) ? REDACTED : run),
 	},
 	{ pattern: /\b[0-9a-f]{32,}\b/giu, replace: REDACTED },
 	{ pattern: /[A-Za-z0-9+]{40,}={0,2}/gu, replace: (run) => (looksRandom(run) ? REDACTED : run) },
@@ -43,9 +54,11 @@ export function createRedactor(options: { home?: string; extra?: string[] } = {}
 			// An invalid user pattern is skipped; config validation reports it.
 		}
 	}
-	const home = options.home && options.home.length > 1 ? options.home : undefined;
+	const home = options.home && options.home.length > 1 ? options.home.replace(/\/+$/u, "") : undefined;
+	// The home directory as a whole path only: `/Users/alice/x` and `/Users/alice`, not `/Users/alicebob`.
+	const homePattern = home ? new RegExp(`${home.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\w.-])`, "gu") : undefined;
 	return (text: string) => {
-		let out = home ? text.split(home).join("~") : text;
+		let out = homePattern ? text.replace(homePattern, "~") : text;
 		for (const rule of [...RULES, ...extra]) {
 			out = typeof rule.replace === "string" ? out.replace(rule.pattern, rule.replace) : out.replace(rule.pattern, rule.replace);
 		}

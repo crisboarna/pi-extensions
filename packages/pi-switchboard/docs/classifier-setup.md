@@ -61,4 +61,4 @@ The setup commands and the guides' commands are checked end to end by suites in 
 
 ## What the classifier sees
 
-The request text, the plan phase from Plannotator, recent tool outcomes and short tool errors, bounded by `classification.evidence` and redacted once (home directory, tokens, keys, and your own `evidence.redact` patterns) before it reaches the classifier, the session file or any log.
+The request text, the plan phase from Plannotator, recent tool outcomes and short tool errors, bounded by `classification.evidence` and redacted once (the home directory, common token, key and password shapes, and your own `evidence.redact` patterns) before it reaches the classifier, the session file or any log. The rules match known shapes, not every secret; [DESIGN.md](../DESIGN.md) lists them.

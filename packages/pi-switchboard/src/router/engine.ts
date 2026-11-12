@@ -1,5 +1,6 @@
 import { type ChainEntry, type ChainResult, type ClassifyFn, runClassifierChain } from "../classifier/chain.ts";
 import { buildEvidence, type Evidence, type PlanPhase, type TranscriptMessage, toolResultsSinceUser } from "../classifier/evidence.ts";
+import { createRedactor } from "../classifier/redact.ts";
 import type { WarmupTracker } from "../classifier/warmup.ts";
 import type { Config, Member, Profile, Tier } from "../config/types.ts";
 import type { CandidateRecord, DecisionEntry, DecisionKind, ProfileSource } from "../record/types.ts";
@@ -393,6 +394,11 @@ export class SwitchboardEngine {
 		this.pending.delete(modelKey(model));
 	}
 
+	/** Masks secrets and the home directory in text a provider or a classifier sent back, with the evidence's rules. */
+	private redact(text: string): string {
+		return createRedactor({ home: this.deps.home, extra: this.config.classification.evidence.redact })(text);
+	}
+
 	private remember(decision: DecisionEntry): DecisionEntry {
 		this.recent.push(decision);
 		if (this.recent.length > MAX_RECENT) this.recent.splice(0, this.recent.length - MAX_RECENT);
@@ -630,7 +636,9 @@ export class SwitchboardEngine {
 						classifier: {
 							...(classified.chain.ok ? { model: classified.chain.model, usage: classified.chain.usage } : { failure: classified.chain.reason }),
 							latencyMs: classified.chain.ok ? classified.chain.latencyMs : classified.chain.attempts.reduce((sum, a) => sum + a.latencyMs, 0),
-							attempts: classified.chain.attempts,
+							attempts: classified.chain.attempts.map((attempt) =>
+								attempt.error === undefined ? attempt : { ...attempt, error: this.redact(attempt.error) },
+							),
 						},
 						...(classified.chain.ok ? { answers: classified.chain.answers } : {}),
 					}
@@ -780,7 +788,8 @@ export class SwitchboardEngine {
 
 		const errorRecord = {
 			class: errorClass,
-			message: (message ?? "").slice(0, 300),
+			// Redacted before it is cut, so a cut cannot split a secret into a shape the rules miss.
+			message: this.redact(message ?? "").slice(0, 300),
 			...(failure.benchedUntil ? { benchedUntil: iso(failure.benchedUntil) } : {}),
 		};
 		const sibling = this.siblingFor(failed);

@@ -40,6 +40,46 @@ describe("redaction", () => {
 		assert.equal(redact("x Zm9vYmFyQmF6UXV4MTIzNDU2Nzg5MEFCQ0RFRkdISUpLTE1OT1BRUg y"), "x «redacted» y");
 		assert.equal(redact("sha 0123456789abcdef0123456789abcdef"), "sha «redacted»");
 	});
+
+	// The fake secrets below are built from parts, so the source holds no secret-shaped string for the repository's secret scan to report.
+	const fake = (...parts: string[]) => parts.join("");
+
+	it("masks provider keys and tokens by their prefix", () => {
+		for (const [secret, kind] of [
+			[fake("sk-", "ant-api03-abcdefghijklmnopqrstuvwx"), "OpenAI or Anthropic key"],
+			[fake("AIza", "SyA-abcdefghijklmnopqrstuvwxyz12345"), "Google API key"],
+			[fake("npm_", "abcdefghijklmnopqrstuvwxyz0123456789"), "npm token"],
+			[fake("glpat", "-abcdefghijklmnopqrst"), "GitLab token"],
+		] as const) {
+			assert.equal(redact(`use ${secret} here`), "use «redacted» here", kind);
+		}
+	});
+
+	it("masks the password in a URL and keeps the rest of it", () => {
+		assert.equal(redact("DATABASE_URL postgres://admin:hunter2@db.internal:5432/app"), "DATABASE_URL postgres://«redacted»@db.internal:5432/app");
+		assert.equal(redact("see https://example.com/a:b@c"), "see https://example.com/a:b@c", "a colon and an at sign in the path are not credentials");
+	});
+
+	it("masks a secret whose name ends in a secret word", () => {
+		assert.equal(redact(fake("aws_secret_access_key", "=", "wJalrXUtnFEMIK7MDENGbPxRfiCY")), "aws_secret_access_key=«redacted»");
+		assert.equal(redact(fake("MY_TOKEN", ": ", "abcdef123456")), "MY_TOKEN: «redacted»");
+	});
+
+	it("masks a bare AWS secret access key", () => {
+		assert.equal(redact(fake("sec", "ret ", "wJalrXUtn", "FEMI/K7MD", "ENG/bPxRf", "iCYEXAMPLEKEY end")), "secret «redacted» end");
+	});
+
+	it("leaves a long path that mixes case and digits alone", () => {
+		const path = "packages/Pi2Switchboard/src/Router/Engine4Tests";
+		assert.equal(path.length >= 40, true);
+		assert.equal(redact(`open ${path}`), `open ${path}`);
+	});
+
+	it("replaces the home directory only as a whole path", () => {
+		const own = createRedactor({ home: "/Users/alice" });
+		assert.equal(own("/Users/alice/x and /Users/alice"), "~/x and ~");
+		assert.equal(own("/Users/alicebob/x"), "/Users/alicebob/x");
+	});
 });
 
 describe("evidence", () => {
