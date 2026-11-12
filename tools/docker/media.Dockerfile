@@ -12,7 +12,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /opt/media && cd /opt/media \
 	&& npm init --yes >/dev/null \
-	&& npm install --ignore-scripts --no-audit --no-fund playwright@1.64.1 @xterm/xterm@6.0.0 @xterm/addon-fit@0.11.0 \
+	&& npm install --ignore-scripts --no-audit --no-fund playwright@1.65.0 @xterm/xterm@6.0.0 @xterm/addon-fit@0.11.0 \
 	&& npm cache clean --force
 # onnxruntime-node needs its install script to place its native library.
 RUN cd /opt/media \
