@@ -362,5 +362,12 @@
 		"find": "if (major !== undefined && major >= 1)",
 		"replace": "if (major !== undefined && major >= 0)",
 		"tests": ["test/dependabot-policy.test.ts"]
+	},
+	{
+		"id": "casts-gate-misses-spaced-cast",
+		"file": "scripts/checks/casts.ts",
+		"find": "const DOUBLE_CAST = /\\bas\\s+unknown\\s+as\\b/g;",
+		"replace": "const DOUBLE_CAST = /\\bas unknown as\\b/g;",
+		"tests": ["test/checks.test.ts"]
 	}
 ]

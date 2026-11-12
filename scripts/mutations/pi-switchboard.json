@@ -110,5 +110,54 @@
 		"find": "\"profileSelection\", \"subagents\"]);",
 		"replace": "\"profileSelection\", \"subagents\", \"classification\", \"classifiers\", \"classifierProviders\"]);",
 		"tests": ["packages/pi-switchboard/test/unit/config.test.ts"]
+	},
+	{
+		"id": "redact-sk-key-kept",
+		"file": "packages/pi-switchboard/src/classifier/redact.ts",
+		"find": "\t{ pattern: /\\b(?:sk|pk|rk)-[A-Za-z0-9_-]{16,}/gu, replace: REDACTED },\n",
+		"replace": "",
+		"tests": ["packages/pi-switchboard/test/unit/classifier.test.ts"]
+	},
+	{
+		"id": "redact-url-password-kept",
+		"file": "packages/pi-switchboard/src/classifier/redact.ts",
+		"find": "\t{ pattern: /\\b([a-z][a-z0-9+.-]*:\\/\\/)[^\\s/:@]+:[^\\s/@]+@/giu, replace: (_m, scheme) => `${scheme}${REDACTED}@` },\n",
+		"replace": "",
+		"tests": ["packages/pi-switchboard/test/unit/classifier.test.ts"]
+	},
+	{
+		"id": "redact-prefixed-key-name-missed",
+		"file": "packages/pi-switchboard/src/classifier/redact.ts",
+		"find": "pattern: /\\b([\\w.-]*?(?:api",
+		"replace": "pattern: /\\b((?:api",
+		"tests": ["packages/pi-switchboard/test/unit/classifier.test.ts"]
+	},
+	{
+		"id": "redact-home-inside-a-longer-name",
+		"file": "packages/pi-switchboard/src/classifier/redact.ts",
+		"find": "(?![\\\\w.-])",
+		"replace": "",
+		"tests": ["packages/pi-switchboard/test/unit/classifier.test.ts"]
+	},
+	{
+		"id": "failover-error-recorded-raw",
+		"file": "packages/pi-switchboard/src/router/engine.ts",
+		"find": "message: this.redact(message ?? \"\").slice(0, 300),",
+		"replace": "message: (message ?? \"\").slice(0, 300),",
+		"tests": ["packages/pi-switchboard/test/unit/engine.test.ts"]
+	},
+	{
+		"id": "local-classifier-any-127-prefix",
+		"file": "packages/pi-switchboard/src/classifier/warmup.ts",
+		"find": "const LOOPBACK = /^(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|0\\.0\\.0\\.0|::1|::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4})$/u;",
+		"replace": "const LOOPBACK = /^127\\./u;",
+		"tests": ["packages/pi-switchboard/test/unit/classifier-locality.test.ts"]
+	},
+	{
+		"id": "subagents-untrusted-project-searched",
+		"file": "packages/pi-switchboard/src/subagents/pi-subagents.ts",
+		"find": "return projectTrusted ? [join(cwd, \".pi\", \"npm\", \"node_modules\", \"pi-subagents\"), user] : [user];",
+		"replace": "return [join(cwd, \".pi\", \"npm\", \"node_modules\", \"pi-subagents\"), user];",
+		"tests": ["packages/pi-switchboard/test/unit/subagents.test.ts"]
 	}
 ]
