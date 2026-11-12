@@ -18,7 +18,7 @@ A place's zone is your statement about your own disk and your own accounts. A fi
 
 ## How does it work with a router such as pi-switchboard?
 
-`switchboard/auto` is one account, tagged like any other. Tag it only with zones in which every model it can pick is allowed; the member it picks is not checked. See [with other extensions](with-other-extensions.md) and [ADR 0004](adr/0004-virtual-model-is-its-own-account.md).
+pi-switchboard lists every model `switchboard/auto` can pick, and the guard checks each one's account; a turn runs only when all of them are in the place's zone. Tag the accounts of the members, not the virtual model. See [with other extensions](with-other-extensions.md) and [ADR 0006](adr/0006-check-every-member-a-router-lists.md).
 
 ## And with pi-multi-pass rotation?
 

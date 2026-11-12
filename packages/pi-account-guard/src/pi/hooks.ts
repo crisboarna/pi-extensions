@@ -6,6 +6,7 @@ import type { ConfigResult } from "../core/config.ts";
 import { type ConfigSnapshot, createConfigState } from "../core/config-state.ts";
 import { type BlockCause, type Decision, decide, type PlaceOutcome } from "../core/decide.ts";
 import { footerText } from "../core/footer.ts";
+import { decideMembers } from "../core/members.ts";
 import { configFallbackWarning, headlessBlockMessage } from "../core/messages.ts";
 import { applyOverrides, NO_OVERRIDES, type Overrides, releaseOnce } from "../core/overrides.ts";
 import { type RemoteUrls, resolvePlaceZone } from "../core/place.ts";
@@ -15,6 +16,7 @@ import { registerGuardCommand } from "./commands.ts";
 import { BLOCK_EXIT_CODE } from "./exit-code.ts";
 import { abortOnError, errorText, logHandlerError, reportHandlerError } from "./handler-errors.ts";
 import { runInteractiveBlock } from "./interactive-block.ts";
+import { askMembers } from "./members.ts";
 import { registerModelGuard } from "./model-guard.ts";
 import { createUnknownAccountGate, type UnknownAccountDeps } from "./unknown-account.ts";
 
@@ -134,12 +136,29 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		}
 	}
 
+	/** Checks the selected model's account, or, when a router lists the models behind a virtual model, every one of theirs (ADR 0006). */
 	function check(ctx: ExtensionContext): Checked | undefined {
+		const model = ctx.model;
 		const account = accountOf(ctx);
-		if (!account) return undefined;
+		if (!model || !account) return undefined;
 		const config = loadConfig(ctx);
 		const place = currentPlace(ctx.cwd, config);
-		return { decision: decide({ place, account, config }), place, config };
+		const members = askMembers(pi.events, model);
+		if (members.status === "none") return { decision: decide({ place, account, config }), place, config };
+		if (members.status === "invalid")
+			return { decision: { verdict: "block", cause: { kind: "internal-error", account, reason: members.reason } }, place, config };
+		const decision = decideMembers({
+			members: members.members,
+			place,
+			config,
+			virtual: account,
+			accountOf: (member) => {
+				const found = ctx.modelRegistry.find(member.provider, member.id);
+				return found ? accountOfModel(ctx, found) : undefined;
+			},
+			passes: (blocked) => applyOverrides(blocked, place, overrides).verdict !== "block" || unknownAccounts.covers(blocked.cause, ctx),
+		});
+		return { decision, place, config };
 	}
 
 	/** Writes the text to stderr and sets the Block exit code (ADR 0005). */

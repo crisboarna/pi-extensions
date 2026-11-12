@@ -33,7 +33,7 @@ Non-goals (v1):
 
 - Subagent child processes and other extensions' own HTTP clients (for example claude-bridge's `AskClaude` tool). Only the main session's user-started turns and model changes are guarded.
 - Checking every provider request. There is no `context` gate (section 14, decided in [Should the guard check every provider request through the context hook?](https://github.com/crisboarna/pi-account-guard/issues/10)).
-- Resolving a virtual routing model to its real member account (section 13.2, ADR 0004).
+- Resolving a virtual routing model to the one member it will pick (section 13.2, ADR 0006).
 - Automatic switching of accounts. The guard blocks; it never calls `pi.setModel` except for a user's explicit Switch pick.
 - Changing pi-multi-pass, pi-switchboard or pi-powerline-footer. Upstream issues instead.
 
@@ -331,7 +331,9 @@ Decided in the multi-pass ticket (4). The guard stays independent.
 
 Decided in [Can the guard resolve a virtual routing model to its real member account?](https://github.com/crisboarna/pi-account-guard/issues/11). ADR 0004. Findings: branch `research/switchboard-routing`.
 
-A virtual model (such as `switchboard/auto`) is its own Account in v1, tagged like any other. pi calls `route()` before every request, after `input` and `before_agent_start`, so at the guard's check points no member has been chosen and `ctx.model` is the virtual model. The member can change on retry and is re-chosen on every new user turn, and a tier's members can sit in different zones. The user must tag a virtual model only with zones in which every possible member is allowed. A static superset check or a per-request check is out of scope.
+pi calls `route()` before every request, after `input` and `before_agent_start`, so at the guard's check points no member has been chosen and `ctx.model` is the virtual model. The member can change on retry and is re-chosen on every new user turn, and a tier's members can sit in different zones.
+
+At every check the guard asks on pi's event bus, `switchboard:members:v1`, for every physical model the selected model can route to, and checks each one's Account (ADR 0006). The turn is a Match only when every member matches the place; a member that does not is the Account the Block names. A broken answer, or a member pi does not list, Blocks on the virtual model's own Account. When no router answers, the virtual model is its own Account, tagged like any other (ADR 0004).
 
 ### 13.3 Other providers
 
@@ -358,7 +360,7 @@ Why no `context` gate: the strongest gate is the `context` hook plus `ctx.abort(
 - Re-login into the same provider id as a different human account, a direnv-swapped key under the same variable name, and an `auth.json` edit made outside pi (seen one snapshot refresh late). Detecting them needs secrets (ADR 0002).
 - A claude-bridge credential defined only in the `env` block of Claude Code's own `settings.json` (section 6).
 - Pooled providers: the guard only warns (section 6).
-- The real member behind a virtual model is not checked (section 13.2).
+- The members behind a virtual model whose router does not answer `switchboard:members:v1` are not checked; the virtual model is checked as its own Account (section 13.2).
 - Everything in section 14.
 - `/guard` edits that need a confirm (a change of an existing tag, or a place rule or default zone edit that changes this place's zone) have no scripted form: without a UI they are refused, with a message that names the reason. Run `/guard untag` first for a tag, or use a UI. Accepted for v1.
 - The footer is recomputed on `session_start`, `model_select`, an Override change and an edit made through `/guard`. A hand edit of the config file shows in the footer at the next check (the next `input` or `model_select`), not at once. Accepted for v1.
@@ -452,7 +454,7 @@ Step 1 of the build is one smoke test per item below against real pi. A failing 
 | Account key | [Should the Account key include auth source…](https://github.com/crisboarna/pi-account-guard/issues/9) | [0002](docs/adr/0002-account-is-provider-id-plus-auth-source.md) |
 | No `context` gate | [Should the guard check every provider request…](https://github.com/crisboarna/pi-account-guard/issues/10) | |
 | Block UX | [What does a Block look like…](https://github.com/crisboarna/pi-account-guard/issues/8) | [0005](docs/adr/0005-exit-code-77-for-headless-blocks.md) |
-| Virtual models | [Can the guard resolve a virtual routing model…](https://github.com/crisboarna/pi-account-guard/issues/11) | [0004](docs/adr/0004-virtual-model-is-its-own-account.md) |
+| Virtual models | [Can the guard resolve a virtual routing model…](https://github.com/crisboarna/pi-account-guard/issues/11) | [0004](docs/adr/0004-virtual-model-is-its-own-account.md), [0006](docs/adr/0006-check-every-member-a-router-lists.md) |
 | Idle footer and status | [What does the guard show when idle…](https://github.com/crisboarna/pi-account-guard/issues/12) | |
 | Testing | [What is the testing strategy for the guard?](https://github.com/crisboarna/pi-account-guard/issues/13) | |
 

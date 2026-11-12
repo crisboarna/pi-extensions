@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR 0006 for routers that list their members
 ---
 
 # A virtual routing model is its own Account in v1

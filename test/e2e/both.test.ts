@@ -1,10 +1,9 @@
 // End to end in real pi with both packages installed together, as users have
 // them: pi-switchboard and pi-account-guard packed into tarballs and installed
 // into one agent folder, with pi-switchboard's stand-in models and classifier
-// (packages/pi-switchboard/test/e2e/support). account-guard treats the virtual
-// model `switchboard/auto` as one account, `switchboard (env:virtual)`, and
-// does not check the member behind it (its ADR 0004 and
-// docs/with-other-extensions.md). Runs in `npm run test:e2e`, and so in CI;
+// (packages/pi-switchboard/test/e2e/support). pi-switchboard lists the models
+// behind `switchboard/auto` on pi's event bus, and account-guard checks the
+// account of every one of them (account-guard ADR 0006). Runs in `npm run test:e2e`, and so in CI;
 // `npm test` leaves it out (`test:repo` runs only test/*.test.ts).
 import assert from "node:assert/strict";
 import { realpathSync, writeFileSync } from "node:fs";
@@ -22,9 +21,10 @@ const SWITCHBOARD = "@crisboarna/pi-switchboard";
 const GUARD = "@crisboarna/pi-account-guard";
 const PI_CLI = join(REPO, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
 const SETTINGS = { extensions: [STANDIN_EXTENSION], retry: { enabled: true, baseDelayMs: 50 } };
-/** The virtual model's account, tagged personal; the stand-in alpha account, tagged work. */
+/** The virtual model's own account, and the accounts of the two stand-in providers behind it. */
 const VIRTUAL = { provider: "switchboard", source: "env:virtual" };
 const ALPHA = { provider: "alpha", source: "fallback" };
+const BETA = { provider: "beta", source: "fallback" };
 
 describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, () => {
 	let runDir: Run;
@@ -53,6 +53,19 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 		await pi.setModel("switchboard", "auto");
 		return { pi, requests: () => readRequests(log) };
 	}
+	/** Writes the guard's tags; the guard reads them at every check. The virtual model is always tagged personal. */
+	const guard = (zones: { alpha: string; beta: string }) =>
+		writeFileSync(
+			join(installed.agentDir, "account-guard.json"),
+			JSON.stringify({
+				accounts: [
+					{ ...VIRTUAL, zones: ["personal"] },
+					{ ...ALPHA, zones: [zones.alpha] },
+					{ ...BETA, zones: [zones.beta] },
+				],
+				places: [{ path: work, zone: "work" }],
+			}),
+		);
 	const env = (extra: Record<string, string>) => isolatedEnv(installed.home, { PI_CODING_AGENT_DIR: installed.agentDir, ...extra });
 	/** The title of the guard's Block select since `from`, if it showed one. */
 	const blockTitle = (pi: PiSession, from: number) =>
@@ -64,16 +77,6 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 		installed = await installTarball(runDir, { workspaces: [SWITCHBOARD, GUARD], settings: SETTINGS });
 		work = realpathSync(runDir.folder("work"));
 		personal = realpathSync(runDir.folder("personal"));
-		writeFileSync(
-			join(installed.agentDir, "account-guard.json"),
-			JSON.stringify({
-				accounts: [
-					{ ...VIRTUAL, zones: ["personal"] },
-					{ ...ALPHA, zones: ["work"] },
-				],
-				places: [{ path: work, zone: "work" }],
-			}),
-		);
 		classifier = await StandinClassifier.start();
 	});
 
@@ -99,10 +102,11 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 	});
 
 	it("blocks switchboard/auto in a work place before the classifier or any model sees the prompt, and routes it in a personal one", async () => {
+		guard({ alpha: "personal", beta: "personal" });
 		const blocked = await open("work-place", work);
 		const from = blocked.pi.mark();
 		await blocked.pi.submit("fix the build");
-		assert.match(blockTitle(blocked.pi, from) ?? "", /^BLOCKED +switchboard \(env:virtual\) is zone personal/u, explain("no Block select"));
+		assert.match(blockTitle(blocked.pi, from) ?? "", /^BLOCKED +alpha \(fallback\) is zone personal/u, explain("no Block select"));
 		assert.deepEqual(blocked.requests(), [], explain("a stand-in model was asked"));
 		assert.deepEqual(classifier.requests, [], explain("the classifier was asked"));
 
@@ -116,7 +120,18 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 		assert.equal(classifier.requests.length, 1);
 	});
 
+	it("blocks switchboard/auto in a personal place when a failover member's account is work, though the virtual model is tagged personal", async () => {
+		guard({ alpha: "personal", beta: "work" });
+		const blocked = await open("member-zone", personal);
+		const from = blocked.pi.mark();
+		await blocked.pi.submit("fix the build");
+		assert.match(blockTitle(blocked.pi, from) ?? "", /^BLOCKED +beta \(fallback\) is zone work/u, explain("no Block select"));
+		assert.deepEqual(blocked.requests(), [], explain("a stand-in model was asked"));
+		assert.deepEqual(classifier.requests, [], explain("the classifier was asked"));
+	});
+
 	it("exits with 77 and the reason on stderr for a blocked `pi -p`, and sends nothing", async () => {
+		guard({ alpha: "personal", beta: "personal" });
 		const log = join(runDir.dir, "headless.requests.jsonl");
 		const config = join(runDir.dir, "headless.json");
 		writeFileSync(config, JSON.stringify(routingConfig(classifier)));
@@ -131,12 +146,13 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 			},
 		);
 		assert.equal(result.code, 77, explain(result.text));
-		assert.match(result.stderr, /^BLOCKED switchboard \(env:virtual\) is zone personal; this place/u, explain(result.stderr));
+		assert.match(result.stderr, /^BLOCKED alpha \(fallback\) is zone personal; this place/u, explain(result.stderr));
 		assert.deepEqual(readRequests(log), [], explain("a stand-in model was asked"));
 		assert.deepEqual(classifier.requests, [], explain("the classifier was asked"));
 	});
 
-	it("lets pi-switchboard fail over between members during a turn: the virtual model stays the account", async () => {
+	it("lets pi-switchboard fail over between members during a turn when every member is in the place zone", async () => {
+		guard({ alpha: "personal", beta: "personal" });
 		const { pi } = await open("failover", personal, { models: { "alpha/mid": [{ error: "429 Too Many Requests: rate limit exceeded" }] } });
 		const turn = await pi.prompt("fix the build");
 		assert.deepEqual(
@@ -149,6 +165,7 @@ describe("pi-switchboard and pi-account-guard in one pi", { timeout: 300_000 }, 
 	});
 
 	it("blocks a switch from switchboard/auto to a model of the other zone, as for any account", async () => {
+		guard({ alpha: "work", beta: "personal" });
 		const { pi, requests } = await open("model-switch", personal);
 		await pi.setModel("alpha", "mid");
 		const from = pi.mark();
