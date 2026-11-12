@@ -62,6 +62,34 @@ describe("a virtual model whose router lists its members", () => {
 		assert.deepEqual(r.exitCodes, [77]);
 	});
 
+	it("shows the members' decision in the footer, not the untagged virtual model's", async () => {
+		for (const [zones, footer] of [
+			[["personal"], "guard personal ✓"],
+			[["work"], "guard personal ✗ acme-2 is work"],
+		] as const) {
+			const host = createFakeHost();
+			host.events.on("switchboard:members:v1", members);
+			registerGuard(host.pi as never, {
+				home: "/home/me",
+				configPath: "/home/me/.pi/agent/account-guard.json",
+				readConfigText: () => JSON.stringify({ accounts: [tag("acme", "stored-key", ["personal"]), tag("acme-2", "stored-key", [...zones])] }),
+				realpath: (path) => path,
+				readRemoteUrls: () => ({ ok: true, urls: [] }),
+				writeStderr: () => {},
+				setExitCode: () => {},
+			});
+			const s = createFakeSession({
+				cwd: "/srv/app",
+				hasUI: true,
+				model: VIRTUAL,
+				models: MEMBERS,
+				authByProvider: { switchboard: virtualAuth, acme: stored, "acme-2": stored },
+			});
+			await host.fire("session_start", { reason: "startup" }, s.ctx);
+			assert.equal(s.statuses.get("guard"), footer);
+		}
+	});
+
 	it("blocks when the router says it cannot list its members", async () => {
 		const r = rig([tag("switchboard", "env:virtual", ["personal"])], (request) => request.respond({ error: "config is invalid" }));
 		assert.deepEqual(await r.send(), { action: "handled" });

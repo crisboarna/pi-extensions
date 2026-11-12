@@ -32,6 +32,45 @@ describe("footerText", () => {
 		assert.equal(footerText(input({ config: config([]) })), "guard personal ? untagged");
 	});
 
+	describe("behind a virtual model whose router lists its members", () => {
+		const virtual = { provider: "switchboard", source: "env:virtual" };
+		const tagged = config([
+			{ ...acme, zones: ["personal"] },
+			{ ...beta, zones: ["work"] },
+		]);
+
+		it("shows a Match from the members, though the virtual model is untagged", () => {
+			assert.equal(footerText(input({ account: virtual, config: tagged, decision: { verdict: "match" } })), "guard personal ✓");
+		});
+
+		it("names the member that does not match", () => {
+			const decision = { verdict: "block" as const, cause: { kind: "zone-mismatch" as const, account: beta, accountZones: ["work"], place: personal } };
+			assert.equal(footerText(input({ account: virtual, config: tagged, decision })), "guard personal ✗ beta is work");
+		});
+
+		it("names an untagged member", () => {
+			const decision = { verdict: "block" as const, cause: { kind: "unknown-account" as const, account: beta, place: personal } };
+			assert.equal(
+				footerText(input({ account: virtual, config: config([{ ...acme, zones: ["personal"] }]), decision })),
+				"guard personal ? beta untagged",
+			);
+		});
+
+		it("says the check failed when the members cannot be listed", () => {
+			const decision = {
+				verdict: "block" as const,
+				cause: { kind: "internal-error" as const, account: virtual, reason: "switchboard could not list its members" },
+			};
+			assert.equal(footerText(input({ account: virtual, config: tagged, decision })), "guard ! check failed, turns blocked");
+		});
+
+		it("shows a session Override that covers the member", () => {
+			const decision = { verdict: "block" as const, cause: { kind: "zone-mismatch" as const, account: beta, accountZones: ["work"], place: personal } };
+			const overrides = grantSession(NO_OVERRIDES, beta, personal);
+			assert.equal(footerText(input({ account: virtual, config: tagged, decision, overrides })), "guard OVERRIDE beta in personal");
+		});
+	});
+
 	it("shows a session Override while it covers the current account", () => {
 		const overrides = grantSession(NO_OVERRIDES, acme, personal);
 		assert.equal(footerText(input({ config: config([{ ...acme, zones: ["work"] }]), overrides })), "guard OVERRIDE acme in personal");

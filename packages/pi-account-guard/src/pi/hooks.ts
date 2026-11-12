@@ -120,14 +120,17 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		if (!ctx.hasUI) return;
 		try {
 			const snapshot = loadSnapshot(ctx);
+			const place = currentPlace(ctx.cwd, snapshot.result);
+			const account = accountOf(ctx);
 			ctx.ui.setStatus(
 				"guard",
 				footerText({
-					place: currentPlace(ctx.cwd, snapshot.result),
-					account: accountOf(ctx),
+					place,
+					account,
 					config: snapshot.result,
 					usingLastValid: snapshot.fallback !== undefined,
 					overrides,
+					decision: account && decisionFor(ctx, place, account, snapshot.result),
 				}),
 			);
 		} catch {
@@ -136,18 +139,20 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 		}
 	}
 
-	/** Checks the selected model's account, or, when a router lists the models behind a virtual model, every one of theirs (ADR 0006). */
 	function check(ctx: ExtensionContext): Checked | undefined {
-		const model = ctx.model;
 		const account = accountOf(ctx);
-		if (!model || !account) return undefined;
+		if (!account) return undefined;
 		const config = loadConfig(ctx);
 		const place = currentPlace(ctx.cwd, config);
-		const members = askMembers(pi.events, model);
-		if (members.status === "none") return { decision: decide({ place, account, config }), place, config };
-		if (members.status === "invalid")
-			return { decision: { verdict: "block", cause: { kind: "internal-error", account, reason: members.reason } }, place, config };
-		const decision = decideMembers({
+		return { decision: decisionFor(ctx, place, account, config), place, config };
+	}
+
+	/** The decision on the selected model's account, or, when a router lists the models behind a virtual model, on every one of theirs (ADR 0006). */
+	function decisionFor(ctx: ExtensionContext, place: PlaceOutcome, account: AccountKey, config: ConfigResult): Decision {
+		const members = ctx.model ? askMembers(pi.events, ctx.model) : ({ status: "none" } as const);
+		if (members.status === "none") return decide({ place, account, config });
+		if (members.status === "invalid") return { verdict: "block", cause: { kind: "internal-error", account, reason: members.reason } };
+		return decideMembers({
 			members: members.members,
 			place,
 			config,
@@ -158,7 +163,6 @@ export function registerGuard(pi: ExtensionAPI, deps: GuardDeps): void {
 			},
 			passes: (blocked) => applyOverrides(blocked, place, overrides).verdict !== "block" || unknownAccounts.covers(blocked.cause, ctx),
 		});
-		return { decision, place, config };
 	}
 
 	/** Writes the text to stderr and sets the Block exit code (ADR 0005). */

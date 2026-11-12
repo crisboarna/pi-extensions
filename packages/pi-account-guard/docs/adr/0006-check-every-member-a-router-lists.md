@@ -25,4 +25,4 @@ At every check, the guard asks on pi's event bus, `switchboard:members:v1`, for 
 
 - With pi-switchboard, users tag the accounts of the members, not `switchboard (env:virtual)`; the virtual model's own tag is used only when no router answers.
 - A tier with a member in another zone now Blocks every turn on that virtual model in this place, even when the member that would be picked is in the right zone. The Block names the member, so the fix is to tag it, remove it from the profile, or pick a narrower virtual model.
-- The footer and `/guard check` still describe the virtual model's own Account.
+- The footer shows the same member decision as the turn check (`guard personal ✗ openai is work`). `/guard check` still describes the virtual model's own Account.
