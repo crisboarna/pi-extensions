@@ -74,7 +74,8 @@ export function problemsWith(published: Published, facts: Facts): string[] {
 	for (const name of expected) {
 		const found = facts.pi.commands.find((command) => command.name === name);
 		if (!found) problems.push(`${where}: pi installed it from npm but it registers no /${name}`);
-		else if (found.source !== `npm:${published.name}`)
+		// pi names a pinned install with its version (`npm:<name>@<version>`); either form is this npm install, any other version is not.
+		else if (found.source !== `npm:${published.name}` && found.source !== `npm:${where}`)
 			problems.push(`${where}: /${name} came from ${found.source ?? "no source"}, not from the npm install`);
 	}
 	return problems;
