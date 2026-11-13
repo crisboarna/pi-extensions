@@ -71,6 +71,24 @@ describe("problemsWith", () => {
 		assert.match(problems[1] ?? "", /\/skill:pi-switchboard came from no source/);
 	});
 
+	test("pi names a pinned install with its version, as it did for the 0.1.0 release; that is the npm install", () => {
+		const facts = good();
+		facts.pi.commands = facts.pi.commands.map((command) => ({ ...command, source: `npm:${SWITCHBOARD.name}@${SWITCHBOARD.version}` }));
+		assert.deepEqual(problemsWith(SWITCHBOARD, facts), []);
+	});
+
+	test("an install of another version, or of a package whose name only starts the same, does not count", () => {
+		const facts = good();
+		facts.pi.commands = [
+			{ name: "tier", source: `npm:${SWITCHBOARD.name}@0.0.9` },
+			{ name: "skill:pi-switchboard", source: `npm:${SWITCHBOARD.name}-fork@${SWITCHBOARD.version}` },
+		];
+		const problems = problemsWith(SWITCHBOARD, facts);
+		assert.equal(problems.length, 2);
+		assert.match(problems[0] ?? "", /\/tier came from npm:@crisboarna\/pi-switchboard@0\.0\.9, not from the npm install/);
+		assert.match(problems[1] ?? "", /pi-switchboard-fork@0\.1\.0, not from the npm install/);
+	});
+
 	test("a package with no entry in COMMANDS is a problem, not a pass: nothing says what it must register", () => {
 		const unknown = { name: "@crisboarna/pi-new", version: "0.1.0" };
 		const problems = problemsWith(unknown, good(unknown));
