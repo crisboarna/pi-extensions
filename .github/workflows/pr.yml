@@ -89,7 +89,10 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: node scripts/checks/commit-msg.ts --range "$BASE..$HEAD"
 
+      # The version pull request consumes every changeset while it bumps the packages, so `changeset status` cannot pass on it; the
+      # release plan job checks it instead. Skipped only for that branch when GitHub Actions opened it from this repository.
       - name: Every changed package has a changeset
+        if: ${{ !(github.head_ref == 'changeset-release/main' && github.event.pull_request.user.login == 'github-actions[bot]' && github.event.pull_request.head.repo.full_name == github.repository) }}
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: npx changeset status --since="$BASE"
