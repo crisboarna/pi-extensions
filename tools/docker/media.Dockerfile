@@ -6,7 +6,7 @@
 # fetched here once, at a pinned revision, and checked against its hashes.
 # kokoro-js's phonemizer bundles espeak-ng (GPL-3.0); it runs only inside this
 # image at build time and never ships (docs/guardrails.md).
-FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d
+FROM mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
 RUN apt-get update \
 	&& apt-get install --yes --no-install-recommends ca-certificates curl ffmpeg fonts-ibm-plex fonts-jetbrains-mono \
 	&& rm -rf /var/lib/apt/lists/*
